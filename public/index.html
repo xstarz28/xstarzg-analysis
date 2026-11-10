@@ -3,20 +3,87 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>XSTARZG Analysis — Multi-Asset Quantitative & CFTC Terminal (2026)</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
-  <link rel="stylesheet" href="/css/app.css" />
+  <title>XSTARZG Analysis — Terminal Analisa Pasar & CFTC Institusional (2026)</title>
+  <!-- Cache-Busted Favicon so Browser Tab Immediately Shows New Metallic XSTARZG Emblem -->
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2026.5" />
+  <link rel="shortcut icon" type="image/svg+xml" href="/assets/favicon.svg?v=2026.5" />
+  <link rel="apple-touch-icon" href="/assets/logo.svg?v=2026.5" />
+  <link rel="stylesheet" href="/css/app.css?v=2026.5" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
 <body class="theme-slate-chamfer">
-  <!-- ==================== FULL-SCREEN LOGIN GATE ==================== -->
-  <section id="loginGateScreen" class="login-gate-overlay">
+  <!-- ==================== 1. HALAMAN DEPAN (HUMAN-FRIENDLY FRONT DASHBOARD) ==================== -->
+  <section id="frontLandingScreen" class="front-landing-wrapper">
+    <nav class="front-navbar chamfer-box">
+      <div class="front-brand">
+        <img src="/assets/logo.svg?v=2026.5" alt="XSTARZG Official Logo" class="front-logo-img" />
+        <div>
+          <span class="front-brand-title">XSTARZG ANALYSIS</span>
+          <span class="front-brand-sub">Asisten Analisa Pasar Multi-Aset & Data Institusi</span>
+        </div>
+      </div>
+      <div class="front-nav-actions">
+        <button id="btnFrontOpenLogin" class="btn-chamfer btn-primary-ice">🔐 Login / Masuk ke Terminal</button>
+        <button id="btnFrontQuickPreview" class="btn-chamfer btn-teal">🚀 Coba Langsung (Mode Preview)</button>
+      </div>
+    </nav>
+    <div class="front-hero-container">
+      <div class="front-hero-card chamfer-box">
+        <div class="front-pill-badge">✨ DIRANCANG UNTUK TRADER & INVESTOR NYATA • 2026</div>
+        <h1 class="front-hero-title">Berhenti Menebak Arah Pasar.<br/>Lihat Apa yang Sedang Dilakukan Institusi Besar.</h1>
+        <p class="front-hero-lead">
+          Selamat datang di <strong>XSTARZG Analysis</strong>. Kami membangun alat ini karena kebanyakan trader ritel sering terlambat masuk pasar akibat hanya mengandalkan satu atau dua indikator lama. Di sini, seluruh data rumit dari meja institusi kami rangkum menjadi panduan yang jujur, rapi, dan langsung bisa Anda gunakan—baik untuk <strong>Scalping cepat (M1-M15)</strong>, <strong>Intraday (M15-H1)</strong>, <strong>Swing (H4-W1)</strong>, maupun <strong>Investasi Spot / Cicil Beli (DCA)</strong>.
+        </p>
+        <div class="front-cta-row">
+          <button id="btnHeroLoginMain" class="btn-chamfer btn-primary-ice btn-lg">🔐 Login Sekarang untuk Memulai Analisa</button>
+          <button id="btnHeroGuestMain" class="btn-chamfer btn-steel-outline btn-lg">👀 Intip Dashboard Analisa Tanpa Login</button>
+        </div>
+      </div>
+      <!-- 4 PILAR PENJELASAN MANUSIAWI -->
+      <div class="front-features-grid">
+        <div class="front-feat-card chamfer-box">
+          <div class="ff-icon">📐</div>
+          <h3>Gabungan Teknikal Klasik & Modern (SMC + VWAP + TPO)</h3>
+          <p>
+            Tidak perlu lagi menggambar manual berjam-jam. Mesin kami otomatis memadukan indikator klasik (<strong>RSI, EMA 20/50, MA 200, MACD, Bollinger, Support & Resistance</strong>) dengan teknikal institusional modern: <strong>Smart Money Concepts (BOS/CHoCH), Fair Value Gap (FVG), Liquidity Sweep (Stop-Hunt), VWAP, TPO, VPVR (POC), serta Zona Supply & Demand</strong> pada grafik real-time yang bersih seperti TradingView.
+          </p>
+        </div>
+        <div class="front-feat-card chamfer-box">
+          <div class="ff-icon">🏛️</div>
+          <h3>Fundamental Tajam & Laporan Posisi CFTC COT</h3>
+          <p>
+            Harga digerakkan oleh uang besar. Kami menampilkan data posisi kontrak institusi <strong>CFTC Commitment of Traders (Non-Commercial vs Commercial Hedgers)</strong>, arah suku bunga Bank Sentral (<strong>The Fed & BI-Rate</strong>), arus dana asing (<strong>Foreign Flow BEI/IDX & Spot ETF Crypto</strong>), hingga valuasi wajar (<strong>P/E, PBV, Dividen, MVRV, dan Kurva Komoditas</strong>).
+          </p>
+        </div>
+        <div class="front-feat-card chamfer-box">
+          <div class="ff-icon">🌍</div>
+          <h3>1.500+ Crypto, Forex, Emas, Komoditas & Saham Indonesia</h3>
+          <p>
+            Satu tempat untuk memantau seluruh pasar dunia: ribuan koin <strong>Crypto Real-Time</strong>, 28 pasang <strong>Forex Major & Minor (termasuk USD/IDR)</strong>, <strong>Emas Dunia & Emas Rupiah, Perak, Nikel, Timah</strong>, komoditas <strong>Minyak WTI/Brent, CPO Sawit, Batu Bara</strong>, hingga puluhan <strong>Saham Unggulan Indonesia (BBCA, BBRI, BMRI, ANTM, IHSG) & Saham AS/Global</strong>.
+          </p>
+        </div>
+        <div class="front-feat-card chamfer-box">
+          <div class="ff-icon">💎</div>
+          <h3>Jujur, Transparan & Akses VIP Hanya $29 / Bulan</h3>
+          <p>
+            Setiap sinyal dilengkapi bukti uji masa lalu (<strong>Walk-Forward Backtest</strong>) yang jujur tanpa manipulasi data. Anda bisa mencoba mode preview secara gratis, atau membuka seluruh fitur penuh <strong>VIP Institutional selama 1 bulan penuh (30 hari) hanya dengan $29 USDT</strong>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- ==================== 2. MODAL / LAYAR LOGIN (GOOGLE OAUTH & INSTANT GUEST) ==================== -->
+  <section id="loginGateScreen" class="login-gate-overlay hidden">
     <div class="login-gate-card chamfer-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <button id="btnBackToFrontLanding" class="btn-chamfer btn-xs">← Kembali ke Penjelasan Depan</button>
+        <span class="pill-tag">SECURE AUTH 2026</span>
+      </div>
       <div class="login-gate-brand">
-        <img src="/assets/logo.svg" alt="XSTARZG Official Logo" class="login-gate-logo-wide" />
-        <div class="login-gate-badge">INSTITUTIONAL MULTI-ASSET & CFTC COT TERMINAL • 2026</div>
-        <p class="login-gate-sub">Crypto (1.500+ Pair) • Forex Major/Minor • Metals • Komoditas CFTC • Saham Indonesia (IDX) & Global</p>
+        <img src="/assets/logo.svg?v=2026.5" alt="XSTARZG Official Logo" class="login-gate-logo-wide" />
+        <div class="login-gate-badge">LOGIN TERMINAL INTI XSTARZG ANALYSIS</div>
+        <p class="login-gate-sub">Masuk dengan akun Google Anda untuk menyimpan preferensi & status VIP, atau lanjutkan lewat Mode Preview Instan.</p>
       </div>
       <div class="login-gate-actions">
         <div id="gateGoogleButtonMount" class="gate-google-mount"></div>
@@ -32,27 +99,27 @@
         </div>
         <div class="gate-divider"><span>ATAU AKSES LANGSUNG</span></div>
         <button id="btnEnterGuestTerminal" class="btn-chamfer btn-steel-outline w-full">
-          🚀 Masuk Terminal Analisa (Mode Preview / Instan)
+          🚀 Masuk Dashboard Utama (Mode Preview / Tanpa Login)
         </button>
       </div>
       <div class="login-gate-footer">
         <span>© 2026 XSTARZG Quantitative Systems</span>
-        <span>Zero Look-Ahead • CFTC COT • Multi-Timeframe M1-1Y</span>
+        <span>VIP Access: $29 USDT / Bulan</span>
       </div>
     </div>
   </section>
-  <!-- ==================== MAIN TERMINAL WORKSPACE ==================== -->
+  <!-- ==================== 3. DASHBOARD UTAMA INTI ANALISA ==================== -->
   <div id="appWorkspaceWrapper" class="app-shell hidden">
     <!-- TOP NAVIGATION BAR -->
     <header class="topbar chamfer-bar">
       <div class="brand-cluster">
-        <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-rect" />
+        <img src="/assets/logo.svg?v=2026.5" alt="XSTARZG" class="brand-logo-rect" id="btnLogoHome" title="Klik untuk melihat Halaman Depan" style="cursor:pointer;" />
         <div class="brand-meta">
           <div class="brand-title-row">
             <span class="brand-name">XSTARZG</span>
-            <span class="brand-tag">QUANT COT 2026</span>
+            <span class="brand-tag">PRO TERMINAL 2026</span>
           </div>
-          <span class="brand-sub" id="activeFeedSourceLabel">REALTIME MULTI-ASSET EDGE FEED</span>
+          <span class="brand-sub" id="activeFeedSourceLabel">● REALTIME STREAM AKTIF</span>
         </div>
       </div>
       <!-- ASSET CATEGORY TABS + SEARCH ANY TICKER + SELECT DROPDOWN -->
@@ -63,41 +130,44 @@
           <button class="asset-tab" data-asset="forex">FOREX (28)</button>
           <button class="asset-tab" data-asset="metals">METALS (10)</button>
           <button class="asset-tab" data-asset="commodities">KOMODITAS (16)</button>
-          <button class="asset-tab" data-asset="stocks_id">🇸🇬/🇮🇩 SAHAM IDX</button>
+          <button class="asset-tab" data-asset="stocks_id">🇮🇩 SAHAM IDX</button>
           <button class="asset-tab" data-asset="stocks_global">🌎 SAHAM AS & DUNIA</button>
         </div>
         <div class="selector-row">
           <select id="instrumentSelect" class="select-chamfer" aria-label="Pilih Instrumen"></select>
           <div class="search-ticker-box">
-            <input type="text" id="customTickerSearch" class="input-chamfer input-search-sm" placeholder="Cari Ticker (mis: BBCA.JK, PEPE, XAU, RENDER)..." />
-            <button id="btnLoadCustomTicker" class="btn-chamfer btn-teal btn-sm">Muat</button>
+            <input type="text" id="customTickerSearch" class="input-chamfer input-search-sm" placeholder="Ketik Ticker (BBCA.JK, PEPE, XAU, NVDA)..." />
+            <button id="btnLoadCustomTicker" class="btn-chamfer btn-teal btn-sm">Cari</button>
           </div>
         </div>
       </div>
-      <!-- MODE SWITCHER (TRADER vs SPOT INVESTOR) + USER / VIP / LANG -->
+      <!-- MODE SWITCHER (TRADER vs SPOT INVESTOR) + VIP $29 + WORKING PROFILE MENU -->
       <div class="control-cluster">
         <div class="mode-toggle-group" role="group" aria-label="Mode Analisa">
-          <button id="btnModeTrader" class="mode-btn active" data-mode="trader" title="Mode Trader Derivatif (Long/Short, Leverage, TP1-TP3)">
-            ⚡ TRADER MODE
-          </button>
-          <button id="btnModeInvestor" class="mode-btn" data-mode="investor" title="Mode Spot Investor (Zona Akumulasi DCA 3-Tahap & Valuasi)">
-            🏦 SPOT INVESTOR
-          </button>
+          <button id="btnModeTrader" class="mode-btn active" data-mode="trader">⚡ TRADER</button>
+          <button id="btnModeInvestor" class="mode-btn" data-mode="investor">🏦 SPOT INVESTOR</button>
         </div>
-        <select id="langSelect" class="select-chamfer select-sm" aria-label="Bahasa">
-          <option value="id">🇮🇩 ID</option>
-          <option value="en">🇬🇧 EN</option>
-          <option value="zh-CN">🇨🇳 ZH</option>
-          <option value="ja">🇯🇵 JA</option>
-          <option value="ko">🇰🇷 KO</option>
-          <option value="ar">🇸🇦 AR</option>
-          <option value="ru">🇷🇺 RU</option>
-          <option value="es">🇪🇸 ES</option>
-          <option value="de">🇩🇪 DE</option>
-          <option value="fr">🇫🇷 FR</option>
-        </select>
-        <button id="btnOpenVipModal" class="btn-chamfer btn-gold-outline btn-sm">💎 VIP USDT</button>
-        <button id="btnUserSession" class="btn-chamfer btn-steel-outline btn-sm">👤 Guest</button>
+        <button id="btnOpenVipModal" class="btn-chamfer btn-gold-outline btn-sm">💎 VIP $29/Bln</button>
+        <!-- PROFILE BUTTON WITH INTERACTIVE DROPDOWN MENU -->
+        <div class="profile-menu-wrapper">
+          <button id="btnUserSession" class="btn-chamfer btn-profile-pill btn-sm" title="Klik untuk Menu Profil, Login & Logout">
+            <span id="lblUserSessionName">👤 Mode Preview</span>
+            <span style="font-size:9px;margin-left:4px;">▼</span>
+          </button>
+          <div id="userProfileDropdown" class="profile-dropdown chamfer-box hidden">
+            <div class="pd-header">
+              <strong id="pdUserName">Guest Quant User</strong>
+              <span id="pdUserEmail" class="pd-sub">Mode Preview • Klik Login untuk Sinkronisasi</span>
+              <span id="pdUserRoleBadge" class="pill-tag" style="display:inline-block;margin-top:4px;">PREVIEW ACCESS</span>
+            </div>
+            <div class="pd-actions">
+              <button id="btnMenuLoginSwitch" class="btn-chamfer btn-primary-ice btn-sm w-full">🔐 Login / Ganti Akun Google</button>
+              <button id="btnMenuUpgradeVip" class="btn-chamfer btn-gold-outline btn-sm w-full">💎 Langganan VIP ($29 / Bulan)</button>
+              <button id="btnMenuViewFrontPage" class="btn-chamfer btn-sm w-full">🏠 Halaman Depan (Penjelasan Alat)</button>
+              <button id="btnMenuLogout" class="btn-chamfer btn-coral-outline btn-sm w-full">🚪 Logout / Keluar Sesi</button>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
     <!-- QUICK TICKER RIBBON -->
@@ -105,39 +175,43 @@
     <!-- STRATEGY HORIZON & TIMEFRAME SELECTOR BAR -->
     <section class="horizon-tf-bar chamfer-box">
       <div class="horizon-group">
-        <span class="bar-section-label">GAYA TRADING / HORIZON:</span>
+        <span class="bar-section-label">KELOMPOK GAYA:</span>
         <div class="horizon-buttons" id="horizonButtonGroup">
           <button class="horizon-btn" data-horizon="scalping">⚡ SCALPING (M1-M15)</button>
           <button class="horizon-btn active" data-horizon="intraday">🎯 INTRADAY (M15-H1)</button>
           <button class="horizon-btn" data-horizon="swing">🌊 SWING (H4-W1)</button>
-          <button class="horizon-btn" data-horizon="macro">🏛️ INVESTOR / MACRO (D1-1Y)</button>
+          <button class="horizon-btn" data-horizon="macro">🏛️ INVESTOR (D1-1Y)</button>
           <button class="horizon-btn" data-horizon="all">ALL TF</button>
         </div>
       </div>
       <div class="tf-group">
-        <span class="bar-section-label" id="tfGroupHintLabel">TIMEFRAME AKTIF:</span>
+        <span class="bar-section-label" id="tfGroupHintLabel">TF:</span>
         <div class="tf-buttons" id="timeframeButtonGroup"></div>
       </div>
+      <!-- CLEAN MODULAR CHART OVERLAY TOGGLES (No More Clutter!) -->
       <div class="overlay-toggles">
-        <label class="chk-pill"><input type="checkbox" id="chkShowEma" checked /> <span>EMA 20/50/200</span></label>
-        <label class="chk-pill"><input type="checkbox" id="chkShowLevels" checked /> <span>Garis Entry/SL/TP/DCA</span></label>
-        <label class="chk-pill"><input type="checkbox" id="chkShowVp" checked /> <span>POC Volume</span></label>
+        <label class="chk-pill"><input type="checkbox" id="chkShowEma" checked /> <span>EMA 20/50 & MA 200</span></label>
+        <label class="chk-pill"><input type="checkbox" id="chkShowVwapBb" checked /> <span>VWAP & Bollinger</span></label>
+        <label class="chk-pill"><input type="checkbox" id="chkShowSmcSr" checked /> <span>POC / SMC Zone</span></label>
+        <label class="chk-pill"><input type="checkbox" id="chkShowLevels" checked /> <span>Garis Entry/SL/TP</span></label>
+        <button id="btnResetChartZoom" class="btn-chamfer btn-xs" title="Rapikan Zoom Grafik seperti TradingView">🔍 Rapikan Chart</button>
       </div>
     </section>
-    <!-- MAIN 3-COLUMN QUANT WORKSPACE -->
+    <!-- MAIN WORKSPACE GRID -->
     <main class="workspace-grid">
-      <!-- LEFT COLUMN: CHART + TECHNICAL/FUNDAMENTAL/COT DEEP-DIVE -->
+      <!-- LEFT COLUMN: TRADINGVIEW-STYLE REALTIME CHART + 12-PILLAR TECH + 8-PILLAR FUNDAMENTAL -->
       <section class="chart-column">
-        <!-- INSTRUMENT TELEMETRY HEADER -->
+        <!-- INSTRUMENT TELEMETRY HEADER WITH LIVE TICK PULSE & CANDLE COUNTDOWN -->
         <div class="telemetry-strip chamfer-box">
           <div class="sym-primary">
             <h1 id="lblActiveSymbol" class="sym-code">BTC/USDT</h1>
             <span id="lblActiveName" class="sym-name">Bitcoin</span>
-            <span id="lblFeedBadge" class="badge-feed badge-realtime">● REALTIME FEED</span>
+            <span id="lblFeedBadge" class="badge-feed badge-realtime">● LIVE REALTIME TICK</span>
+            <span id="lblCandleCountdown" class="badge-countdown">⏱️ Close: --:--</span>
           </div>
           <div class="sym-metrics">
             <div class="metric-cell">
-              <span class="m-label">HARGA TERAKHIR</span>
+              <span class="m-label">HARGA LIVE</span>
               <span id="lblLastPrice" class="m-val price-hl">--</span>
             </div>
             <div class="metric-cell">
@@ -145,57 +219,72 @@
               <span id="lblChangePct" class="m-val">--</span>
             </div>
             <div class="metric-cell">
-              <span class="m-label">REZIM VOLATILITAS</span>
-              <span id="lblRegime" class="m-val">--</span>
-            </div>
-            <div class="metric-cell">
-              <span class="m-label">STRUKTUR PASAR</span>
+              <span class="m-label">STRUKTUR SMC</span>
               <span id="lblStructureTag" class="m-val">--</span>
             </div>
             <div class="metric-cell">
-              <span class="m-label">ATR(14) %</span>
+              <span class="m-label">REZIM PASAR</span>
+              <span id="lblRegime" class="m-val">--</span>
+            </div>
+            <div class="metric-cell">
+              <span class="m-label">ATR(14)</span>
               <span id="lblAtrPct" class="m-val">--</span>
             </div>
           </div>
         </div>
-        <!-- TRADINGVIEW LIGHTWEIGHT CHART CANVAS -->
+        <!-- TRADINGVIEW-STYLE CLEAN CHART STAGE WITH FLOATING LEGEND -->
         <div class="chart-stage chamfer-box">
-          <div id="mainChartContainer" class="chart-canvas-main"></div>
+          <div class="chart-wrapper-rel">
+            <!-- Floating TradingView Legend Overlay -->
+            <div id="tvFloatingLegend" class="tv-floating-legend">
+              <div class="tv-leg-row1">
+                <strong id="tvLegSym">BTC/USDT • H1</strong>
+                <span id="tvLegOhlc">O: --  H: --  L: --  C: --</span>
+              </div>
+              <div class="tv-leg-row2">
+                <span style="color:#38bdf8">● EMA20: <b id="tvLegEma20">--</b></span>
+                <span style="color:#eab308">● EMA50: <b id="tvLegEma50">--</b></span>
+                <span style="color:#a855f7">● MA200: <b id="tvLegMa200">--</b></span>
+                <span style="color:#ec4899">● VWAP: <b id="tvLegVwap">--</b></span>
+                <span style="color:#4db6a3">● POC: <b id="tvLegPoc">--</b></span>
+              </div>
+            </div>
+            <div id="mainChartContainer" class="chart-canvas-main"></div>
+          </div>
           <div class="rsi-sub-header">RSI (14) Momentum Oscillator • Overbought 70 / Oversold 30</div>
           <div id="rsiChartContainer" class="chart-canvas-rsi"></div>
         </div>
-        <!-- SHARP TECHNICAL + FUNDAMENTAL + CFTC COT INSTITUTIONAL MATRIX -->
+        <!-- COMPLETE 12-PILLAR CLASSICAL & MODERN TECHNICAL + 8-PILLAR REAL-MARKET FUNDAMENTAL & CFTC COT -->
         <div class="deep-analysis-grid">
-          <!-- Technical Matrix Card -->
+          <!-- Card A: 12-Pillar Classical + Modern Institutional Technicals -->
           <div class="deep-card chamfer-box">
             <div class="card-header-strip">
-              <h3>📐 Analisa Teknikal Presisi & Orderflow</h3>
-              <span id="badgeTechSummary" class="pill-tag">MULTI-LAYER</span>
+              <h3>📐 12 Komponen Teknikal Klasik & Modern (Digabung)</h3>
+              <span class="pill-tag">SMC • FVG • VWAP • TPO • VPVR</span>
             </div>
             <div class="tech-metrics-grid" id="techMatrixContent"></div>
           </div>
-          <!-- Fundamental & CFTC COT Matrix Card -->
+          <!-- Card B: 8-Pillar Real-Market Fundamental & CFTC COT -->
           <div class="deep-card chamfer-box">
             <div class="card-header-strip">
-              <h3>🏛️ Fundamental Makro & Posisi Institusi (CFTC COT)</h3>
+              <h3>🏛️ Analisa Fundamental Real-Market & Posisi Institusi (CFTC COT)</h3>
               <span id="badgeCotBias" class="pill-tag">CFTC COT</span>
             </div>
             <div id="fundamentalCotContent" class="fund-cot-body"></div>
           </div>
         </div>
       </section>
-      <!-- RIGHT COLUMN: EXECUTION BLUEPRINT (TRADER vs INVESTOR), CONFLUENCE, BACKTEST & MULTI-ASSET RADAR -->
+      <!-- RIGHT COLUMN: EXECUTION BLUEPRINT, WALK-FORWARD BACKTEST & HORIZON RADAR -->
       <aside class="signal-column">
-        <!-- CARD 1: DYNAMIC EXECUTION BLUEPRINT (Changes completely between Trader & Spot Investor!) -->
+        <!-- CARD 1: EXECUTION BLUEPRINT (TRADER vs SPOT INVESTOR) -->
         <div class="signal-card chamfer-box" id="executionBlueprintCard">
           <div class="card-header-strip">
             <h2 id="lblBlueprintTitle">⚡ Blueprint Eksekusi Trader</h2>
             <span id="badgeActiveHorizon" class="pill-tag">INTRADAY • H1</span>
           </div>
-          <!-- Primary Signal Banner -->
           <div class="signal-hero-banner" id="signalHeroBanner">
             <div class="sig-dir-box">
-              <span class="sig-sub-label" id="lblDirectionHeader">REKOMENDASI UTAMA</span>
+              <span class="sig-sub-label">KEPUTUSAN KUANTITATIF GABUNGAN</span>
               <div id="lblSignalDirection" class="sig-direction-text">NEUTRAL</div>
               <div id="lblInvestorSubStatus" class="sig-investor-sub hidden"></div>
             </div>
@@ -204,12 +293,11 @@
               <div class="score-dial"><span id="lblConfluenceScore">--</span><small>/100</small></div>
             </div>
           </div>
-          <!-- Sub-score Breakdown Bars -->
           <div class="subscore-bars" id="subscoreBarsContainer"></div>
-          <!-- TRADER MODE LEVELS (Entry, SL, TP1, TP2, TP3, Position Sizing) -->
+          <!-- TRADER MODE LEVELS -->
           <div id="traderLevelsPanel" class="levels-grid-panel">
             <div class="level-row row-entry">
-              <span>🎯 Entry Trigger (Market/Limit)</span>
+              <span>🎯 Entry Trigger (Harga Eksekusi)</span>
               <strong id="valEntryPrice">--</strong>
             </div>
             <div class="level-row row-sl">
@@ -228,7 +316,6 @@
               <span>🚀 Take Profit 3 (4.0R Runner)</span>
               <strong id="valTp3Price">--</strong>
             </div>
-            <!-- Interactive Risk Calculator -->
             <div class="risk-calc-Mini">
               <div class="rc-inputs">
                 <label>Modal ($): <input type="number" id="inpAccountBalance" value="1000" class="input-chamfer input-xs" /></label>
@@ -237,47 +324,46 @@
               <div class="rc-output" id="lblPositionSizeOutput">Risiko: $10.00 | Ukuran Posisi: -- Unit</div>
             </div>
           </div>
-          <!-- SPOT INVESTOR MODE PANEL (3-Tier DCA Accumulation + Cycle Targets + Holding Horizon) -->
+          <!-- SPOT INVESTOR MODE LEVELS -->
           <div id="investorLevelsPanel" class="levels-grid-panel hidden">
             <div class="investor-banner-note">
-              🏦 <strong>Mode Spot Investor Aktif:</strong> Tanpa posisi Short/Leverage. Fokus pada zona cicil beli (DCA Support) dan target valuasi menengah-panjang.
+              🏦 <strong>Mode Spot Investor:</strong> Dirancang khusus untuk pembelian aset Spot & saham tanpa utang/leverage. Gunakan 3 zona cicil beli (DCA) di bawah ini.
             </div>
             <div class="level-row row-dca1">
-              <span>🟢 DCA Tranche 1 (40% Alokasi • Area Spot)</span>
+              <span>🟢 DCA Tahap 1 (40% Alokasi • Area Spot)</span>
               <strong id="valDca1">--</strong>
             </div>
             <div class="level-row row-dca2">
-              <span>🟢 DCA Tranche 2 (35% Alokasi • Value Support)</span>
+              <span>🟢 DCA Tahap 2 (35% Alokasi • VAL / Support)</span>
               <strong id="valDca2">--</strong>
             </div>
             <div class="level-row row-dca3">
-              <span>🟢 DCA Tranche 3 (25% Alokasi • Diskon Ekstrem)</span>
+              <span>🟢 DCA Tahap 3 (25% Alokasi • Demand Diskon)</span>
               <strong id="valDca3">--</strong>
             </div>
             <div class="level-row row-tp">
-              <span>🎯 Target Valuasi Siklus 1 (+12% Fair Value)</span>
+              <span>🎯 Target Valuasi 1 (+12% Nilai Wajar)</span>
               <strong id="valInvTp1">--</strong>
             </div>
             <div class="level-row row-tp">
-              <span>🎯 Target Valuasi Siklus 2 (+28% Expansion)</span>
+              <span>🎯 Target Valuasi 2 (+28% Ekspansi Siklus)</span>
               <strong id="valInvTp2">--</strong>
             </div>
             <div class="level-row row-tp">
-              <span>🚀 Target Valuasi Siklus 3 (+55% Macro Peak)</span>
+              <span>🚀 Target Valuasi 3 (+55% Puncak Makro)</span>
               <strong id="valInvTp3">--</strong>
             </div>
             <div class="level-row row-sl">
-              <span>🛡️ Batas Evaluasi / Cut-Loss Struktur Kuartalan</span>
+              <span>🛡️ Batas Evaluasi Kuartalan (Cut-Loss Struktur)</span>
               <strong id="valInvSl">--</strong>
             </div>
           </div>
-          <!-- Explainable AI Quant Reasons -->
           <div class="reasons-box">
-            <h4>🧠 Rincian Alasan Kuantitatif & Fundamental:</h4>
+            <h4>🧠 Rincian Alasan Teknikal Modern & Fundamental:</h4>
             <ul id="signalReasonsList" class="reasons-list"></ul>
           </div>
         </div>
-        <!-- CARD 2: WALK-FORWARD HISTORICAL BACKTEST (SEPARATED FROM CONFLUENCE) -->
+        <!-- CARD 2: WALK-FORWARD HISTORICAL BACKTEST -->
         <div class="signal-card chamfer-box">
           <div class="card-header-strip">
             <h2>📊 Bukti Backtest Historis (Walk-Forward)</h2>
@@ -285,13 +371,12 @@
           </div>
           <div id="backtestMetricsPanel" class="bt-grid"></div>
         </div>
-        <!-- CARD 3: MULTI-ASSET RECOMMENDATION RADAR BY HORIZON (SCALPING / INTRADAY / SWING) -->
+        <!-- CARD 3: MULTI-ASSET RECOMMENDATION RADAR BY HORIZON -->
         <div class="signal-card chamfer-box">
           <div class="card-header-strip">
             <h2>🛰️ Rekomendasi Instrumen Multi-Aset</h2>
             <button id="btnRefreshRadar" class="btn-chamfer btn-xs">🔄 Scan Pasar</button>
           </div>
-          <p class="radar-sub-note">Pilih kelompok gaya trading untuk melihat instrumen dengan Confluence tertinggi beserta Timeframe-nya:</p>
           <div class="radar-horizon-tabs" id="radarHorizonTabs">
             <button class="radar-tab active" data-rhorizon="scalping">⚡ Scalping (M1-M15)</button>
             <button class="radar-tab" data-rhorizon="intraday">🎯 Intraday (M15-H1)</button>
@@ -301,28 +386,40 @@
         </div>
       </aside>
     </main>
-    <!-- VIP BSC USDT MODAL -->
+    <!-- VIP $29/MONTH BSC USDT MODAL -->
     <div id="vipModal" class="modal-backdrop hidden">
       <div class="modal-card chamfer-box">
         <div class="card-header-strip">
-          <h2>💎 Upgrade VIP Institutional Access (BSC BEP-20 USDT)</h2>
+          <h2>💎 Langganan VIP Institutional Access</h2>
           <button id="btnCloseVipModal" class="btn-chamfer btn-xs">✕</button>
         </div>
         <div class="modal-body">
-          <p>Dapatkan akses tanpa batas ke seluruh scanner CFTC COT, 1.500+ Crypto Real-Time, Forex, Komoditas, dan Saham Indonesia/Global.</p>
+          <!-- CLEAR $29 FOR 1 FULL MONTH PRICING BANNER -->
+          <div class="vip-pricing-hero">
+            <div class="vip-price-tag">$29.00 <small>USDT / Bulan</small></div>
+            <div class="vip-price-duration">✅ Akses Penuh Selama 1 Bulan Penuh (30 Hari Aktif)</div>
+          </div>
+          <ul class="vip-benefit-list">
+            <li>✔ Akses penuh 12 Indikator Teknikal Modern (SMC, FVG, Liquidity Sweep, VWAP, TPO, VPVR).</li>
+            <li>✔ Data Posisi Institusi CFTC COT & Fundamental Real-Market di semua Timeframe (M1 s/d 1Y).</li>
+            <li>✔ Radar Rekomendasi Otomatis Scalping, Intraday & Swing lintas 1.500+ Crypto, Forex, Emas, Komoditas & Saham IDX/Global.</li>
+          </ul>
           <div class="wallet-box">
-            <span>Alamat Wallet Resmi Penerima USDT (Jaringan BSC / BEP-20):</span>
-            <code id="ownerWalletCode">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
+            <span>Transfer Tepat <strong>29 USDT</strong> via Jaringan <strong>BSC (BEP-20 / BNB Smart Chain)</strong> ke Alamat Resmi:</span>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+              <code id="ownerWalletCode" style="flex:1;">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
+              <button id="btnCopyVipWallet" class="btn-chamfer btn-xs">📋 Salin</button>
+            </div>
           </div>
           <div class="tx-verify-row">
-            <input type="text" id="inpBscTxHash" class="input-chamfer" placeholder="Tempel TxHash BSC (0x...)" />
-            <button id="btnVerifyTxHash" class="btn-chamfer btn-teal">Verifikasi On-Chain</button>
+            <input type="text" id="inpBscTxHash" class="input-chamfer" placeholder="Tempel TxHash BSC (0x...) setelah transfer $29 USDT" />
+            <button id="btnVerifyTxHash" class="btn-chamfer btn-teal">Verifikasi Otomatis</button>
           </div>
           <div id="txVerifyStatus" class="tx-status-msg"></div>
         </div>
       </div>
     </div>
   </div>
-  <script type="module" src="/js/app.js"></script>
+  <script type="module" src="/js/app.js?v=2026.5"></script>
 </body>
 </html>

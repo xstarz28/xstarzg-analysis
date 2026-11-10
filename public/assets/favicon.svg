@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgFav" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#161c24"/>
+      <stop offset="100%" stop-color="#0b0e13"/>
+    </linearGradient>
+    <linearGradient id="metalFav" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="35%" stop-color="#dbe5f0"/>
+      <stop offset="70%" stop-color="#8b99ab"/>
+      <stop offset="100%" stop-color="#525f70"/>
+    </linearGradient>
+    <linearGradient id="darkFav" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c8b9e"/>
+      <stop offset="100%" stop-color="#2e3744"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#bgFav)" stroke="#38bdf8" stroke-width="3"/>
+  <!-- Upper Diamond & Star -->
+  <polygon points="52,22 78,22 90,38 65,62 40,38" fill="url(#darkFav)" stroke="#dbe5f0" stroke-width="1.5"/>
+  <polygon points="104,10 107,19 116,19 109,24 112,33 104,27 96,33 99,24 92,19 101,19" fill="url(#metalFav)"/>
+  <!-- 3D Metallic X with Rising Arrow -->
+  <polygon points="18,42 42,42 66,76 92,112 68,112 44,78" fill="url(#metalFav)" stroke="#2e3744" stroke-width="1.5"/>
+  <polygon points="18,112 42,112 94,44 104,50 112,24 86,32 94,38" fill="url(#metalFav)" stroke="#2e3744" stroke-width="1.5"/>
+</svg>

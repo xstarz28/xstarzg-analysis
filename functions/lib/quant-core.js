@@ -15,10 +15,10 @@ export const TIMEFRAME_SECONDS = {
 };
 export const SCALPING_TIMEFRAMES = ['M1', 'M5', 'M15'];
 export const HORIZON_GROUPS = {
-  scalping: { id: 'scalping', label: '⚡ SCALPING', tfs: ['M1', 'M5', 'M15'], defaultTf: 'M5', desc: 'Eksekusi cepat M1-M15 (Momentum & Orderflow)' },
-  intraday: { id: 'intraday', label: '🎯 INTRADAY', tfs: ['M15', 'M30', 'H1'], defaultTf: 'M30', desc: 'Target harian M15-H1 (Session Breakout & VWAP)' },
-  swing: { id: 'swing', label: '🌊 SWING', tfs: ['H4', 'D1', 'W1'], defaultTf: 'H4', desc: 'Multi-hari H4-W1 (Struktur Tren & CFTC COT)' },
-  macro: { id: 'macro', label: '🏛️ INVESTOR / MACRO', tfs: ['D1', 'W1', 'MN', '1Y'], defaultTf: 'D1', desc: 'Akumulasi Spot, DCA & Valuasi Makro' },
+  scalping: { id: 'scalping', label: '⚡ SCALPING', tfs: ['M1', 'M5', 'M15'], defaultTf: 'M5', desc: 'Eksekusi cepat M1-M15 (Momentum, VWAP & Orderflow)' },
+  intraday: { id: 'intraday', label: '🎯 INTRADAY', tfs: ['M15', 'M30', 'H1'], defaultTf: 'M30', desc: 'Target harian M15-H1 (SMC, FVG, Session Breakout & VPVR)' },
+  swing: { id: 'swing', label: '🌊 SWING', tfs: ['H4', 'D1', 'W1'], defaultTf: 'H4', desc: 'Multi-hari H4-W1 (Supply/Demand, Struktur Tren & CFTC COT)' },
+  macro: { id: 'macro', label: '🏛️ INVESTOR / MACRO', tfs: ['D1', 'W1', 'MN', '1Y'], defaultTf: 'D1', desc: 'Akumulasi Spot, DCA Bertahap & Valuasi Makro' },
   all: { id: 'all', label: 'ALL TF', tfs: ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN', '1Y'], defaultTf: 'H1', desc: 'Semua Timeframe M1 s/d 1Y' }
 };
 const mkCrypto = (sym, name, basePrice) => ({
@@ -272,6 +272,71 @@ export function calcBollinger(closes, period = 20, mult = 2) {
   }
   return { mid, upper, lower, widthPct };
 }
+// Modern Institutional Indicator 1: Rolling Anchored VWAP + Deviation Bands
+export function calcVWAP(candles, lookback = 60) {
+  const vwap = new Array(candles.length).fill(null);
+  const upper = new Array(candles.length).fill(null);
+  const lower = new Array(candles.length).fill(null);
+  for (let i = 0; i < candles.length; i++) {
+    const start = Math.max(0, i - lookback + 1);
+    let cumPV = 0, cumV = 0;
+    for (let j = start; j <= i; j++) {
+      const tp = (candles[j].high + candles[j].low + candles[j].close) / 3;
+      const vol = candles[j].volume || 1;
+      cumPV += tp * vol;
+      cumV += vol;
+    }
+    const mean = cumV > 0 ? cumPV / cumV : candles[i].close;
+    vwap[i] = mean;
+    let sq = 0;
+    for (let j = start; j <= i; j++) {
+      const tp = (candles[j].high + candles[j].low + candles[j].close) / 3;
+      sq += Math.pow(tp - mean, 2);
+    }
+    const std = Math.sqrt(sq / (i - start + 1));
+    upper[i] = mean + 1.5 * std;
+    lower[i] = mean - 1.5 * std;
+  }
+  return { vwap, upper, lower };
+}
+// Modern Institutional Indicator 2: VPVR (Volume Profile Visible Range) + TPO (Time Price Opportunity)
+export function calcVolumeAndTpoProfile(candles, bins = 24) {
+  if (!candles || candles.length === 0) return { poc: 0, vah: 0, val: 0, tpoPoc: 0 };
+  const slice = candles.slice(-120);
+  let minP = Infinity, maxP = -Infinity;
+  for (const c of slice) {
+    if (c.low < minP) minP = c.low;
+    if (c.high > maxP) maxP = c.high;
+  }
+  if (maxP <= minP) {
+    const p = slice[slice.length - 1].close;
+    return { poc: p, vah: p, val: p, tpoPoc: p };
+  }
+  const step = (maxP - minP) / bins;
+  const volHist = new Array(bins).fill(0);
+  const tpoHist = new Array(bins).fill(0);
+  for (const c of slice) {
+    const mid = (c.high + c.low + c.close) / 3;
+    const idx = Math.min(bins - 1, Math.max(0, Math.floor((mid - minP) / step)));
+    volHist[idx] += (c.volume || 1);
+    const lowBin = Math.min(bins - 1, Math.max(0, Math.floor((c.low - minP) / step)));
+    const highBin = Math.min(bins - 1, Math.max(0, Math.floor((c.high - minP) / step)));
+    for (let b = lowBin; b <= highBin; b++) tpoHist[b] += 1;
+  }
+  let maxVol = -1, pocIdx = 0, maxTpo = -1, tpoIdx = 0;
+  for (let i = 0; i < bins; i++) {
+    if (volHist[i] > maxVol) { maxVol = volHist[i]; pocIdx = i; }
+    if (tpoHist[i] > maxTpo) { maxTpo = tpoHist[i]; tpoIdx = i; }
+  }
+  const poc = minP + (pocIdx + 0.5) * step;
+  const tpoPoc = minP + (tpoIdx + 0.5) * step;
+  const vah = minP + Math.min(bins, pocIdx + 5) * step;
+  const val = minP + Math.max(0, pocIdx - 4) * step;
+  return { poc, vah, val, tpoPoc };
+}
+export function calcVolumeProfile(candles, bins = 24) {
+  return calcVolumeAndTpoProfile(candles, bins);
+}
 export function detectSwingsNoLookahead(candles, leftRight = 3) {
   const swings = [];
   for (let i = leftRight; i < candles.length - leftRight; i++) {
@@ -285,30 +350,86 @@ export function detectSwingsNoLookahead(candles, leftRight = 3) {
   }
   return swings;
 }
-export function calcVolumeProfile(candles, bins = 24) {
-  if (!candles || candles.length === 0) return { poc: 0, vah: 0, val: 0 };
-  const slice = candles.slice(-120);
-  let minP = Infinity, maxP = -Infinity;
-  for (const c of slice) {
-    if (c.low < minP) minP = c.low;
-    if (c.high > maxP) maxP = c.high;
+// Modern Institutional Indicator 3: SMC, FVG, Liquidity Sweep, Order Block, Supply/Demand & S/R
+export function detectModernInstitutionalStructure(candles, swings, atrVal) {
+  const len = candles.length;
+  const last = candles[len - 1];
+  const lastPrice = last.close;
+  const safeAtr = atrVal || (lastPrice * 0.01);
+  // 1. Fair Value Gaps (FVG - 3-Candle Imbalance)
+  let bullFvg = null, bearFvg = null;
+  for (let i = len - 2; i >= Math.max(2, len - 45); i--) {
+    const c0 = candles[i - 2], c2 = candles[i];
+    if (!bullFvg && c2.low > c0.high && (c2.low - c0.high) > safeAtr * 0.12) {
+      bullFvg = { top: c2.low, bottom: c0.high, mid: (c2.low + c0.high) / 2 };
+    }
+    if (!bearFvg && c2.high < c0.low && (c0.low - c2.high) > safeAtr * 0.12) {
+      bearFvg = { top: c0.low, bottom: c2.high, mid: (c0.low + c2.high) / 2 };
+    }
+    if (bullFvg && bearFvg) break;
   }
-  if (maxP <= minP) return { poc: slice[slice.length - 1].close, vah: maxP, val: minP };
-  const step = (maxP - minP) / bins;
-  const hist = new Array(bins).fill(0);
-  for (const c of slice) {
-    const mid = (c.high + c.low + c.close) / 3;
-    const idx = Math.min(bins - 1, Math.max(0, Math.floor((mid - minP) / step)));
-    hist[idx] += (c.volume || 1);
+  // 2. Confirmed Swing Highs & Lows for SMC BOS/CHoCH, Support/Resistance & Liquidity Sweeps
+  const highs = swings.filter(s => s.type === 'HIGH' && s.confirmedAtIndex <= len - 1);
+  const lows = swings.filter(s => s.type === 'LOW' && s.confirmedAtIndex <= len - 1);
+  const recentHigh = highs.length ? highs[highs.length - 1].price : lastPrice + safeAtr * 2;
+  const prevHigh = highs.length > 1 ? highs[highs.length - 2].price : recentHigh;
+  const recentLow = lows.length ? lows[lows.length - 1].price : lastPrice - safeAtr * 2;
+  const prevLow = lows.length > 1 ? lows[lows.length - 2].price : recentLow;
+  // SMC Market Structure (BOS / CHoCH)
+  let smcStatus = 'INTERNAL RANGE EQUILIBRIUM';
+  let smcBias = 0;
+  if (lastPrice > recentHigh) {
+    smcStatus = recentHigh < prevHigh ? 'BULLISH CHoCH (Change of Character ▲)' : 'BULLISH BOS (Break of Structure ▲)';
+    smcBias = 1;
+  } else if (lastPrice < recentLow) {
+    smcStatus = recentLow > prevLow ? 'BEARISH CHoCH (Change of Character ▼)' : 'BEARISH BOS (Break of Structure ▼)';
+    smcBias = -1;
+  } else if (recentHigh > prevHigh && recentLow > prevLow) {
+    smcStatus = 'HIGHER HIGH / HIGHER LOW (Bullish Orderflow)';
+    smcBias = 1;
+  } else if (recentHigh < prevHigh && recentLow < prevLow) {
+    smcStatus = 'LOWER HIGH / LOWER LOW (Bearish Orderflow)';
+    smcBias = -1;
   }
-  let maxVol = -1, pocIdx = 0;
-  for (let i = 0; i < bins; i++) {
-    if (hist[i] > maxVol) { maxVol = hist[i]; pocIdx = i; }
+  // 3. Liquidity Sweep (BSL / SSL Stop Hunt on recent 8 candles)
+  let liquiditySweep = 'NONE (Normal Liquidity Flow)';
+  let sweepBias = 0;
+  const recentBars = candles.slice(-8);
+  for (const b of recentBars) {
+    if (b.low < recentLow && b.close > recentLow) {
+      liquiditySweep = `SSL SWEEP ▲ (Stop-Hunt di bawah ${recentLow.toPrecision(6)} lalu Reclaim Bullish)`;
+      sweepBias = 1;
+      break;
+    }
+    if (b.high > recentHigh && b.close < recentHigh) {
+      liquiditySweep = `BSL SWEEP ▼ (Stop-Hunt di atas ${recentHigh.toPrecision(6)} lalu Reject Bearish)`;
+      sweepBias = -1;
+      break;
+    }
   }
-  const poc = minP + (pocIdx + 0.5) * step;
-  const vah = minP + Math.min(bins, pocIdx + 5) * step;
-  const val = minP + Math.max(0, pocIdx - 4) * step;
-  return { poc, vah, val };
+  // 4. Supply & Demand Zones + Order Blocks
+  const demandZone = { low: recentLow, high: recentLow + safeAtr * 0.65 };
+  const supplyZone = { low: recentHigh - safeAtr * 0.65, high: recentHigh };
+  // 5. Classical Pivot Support & Resistance (S1, S2, R1, R2)
+  const slice24 = candles.slice(-24);
+  const h24 = Math.max(...slice24.map(c => c.high));
+  const l24 = Math.min(...slice24.map(c => c.low));
+  const pivot = (h24 + l24 + lastPrice) / 3;
+  const r1 = 2 * pivot - l24;
+  const s1 = 2 * pivot - h24;
+  const r2 = pivot + (h24 - l24);
+  const s2 = pivot - (h24 - l24);
+  return {
+    smcStatus,
+    smcBias,
+    bullFvg,
+    bearFvg,
+    liquiditySweep,
+    sweepBias,
+    demandZone,
+    supplyZone,
+    pivotSr: { pivot, r1, r2, s1, s2 }
+  };
 }
 export function generateInstitutionalSeries(metaOrSymbol, tfId = 'H1', count = 300) {
   const meta = typeof metaOrSymbol === 'string' ? getInstrumentMeta(metaOrSymbol) : (metaOrSymbol || DEFAULT_INSTRUMENTS[0]);
@@ -360,7 +481,7 @@ export function generateInstitutionalSeries(metaOrSymbol, tfId = 'H1', count = 3
   }
   return candles;
 }
-// Legacy Export Aliases so all Cloudflare Functions compile with zero errors
+// Legacy Export Aliases
 export const sma = calcSMA;
 export const ema = calcEMA;
 export const rsi = calcRSI;
