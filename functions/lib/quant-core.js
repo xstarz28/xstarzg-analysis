@@ -36,7 +36,7 @@ export const INSTRUMENTS = [
   { symbol: 'RENDER/USDT', name: 'Render AI', assetClass: 'CRYPTO', subGroup: 'AI', binanceSymbol: 'RENDERUSDT', basePrice: 3.85, decimals: 3, spotEligible: true, investorCategory: 'GROWTH' },
   { symbol: 'TAO/USDT', name: 'Bittensor AI', assetClass: 'CRYPTO', subGroup: 'AI', binanceSymbol: 'TAOUSDT', basePrice: 265.0, decimals: 2, spotEligible: true, investorCategory: 'GROWTH' },
   { symbol: 'PEPE/USDT', name: 'Pepe Meme', assetClass: 'CRYPTO', subGroup: 'MEME', binanceSymbol: 'PEPEUSDT', basePrice: 0.0000075, decimals: 8, spotEligible: true, investorCategory: 'GROWTH' },
-  // FOREX (TRADER / MARGIN ONLY)
+  // FOREX (TRADER / MARGIN)
   { symbol: 'EUR/USD', name: 'Euro / US Dollar', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'EURUSD=X', fxBase: 'EUR', fxQuote: 'USD', basePrice: 1.0825, decimals: 5, spotEligible: false },
   { symbol: 'GBP/USD', name: 'British Pound / USD', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'GBPUSD=X', fxBase: 'GBP', fxQuote: 'USD', basePrice: 1.2930, decimals: 5, spotEligible: false },
   { symbol: 'USD/JPY', name: 'US Dollar / Japanese Yen', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'JPY=X', fxBase: 'USD', fxQuote: 'JPY', basePrice: 149.20, decimals: 3, spotEligible: false },
@@ -84,6 +84,7 @@ export const INSTRUMENTS = [
   { symbol: 'TSLA', name: 'Tesla Inc. (NASDAQ)', assetClass: 'STOCKS', subGroup: 'US', yahooSymbol: 'TSLA', basePrice: 245.50, decimals: 2, spotEligible: true, investorCategory: 'GROWTH' },
   { symbol: 'SPY', name: 'S&P 500 ETF Trust (US Index)', assetClass: 'STOCKS', subGroup: 'US', yahooSymbol: 'SPY', basePrice: 564.00, decimals: 2, spotEligible: true, investorCategory: 'BLUECHIP' }
 ];
+export const INSTRUMENT_CATALOG = INSTRUMENTS;
 export function resolveInstrument(symbolInput) {
   const clean = (symbolInput || 'BTC/USDT').trim().toUpperCase();
   const found = INSTRUMENTS.find(i => i.symbol.toUpperCase() === clean || i.binanceSymbol === clean);

@@ -1,9 +1,10 @@
-import { DEFAULT_INSTRUMENTS, TIMEFRAMES, HORIZON_GROUPS } from '../../lib/quant-core.js';
+﻿import { INSTRUMENTS, TIMEFRAMES, STRATEGY_HORIZONS } from '../../lib/quant-core.js';
 export async function onRequestGet() {
   return Response.json({
-    count: DEFAULT_INSTRUMENTS.length,
+    ok: true,
+    count: INSTRUMENTS.length,
     timeframes: TIMEFRAMES,
-    horizons: HORIZON_GROUPS,
-    instruments: DEFAULT_INSTRUMENTS
+    horizons: STRATEGY_HORIZONS,
+    instruments: INSTRUMENTS
   });
 }
