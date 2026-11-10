@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#232c37"/>
+      <stop offset="50%" stop-color="#151b23"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="steelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dce8f7"/>
+      <stop offset="50%" stop-color="#8ba6c4"/>
+      <stop offset="100%" stop-color="#4db6a3"/>
+    </linearGradient>
+  </defs>
+  <polygon points="22,6 98,6 114,22 114,98 98,114 22,114 6,98 6,22" fill="url(#bgGrad)" stroke="#5a708a" stroke-width="3"/>
+  <polygon points="26,12 94,12 108,26 108,94 94,108 26,108 12,94 12,26" fill="none" stroke="#313d4b" stroke-width="1.5"/>
+  <path d="M30 30 L52 60 L30 90 L44 90 L60 68 L76 90 L90 90 L68 60 L90 30 L76 30 L60 52 L44 30 Z" fill="url(#steelGrad)"/>
+  <polygon points="60,18 65,28 55,28" fill="#4db6a3"/>
+  <polygon points="60,102 65,92 55,92" fill="#e0675f"/>
+</svg>

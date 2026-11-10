@@ -1,4 +1,4 @@
-import { api, DEFAULT_INSTRUMENTS } from './api.js';
+import { api, DEFAULT_INSTRUMENTS, getAllInstrumentsFlat } from './api.js';
 import { ChartEngine } from './chart-engine.js';
 import { PositionCalculator } from './calculator.js';
 import { SignalCard } from './components/signal-card.js';
@@ -15,6 +15,7 @@ import {
 } from '../i18n/index.js';
 class XstarzgApp {
   constructor() {
+    this.assetFilter = 'all';
     this.assetClass = 'crypto';
     this.symbol = 'BTC/USDT';
     this.timeframe = 'H1';
@@ -24,7 +25,6 @@ class XstarzgApp {
     this.derivatives = { fundingRatePct: 0.01, openInterestUsd: null };
   }
   async init() {
-    this.initRiskDisclaimerModal();
     await this.initLanguageEngine();
     this.calculator = new PositionCalculator();
     this.calculator.init();
@@ -42,16 +42,16 @@ class XstarzgApp {
     this.scannerPanel = new ScannerPanel({
       containerId: 'scannerMount',
       onSelectSymbol: ({ symbol, assetClass }) => {
-        if (assetClass && assetClass !== this.assetClass) {
-          this.switchAssetClass(assetClass, symbol);
-        } else if (symbol) {
-          this.switchSymbol(symbol);
-        }
+        this.selectInstrument(symbol, assetClass);
       }
     });
     this.authModal = new AuthBillingModal({
       triggerBtnId: 'btnGoogleLogin',
-      onSessionUpdated: () => {}
+      onSessionUpdated: (session) => {
+        if (session?.authenticated) {
+          this.enterWorkspace();
+        }
+      }
     });
     this.authModal.init();
     this.chartEngine = new ChartEngine({
@@ -61,25 +61,61 @@ class XstarzgApp {
       onRealtimeTick: (bar) => this.handleRealtimeTick(bar),
       onStatusChange: (st) => this.updateFeedBadges(st.status, 0, st.exchange)
     });
-    this.chartEngine.init();
     this.bindWorkspaceControls();
-    this.populateSymbolDropdown('crypto', 'BTC/USDT');
-    await this.loadMarketWorkspace({ autoRunAnalysis: true });
-    this.loadScanner('all');
+    this.populateSymbolDropdown('all', 'BTC/USDT');
+    this.renderQuickTickerRibbon();
+    // Cek sesi login terlebih dahulu untuk menentukan Login Gate vs Dashboard
+    const session = await this.authModal.refreshSession();
+    this.initLoginGate(session);
   }
-  initRiskDisclaimerModal() {
-    const key = 'xstarzg_risk_accepted_v2';
-    const backdrop = document.getElementById('riskModalBackdrop');
-    const btnAccept = document.getElementById('btnAcceptRiskModal');
-    if (!backdrop) return;
-    if (!localStorage.getItem(key)) {
-      backdrop.classList.remove('hidden');
+  initLoginGate(session) {
+    const gate = document.getElementById('loginGateScreen');
+    const btnGuest = document.getElementById('btnEnterGuestTerminal');
+    const cidBox = document.getElementById('gateClientIdSetupBox');
+    const btnSaveCid = document.getElementById('btnSaveManualClientId');
+    if (session?.authenticated) {
+      this.enterWorkspace();
+      return;
     }
-    if (btnAccept) {
-      btnAccept.addEventListener('click', () => {
-        localStorage.setItem(key, '1');
-        backdrop.classList.add('hidden');
+    // Tampilkan Login Gate
+    if (gate) gate.classList.remove('hidden');
+    const clientId = this.authModal.getEffectiveClientId();
+    if (clientId) {
+      if (cidBox) cidBox.classList.add('hidden');
+      this.authModal.renderGoogleButtonInto('gateGoogleButtonMount');
+    } else if (cidBox) {
+      cidBox.classList.remove('hidden');
+    }
+    if (btnSaveCid) {
+      btnSaveCid.addEventListener('click', () => {
+        const val = document.getElementById('inpManualGoogleClientId')?.value?.trim();
+        if (val) {
+          localStorage.setItem('xstarzg_google_client_id', val);
+          if (cidBox) cidBox.classList.add('hidden');
+          this.authModal.renderGoogleButtonInto('gateGoogleButtonMount');
+        }
       });
+    }
+    if (btnGuest) {
+      btnGuest.addEventListener('click', () => {
+        this.enterWorkspace();
+      });
+    }
+  }
+  async enterWorkspace() {
+    const gate = document.getElementById('loginGateScreen');
+    const ws = document.getElementById('appWorkspaceWrapper');
+    if (gate) gate.classList.add('hidden');
+    if (ws) ws.classList.remove('hidden');
+    if (!this.chartEngine.mainChart) {
+      this.chartEngine.init();
+    }
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 60);
+    if (!this.bars.length) {
+      await this.loadMarketWorkspace({ autoRunAnalysis: true });
+      this.loadScanner('all');
     }
   }
   async initLanguageEngine() {
@@ -101,8 +137,46 @@ class XstarzgApp {
     await setLanguage(initialLang);
     applyTranslationsToDOM();
   }
+  renderQuickTickerRibbon() {
+    const ribbon = document.getElementById('quickTickerRibbon');
+    if (!ribbon) return;
+    const featured = [
+      { symbol: 'BTC/USDT', assetClass: 'crypto', tag: 'CRYPTO' },
+      { symbol: 'ETH/USDT', assetClass: 'crypto', tag: 'CRYPTO' },
+      { symbol: 'SOL/USDT', assetClass: 'crypto', tag: 'CRYPTO' },
+      { symbol: 'XAU/USD', assetClass: 'metals', tag: 'GOLD' },
+      { symbol: 'XAG/USD', assetClass: 'metals', tag: 'SILVER' },
+      { symbol: 'EUR/USD', assetClass: 'forex', tag: 'FOREX' },
+      { symbol: 'USD/JPY', assetClass: 'forex', tag: 'FOREX' },
+      { symbol: 'GBP/USD', assetClass: 'forex', tag: 'FOREX' },
+      { symbol: 'WTI', assetClass: 'commodities', tag: 'OIL' },
+      { symbol: 'BRENT', assetClass: 'commodities', tag: 'OIL' },
+      { symbol: 'NATGAS', assetClass: 'commodities', tag: 'GAS' },
+      { symbol: 'NVDA', assetClass: 'stocks', tag: 'STOCK' },
+      { symbol: 'SPY', assetClass: 'stocks', tag: 'S&P500' },
+      { symbol: 'QQQ', assetClass: 'stocks', tag: 'NASDAQ' },
+      { symbol: 'AAPL', assetClass: 'stocks', tag: 'STOCK' },
+      { symbol: 'TSLA', assetClass: 'stocks', tag: 'STOCK' }
+    ];
+    ribbon.innerHTML = featured
+      .map(
+        (f) => `
+        <button type="button" class="ticker-pill ${f.symbol === this.symbol ? 'active' : ''}" data-symbol="${f.symbol}" data-asset="${f.assetClass}">
+          <strong>${f.symbol}</strong>
+          <span class="ticker-pill-tag">${f.tag}</span>
+        </button>
+      `
+      )
+      .join('');
+    ribbon.querySelectorAll('.ticker-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sym = btn.getAttribute('data-symbol');
+        const cls = btn.getAttribute('data-asset');
+        this.selectInstrument(sym, cls);
+      });
+    });
+  }
   bindWorkspaceControls() {
-    // Mode Switch (Trader vs Spot Investor Long-Only)
     const btnTrader = document.getElementById('modeTraderBtn');
     const btnInvestor = document.getElementById('modeInvestorBtn');
     if (btnTrader && btnInvestor) {
@@ -121,21 +195,30 @@ class XstarzgApp {
         this.loadScanner(this.scannerPanel.activeFilter);
       });
     }
-    // Asset Class Tabs
     document.querySelectorAll('#assetClassTabs .asset-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
-        const nextAsset = tab.getAttribute('data-asset');
-        this.switchAssetClass(nextAsset);
+        const nextFilter = tab.getAttribute('data-asset');
+        document.querySelectorAll('#assetClassTabs .asset-tab').forEach((t) => {
+          t.classList.toggle('active', t.getAttribute('data-asset') === nextFilter);
+        });
+        this.populateSymbolDropdown(nextFilter);
+        const sel = document.getElementById('symbolSelect');
+        if (sel && sel.value) {
+          const found = getAllInstrumentsFlat().find((x) => x.symbol === sel.value);
+          if (found) this.selectInstrument(found.symbol, found.assetClass, false);
+        }
       });
     });
-    // Symbol Select
     const symSel = document.getElementById('symbolSelect');
     if (symSel) {
       symSel.addEventListener('change', (e) => {
-        this.switchSymbol(e.target.value);
+        const val = e.target.value;
+        const found = getAllInstrumentsFlat().find((x) => x.symbol === val);
+        if (found) {
+          this.selectInstrument(found.symbol, found.assetClass, false);
+        }
       });
     }
-    // Timeframe Buttons
     document.querySelectorAll('#timeframeBar .tf-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (btn.disabled) return;
@@ -145,7 +228,6 @@ class XstarzgApp {
         this.loadMarketWorkspace({ autoRunAnalysis: true });
       });
     });
-    // Overlay Toggles
     document.querySelectorAll('.overlay-toggle').forEach((btn) => {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
@@ -153,7 +235,6 @@ class XstarzgApp {
         this.chartEngine.setOverlayVisibility(key, btn.classList.contains('active'));
       });
     });
-    // Oscillator Tabs
     document.querySelectorAll('.osc-tab').forEach((btn) => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.osc-tab').forEach((b) => b.classList.remove('active'));
@@ -161,36 +242,60 @@ class XstarzgApp {
         this.chartEngine.setActiveOscillator(btn.getAttribute('data-osc'));
       });
     });
-    // Full Analysis Button
     const btnRun = document.getElementById('btnRunFullAnalysis');
     if (btnRun) {
       btnRun.addEventListener('click', () => this.runServerFullAnalysis());
     }
   }
-  populateSymbolDropdown(assetClass, selectedSymbol = null) {
-    const list = DEFAULT_INSTRUMENTS[assetClass] || DEFAULT_INSTRUMENTS.crypto;
+  populateSymbolDropdown(filterClass = 'all', selectedSymbol = null) {
+    this.assetFilter = filterClass;
     const sel = document.getElementById('symbolSelect');
     if (!sel) return;
-    sel.innerHTML = list
-      .map((item) => `<option value="${item.symbol}">${item.symbol} — ${item.name}</option>`)
+    const groups =
+      filterClass === 'all'
+        ? [
+            { label: 'CRYPTO (16 Instrumen)', items: DEFAULT_INSTRUMENTS.crypto },
+            { label: 'FOREX (10 Pasangan Utama)', items: DEFAULT_INSTRUMENTS.forex },
+            { label: 'METALS / LOGAM MULIA (4 Instrumen)', items: DEFAULT_INSTRUMENTS.metals },
+            { label: 'COMMODITIES / ENERGI & PANGAN (6 Instrumen)', items: DEFAULT_INSTRUMENTS.commodities },
+            { label: 'US STOCKS & INDICES (14 Emiten)', items: DEFAULT_INSTRUMENTS.stocks }
+          ]
+        : [
+            {
+              label: filterClass.toUpperCase(),
+              items: DEFAULT_INSTRUMENTS[filterClass] || DEFAULT_INSTRUMENTS.crypto
+            }
+          ];
+    sel.innerHTML = groups
+      .map(
+        (g) =>
+          `<optgroup label="${g.label}">` +
+          g.items.map((item) => `<option value="${item.symbol}">${item.symbol} — ${item.name}</option>`).join('') +
+          `</optgroup>`
+      )
       .join('');
-    this.symbol = selectedSymbol || list[0].symbol;
+    const firstSym = groups[0]?.items?.[0]?.symbol || 'BTC/USDT';
+    this.symbol = selectedSymbol || firstSym;
     sel.value = this.symbol;
   }
-  switchAssetClass(nextAsset, targetSymbol = null) {
-    this.assetClass = nextAsset;
-    document.querySelectorAll('#assetClassTabs .asset-tab').forEach((t) => {
-      t.classList.toggle('active', t.getAttribute('data-asset') === nextAsset);
+  selectInstrument(symbol, assetClass, updateDropdown = true) {
+    this.symbol = symbol;
+    this.assetClass = assetClass || 'crypto';
+    if (updateDropdown) {
+      const sel = document.getElementById('symbolSelect');
+      if (sel) {
+        if (![...sel.options].some((o) => o.value === symbol)) {
+          this.populateSymbolDropdown('all', symbol);
+        } else {
+          sel.value = symbol;
+        }
+      }
+    }
+    document.querySelectorAll('#quickTickerRibbon .ticker-pill').forEach((p) => {
+      p.classList.toggle('active', p.getAttribute('data-symbol') === symbol);
     });
-    this.populateSymbolDropdown(nextAsset, targetSymbol);
-    const isRealtimeCapable = nextAsset === 'crypto';
+    const isRealtimeCapable = this.assetClass === 'crypto';
     this.enforceScalpingTimeframeLock(isRealtimeCapable);
-    this.loadMarketWorkspace({ autoRunAnalysis: true });
-  }
-  switchSymbol(nextSymbol) {
-    this.symbol = nextSymbol;
-    const sel = document.getElementById('symbolSelect');
-    if (sel && sel.value !== nextSymbol) sel.value = nextSymbol;
     this.loadMarketWorkspace({ autoRunAnalysis: true });
   }
   enforceScalpingTimeframeLock(isRealtimeFeed) {
@@ -219,7 +324,7 @@ class XstarzgApp {
         symbol: this.symbol,
         assetClass: this.assetClass,
         timeframe: this.timeframe,
-        limit: 300
+        limit: 260
       });
       if (data && Array.isArray(data.bars) && data.bars.length > 0) {
         this.bars = data.bars;
@@ -227,12 +332,12 @@ class XstarzgApp {
         const lastBar = this.bars[this.bars.length - 1];
         const prevBar = this.bars[Math.max(0, this.bars.length - 2)];
         this.updatePriceHeader(lastBar.close, prevBar.close);
-        const isRealtime = data.feedStatus === 'REALTIME WS' || this.assetClass === 'crypto';
+        const isRealtime = this.assetClass === 'crypto';
         this.enforceScalpingTimeframeLock(isRealtime);
         this.updateFeedBadges(
-          data.feedStatus || (isRealtime ? 'REALTIME WS' : 'DELAYED 15M'),
+          data.feedStatus || (isRealtime ? 'REALTIME EDGE' : 'DELAYED 15M'),
           data.cacheAgeMinutes || 0,
-          data.sourceExchange || 'PUBLIC FEED',
+          data.sourceExchange || 'INSTITUTIONAL FEED',
           data.honestLabel || null
         );
         this.updateTelemetryMatrix();
@@ -247,8 +352,7 @@ class XstarzgApp {
           this.chartEngine.connectCryptoRealtime(this.symbol, this.timeframe);
           this.loadCryptoDerivatives();
         } else {
-          const derivBar = document.getElementById('derivativesBar');
-          if (derivBar) derivBar.classList.add('hidden');
+          document.getElementById('derivativesBar')?.classList.add('hidden');
         }
         if (autoRunAnalysis) {
           this.executeQuantEvaluation();
@@ -260,21 +364,20 @@ class XstarzgApp {
     this.loadFundamentals();
   }
   async loadCryptoDerivatives() {
-    const derivBar = document.getElementById('derivativesBar');
-    if (derivBar) derivBar.classList.remove('hidden');
+    document.getElementById('derivativesBar')?.classList.remove('hidden');
     const d = await api.fetchCryptoDerivativesDirect(this.symbol);
     this.derivatives = d;
     const elFund = document.getElementById('valFundingRate');
     const elOi = document.getElementById('valOpenInterest');
     if (elFund) {
-      const f = Number(d.fundingRatePct || 0);
+      const f = Number(d.fundingRatePct || 0.01);
       elFund.textContent = `${f >= 0 ? '+' : ''}${formatNumber(f, 4)}%`;
       elFund.className = `mh-stat-val ${f >= 0 ? 'text-bull' : 'text-bear'}`;
     }
     if (elOi) {
       elOi.textContent = d.openInterestUsd
         ? `$${formatNumber(d.openInterestUsd / 1e6, 2)}M`
-        : 'LIVE PERP';
+        : 'PERP ACTIVE';
     }
   }
   handleRealtimeTick(bar) {
@@ -304,12 +407,8 @@ class XstarzgApp {
       elFeed.textContent = feedStatus;
       elFeed.className = `feed-badge ${feedStatus.includes('REALTIME') ? 'feed-realtime' : 'feed-delayed'}`;
     }
-    if (elCache) {
-      elCache.textContent = `Cache ${cacheAgeMin || 0}m`;
-    }
-    if (elExch) {
-      elExch.textContent = sourceExchange;
-    }
+    if (elCache) elCache.textContent = `Cache ${cacheAgeMin || 0}m`;
+    if (elExch) elExch.textContent = sourceExchange;
     if (elBanner) {
       if (honestLabel) {
         elBanner.textContent = `ℹ️ TRANSPARANSI SUMBER DATA: ${honestLabel}`;
@@ -361,7 +460,7 @@ class XstarzgApp {
         assetClass: this.assetClass,
         timeframe: this.timeframe,
         mode: this.mode,
-        bars: this.assetClass === 'crypto' ? this.bars.slice(-260) : undefined,
+        bars: this.bars.slice(-260),
         derivatives: this.derivatives
       });
       if (res && res.ok) {

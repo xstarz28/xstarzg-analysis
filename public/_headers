@@ -1,13 +1,5 @@
 /*
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
-  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com; worker-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://api.binance.com https://data-api.binance.vision https://fapi.binance.com wss://stream.binance.com:9443 wss://fstream.binance.com https://api.bybit.com wss://stream.bybit.com https://api.twelvedata.com https://api.stlouisfed.org https://publicreporting.cftc.gov https://data.sec.gov;
-/vendor/*
-  Cache-Control: public, max-age=31536000, immutable
-/css/*
-  Cache-Control: public, max-age=3600, must-revalidate
-/js/*
-  Cache-Control: public, max-age=3600, must-revalidate
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

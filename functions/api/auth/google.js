@@ -1,155 +1,100 @@
-import {
-  verifyGoogleIdToken,
-  isOwnerAdminEmail,
-  createSessionCookie,
-  getUserQuotaStatus,
-  hashIpAddress,
-  SESSION_TTL_SEC
-} from '../../lib/auth.js';
-export async function onRequestGet(context) {
-  const { env } = context;
-  const clientId = env?.GOOGLE_CLIENT_ID ? String(env.GOOGLE_CLIENT_ID).trim() : null;
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      configured: Boolean(clientId),
-      googleClientId: clientId
-    }),
-    {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-store'
-      }
-    }
-  );
+const OWNER_EMAILS = ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com'];
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+function randomHex(bytes = 32) {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 export async function onRequestPost(context) {
   const { request, env } = context;
-  if (!env || !env.DB) {
-    return new Response(
-      JSON.stringify({ ok: false, error: 'Database D1 belum terhubung pada environment ini.' }),
-      { status: 503, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
-    );
-  }
-  let body = {};
   try {
-    body = await request.json();
-  } catch (_) {
-    return new Response(
-      JSON.stringify({ ok: false, error: 'Payload JSON tidak valid.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
-    );
-  }
-  if (!body.credential || typeof body.credential !== 'string') {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: 'Token Google ID (credential) wajib disertakan untuk autentikasi.'
-      }),
-      { status: 401, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
-    );
-  }
-  let profile;
-  try {
-    profile = await verifyGoogleIdToken(body.credential, env);
-  } catch (err) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: `Verifikasi Google ID Token gagal: ${err.message || 'Token tidak sah'}`
-      }),
-      { status: 401, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
-    );
-  }
-  const nowSec = Math.floor(Date.now() / 1000);
-  const isOwner = isOwnerAdminEmail(profile.email, env);
-  try {
-    const existing = await env.DB.prepare(
-      `SELECT id, google_sub, email, display_name, avatar_url, role, vip_until
-       FROM users
-       WHERE google_sub = ? OR email = ?
-       LIMIT 1`
-    )
-      .bind(profile.sub, profile.email)
-      .first();
-    let userId;
-    let role = isOwner ? 'admin' : 'free';
-    let vipUntil = 0;
-    if (existing) {
-      userId = existing.id;
-      vipUntil = Number(existing.vip_until || 0);
-      if (isOwner) {
-        role = 'admin';
-      } else if (existing.role === 'vip' && vipUntil > nowSec) {
-        role = 'vip';
-      } else if (existing.role === 'admin') {
-        role = isOwner ? 'admin' : 'free';
-      }
+    const body = await request.json().catch(() => ({}));
+    const credential = String(body.credential || '').trim();
+    if (!credential) {
+      return new Response(JSON.stringify({ ok: false, error: 'Token Google tidak ditemukan.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    // Verifikasi token ke endpoint resmi Google tokeninfo
+    const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!verifyRes.ok) {
+      return new Response(JSON.stringify({ ok: false, error: 'Token Google tidak valid atau kedaluwarsa.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    const payload = await verifyRes.json();
+    if (env.GOOGLE_CLIENT_ID && payload.aud !== env.GOOGLE_CLIENT_ID) {
+      return new Response(JSON.stringify({ ok: false, error: 'Client ID Google tidak cocok.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    const email = String(payload.email || '').toLowerCase().trim();
+    const sub = String(payload.sub || email);
+    const name = String(payload.name || email.split('@')[0]);
+    const picture = String(payload.picture || '');
+    const isOwner = OWNER_EMAILS.includes(email);
+    const role = isOwner ? 'owner' : 'user';
+    const now = Math.floor(Date.now() / 1000);
+    let userId = 1;
+    if (env.DB) {
       await env.DB.prepare(
-        `UPDATE users
-         SET google_sub = ?, email = ?, display_name = ?, avatar_url = ?, role = ?, updated_at = ?
-         WHERE id = ?`
+        `INSERT INTO users (google_sub, email, name, picture, role, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(email) DO UPDATE SET
+           google_sub = excluded.google_sub,
+           name = excluded.name,
+           picture = excluded.picture,
+           role = CASE WHEN excluded.role = 'owner' THEN 'owner' ELSE users.role END,
+           updated_at = excluded.updated_at`
       )
-        .bind(profile.sub, profile.email, profile.name, profile.picture, role, nowSec, userId)
+        .bind(sub, email, name, picture, role, now, now)
         .run();
-    } else {
-      userId = `usr_${crypto.randomUUID().replace(/-/g, '')}`;
+      const uRow = await env.DB.prepare(`SELECT id, role, vip_until FROM users WHERE email = ? LIMIT 1`)
+        .bind(email)
+        .first();
+      if (uRow) userId = uRow.id;
+    }
+    const rawSessionToken = randomHex(32);
+    const tokenHash = await sha256Hex(rawSessionToken);
+    const expiresAt = now + 86400 * 30;
+    if (env.DB) {
       await env.DB.prepare(
-        `INSERT INTO users (id, google_sub, email, display_name, avatar_url, role, vip_until, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`
+        `INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)`
       )
-        .bind(userId, profile.sub, profile.email, profile.name, profile.picture, role, nowSec, nowSec)
+        .bind(tokenHash, userId, expiresAt, now)
         .run();
     }
-    const sessionId = `ses_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`;
-    const expiresAt = nowSec + SESSION_TTL_SEC;
-    await env.DB.prepare(
-      `INSERT INTO sessions (id, user_id, expires_at, created_at)
-       VALUES (?, ?, ?, ?)`
-    )
-      .bind(sessionId, userId, expiresAt, nowSec)
-      .run();
-    const userObj = {
-      id: userId,
-      google_sub: profile.sub,
-      email: profile.email,
-      display_name: profile.name,
-      avatar_url: profile.picture,
-      role,
-      vip_until: vipUntil
-    };
-    const ipHash = await hashIpAddress(request);
-    const quota = await getUserQuotaStatus(env.DB, userObj, ipHash);
     return new Response(
       JSON.stringify({
         ok: true,
+        sessionToken: rawSessionToken,
         user: {
-          id: userObj.id,
-          email: userObj.email,
-          displayName: userObj.display_name,
-          avatarUrl: userObj.avatar_url,
-          role: userObj.role,
-          vipUntil: userObj.vip_until
-        },
-        quota
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Set-Cookie': createSessionCookie(sessionId, SESSION_TTL_SEC),
-          'Cache-Control': 'no-store'
+          id: userId,
+          email,
+          name,
+          picture,
+          role,
+          isOwner,
+          isVip: isOwner
         }
-      }
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
     );
   } catch (err) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: `Gagal menyimpan sesi pengguna: ${err.message || 'Database error'}`
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
-    );
+    return new Response(JSON.stringify({ ok: false, error: err?.message || 'Gagal memproses login Google.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
