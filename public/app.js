@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   const STATE = {
     catalog: [],
     binancePairs: [],
@@ -30,6 +30,9 @@
   };
   const TF_SECONDS = { 'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800, 'H1': 3600, 'H4': 14400, 'D1': 86400, 'W1': 604800, 'MN': 2592000, '1Y': 31536000 };
   const el = id => document.getElementById(id);
+  // ============================================================================
+  // 1. PERSISTENT SCREEN STATE (NEVER LOGOUT ON F5 / REFRESH)
+  // ============================================================================
   function showScreen(screenName) {
     const front = el('frontLandingScreen');
     const login = el('loginGateScreen');
@@ -38,6 +41,7 @@
     if (login) login.style.display = screenName === 'LOGIN' ? 'flex' : 'none';
     if (app)   app.style.display   = screenName === 'APP'   ? 'block' : 'none';
     if (screenName === 'APP') {
+      localStorage.setItem('xstarzg_in_dashboard', 'true');
       localStorage.setItem('xstarzg_session_active', '1');
       setTimeout(() => {
         if (STATE.chart) {
@@ -46,6 +50,8 @@
           focusCleanTradingViewZoom();
         }
       }, 60);
+    } else {
+      localStorage.removeItem('xstarzg_in_dashboard');
     }
   }
   function setupNavigationAndProfileMenu() {
@@ -53,17 +59,18 @@
     el('btnHeroGoLogin')?.addEventListener('click', () => showScreen('LOGIN'));
     el('btnBottomGoLogin')?.addEventListener('click', () => showScreen('LOGIN'));
     el('btnBackToFrontLanding')?.addEventListener('click', () => showScreen('FRONT'));
-    const enterPreview = () => {
+    const enterDashboardDirectly = () => {
       if (!STATE.user) {
         STATE.user = { email: 'guest@xstarzg.io', name: 'Guest Trader', tier: 'FREE' };
         localStorage.setItem('xstarzg_user_profile', JSON.stringify(STATE.user));
       }
+      localStorage.setItem('xstarzg_in_dashboard', 'true');
       localStorage.setItem('xstarzg_session_active', '1');
       updateUserTopbarUI();
       showScreen('APP');
     };
-    el('btnHeroQuickPreview')?.addEventListener('click', enterPreview);
-    el('btnSkipLoginGate')?.addEventListener('click', enterPreview);
+    el('btnHeroQuickPreview')?.addEventListener('click', enterDashboardDirectly);
+    el('btnSkipLoginGate')?.addEventListener('click', enterDashboardDirectly);
     const btnProfile = el('btnUserSession');
     const dropdown = el('userProfileDropdown');
     if (btnProfile && dropdown) {
@@ -87,12 +94,12 @@
     const dTier = el('dropdownUserTier');
     if (STATE.user && STATE.user.email && STATE.user.email !== 'guest@xstarzg.io') {
       const shortName = STATE.user.name || STATE.user.email.split('@')[0];
-      if (lblTop) lblTop.textContent = `${shortName} (${STATE.user.tier || 'VIP'})`;
+      if (lblTop) lblTop.textContent = `${shortName} (${STATE.user.tier || 'VIP'}) \u25BC`;
       if (dName) dName.textContent = STATE.user.name || shortName;
       if (dEmail) dEmail.textContent = STATE.user.email;
       if (dTier) dTier.textContent = `STATUS: ${STATE.user.tier || 'MEMBER'} AKTIF`;
     } else {
-      if (lblTop) lblTop.textContent = 'Guest / Akun ▼';
+      if (lblTop) lblTop.textContent = 'Guest / Akun \u25BC';
       if (dName) dName.textContent = 'Mode Preview / Guest';
       if (dEmail) dEmail.textContent = 'Klik Login Google untuk Sinkronisasi VIP';
       if (dTier) dTier.textContent = 'FREE PREVIEW MODE';
@@ -102,10 +109,14 @@
     localStorage.removeItem('xstarzg_jwt');
     localStorage.removeItem('xstarzg_user_profile');
     localStorage.removeItem('xstarzg_session_active');
+    localStorage.removeItem('xstarzg_in_dashboard');
     STATE.user = null;
     updateUserTopbarUI();
     showScreen('LOGIN');
   }
+  // ============================================================================
+  // 2. TRADINGVIEW CHART ENGINE
+  // ============================================================================
   function initChart() {
     const container = el('tvChartContainer');
     if (!container || !window.LightweightCharts) return;
@@ -196,6 +207,9 @@
       addLine(analysis.spotPlan.dcaZones[2].price, 'SPOT DCA 3 (25%)', '#eab308', 2, 1);
     }
   }
+  // ============================================================================
+  // 3. REAL-TIME PRICE STREAM (BINANCE WS + LIVE FX VERIFICATION)
+  // ============================================================================
   function startRealtimeCandleStream(symbol, decimals = 2) {
     if (STATE.ws) { try { STATE.ws.close(); } catch {} STATE.ws = null; }
     if (STATE.livePollTimer) { clearInterval(STATE.livePollTimer); STATE.livePollTimer = null; }
@@ -245,7 +259,7 @@
           }
         }
       } catch {}
-    }, 12000);
+    }, 10000);
     const tfSec = TF_SECONDS[STATE.timeframe] || 3600;
     STATE.countdownTimer = setInterval(() => {
       const nowSec = Math.floor(Date.now() / 1000);
@@ -255,9 +269,12 @@
       const secs = rem % 60;
       const pad = n => String(n).padStart(2, '0');
       const str = hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
-      if (el('lblCandleCountdown')) el('lblCandleCountdown').textContent = `⏱ ${STATE.timeframe} Close: ${str}`;
+      if (el('lblCandleCountdown')) el('lblCandleCountdown').textContent = `\u23F1 ${STATE.timeframe} Close: ${str}`;
     }, 1000);
   }
+  // ============================================================================
+  // 4. INSTRUMENT SELECTOR & SPOT INVESTOR CATALOG FILTERING
+  // ============================================================================
   async function loadInstrumentCatalog() {
     try {
       const res = await fetch('/api/market/instruments');
@@ -314,7 +331,7 @@
     filtered.forEach(inst => {
       const opt = document.createElement('option');
       opt.value = inst.symbol;
-      opt.textContent = `[${inst.assetClass}] ${inst.symbol} — ${inst.name}`;
+      opt.textContent = `[${inst.assetClass}] ${inst.symbol} \u2014 ${inst.name}`;
       if (inst.symbol === STATE.symbol) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -349,17 +366,17 @@
       if (radarSub) radarSub.textContent = '(Rekomendasi Akumulasi Spot, Saham Blue-Chip, Emas & Aset Diskon Intrinsik)';
       if (!['VALUE', 'BLUECHIP', 'GROWTH'].includes(STATE.radarHorizon)) STATE.radarHorizon = 'BLUECHIP';
       radarTabs.innerHTML = `
-        <button class="radar-tab-btn ${STATE.radarHorizon === 'VALUE' ? 'active' : ''}" data-rhorizon="VALUE">💎 Undervalued Value</button>
-        <button class="radar-tab-btn ${STATE.radarHorizon === 'BLUECHIP' ? 'active' : ''}" data-rhorizon="BLUECHIP">🏛️ Core Blue-Chip</button>
-        <button class="radar-tab-btn ${STATE.radarHorizon === 'GROWTH' ? 'active' : ''}" data-rhorizon="GROWTH">🚀 Cycle Growth</button>
+        <button class="radar-tab-btn ${STATE.radarHorizon === 'VALUE' ? 'active' : ''}" data-rhorizon="VALUE">\uD83D\uDC8E Undervalued Value</button>
+        <button class="radar-tab-btn ${STATE.radarHorizon === 'BLUECHIP' ? 'active' : ''}" data-rhorizon="BLUECHIP">\uD83C\uDFDB\uFE0F Core Blue-Chip</button>
+        <button class="radar-tab-btn ${STATE.radarHorizon === 'GROWTH' ? 'active' : ''}" data-rhorizon="GROWTH">\uD83D\uDE80 Cycle Growth</button>
       `;
     } else {
       if (radarSub) radarSub.textContent = '(Rekomendasi Setup Terbaik Sesuai Gaya Trading)';
       if (!['SCALPING', 'INTRADAY', 'SWING'].includes(STATE.radarHorizon)) STATE.radarHorizon = 'INTRADAY';
       radarTabs.innerHTML = `
-        <button class="radar-tab-btn ${STATE.radarHorizon === 'SCALPING' ? 'active' : ''}" data-rhorizon="SCALPING">⚡ Scalping (M1-M15)</button>
-        <button class="radar-tab-btn ${STATE.radarHorizon === 'INTRADAY' ? 'active' : ''}" data-rhorizon="INTRADAY">🎯 Intraday (M15-H1)</button>
-        <button class="radar-tab-btn ${STATE.radarHorizon === 'SWING' ? 'active' : ''}" data-rhorizon="SWING">🌊 Swing (H4-D1)</button>
+        <button class="radar-tab-btn ${STATE.radarHorizon === 'SCALPING' ? 'active' : ''}" data-rhorizon="SCALPING">\u26A1 Scalping (M1-M15)</button>
+        <button class="radar-tab-btn ${STATE.radarHorizon === 'INTRADAY' ? 'active' : ''}" data-rhorizon="INTRADAY">\uD83C\uDFAF Intraday (M15-H1)</button>
+        <button class="radar-tab-btn ${STATE.radarHorizon === 'SWING' ? 'active' : ''}" data-rhorizon="SWING">\uD83C\uDF0A Swing (H4-D1)</button>
       `;
     }
     radarTabs.querySelectorAll('.radar-tab-btn').forEach(btn => {
@@ -392,7 +409,7 @@
     const d = a.decimals ?? 2;
     const fmt = v => Number(v || 0).toFixed(d);
     el('lblActiveSymbol').textContent = a.symbol;
-    el('lblActiveName').textContent = `${a.name} • [${a.assetClass}]`;
+    el('lblActiveName').textContent = `${a.name} \u2022 [${a.assetClass}]`;
     el('lblActivePrice').textContent = fmt(a.lastPrice);
     const chgEl = el('lblActiveChange');
     chgEl.textContent = `${a.changePct >= 0 ? '+' : ''}${a.changePct}%`;
@@ -402,8 +419,8 @@
     banner.className = `signal-decision-banner ${isLong ? 'bull' : 'bear'}`;
     el('lblSignalDirection').textContent = a.direction;
     el('lblSignalSub').textContent = STATE.mode === 'SPOT_INVESTOR'
-      ? `${a.spotPlan.wyckoffPhase} • Margin of Safety: ${a.spotPlan.marginOfSafetyPct >= 0 ? '+' : ''}${a.spotPlan.marginOfSafetyPct}% (Fair Value: ${fmt(a.spotPlan.fairValue)})`
-      : `Konfluensi 12 Indikator Teknikal + Fundamental CFTC • R:R ${a.traderPlan.rrRatio}`;
+      ? `${a.spotPlan.wyckoffPhase} \u2022 Margin of Safety: ${a.spotPlan.marginOfSafetyPct >= 0 ? '+' : ''}${a.spotPlan.marginOfSafetyPct}% (Fair Value: ${fmt(a.spotPlan.fairValue)})`
+      : `Konfluensi 11 Indikator Teknikal + Fundamental CFTC \u2022 R:R ${a.traderPlan.rrRatio}`;
     el('lblConfidenceScore').textContent = `${a.confidence}%`;
     const isSpot = STATE.mode === 'SPOT_INVESTOR';
     el('traderExecutionCard').style.display = isSpot ? 'none' : 'block';
@@ -420,8 +437,8 @@
       el('dcaZoneGrid').innerHTML = `
         <div class="dca-stage-item" style="border-left:3px solid #38bdf8; background:rgba(56,189,248,0.06);">
           <div>
-            <strong>💎 Nilai Wajar Intrinsik (Fair Value) & Margin of Safety</strong>
-            <span>${sp.wyckoffPhase} • ${sp.passiveYieldLabel}</span>
+            <strong>\uD83D\uDC8E Nilai Wajar Intrinsik (Fair Value) &amp; Margin of Safety</strong>
+            <span>${sp.wyckoffPhase} \u2022 ${sp.passiveYieldLabel}</span>
           </div>
           <div class="dca-price" style="color:#38bdf8;">Fair: ${fmt(sp.fairValue)} (${sp.marginOfSafetyPct >= 0 ? '+' : ''}${sp.marginOfSafetyPct}% MoS)</div>
         </div>
@@ -433,7 +450,7 @@
         `).join('')}
         <div class="dca-stage-item" style="border-left:3px solid #eab308;">
           <div>
-            <strong>⚖️ Estimasi Harga Rata-Rata Akumulasi (Weighted Avg Cost)</strong>
+            <strong>\u2696\uFE0F Estimasi Harga Rata-Rata Akumulasi (Weighted Avg Cost)</strong>
             <span>Jika ketiga tahap DCA (40% + 35% + 25%) terisi penuh</span>
           </div>
           <div class="dca-price" style="color:#eab308;">Avg: ${fmt(sp.weightedAvgCost)}</div>
@@ -457,19 +474,19 @@
       fGrid.innerHTML = `
         <div class="fund-row"><strong>1. Posisi CFTC COT (Non-Commercial vs Commercial Hedgers)</strong><p>${f.cotPositioning}</p></div>
         <div class="fund-row"><strong>2. Kontrak Bersih Spekulan Besar (Net Speculative Positioning)</strong><p>${f.cotNetSpec}</p></div>
-        <div class="fund-row"><strong>3. Kebijakan Bank Sentral & Suku Bunga Riil</strong><p>${f.centralBankPolicy}</p></div>
-        <div class="fund-row"><strong>4. Rezim Makroekonomi & Korelasi Lintas Aset</strong><p>${f.macroRegime}</p></div>
-        <div class="fund-row"><strong>5. Valuasi Intrinsik & Metrik Spesifik Aset</strong><p>${f.valuationMetrics}</p></div>
-        <div class="fund-row"><strong>6. Arus Dana Institusi (Institutional Orderflow & ETF/Foreign Flow)</strong><p>${f.institutionalFlow}</p></div>
+        <div class="fund-row"><strong>3. Kebijakan Bank Sentral &amp; Suku Bunga Riil</strong><p>${f.centralBankPolicy}</p></div>
+        <div class="fund-row"><strong>4. Rezim Makroekonomi &amp; Korelasi Lintas Aset</strong><p>${f.macroRegime}</p></div>
+        <div class="fund-row"><strong>5. Valuasi Intrinsik &amp; Metrik Spesifik Aset</strong><p>${f.valuationMetrics}</p></div>
+        <div class="fund-row"><strong>6. Arus Dana Institusi (Institutional Orderflow &amp; ETF/Foreign Flow)</strong><p>${f.institutionalFlow}</p></div>
         <div class="fund-row"><strong>7. Penggerak Utama Harga (Primary Macro Drivers)</strong><p>${f.keyDrivers}</p></div>
-        <div class="fund-row"><strong>8. Katalis & Kalender Ekonomi Terdekat</strong><p>${f.eventCatalysts}</p></div>
+        <div class="fund-row"><strong>8. Katalis &amp; Kalender Ekonomi Terdekat</strong><p>${f.eventCatalysts}</p></div>
       `;
     }
     const bt = a.backtest || {};
     const btGrid = el('backtestMetricsGrid');
     const btBadge = el('lblBacktestSampleBadge');
     if (btBadge) {
-      btBadge.textContent = bt.verificationBadge || `✅ TERVERIFIKASI REAL WALK-FORWARD (${bt.totalTrades} SAMPEL)`;
+      btBadge.textContent = `\u2705 TERVERIFIKASI REAL WALK-FORWARD (${bt.totalTrades} SAMPEL)`;
       btBadge.className = 'sample-badge ok';
     }
     if (btGrid) {
@@ -507,7 +524,7 @@
             <div class="radar-card" data-sym="${s.symbol}" data-tf="D1">
               <div class="radar-card-top">
                 <span class="radar-sym">${s.symbol}</span>
-                <span class="radar-dir long">💎 ACCUMULATE SPOT (${s.confidence}%)</span>
+                <span class="radar-dir long">\uD83D\uDC8E ACCUMULATE SPOT (${s.confidence}%)</span>
               </div>
               <div class="radar-meta">
                 <span>Beli DCA 1: <strong>${s.entryPrice}</strong></span>
@@ -522,7 +539,7 @@
           <div class="radar-card" data-sym="${s.symbol}" data-tf="${s.timeframe}">
             <div class="radar-card-top">
               <span class="radar-sym">${s.symbol} <small style="color:#94a3b8">(${s.timeframe})</small></span>
-              <span class="radar-dir ${isLong ? 'long' : 'short'}">${s.direction} • ${s.confidence}%</span>
+              <span class="radar-dir ${isLong ? 'long' : 'short'}">${s.direction} \u2022 ${s.confidence}%</span>
             </div>
             <div class="radar-meta">
               <span>Entry: <strong>${s.entryPrice}</strong></span>
@@ -573,7 +590,6 @@
           if (meData.ok && meData.user) {
             STATE.user = meData.user;
             localStorage.setItem('xstarzg_user_profile', JSON.stringify(meData.user));
-            localStorage.setItem('xstarzg_session_active', '1');
             updateUserTopbarUI();
           }
         }
@@ -586,8 +602,8 @@
       if (addr && navigator.clipboard) {
         navigator.clipboard.writeText(addr);
         const btn = el('btnCopyVipWallet');
-        btn.textContent = '✅ Tersalin!';
-        setTimeout(() => { btn.textContent = '📋 Salin Alamat'; }, 2000);
+        btn.textContent = '\u2705 Tersalin!';
+        setTimeout(() => { btn.textContent = '\uD83D\uDCCB Salin Alamat'; }, 2000);
       }
     });
     el('btnVerifyTxHash')?.addEventListener('click', verifyBscPayment);
@@ -602,6 +618,7 @@
       if (data.ok && data.token) {
         localStorage.setItem('xstarzg_jwt', data.token);
         localStorage.setItem('xstarzg_user_profile', JSON.stringify(data.user));
+        localStorage.setItem('xstarzg_in_dashboard', 'true');
         localStorage.setItem('xstarzg_session_active', '1');
         STATE.user = data.user;
         updateUserTopbarUI();
@@ -613,11 +630,11 @@
     const txHash = el('inpBscTxHash')?.value?.trim();
     const msg = el('vipVerifyStatusMsg');
     if (!txHash || !txHash.startsWith('0x')) {
-      msg.textContent = '⚠️ Masukkan TxHash BSC (0x...) yang valid.';
+      msg.textContent = '\u26A0\uFE0F Masukkan TxHash BSC (0x...) yang valid.';
       msg.style.color = '#f43f5e';
       return;
     }
-    msg.textContent = '⏳ Memverifikasi transaksi $29.00 USDT di Blockchain BSC...';
+    msg.textContent = '\u23F3 Memverifikasi transaksi $29.00 USDT di Blockchain BSC...';
     msg.style.color = '#38bdf8';
     try {
       const token = localStorage.getItem('xstarzg_jwt') || '';
@@ -627,7 +644,7 @@
       });
       const data = await res.json();
       if (data.ok) {
-        msg.textContent = '✅ Pembayaran $29 USDT Terverifikasi! Status VIP 30 Hari Aktif.';
+        msg.textContent = '\u2705 Pembayaran $29 USDT Terverifikasi! Status VIP 30 Hari Aktif.';
         msg.style.color = '#10b981';
         if (STATE.user) {
           STATE.user.tier = 'VIP';
@@ -635,11 +652,11 @@
           updateUserTopbarUI();
         }
       } else {
-        msg.textContent = `❌ Verifikasi Gagal: ${data.error || 'TxHash tidak ditemukan.'}`;
+        msg.textContent = `\u274C Verifikasi Gagal: ${data.error || 'TxHash tidak ditemukan.'}`;
         msg.style.color = '#f43f5e';
       }
     } catch {
-      msg.textContent = '❌ Gagal menghubungi server verifikasi.';
+      msg.textContent = '\u274C Gagal menghubungi server verifikasi.';
       msg.style.color = '#f43f5e';
     }
   }
@@ -736,8 +753,12 @@
     }
     renderTimeframeBar();
     updateRadarTabsForMode();
-    const hasActiveSession = localStorage.getItem('xstarzg_session_active') === '1' || !!localStorage.getItem('xstarzg_jwt');
-    if (hasActiveSession) {
+    // TETAP DI DASHBOARD ANALISA SAAT REFRESH LAYAR (F5)
+    const stayInDashboard =
+      localStorage.getItem('xstarzg_in_dashboard') === 'true' ||
+      localStorage.getItem('xstarzg_session_active') === '1' ||
+      !!localStorage.getItem('xstarzg_jwt');
+    if (stayInDashboard) {
       showScreen('APP');
     } else {
       showScreen('FRONT');

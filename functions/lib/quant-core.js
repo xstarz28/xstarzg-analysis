@@ -1,4 +1,4 @@
-﻿export const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN', '1Y'];
+export const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN', '1Y'];
 export const SCALPING_TIMEFRAMES = ['M1', 'M5', 'M15'];
 export const STRATEGY_HORIZONS = {
   SCALPING: { id: 'SCALPING', label: 'Scalping (M1-M15)', timeframes: ['M1', 'M5', 'M15'], defaultTf: 'M5' },
@@ -36,21 +36,21 @@ export const INSTRUMENTS = [
   { symbol: 'RENDER/USDT', name: 'Render AI', assetClass: 'CRYPTO', subGroup: 'AI', binanceSymbol: 'RENDERUSDT', basePrice: 3.85, decimals: 3, spotEligible: true, investorCategory: 'GROWTH' },
   { symbol: 'TAO/USDT', name: 'Bittensor AI', assetClass: 'CRYPTO', subGroup: 'AI', binanceSymbol: 'TAOUSDT', basePrice: 265.0, decimals: 2, spotEligible: true, investorCategory: 'GROWTH' },
   { symbol: 'PEPE/USDT', name: 'Pepe Meme', assetClass: 'CRYPTO', subGroup: 'MEME', binanceSymbol: 'PEPEUSDT', basePrice: 0.0000075, decimals: 8, spotEligible: true, investorCategory: 'GROWTH' },
-  // FOREX (TRADER / MARGIN)
-  { symbol: 'EUR/USD', name: 'Euro / US Dollar', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'EURUSD=X', fxBase: 'EUR', fxQuote: 'USD', basePrice: 1.0825, decimals: 5, spotEligible: false },
-  { symbol: 'GBP/USD', name: 'British Pound / USD', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'GBPUSD=X', fxBase: 'GBP', fxQuote: 'USD', basePrice: 1.2930, decimals: 5, spotEligible: false },
-  { symbol: 'USD/JPY', name: 'US Dollar / Japanese Yen', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'JPY=X', fxBase: 'USD', fxQuote: 'JPY', basePrice: 149.20, decimals: 3, spotEligible: false },
-  { symbol: 'USD/CHF', name: 'US Dollar / Swiss Franc', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'CHF=X', fxBase: 'USD', fxQuote: 'CHF', basePrice: 0.8825, decimals: 5, spotEligible: false },
-  { symbol: 'AUD/USD', name: 'Australian Dollar / USD', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'AUDUSD=X', fxBase: 'AUD', fxQuote: 'USD', basePrice: 0.6310, decimals: 5, spotEligible: false },
-  { symbol: 'USD/CAD', name: 'US Dollar / Canadian Dollar', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'CAD=X', fxBase: 'USD', fxQuote: 'CAD', basePrice: 1.4320, decimals: 5, spotEligible: false },
-  { symbol: 'NZD/USD', name: 'New Zealand Dollar / USD', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'NZDUSD=X', fxBase: 'NZD', fxQuote: 'USD', basePrice: 0.5740, decimals: 5, spotEligible: false },
-  { symbol: 'EUR/GBP', name: 'Euro / British Pound', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'EURGBP=X', fxBase: 'EUR', fxQuote: 'GBP', basePrice: 0.8375, decimals: 5, spotEligible: false },
-  { symbol: 'EUR/JPY', name: 'Euro / Japanese Yen', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'EURJPY=X', fxBase: 'EUR', fxQuote: 'JPY', basePrice: 161.50, decimals: 3, spotEligible: false },
-  { symbol: 'GBP/JPY', name: 'British Pound / Yen', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'GBPJPY=X', fxBase: 'GBP', fxQuote: 'JPY', basePrice: 192.90, decimals: 3, spotEligible: false },
-  { symbol: 'AUD/JPY', name: 'Australian Dollar / Yen', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'AUDJPY=X', fxBase: 'AUD', fxQuote: 'JPY', basePrice: 94.15, decimals: 3, spotEligible: false },
-  { symbol: 'EUR/CHF', name: 'Euro / Swiss Franc', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'EURCHF=X', fxBase: 'EUR', fxQuote: 'CHF', basePrice: 0.9550, decimals: 5, spotEligible: false },
+  // FOREX (TRADER / MARGIN ONLY)
+  { symbol: 'EUR/USD', name: 'Euro / US Dollar', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'EURUSD=X', fxBase: 'EUR', fxQuote: 'USD', basePrice: 1.0850, decimals: 5, spotEligible: false },
+  { symbol: 'GBP/USD', name: 'British Pound / USD', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'GBPUSD=X', fxBase: 'GBP', fxQuote: 'USD', basePrice: 1.2940, decimals: 5, spotEligible: false },
+  { symbol: 'USD/JPY', name: 'US Dollar / Japanese Yen', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'JPY=X', fxBase: 'USD', fxQuote: 'JPY', basePrice: 149.10, decimals: 3, spotEligible: false },
+  { symbol: 'USD/CHF', name: 'US Dollar / Swiss Franc', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'CHF=X', fxBase: 'USD', fxQuote: 'CHF', basePrice: 0.8820, decimals: 5, spotEligible: false },
+  { symbol: 'AUD/USD', name: 'Australian Dollar / USD', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'AUDUSD=X', fxBase: 'AUD', fxQuote: 'USD', basePrice: 0.6305, decimals: 5, spotEligible: false },
+  { symbol: 'USD/CAD', name: 'US Dollar / Canadian Dollar', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'CAD=X', fxBase: 'USD', fxQuote: 'CAD', basePrice: 1.4310, decimals: 5, spotEligible: false },
+  { symbol: 'NZD/USD', name: 'New Zealand Dollar / USD', assetClass: 'FOREX', subGroup: 'MAJOR', yahooSymbol: 'NZDUSD=X', fxBase: 'NZD', fxQuote: 'USD', basePrice: 0.5735, decimals: 5, spotEligible: false },
+  { symbol: 'EUR/GBP', name: 'Euro / British Pound', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'EURGBP=X', fxBase: 'EUR', fxQuote: 'GBP', basePrice: 0.8380, decimals: 5, spotEligible: false },
+  { symbol: 'EUR/JPY', name: 'Euro / Japanese Yen', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'EURJPY=X', fxBase: 'EUR', fxQuote: 'JPY', basePrice: 161.60, decimals: 3, spotEligible: false },
+  { symbol: 'GBP/JPY', name: 'British Pound / Yen', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'GBPJPY=X', fxBase: 'GBP', fxQuote: 'JPY', basePrice: 192.95, decimals: 3, spotEligible: false },
+  { symbol: 'AUD/JPY', name: 'Australian Dollar / Yen', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'AUDJPY=X', fxBase: 'AUD', fxQuote: 'JPY', basePrice: 94.05, decimals: 3, spotEligible: false },
+  { symbol: 'EUR/CHF', name: 'Euro / Swiss Franc', assetClass: 'FOREX', subGroup: 'CROSS', yahooSymbol: 'EURCHF=X', fxBase: 'EUR', fxQuote: 'CHF', basePrice: 0.9560, decimals: 5, spotEligible: false },
   { symbol: 'USD/IDR', name: 'US Dollar / Rupiah Indonesia', assetClass: 'FOREX', subGroup: 'ASIA', yahooSymbol: 'IDR=X', fxBase: 'USD', fxQuote: 'IDR', basePrice: 16480, decimals: 0, spotEligible: false },
-  { symbol: 'USD/SGD', name: 'US Dollar / Singapore Dollar', assetClass: 'FOREX', subGroup: 'ASIA', yahooSymbol: 'SGD=X', fxBase: 'USD', fxQuote: 'SGD', basePrice: 1.3360, decimals: 4, spotEligible: false },
+  { symbol: 'USD/SGD', name: 'US Dollar / Singapore Dollar', assetClass: 'FOREX', subGroup: 'ASIA', yahooSymbol: 'SGD=X', fxBase: 'USD', fxQuote: 'SGD', basePrice: 1.3355, decimals: 4, spotEligible: false },
   // METALS
   { symbol: 'XAU/USD', name: 'Gold Spot / US Dollar', assetClass: 'METALS', subGroup: 'PRECIOUS', binanceSymbol: 'PAXGUSDT', yahooSymbol: 'GC=F', basePrice: 3025.50, decimals: 2, spotEligible: true, investorCategory: 'BLUECHIP' },
   { symbol: 'XAU/IDR', name: 'Emas Spot / Rupiah (Gram)', assetClass: 'METALS', subGroup: 'PRECIOUS', basePrice: 1603000, decimals: 0, spotEligible: true, investorCategory: 'BLUECHIP' },
@@ -96,17 +96,28 @@ export function resolveInstrument(symbolInput) {
   }
   return INSTRUMENTS[0];
 }
+// MULTI-SOURCE LIVE FX RATES (OPEN-ER + FRANKFURTER ECB)
 let fxCache = { ts: 0, rates: null };
 async function getLiveFxRates() {
   const now = Date.now();
-  if (fxCache.rates && now - fxCache.ts < 60000) return fxCache.rates;
+  if (fxCache.rates && now - fxCache.ts < 45000) return fxCache.rates;
   try {
     const res = await fetch('https://open.er-api.com/v6/latest/USD');
     if (res.ok) {
       const data = await res.json();
       if (data && data.rates) {
-        fxCache = { ts: now, rates: data.rates };
-        return data.rates;
+        fxCache = { ts: now, rates: { ...data.rates, USD: 1.0 } };
+        return fxCache.rates;
+      }
+    }
+  } catch {}
+  try {
+    const res2 = await fetch('https://api.frankfurter.app/latest?from=USD');
+    if (res2.ok) {
+      const data2 = await res2.json();
+      if (data2 && data2.rates) {
+        fxCache = { ts: now, rates: { ...data2.rates, USD: 1.0 } };
+        return fxCache.rates;
       }
     }
   } catch {}
@@ -137,50 +148,56 @@ async function fetchYahooCandles(yahooSymbol, timeframe, limit = 260) {
     '1Y':  { interval: '3mo', range: 'max' }
   };
   const cfg = tfMap[timeframe] || tfMap['H1'];
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${cfg.interval}&range=${cfg.range}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  if (!res.ok) throw new Error('Yahoo fetch failed');
-  const json = await res.json();
-  const result = json?.chart?.result?.[0];
-  if (!result || !result.timestamp || !result.indicators?.quote?.[0]) throw new Error('Invalid Yahoo payload');
-  const tsArr = result.timestamp;
-  const q = result.indicators.quote[0];
-  const liveMarketPrice = result.meta?.regularMarketPrice;
-  const rawBars = [];
-  for (let i = 0; i < tsArr.length; i++) {
-    const c = q.close?.[i];
-    const o = q.open?.[i] ?? c;
-    const h = q.high?.[i] ?? c;
-    const l = q.low?.[i] ?? c;
-    const v = q.volume?.[i] ?? 1000;
-    if (c != null && !isNaN(c) && c > 0) {
-      rawBars.push({ time: tsArr[i], open: Number(o), high: Number(h), low: Number(l), close: Number(c), volume: Number(v || 1000) });
-    }
+  const hosts = ['query2.finance.yahoo.com', 'query1.finance.yahoo.com'];
+  for (const host of hosts) {
+    try {
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${cfg.interval}&range=${cfg.range}`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const result = json?.chart?.result?.[0];
+      if (!result || !result.timestamp || !result.indicators?.quote?.[0]) continue;
+      const tsArr = result.timestamp;
+      const q = result.indicators.quote[0];
+      const liveMarketPrice = result.meta?.regularMarketPrice;
+      const rawBars = [];
+      for (let i = 0; i < tsArr.length; i++) {
+        const c = q.close?.[i];
+        const o = q.open?.[i] ?? c;
+        const h = q.high?.[i] ?? c;
+        const l = q.low?.[i] ?? c;
+        const v = q.volume?.[i] ?? 1000;
+        if (c != null && !isNaN(c) && c > 0) {
+          rawBars.push({ time: tsArr[i], open: Number(o), high: Number(h), low: Number(l), close: Number(c), volume: Number(v || 1000) });
+        }
+      }
+      if (rawBars.length < 15) continue;
+      let finalBars = rawBars;
+      if (cfg.agg && cfg.agg > 1) {
+        const aggBars = [];
+        for (let i = 0; i < rawBars.length; i += cfg.agg) {
+          const chunk = rawBars.slice(i, i + cfg.agg);
+          aggBars.push({
+            time: chunk[0].time,
+            open: chunk[0].open,
+            high: Math.max(...chunk.map(x => x.high)),
+            low: Math.min(...chunk.map(x => x.low)),
+            close: chunk[chunk.length - 1].close,
+            volume: chunk.reduce((s, x) => s + x.volume, 0)
+          });
+        }
+        finalBars = aggBars;
+      }
+      if (liveMarketPrice && liveMarketPrice > 0 && finalBars.length > 0) {
+        const last = finalBars[finalBars.length - 1];
+        last.close = Number(liveMarketPrice);
+        if (last.close > last.high) last.high = last.close;
+        if (last.close < last.low) last.low = last.close;
+      }
+      return finalBars.slice(-limit);
+    } catch {}
   }
-  if (rawBars.length < 15) throw new Error('Insufficient Yahoo bars');
-  let finalBars = rawBars;
-  if (cfg.agg && cfg.agg > 1) {
-    const aggBars = [];
-    for (let i = 0; i < rawBars.length; i += cfg.agg) {
-      const chunk = rawBars.slice(i, i + cfg.agg);
-      aggBars.push({
-        time: chunk[0].time,
-        open: chunk[0].open,
-        high: Math.max(...chunk.map(x => x.high)),
-        low: Math.min(...chunk.map(x => x.low)),
-        close: chunk[chunk.length - 1].close,
-        volume: chunk.reduce((s, x) => s + x.volume, 0)
-      });
-    }
-    finalBars = aggBars;
-  }
-  if (liveMarketPrice && liveMarketPrice > 0 && finalBars.length > 0) {
-    const last = finalBars[finalBars.length - 1];
-    last.close = Number(liveMarketPrice);
-    if (last.close > last.high) last.high = last.close;
-    if (last.close < last.low) last.low = last.close;
-  }
-  return finalBars.slice(-limit);
+  return null;
 }
 export function generateAnchoredCandles(symbol, timeframe, count = 260, exactLivePrice = null) {
   const inst = resolveInstrument(symbol);
@@ -198,7 +215,7 @@ export function generateAnchoredCandles(symbol, timeframe, count = 260, exactLiv
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   const targetPrice = (exactLivePrice && exactLivePrice > 0) ? exactLivePrice : (inst.basePrice || 100);
-  const volMap = { CRYPTO: 0.0085, FOREX: 0.0018, METALS: 0.0038, COMMODITIES: 0.0052, STOCKS: 0.0048 };
+  const volMap = { CRYPTO: 0.0085, FOREX: 0.0016, METALS: 0.0035, COMMODITIES: 0.0050, STOCKS: 0.0045 };
   const tfMult = Math.min(2.6, Math.max(0.3, Math.pow(stepSec / 3600, 0.36)));
   const sigma = (volMap[inst.assetClass] || 0.004) * tfMult;
   let price = targetPrice;
@@ -240,6 +257,7 @@ function ensureFullHistory(candles, inst, timeframe, minCount = 260) {
 }
 export async function fetchMarketCandles(symbol, timeframe = 'H1', limit = 260) {
   const inst = resolveInstrument(symbol);
+  // 1. BINANCE SPOT LIVE KLINES (CRYPTO & GOLD XAU/USD via PAXGUSDT)
   if (inst.binanceSymbol) {
     const intervalMap = { 'M1': '1m', 'M5': '5m', 'M15': '15m', 'M30': '30m', 'H1': '1h', 'H4': '4h', 'D1': '1d', 'W1': '1w', 'MN': '1M', '1Y': '1M' };
     const bInt = intervalMap[timeframe] || '1h';
@@ -262,6 +280,7 @@ export async function fetchMarketCandles(symbol, timeframe = 'H1', limit = 260) 
       }
     } catch {}
   }
+  // 2. XAU/IDR REAL-TIME GRAM CALCULATION
   if (inst.symbol === 'XAU/IDR') {
     const [goldUsd, fx] = await Promise.all([getLiveGoldSpotUsd(), getLiveFxRates()]);
     const idrRate = fx?.IDR || 16480;
@@ -270,20 +289,32 @@ export async function fetchMarketCandles(symbol, timeframe = 'H1', limit = 260) 
     const candles = generateAnchoredCandles(inst.symbol, timeframe, limit, liveGramIdr);
     return { candles, source: 'REALTIME_GOLD_IDR', instrument: inst };
   }
-  if (inst.yahooSymbol) {
-    try {
-      const yCandles = await fetchYahooCandles(inst.yahooSymbol, timeframe, limit);
-      if (yCandles && yCandles.length >= 15) {
-        return { candles: ensureFullHistory(yCandles, inst, timeframe, limit), source: 'REALTIME_MARKET_FEED', instrument: inst };
-      }
-    } catch {}
-  }
+  // 3. FOREX: GET EXACT LIVE SPOT RATE + YAHOO INTRADAY BARS
   if (inst.assetClass === 'FOREX' && inst.fxBase && inst.fxQuote) {
-    const fx = await getLiveFxRates();
-    if (fx && fx[inst.fxBase] && fx[inst.fxQuote]) {
-      const liveFxPrice = fx[inst.fxQuote] / fx[inst.fxBase];
-      const candles = generateAnchoredCandles(inst.symbol, timeframe, limit, liveFxPrice);
-      return { candles, source: 'REALTIME_FX_FEED', instrument: inst };
+    const [fx, yCandles] = await Promise.all([
+      getLiveFxRates(),
+      inst.yahooSymbol ? fetchYahooCandles(inst.yahooSymbol, timeframe, limit) : Promise.resolve(null)
+    ]);
+    const liveFxPrice = (fx && fx[inst.fxBase] && fx[inst.fxQuote]) ? Number((fx[inst.fxQuote] / fx[inst.fxBase]).toFixed(inst.decimals)) : null;
+    if (yCandles && yCandles.length >= 15) {
+      const full = ensureFullHistory(yCandles, inst, timeframe, limit);
+      if (liveFxPrice && liveFxPrice > 0) {
+        const last = full[full.length - 1];
+        last.close = liveFxPrice;
+        if (liveFxPrice > last.high) last.high = liveFxPrice;
+        if (liveFxPrice < last.low) last.low = liveFxPrice;
+      }
+      return { candles: full, source: 'REALTIME_FX_FEED', instrument: inst };
+    }
+    if (liveFxPrice && liveFxPrice > 0) {
+      return { candles: generateAnchoredCandles(inst.symbol, timeframe, limit, liveFxPrice), source: 'REALTIME_FX_FEED', instrument: inst };
+    }
+  }
+  // 4. YAHOO FINANCE LIVE V8 (STOCKS IDX/US, SILVER, OIL, COMMODITIES)
+  if (inst.yahooSymbol) {
+    const yCandles = await fetchYahooCandles(inst.yahooSymbol, timeframe, limit);
+    if (yCandles && yCandles.length >= 15) {
+      return { candles: ensureFullHistory(yCandles, inst, timeframe, limit), source: 'REALTIME_MARKET_FEED', instrument: inst };
     }
   }
   const candles = generateAnchoredCandles(inst.symbol, timeframe, limit, inst.basePrice);

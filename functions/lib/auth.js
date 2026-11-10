@@ -1,4 +1,4 @@
-﻿export const OWNER_EMAILS = ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com'];
+export const OWNER_EMAILS = ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com'];
 export const VIP_WALLET_BSC = '0xB2Da154e6619A57A2B839D7845920e55Bc58A12C';
 export const USDT_CONTRACT_BSC = '0x55d398326f99059fF775485246999027B3197955';
 export const VIP_PRICE_USDT = 29.0;

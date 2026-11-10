@@ -1,4 +1,4 @@
-﻿import { fetchMarketCandles } from '../../lib/quant-core.js';
+import { fetchMarketCandles } from '../../lib/quant-core.js';
 import { evaluateFullAnalysis } from '../../lib/signal-engine.js';
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
