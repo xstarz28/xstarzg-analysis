@@ -30,9 +30,6 @@
   };
   const TF_SECONDS = { 'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800, 'H1': 3600, 'H4': 14400, 'D1': 86400, 'W1': 604800, 'MN': 2592000, '1Y': 31536000 };
   const el = id => document.getElementById(id);
-  // ============================================================================
-  // 1. PERSISTENT NAVIGATION FLOW (NEVER LOGOUT ON F5 / SCREEN REFRESH)
-  // ============================================================================
   function showScreen(screenName) {
     const front = el('frontLandingScreen');
     const login = el('loginGateScreen');
@@ -56,7 +53,7 @@
     el('btnHeroGoLogin')?.addEventListener('click', () => showScreen('LOGIN'));
     el('btnBottomGoLogin')?.addEventListener('click', () => showScreen('LOGIN'));
     el('btnBackToFrontLanding')?.addEventListener('click', () => showScreen('FRONT'));
-    el('btnHeroQuickPreview')?.addEventListener('click', () => {
+    const enterPreview = () => {
       if (!STATE.user) {
         STATE.user = { email: 'guest@xstarzg.io', name: 'Guest Trader', tier: 'FREE' };
         localStorage.setItem('xstarzg_user_profile', JSON.stringify(STATE.user));
@@ -64,16 +61,9 @@
       localStorage.setItem('xstarzg_session_active', '1');
       updateUserTopbarUI();
       showScreen('APP');
-    });
-    el('btnSkipLoginGate')?.addEventListener('click', () => {
-      if (!STATE.user) {
-        STATE.user = { email: 'guest@xstarzg.io', name: 'Guest Trader', tier: 'FREE' };
-        localStorage.setItem('xstarzg_user_profile', JSON.stringify(STATE.user));
-      }
-      localStorage.setItem('xstarzg_session_active', '1');
-      updateUserTopbarUI();
-      showScreen('APP');
-    });
+    };
+    el('btnHeroQuickPreview')?.addEventListener('click', enterPreview);
+    el('btnSkipLoginGate')?.addEventListener('click', enterPreview);
     const btnProfile = el('btnUserSession');
     const dropdown = el('userProfileDropdown');
     if (btnProfile && dropdown) {
@@ -82,27 +72,13 @@
         dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
       });
       document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target) && e.target !== btnProfile) {
-          dropdown.style.display = 'none';
-        }
+        if (!dropdown.contains(e.target) && e.target !== btnProfile) dropdown.style.display = 'none';
       });
     }
-    el('btnMenuOpenLogin')?.addEventListener('click', () => {
-      if (dropdown) dropdown.style.display = 'none';
-      showScreen('LOGIN');
-    });
-    el('btnMenuOpenVip')?.addEventListener('click', () => {
-      if (dropdown) dropdown.style.display = 'none';
-      if (el('vipModal')) el('vipModal').style.display = 'flex';
-    });
-    el('btnMenuGoFrontPage')?.addEventListener('click', () => {
-      if (dropdown) dropdown.style.display = 'none';
-      showScreen('FRONT');
-    });
-    el('btnMenuLogout')?.addEventListener('click', () => {
-      if (dropdown) dropdown.style.display = 'none';
-      logoutUserSession();
-    });
+    el('btnMenuOpenLogin')?.addEventListener('click', () => { if (dropdown) dropdown.style.display = 'none'; showScreen('LOGIN'); });
+    el('btnMenuOpenVip')?.addEventListener('click', () => { if (dropdown) dropdown.style.display = 'none'; if (el('vipModal')) el('vipModal').style.display = 'flex'; });
+    el('btnMenuGoFrontPage')?.addEventListener('click', () => { if (dropdown) dropdown.style.display = 'none'; showScreen('FRONT'); });
+    el('btnMenuLogout')?.addEventListener('click', () => { if (dropdown) dropdown.style.display = 'none'; logoutUserSession(); });
   }
   function updateUserTopbarUI() {
     const lblTop = el('lblUserStatus');
@@ -129,17 +105,7 @@
     STATE.user = null;
     updateUserTopbarUI();
     showScreen('LOGIN');
-    if (STATE.googleClientId && window.google?.accounts?.id) {
-      const gateBtn = el('googleSignInGateBtn');
-      if (gateBtn) {
-        gateBtn.innerHTML = '';
-        window.google.accounts.id.renderButton(gateBtn, { theme: 'filled_blue', size: 'large', width: 280 });
-      }
-    }
   }
-  // ============================================================================
-  // 2. TRADINGVIEW CHART ENGINE
-  // ============================================================================
   function initChart() {
     const container = el('tvChartContainer');
     if (!container || !window.LightweightCharts) return;
@@ -148,10 +114,7 @@
       width: container.clientWidth || 850,
       height: 470,
       layout: { background: { type: 'solid', color: '#070b14' }, textColor: '#94a3b8', fontSize: 11 },
-      grid: {
-        vertLines: { color: 'rgba(148, 163, 184, 0.04)' },
-        horzLines: { color: 'rgba(148, 163, 184, 0.04)' }
-      },
+      grid: { vertLines: { color: 'rgba(148, 163, 184, 0.04)' }, horzLines: { color: 'rgba(148, 163, 184, 0.04)' } },
       crosshair: { mode: window.LightweightCharts.CrosshairMode.Normal },
       rightPriceScale: { borderColor: 'rgba(148, 163, 184, 0.14)', scaleMargins: { top: 0.12, bottom: 0.15 } },
       timeScale: { borderColor: 'rgba(148, 163, 184, 0.14)', timeVisible: true, secondsVisible: false, rightOffset: 8, barSpacing: 9 }
@@ -161,33 +124,27 @@
       borderUpColor: '#10b981', borderDownColor: '#f43f5e',
       wickUpColor: '#10b981', wickDownColor: '#f43f5e'
     });
-    const cleanLineOpts = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false };
-    STATE.lineSeries.ema20  = STATE.chart.addLineSeries({ ...cleanLineOpts, color: '#38bdf8', lineWidth: 1 });
-    STATE.lineSeries.ema50  = STATE.chart.addLineSeries({ ...cleanLineOpts, color: '#f59e0b', lineWidth: 1 });
-    STATE.lineSeries.ema200 = STATE.chart.addLineSeries({ ...cleanLineOpts, color: '#a855f7', lineWidth: 2 });
-    STATE.lineSeries.vwap   = STATE.chart.addLineSeries({ ...cleanLineOpts, color: '#eab308', lineWidth: 1, lineStyle: 2 });
-    STATE.lineSeries.bbUp   = STATE.chart.addLineSeries({ ...cleanLineOpts, color: 'rgba(148,163,184,0.35)', lineWidth: 1, lineStyle: 2 });
-    STATE.lineSeries.bbLow  = STATE.chart.addLineSeries({ ...cleanLineOpts, color: 'rgba(148,163,184,0.35)', lineWidth: 1, lineStyle: 2 });
+    const cleanOpts = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false };
+    STATE.lineSeries.ema20  = STATE.chart.addLineSeries({ ...cleanOpts, color: '#38bdf8', lineWidth: 1 });
+    STATE.lineSeries.ema50  = STATE.chart.addLineSeries({ ...cleanOpts, color: '#f59e0b', lineWidth: 1 });
+    STATE.lineSeries.ema200 = STATE.chart.addLineSeries({ ...cleanOpts, color: '#a855f7', lineWidth: 2 });
+    STATE.lineSeries.vwap   = STATE.chart.addLineSeries({ ...cleanOpts, color: '#eab308', lineWidth: 1, lineStyle: 2 });
+    STATE.lineSeries.bbUp   = STATE.chart.addLineSeries({ ...cleanOpts, color: 'rgba(148,163,184,0.35)', lineWidth: 1, lineStyle: 2 });
+    STATE.lineSeries.bbLow  = STATE.chart.addLineSeries({ ...cleanOpts, color: 'rgba(148,163,184,0.35)', lineWidth: 1, lineStyle: 2 });
     STATE.chart.subscribeCrosshairMove(param => {
       if (!param || !param.time || !param.seriesData) return;
       const bar = param.seriesData.get(STATE.candleSeries);
       if (bar) updateFloatingLegend(bar);
     });
     window.addEventListener('resize', () => {
-      if (STATE.chart && container.clientWidth > 0) {
-        STATE.chart.applyOptions({ width: container.clientWidth });
-      }
+      if (STATE.chart && container.clientWidth > 0) STATE.chart.applyOptions({ width: container.clientWidth });
     });
     el('btnResetChartZoom')?.addEventListener('click', () => focusCleanTradingViewZoom());
   }
   function focusCleanTradingViewZoom() {
     if (!STATE.chart || !STATE.lastCandles || STATE.lastCandles.length < 10) return;
     const total = STATE.lastCandles.length;
-    const visibleBars = Math.min(85, total);
-    STATE.chart.timeScale().setVisibleLogicalRange({
-      from: total - visibleBars,
-      to: total + 6
-    });
+    STATE.chart.timeScale().setVisibleLogicalRange({ from: total - Math.min(85, total), to: total + 6 });
   }
   function updateFloatingLegend(bar) {
     if (!bar) return;
@@ -200,9 +157,7 @@
   }
   function clearPriceLines() {
     if (!STATE.candleSeries) return;
-    STATE.priceLines.forEach(pl => {
-      try { STATE.candleSeries.removePriceLine(pl); } catch {}
-    });
+    STATE.priceLines.forEach(pl => { try { STATE.candleSeries.removePriceLine(pl); } catch {} });
     STATE.priceLines = [];
   }
   function renderChartOverlays(analysis) {
@@ -225,15 +180,11 @@
     const kl = ov.keyLevels;
     if (!kl) return;
     const addLine = (price, title, color, lineStyle = 2, lineWidth = 1) => {
-      if (price === undefined || price === null || isNaN(price)) return;
-      const pl = STATE.candleSeries.createPriceLine({
-        price: Number(price), color, lineWidth, lineStyle, axisLabelVisible: true, title
-      });
+      if (price == null || isNaN(price)) return;
+      const pl = STATE.candleSeries.createPriceLine({ price: Number(price), color, lineWidth, lineStyle, axisLabelVisible: true, title });
       STATE.priceLines.push(pl);
     };
-    if (STATE.overlays.smc) {
-      addLine(kl.poc, 'POC', '#eab308', 2, 1);
-    }
+    if (STATE.overlays.smc) addLine(kl.poc, 'POC', '#eab308', 2, 1);
     if (STATE.mode === 'TRADER') {
       addLine(kl.entryPrice, 'ENTRY', '#38bdf8', 0, 2);
       addLine(kl.stopLoss, 'STOP LOSS', '#f43f5e', 0, 2);
@@ -245,22 +196,10 @@
       addLine(analysis.spotPlan.dcaZones[2].price, 'SPOT DCA 3 (25%)', '#eab308', 2, 1);
     }
   }
-  // ============================================================================
-  // 3. REAL-TIME PRICE STREAM (ZERO RANDOM DRIFT AWAY FROM REAL MARKET PRICE)
-  // ============================================================================
   function startRealtimeCandleStream(symbol, decimals = 2) {
-    if (STATE.ws) {
-      try { STATE.ws.close(); } catch {}
-      STATE.ws = null;
-    }
-    if (STATE.livePollTimer) {
-      clearInterval(STATE.livePollTimer);
-      STATE.livePollTimer = null;
-    }
-    if (STATE.countdownTimer) {
-      clearInterval(STATE.countdownTimer);
-      STATE.countdownTimer = null;
-    }
+    if (STATE.ws) { try { STATE.ws.close(); } catch {} STATE.ws = null; }
+    if (STATE.livePollTimer) { clearInterval(STATE.livePollTimer); STATE.livePollTimer = null; }
+    if (STATE.countdownTimer) { clearInterval(STATE.countdownTimer); STATE.countdownTimer = null; }
     const applyRealtimeTick = (newPrice) => {
       if (!STATE.candleSeries || !STATE.lastCandles || STATE.lastCandles.length === 0) return;
       const lastBar = STATE.lastCandles[STATE.lastCandles.length - 1];
@@ -279,13 +218,7 @@
         priceEl.classList.add(roundedPrice >= prevClose ? 'flash-up' : 'flash-dn');
       }
     };
-    // Map Crypto, XAU/USD (PAXGUSDT), EUR/USD (EURUSDT), GBP/USD (GBPUSDT), AUD/USD (AUDUSDT) to Binance WebSocket
-    const wsPairMap = {
-      'XAU/USD': 'paxgusdt',
-      'EUR/USD': 'eurusdt',
-      'GBP/USD': 'gbpusdt',
-      'AUD/USD': 'audusdt'
-    };
+    const wsPairMap = { 'XAU/USD': 'paxgusdt', 'EUR/USD': 'eurusdt', 'GBP/USD': 'gbpusdt', 'AUD/USD': 'audusdt' };
     const cleanSym = symbol.replace('/', '').toLowerCase();
     const wsPair = wsPairMap[symbol] || (cleanSym.endsWith('usdt') ? cleanSym : null);
     if (wsPair) {
@@ -301,22 +234,18 @@
         STATE.ws = ws;
       } catch {}
     }
-    // Periodic Server Live Market Sync (every 12 seconds) for ALL Instruments
     STATE.livePollTimer = setInterval(async () => {
       try {
         const res = await fetch(`/api/market/ohlcv?symbol=${encodeURIComponent(STATE.symbol)}&tf=${STATE.timeframe}&limit=5`);
         if (res.ok) {
           const data = await res.json();
           if (data.ok && data.candles?.length > 0) {
-            const latestServerBar = data.candles[data.candles.length - 1];
-            if (latestServerBar && latestServerBar.close > 0) {
-              applyRealtimeTick(latestServerBar.close);
-            }
+            const latestBar = data.candles[data.candles.length - 1];
+            if (latestBar && latestBar.close > 0) applyRealtimeTick(latestBar.close);
           }
         }
       } catch {}
     }, 12000);
-    // Live Candle Close Countdown Timer
     const tfSec = TF_SECONDS[STATE.timeframe] || 3600;
     STATE.countdownTimer = setInterval(() => {
       const nowSec = Math.floor(Date.now() / 1000);
@@ -326,20 +255,15 @@
       const secs = rem % 60;
       const pad = n => String(n).padStart(2, '0');
       const str = hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
-      if (el('lblCandleCountdown')) el('lblCandleCountdown').textContent = `⏱ ${ STATE.timeframe } Close: ${str}`;
+      if (el('lblCandleCountdown')) el('lblCandleCountdown').textContent = `⏱ ${STATE.timeframe} Close: ${str}`;
     }, 1000);
   }
-  // ============================================================================
-  // 4. INSTRUMENT SELECTOR & SPOT INVESTOR CATALOG FILTERING
-  // ============================================================================
   async function loadInstrumentCatalog() {
     try {
       const res = await fetch('/api/market/instruments');
       const data = await res.json();
-      if (data.ok && Array.isArray(data.instruments)) {
-        STATE.catalog = data.instruments;
-      }
-    } catch (e) {}
+      if (data.ok && Array.isArray(data.instruments)) STATE.catalog = data.instruments;
+    } catch {}
     populateInstrumentSelect();
     loadAllBinanceUsdtPairs();
   }
@@ -356,11 +280,8 @@
           const base = t.symbol.slice(0, -4);
           if (base.length >= 2 && !base.includes('UP') && !base.includes('DOWN')) {
             extras.push({
-              symbol: `${base}/USDT`,
-              name: `${base} Spot (Binance)`,
-              assetClass: 'CRYPTO',
-              subGroup: 'BINANCE_ALL',
-              binanceSymbol: t.symbol,
+              symbol: `${base}/USDT`, name: `${base} Spot (Binance)`, assetClass: 'CRYPTO',
+              subGroup: 'BINANCE_ALL', binanceSymbol: t.symbol,
               basePrice: parseFloat(t.price) || 1.0,
               decimals: parseFloat(t.price) < 0.01 ? 6 : (parseFloat(t.price) < 1 ? 4 : 2),
               spotEligible: true
@@ -379,10 +300,8 @@
     const q = filterText.trim().toUpperCase();
     let list = [...STATE.catalog];
     if (q.length >= 2 && (STATE.assetClass === 'ALL' || STATE.assetClass === 'CRYPTO')) {
-      const matchedExtras = STATE.binancePairs.filter(p => p.symbol.includes(q)).slice(0, 60);
-      list = [...list, ...matchedExtras];
+      list = [...list, ...STATE.binancePairs.filter(p => p.symbol.includes(q)).slice(0, 60)];
     }
-    // In SPOT INVESTOR mode, filter out non-spot leveraged Forex/CFD instruments
     if (STATE.mode === 'SPOT_INVESTOR') {
       list = list.filter(i => i.spotEligible !== false && i.assetClass !== 'FOREX');
     }
@@ -399,15 +318,11 @@
       if (inst.symbol === STATE.symbol) opt.selected = true;
       sel.appendChild(opt);
     });
-    // If current symbol was a Forex pair and user switched to SPOT INVESTOR mode, auto-select a Spot asset (e.g. XAU/USD or BBCA.JK)
     if (STATE.mode === 'SPOT_INVESTOR' && filtered.length > 0 && !filtered.some(i => i.symbol === STATE.symbol)) {
       STATE.symbol = filtered[0].symbol;
       sel.value = STATE.symbol;
     }
   }
-  // ============================================================================
-  // 5. TIMEFRAMES, STRATEGY HORIZON & MODE SWITCHING (TRADER VS SPOT INVESTOR)
-  // ============================================================================
   function renderTimeframeBar() {
     const bar = el('timeframeBar');
     if (!bar) return;
@@ -455,9 +370,6 @@
       });
     });
   }
-  // ============================================================================
-  // 6. FULL MARKET ANALYSIS & UI RENDERING
-  // ============================================================================
   async function loadMarketAndAnalyze() {
     try {
       const url = `/api/analysis/full?symbol=${encodeURIComponent(STATE.symbol)}&tf=${STATE.timeframe}&mode=${STATE.mode}`;
@@ -474,9 +386,7 @@
       renderChartOverlays(data.analysis);
       renderAnalysisPanels(data.analysis);
       startRealtimeCandleStream(data.analysis.symbol, data.analysis.decimals ?? 2);
-    } catch (err) {
-      console.error('Analysis error:', err);
-    }
+    } catch {}
   }
   function renderAnalysisPanels(a) {
     const d = a.decimals ?? 2;
@@ -517,10 +427,7 @@
         </div>
         ${sp.dcaZones.map(z => `
           <div class="dca-stage-item">
-            <div>
-              <strong>${z.stage}</strong>
-              <span>${z.note}</span>
-            </div>
+            <div><strong>${z.stage}</strong><span>${z.note}</span></div>
             <div class="dca-price">${fmt(z.price)}</div>
           </div>
         `).join('')}
@@ -546,8 +453,7 @@
     const f = a.fundamental || {};
     const fGrid = el('fundamentalDetailGrid');
     if (fGrid) {
-      const fBias = el('lblFundamentalBias');
-      if (fBias) fBias.textContent = f.summaryBias || 'FUNDAMENTAL & COT ACTIVE';
+      if (el('lblFundamentalBias')) el('lblFundamentalBias').textContent = f.summaryBias || 'FUNDAMENTAL & COT ACTIVE';
       fGrid.innerHTML = `
         <div class="fund-row"><strong>1. Posisi CFTC COT (Non-Commercial vs Commercial Hedgers)</strong><p>${f.cotPositioning}</p></div>
         <div class="fund-row"><strong>2. Kontrak Bersih Spekulan Besar (Net Speculative Positioning)</strong><p>${f.cotNetSpec}</p></div>
@@ -639,15 +545,10 @@
       });
     } catch {}
   }
-  // ============================================================================
-  // 7. GOOGLE AUTH & VIP MODAL ($29 / MONTH)
-  // ============================================================================
   async function initAuthAndVip() {
     const savedJwt = localStorage.getItem('xstarzg_jwt');
     const savedUser = localStorage.getItem('xstarzg_user_profile');
-    if (savedUser) {
-      try { STATE.user = JSON.parse(savedUser); } catch {}
-    }
+    if (savedUser) { try { STATE.user = JSON.parse(savedUser); } catch {} }
     updateUserTopbarUI();
     try {
       const cfgRes = await fetch('/api/auth/config');
@@ -657,14 +558,9 @@
         const waitGoogle = setInterval(() => {
           if (window.google?.accounts?.id) {
             clearInterval(waitGoogle);
-            window.google.accounts.id.initialize({
-              client_id: cfg.googleClientId,
-              callback: handleGoogleCredential
-            });
+            window.google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: handleGoogleCredential });
             const gateBtn = el('googleSignInGateBtn');
-            if (gateBtn) {
-              window.google.accounts.id.renderButton(gateBtn, { theme: 'filled_blue', size: 'large', width: 280 });
-            }
+            if (gateBtn) window.google.accounts.id.renderButton(gateBtn, { theme: 'filled_blue', size: 'large', width: 280 });
           }
         }, 300);
       }
@@ -683,12 +579,8 @@
         }
       } catch {}
     }
-    el('btnOpenVipModal')?.addEventListener('click', () => {
-      if (el('vipModal')) el('vipModal').style.display = 'flex';
-    });
-    el('btnCloseVipModal')?.addEventListener('click', () => {
-      if (el('vipModal')) el('vipModal').style.display = 'none';
-    });
+    el('btnOpenVipModal')?.addEventListener('click', () => { if (el('vipModal')) el('vipModal').style.display = 'flex'; });
+    el('btnCloseVipModal')?.addEventListener('click', () => { if (el('vipModal')) el('vipModal').style.display = 'none'; });
     el('btnCopyVipWallet')?.addEventListener('click', () => {
       const addr = el('vipWalletAddress')?.textContent?.trim();
       if (addr && navigator.clipboard) {
@@ -703,8 +595,7 @@
   async function handleGoogleCredential(response) {
     try {
       const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: response.credential })
       });
       const data = await res.json();
@@ -731,8 +622,7 @@
     try {
       const token = localStorage.getItem('xstarzg_jwt') || '';
       const res = await fetch('/api/billing/verify-bsc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ txHash })
       });
       const data = await res.json();
@@ -745,7 +635,7 @@
           updateUserTopbarUI();
         }
       } else {
-        msg.textContent = `❌ Verifikasi Gagal: ${data.error || 'TxHash tidak ditemukan / belum konfirmasi.'}`;
+        msg.textContent = `❌ Verifikasi Gagal: ${data.error || 'TxHash tidak ditemukan.'}`;
         msg.style.color = '#f43f5e';
       }
     } catch {
@@ -753,9 +643,6 @@
       msg.style.color = '#f43f5e';
     }
   }
-  // ============================================================================
-  // 8. EVENT LISTENERS & INITIALIZATION
-  // ============================================================================
   function bindEvents() {
     document.querySelectorAll('#assetClassTabs .asset-tab').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -777,18 +664,12 @@
       loadMarketAndAnalyze();
     });
     const searchInp = el('customTickerSearch');
-    searchInp?.addEventListener('input', e => {
-      populateInstrumentSelect(e.target.value);
-    });
+    searchInp?.addEventListener('input', e => populateInstrumentSelect(e.target.value));
     el('btnLoadCustomTicker')?.addEventListener('click', () => {
       const raw = (searchInp?.value || '').trim().toUpperCase();
       if (!raw) return;
       const sel = el('instrumentSelect');
-      if (sel && sel.options.length > 0) {
-        STATE.symbol = sel.options[0].value;
-      } else {
-        STATE.symbol = raw.includes('/') ? raw : (raw.endsWith('USDT') ? raw.replace('USDT', '/USDT') : `${raw}/USDT`);
-      }
+      STATE.symbol = (sel && sel.options.length > 0) ? sel.options[0].value : (raw.includes('/') ? raw : `${raw}/USDT`);
       localStorage.setItem('xstarzg_last_symbol', STATE.symbol);
       loadMarketAndAnalyze();
     });
@@ -846,7 +727,6 @@
     setupNavigationAndProfileMenu();
     initChart();
     bindEvents();
-    // Restore Mode UI Buttons
     if (STATE.mode === 'SPOT_INVESTOR') {
       el('btnModeSpot')?.classList.add('active');
       el('btnModeTrader')?.classList.remove('active');
@@ -856,7 +736,6 @@
     }
     renderTimeframeBar();
     updateRadarTabsForMode();
-    // AUTO-RESTORE WORKSPACE SESSION ON F5 / PAGE REFRESH
     const hasActiveSession = localStorage.getItem('xstarzg_session_active') === '1' || !!localStorage.getItem('xstarzg_jwt');
     if (hasActiveSession) {
       showScreen('APP');
