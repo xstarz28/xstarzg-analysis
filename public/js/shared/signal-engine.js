@@ -3,7 +3,6 @@ import {
   detectSwingsNoLookahead, calcVolumeProfile, HORIZON_GROUPS
 } from './quant-core.js';
 function buildCftcCotAndFundamental(meta, lastPrice, trendScore, rsiVal, volPct) {
-  // Deterministic institutional CFTC COT & Fundamental synthesis anchored to instrument & price state
   let seed = 0;
   for (let i = 0; i < meta.symbol.length; i++) seed = (seed * 31 + meta.symbol.charCodeAt(i)) % 10000;
   const biasShift = Math.round((trendScore - 50) * 0.45);
@@ -93,7 +92,6 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const macdHist = macdObj.hist[lastIdx] || 0;
   const prevMacdHist = macdObj.hist[Math.max(0, lastIdx - 1)] || 0;
   const bbWidth = bbObj.widthPct[lastIdx] || 2.0;
-  // Sub-scores (0 - 100)
   let trendScore = 50;
   if (lastPrice > ema20) trendScore += 14; else trendScore -= 14;
   if (ema20 > ema50) trendScore += 18; else trendScore -= 18;
@@ -127,7 +125,6 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   let direction = 'NEUTRAL';
   if (confluenceScore >= 57) direction = 'LONG';
   else if (confluenceScore <= 43) direction = 'SHORT';
-  // Spot Investor Mode Transformation
   let investorStatus = 'HOLD / WAIT VALUE';
   if (mode === 'investor') {
     if (direction === 'SHORT') {
@@ -139,7 +136,6 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       investorStatus = 'GRADUAL DCA ACCUMULATION (Cicil Bertahap)';
     }
   }
-  // Horizon multiplier for targets
   const tfMult = timeframe === 'M1' || timeframe === 'M5' ? 1.15 : timeframe === 'M15' || timeframe === 'M30' ? 1.35 : timeframe === 'H1' || timeframe === 'H4' ? 1.65 : 2.1;
   const riskDist = atr * tfMult;
   const isBear = direction === 'SHORT';
@@ -149,7 +145,6 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const tp2 = isBear ? entry - riskDist * 2.5 : entry + riskDist * 2.5;
   const tp3 = isBear ? entry - riskDist * 4.0 : entry + riskDist * 4.0;
   const rrRatio = 2.5;
-  // Spot Investor 3-Tier DCA & Cycle Valuation Blueprint
   const dcaZone1 = lastPrice * 0.992;
   const dcaZone2 = Math.min(lastPrice * 0.965, vp.val || lastPrice * 0.96);
   const dcaZone3 = Math.min(lastPrice * 0.925, lastSwingLow || lastPrice * 0.92);
@@ -157,9 +152,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const invTarget2 = lastPrice * 1.28;
   const invTarget3 = lastPrice * 1.55;
   const invInvalidation = lastPrice * 0.86;
-  // Honest Walk-Forward Backtest (Zero Look-Ahead + Same-Candle SL Rule + Fee Deduction)
   const backtest = runWalkForwardBacktest(candles, ema20Arr, ema50Arr, rsiArr, atrArr, meta.assetClass === 'crypto', timeframe);
-  // Fundamental + CFTC COT Institutional Matrix
   const fundamentalCot = buildCftcCotAndFundamental(meta, lastPrice, trendScore, rsi, atrPct);
   const reasons = [
     `[Struktur ${timeframe}] ${structureTag} | Harga terhadap POC Volume Profile (${formatSmartPrice(vp.poc)}).`,
@@ -219,7 +212,7 @@ function formatSmartPrice(v) {
   if (a >= 1) return v.toFixed(3);
   return v.toFixed(6);
 }
-function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto, timeframe) {
+export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto, timeframe) {
   if (timeframe === 'MN' || timeframe === '1Y') {
     return { disabled: true, reason: 'INSUFFICIENT_MACRO_BARS', sampleSize: 0, winRate: 0, expectancyR: 0, profitFactor: 0, maxDrawdownR: 0, weakEvidence: true };
   }
@@ -241,7 +234,7 @@ function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto, timef
       const bar = candles[k];
       const hitSL = dir === 1 ? bar.low <= sl : bar.high >= sl;
       const hitTP = dir === 1 ? bar.high >= tp : bar.low <= tp;
-      if (hitSL && hitTP) { outcomeR = -1.0 - feeR; break; } // Conservative same-candle rule
+      if (hitSL && hitTP) { outcomeR = -1.0 - feeR; break; }
       if (hitSL) { outcomeR = -1.0 - feeR; break; }
       if (hitTP) { outcomeR = 1.8 - feeR; break; }
     }
@@ -273,3 +266,7 @@ function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto, timef
     weakEvidence
   };
 }
+// Legacy Export Aliases so all Cloudflare Pages Functions compile cleanly
+export const computeSignal = runFullAnalysis;
+export const computeFullSignal = runFullAnalysis;
+export const analyzeCandles = runFullAnalysis;

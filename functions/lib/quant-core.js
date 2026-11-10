@@ -10,6 +10,10 @@ export const TIMEFRAMES = [
   { id: 'MN', label: '1M', seconds: 2592000, horizon: 'macro', bars: 120 },
   { id: '1Y', label: '1Y', seconds: 31536000, horizon: 'macro', bars: 40 }
 ];
+export const TIMEFRAME_SECONDS = {
+  M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800, MN: 2592000, '1Y': 31536000
+};
+export const SCALPING_TIMEFRAMES = ['M1', 'M5', 'M15'];
 export const HORIZON_GROUPS = {
   scalping: { id: 'scalping', label: '⚡ SCALPING', tfs: ['M1', 'M5', 'M15'], defaultTf: 'M5', desc: 'Eksekusi cepat M1-M15 (Momentum & Orderflow)' },
   intraday: { id: 'intraday', label: '🎯 INTRADAY', tfs: ['M15', 'M30', 'H1'], defaultTf: 'M30', desc: 'Target harian M15-H1 (Session Breakout & VWAP)' },
@@ -38,7 +42,7 @@ const mkStock = (sym, name, basePrice, region = 'US') => ({
   isRealtime: true, delayMinutes: 0, basePrice, cotCategory: 'CFTC_EQUITY_INDEX'
 });
 export const DEFAULT_INSTRUMENTS = [
-  // ==================== CRYPTO (55 Major + Dynamic Search Supports 1,500+ Pairs) ====================
+  // CRYPTO (55 Major + Live Search Supports 1,500+ Pairs)
   mkCrypto('BTC', 'Bitcoin', 94500), mkCrypto('ETH', 'Ethereum', 2780), mkCrypto('SOL', 'Solana', 192),
   mkCrypto('BNB', 'BNB Chain', 655), mkCrypto('XRP', 'Ripple XRP', 2.55), mkCrypto('ADA', 'Cardano', 0.82),
   mkCrypto('DOGE', 'Dogecoin', 0.26), mkCrypto('AVAX', 'Avalanche', 26.4), mkCrypto('LINK', 'Chainlink', 18.9),
@@ -58,7 +62,7 @@ export const DEFAULT_INSTRUMENTS = [
   mkCrypto('GRT', 'The Graph', 0.14), mkCrypto('SAND', 'The Sandbox', 0.38), mkCrypto('MANA', 'Decentraland', 0.34),
   mkCrypto('AXS', 'Axie Infinity', 4.40), mkCrypto('GALA', 'Gala Games', 0.023), mkCrypto('JASMY', 'JasmyCoin', 0.022),
   mkCrypto('TRUMP', 'Official Trump', 17.50),
-  // ==================== FOREX (28 Pairs: Majors, Minors, Crosses & Asia/IDR) ====================
+  // FOREX (28 Pairs: Majors, Minors, Crosses & Asia/IDR)
   mkForex('EUR/USD', 'Euro / US Dollar', 1.0485), mkForex('GBP/USD', 'British Pound / US Dollar', 1.2590),
   mkForex('USD/JPY', 'US Dollar / Japanese Yen', 151.40), mkForex('USD/IDR', 'US Dollar / Rupiah Indonesia', 16285),
   mkForex('AUD/USD', 'Australian Dollar / US Dollar', 0.6365), mkForex('USD/CAD', 'US Dollar / Canadian Dollar', 1.4190),
@@ -73,13 +77,13 @@ export const DEFAULT_INSTRUMENTS = [
   mkForex('AUD/NZD', 'Australian Dollar / New Zealand Dollar', 1.1085), mkForex('USD/SGD', 'US Dollar / Singapore Dollar', 1.3420),
   mkForex('USD/CNH', 'US Dollar / Offshore Yuan China', 7.2650), mkForex('USD/THB', 'US Dollar / Thai Baht', 33.85),
   mkForex('USD/MXN', 'US Dollar / Mexican Peso', 20.35), mkForex('USD/ZAR', 'US Dollar / South African Rand', 18.40),
-  // ==================== METALS (10 Precious & Industrial Metals) ====================
+  // METALS (10 Precious & Industrial Metals)
   mkMetal('XAU/USD', 'Gold Spot / Emas Dunia (USD)', 2915.0), mkMetal('XAU/IDR', 'Emas Spot / Gram (IDR Proxy)', 1528000),
   mkMetal('XAG/USD', 'Silver Spot / Perak (USD)', 32.65), mkMetal('XPT/USD', 'Platinum Spot (USD)', 988.0),
   mkMetal('XPD/USD', 'Palladium Spot (USD)', 975.0), mkMetal('HG/USD', 'Copper LME / Tembaga (USD/lb)', 4.58),
   mkMetal('NI/USD', 'Nickel LME / Nikel (USD/Ton)', 15680), mkMetal('SN/USD', 'Tin LME / Timah (USD/Ton)', 31450),
   mkMetal('AL/USD', 'Aluminum LME (USD/Ton)', 2640), mkMetal('LI/USD', 'Lithium Carbonate (USD/Ton)', 10850),
-  // ==================== COMMODITIES & CFTC FUTURES (16 Energy, Nusantara & Agriculture) ====================
+  // COMMODITIES & CFTC FUTURES (16 Energy, Nusantara & Agriculture)
   mkComm('WTI', 'WTI Crude Oil / Minyak Mentah AS', 71.20, 'USO'),
   mkComm('BRENT', 'Brent Crude Oil / Minyak Global', 75.10, 'BNO'),
   mkComm('NATGAS', 'Henry Hub Natural Gas / Gas Alam', 3.75, 'UNG'),
@@ -96,7 +100,7 @@ export const DEFAULT_INSTRUMENTS = [
   mkComm('COTTON', 'CFTC ICE Cotton / Kapas', 68.40, 'BAL'),
   mkComm('CATTLE', 'CFTC CME Live Cattle Futures', 196.50, 'COW'),
   mkComm('LUMBER', 'Random Length Lumber / Kayu', 585.0, 'WOOD'),
-  // ==================== SAHAM INDONESIA (IDX LQ45 & Sektoral Unggulan) ====================
+  // SAHAM INDONESIA (IDX LQ45 & Sektoral Unggulan)
   mkStock('IHSG', 'Indeks Harga Saham Gabungan (JKSE)', 6825, 'ID'),
   mkStock('BBCA.JK', 'Bank Central Asia Tbk (Rp)', 9350, 'ID'),
   mkStock('BBRI.JK', 'Bank Rakyat Indonesia Tbk (Rp)', 4120, 'ID'),
@@ -127,7 +131,7 @@ export const DEFAULT_INSTRUMENTS = [
   mkStock('SMGR.JK', 'Semen Indonesia (Persero) Tbk (Rp)', 2890, 'ID'),
   mkStock('BSDE.JK', 'Bumi Serpong Damai Tbk (Rp)', 945, 'ID'),
   mkStock('BUKA.JK', 'Bukalapak.com Tbk (Rp)', 128, 'ID'),
-  // ==================== SAHAM AMERIKA SERIKAT (US Wall Street & Indices) ====================
+  // SAHAM AMERIKA SERIKAT (US Wall Street & Indices)
   mkStock('SPY', 'S&P 500 Index ETF', 604.5, 'US'),
   mkStock('QQQ', 'Nasdaq 100 Tech ETF', 528.2, 'US'),
   mkStock('DIA', 'Dow Jones Industrial ETF', 442.8, 'US'),
@@ -150,7 +154,7 @@ export const DEFAULT_INSTRUMENTS = [
   mkStock('PLTR', 'Palantir Technologies', 112.4, 'US'),
   mkStock('COIN', 'Coinbase Global Inc.', 274.0, 'US'),
   mkStock('MSTR', 'Strategy / MicroStrategy', 332.0, 'US'),
-  // ==================== SAHAM & INDEKS GLOBAL (Asia, Eropa, Timur Tengah) ====================
+  // SAHAM & INDEKS GLOBAL (Asia, Eropa, Timur Tengah)
   mkStock('JP225', 'Nikkei 225 Index (Jepang)', 38950, 'JP'),
   mkStock('7203.T', 'Toyota Motor Corp (JPY)', 2845, 'JP'),
   mkStock('6758.T', 'Sony Group Corp (JPY)', 3480, 'JP'),
@@ -170,7 +174,6 @@ export const DEFAULT_INSTRUMENTS = [
   mkStock('SE', 'Sea Limited / Shopee (Asia)', 126.4, 'SG'),
   mkStock('2222.SR', 'Saudi Aramco (Arab Saudi SAR)', 27.85, 'SA')
 ];
-// Dynamic Registry so users can add any of the 1,500+ Binance crypto pairs on the fly
 export function registerDynamicInstrument(inst) {
   if (!inst || !inst.symbol) return;
   const exists = DEFAULT_INSTRUMENTS.find(i => i.symbol.toUpperCase() === inst.symbol.toUpperCase());
@@ -202,13 +205,13 @@ export function calcEMA(values, period) {
   const res = new Array(values.length).fill(null);
   if (values.length < period) return res;
   const k = 2 / (period + 1);
-  let ema = 0;
-  for (let i = 0; i < period; i++) ema += values[i];
-  ema /= period;
-  res[period - 1] = ema;
+  let emaVal = 0;
+  for (let i = 0; i < period; i++) emaVal += values[i];
+  emaVal /= period;
+  res[period - 1] = emaVal;
   for (let i = period; i < values.length; i++) {
-    ema = values[i] * k + ema * (1 - k);
-    res[i] = ema;
+    emaVal = values[i] * k + emaVal * (1 - k);
+    res[i] = emaVal;
   }
   return res;
 }
@@ -307,3 +310,63 @@ export function calcVolumeProfile(candles, bins = 24) {
   const val = minP + Math.max(0, pocIdx - 4) * step;
   return { poc, vah, val };
 }
+export function generateInstitutionalSeries(metaOrSymbol, tfId = 'H1', count = 300) {
+  const meta = typeof metaOrSymbol === 'string' ? getInstrumentMeta(metaOrSymbol) : (metaOrSymbol || DEFAULT_INSTRUMENTS[0]);
+  const tfObj = TIMEFRAMES.find(t => t.id === tfId) || TIMEFRAMES[4];
+  const stepSec = tfObj.seconds;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const alignedNow = nowSec - (nowSec % stepSec);
+  let seed = 2166136261;
+  const key = `${meta.symbol}_${tfId}`;
+  for (let i = 0; i < key.length; i++) {
+    seed ^= key.charCodeAt(i);
+    seed = Math.imul(seed, 16777619);
+  }
+  const rand = () => {
+    seed += 0x6D2B79F5;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const base = meta.basePrice || 100;
+  const volScale = meta.assetClass === 'forex' ? 0.0022 : meta.assetClass === 'metals' ? 0.0045 : meta.assetClass === 'crypto' ? 0.0095 : 0.006;
+  const tfFactor = Math.max(0.25, Math.min(3.2, Math.pow(stepSec / 3600, 0.38)));
+  const stepVol = base * volScale * tfFactor;
+  let price = base * (0.94 + rand() * 0.12);
+  const candles = [];
+  let wavePhase = rand() * Math.PI * 2;
+  for (let i = count - 1; i >= 0; i--) {
+    const t = alignedNow - i * stepSec;
+    wavePhase += 0.085;
+    const cycleDrift = Math.sin(wavePhase) * (stepVol * 0.32);
+    const shock = (rand() - 0.492) * stepVol * 1.45;
+    const open = price;
+    let close = Math.max(base * 0.15, open + cycleDrift + shock);
+    const wickUp = Math.abs((rand() * 0.85) * stepVol);
+    const wickDn = Math.abs((rand() * 0.85) * stepVol);
+    const high = Math.max(open, close) + wickUp;
+    const low = Math.max(base * 0.1, Math.min(open, close) - wickDn);
+    const volume = Math.round((1200 + rand() * 6800) * (1 + Math.abs(close - open) / (stepVol || 1)));
+    candles.push({
+      time: t,
+      open: Number(open.toPrecision(7)),
+      high: Number(high.toPrecision(7)),
+      low: Number(low.toPrecision(7)),
+      close: Number(close.toPrecision(7)),
+      volume
+    });
+    price = close;
+  }
+  return candles;
+}
+// Legacy Export Aliases so all Cloudflare Functions compile with zero errors
+export const sma = calcSMA;
+export const ema = calcEMA;
+export const rsi = calcRSI;
+export const atr = calcATR;
+export const macd = calcMACD;
+export const bollingerBands = calcBollinger;
+export const detectFractalSwings = detectSwingsNoLookahead;
+export const computeVolumeProfile = calcVolumeProfile;
+export const generateSyntheticCandles = generateInstitutionalSeries;
