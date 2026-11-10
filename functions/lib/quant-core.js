@@ -1,445 +1,309 @@
-export function computeSMA(values, period) {
-  const out = new Array(values.length).fill(null);
-  if (!Array.isArray(values) || values.length < period || period <= 0) return out;
+export const TIMEFRAMES = [
+  { id: 'M1', label: '1m', seconds: 60, horizon: 'scalping', bars: 320 },
+  { id: 'M5', label: '5m', seconds: 300, horizon: 'scalping', bars: 320 },
+  { id: 'M15', label: '15m', seconds: 900, horizon: 'scalping', bars: 320 },
+  { id: 'M30', label: '30m', seconds: 1800, horizon: 'intraday', bars: 300 },
+  { id: 'H1', label: '1H', seconds: 3600, horizon: 'intraday', bars: 300 },
+  { id: 'H4', label: '4H', seconds: 14400, horizon: 'swing', bars: 280 },
+  { id: 'D1', label: '1D', seconds: 86400, horizon: 'swing', bars: 260 },
+  { id: 'W1', label: '1W', seconds: 604800, horizon: 'macro', bars: 200 },
+  { id: 'MN', label: '1M', seconds: 2592000, horizon: 'macro', bars: 120 },
+  { id: '1Y', label: '1Y', seconds: 31536000, horizon: 'macro', bars: 40 }
+];
+export const HORIZON_GROUPS = {
+  scalping: { id: 'scalping', label: '⚡ SCALPING', tfs: ['M1', 'M5', 'M15'], defaultTf: 'M5', desc: 'Eksekusi cepat M1-M15 (Momentum & Orderflow)' },
+  intraday: { id: 'intraday', label: '🎯 INTRADAY', tfs: ['M15', 'M30', 'H1'], defaultTf: 'M30', desc: 'Target harian M15-H1 (Session Breakout & VWAP)' },
+  swing: { id: 'swing', label: '🌊 SWING', tfs: ['H4', 'D1', 'W1'], defaultTf: 'H4', desc: 'Multi-hari H4-W1 (Struktur Tren & CFTC COT)' },
+  macro: { id: 'macro', label: '🏛️ INVESTOR / MACRO', tfs: ['D1', 'W1', 'MN', '1Y'], defaultTf: 'D1', desc: 'Akumulasi Spot, DCA & Valuasi Makro' },
+  all: { id: 'all', label: 'ALL TF', tfs: ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN', '1Y'], defaultTf: 'H1', desc: 'Semua Timeframe M1 s/d 1Y' }
+};
+const mkCrypto = (sym, name, basePrice) => ({
+  symbol: `${sym}/USDT`, name, assetClass: 'crypto', provider: 'binance', providerSymbol: `${sym}USDT`,
+  isRealtime: true, delayMinutes: 0, basePrice, cotCategory: 'CME_CRYPTO'
+});
+const mkForex = (sym, name, basePrice) => ({
+  symbol: sym, name, assetClass: 'forex', provider: 'edge_fx', providerSymbol: sym.replace('/', ''),
+  isRealtime: true, delayMinutes: 0, basePrice, cotCategory: 'CFTC_FX'
+});
+const mkMetal = (sym, name, basePrice) => ({
+  symbol: sym, name, assetClass: 'metals', provider: 'edge_metal', providerSymbol: sym.replace('/', ''),
+  isRealtime: true, delayMinutes: 0, basePrice, cotCategory: 'CFTC_METALS'
+});
+const mkComm = (sym, name, basePrice, proxy) => ({
+  symbol: sym, name, assetClass: 'commodities', provider: 'edge_comm', providerSymbol: sym, proxySymbol: proxy,
+  isRealtime: true, delayMinutes: 0, basePrice, cotCategory: 'CFTC_COMMODITIES'
+});
+const mkStock = (sym, name, basePrice, region = 'US') => ({
+  symbol: sym, name: `[${region}] ${name}`, assetClass: 'stocks', region, provider: 'edge_stock', providerSymbol: sym,
+  isRealtime: true, delayMinutes: 0, basePrice, cotCategory: 'CFTC_EQUITY_INDEX'
+});
+export const DEFAULT_INSTRUMENTS = [
+  // ==================== CRYPTO (55 Major + Dynamic Search Supports 1,500+ Pairs) ====================
+  mkCrypto('BTC', 'Bitcoin', 94500), mkCrypto('ETH', 'Ethereum', 2780), mkCrypto('SOL', 'Solana', 192),
+  mkCrypto('BNB', 'BNB Chain', 655), mkCrypto('XRP', 'Ripple XRP', 2.55), mkCrypto('ADA', 'Cardano', 0.82),
+  mkCrypto('DOGE', 'Dogecoin', 0.26), mkCrypto('AVAX', 'Avalanche', 26.4), mkCrypto('LINK', 'Chainlink', 18.9),
+  mkCrypto('TON', 'Toncoin', 3.85), mkCrypto('SUI', 'Sui Network', 3.42), mkCrypto('DOT', 'Polkadot', 5.20),
+  mkCrypto('NEAR', 'NEAR Protocol', 3.60), mkCrypto('APT', 'Aptos', 6.40), mkCrypto('ARB', 'Arbitrum', 0.49),
+  mkCrypto('OP', 'Optimism', 1.15), mkCrypto('PEPE', 'Pepe Coin', 0.0000105), mkCrypto('SHIB', 'Shiba Inu', 0.0000162),
+  mkCrypto('LTC', 'Litecoin', 124), mkCrypto('BCH', 'Bitcoin Cash', 345), mkCrypto('UNI', 'Uniswap', 9.80),
+  mkCrypto('AAVE', 'Aave Protocol', 255), mkCrypto('INJ', 'Injective', 15.8), mkCrypto('RENDER', 'Render AI', 4.65),
+  mkCrypto('FET', 'Artificial Superintelligence', 0.78), mkCrypto('TAO', 'Bittensor AI', 415), mkCrypto('ONDO', 'Ondo RWA', 1.22),
+  mkCrypto('TIA', 'Celestia', 3.90), mkCrypto('SEI', 'Sei Network', 0.28), mkCrypto('JUP', 'Jupiter DEX', 0.84),
+  mkCrypto('BONK', 'Bonk Solana', 0.000018), mkCrypto('WIF', 'dogwifhat', 0.72), mkCrypto('FLOKI', 'Floki Inu', 0.000098),
+  mkCrypto('ATOM', 'Cosmos Hub', 4.95), mkCrypto('FIL', 'Filecoin', 3.45), mkCrypto('ICP', 'Internet Computer', 7.20),
+  mkCrypto('HBAR', 'Hedera Hashgraph', 0.23), mkCrypto('ALGO', 'Algorand', 0.29), mkCrypto('VET', 'VeChain', 0.034),
+  mkCrypto('FTM', 'Fantom / Sonic', 0.62), mkCrypto('MKR', 'Maker / Sky', 1420), mkCrypto('LDO', 'Lido DAO', 1.68),
+  mkCrypto('CRV', 'Curve DAO', 0.54), mkCrypto('PENDLE', 'Pendle Yield', 3.65), mkCrypto('ENA', 'Ethena', 0.48),
+  mkCrypto('WLD', 'Worldcoin', 1.28), mkCrypto('STX', 'Stacks BTC L2', 0.96), mkCrypto('IMX', 'Immutable X', 0.85),
+  mkCrypto('GRT', 'The Graph', 0.14), mkCrypto('SAND', 'The Sandbox', 0.38), mkCrypto('MANA', 'Decentraland', 0.34),
+  mkCrypto('AXS', 'Axie Infinity', 4.40), mkCrypto('GALA', 'Gala Games', 0.023), mkCrypto('JASMY', 'JasmyCoin', 0.022),
+  mkCrypto('TRUMP', 'Official Trump', 17.50),
+  // ==================== FOREX (28 Pairs: Majors, Minors, Crosses & Asia/IDR) ====================
+  mkForex('EUR/USD', 'Euro / US Dollar', 1.0485), mkForex('GBP/USD', 'British Pound / US Dollar', 1.2590),
+  mkForex('USD/JPY', 'US Dollar / Japanese Yen', 151.40), mkForex('USD/IDR', 'US Dollar / Rupiah Indonesia', 16285),
+  mkForex('AUD/USD', 'Australian Dollar / US Dollar', 0.6365), mkForex('USD/CAD', 'US Dollar / Canadian Dollar', 1.4190),
+  mkForex('USD/CHF', 'US Dollar / Swiss Franc', 0.8980), mkForex('NZD/USD', 'New Zealand Dollar / US Dollar', 0.5740),
+  mkForex('EUR/JPY', 'Euro / Japanese Yen', 158.75), mkForex('GBP/JPY', 'British Pound / Japanese Yen', 190.60),
+  mkForex('EUR/GBP', 'Euro / British Pound', 0.8328), mkForex('AUD/JPY', 'Australian Dollar / Yen', 96.35),
+  mkForex('CAD/JPY', 'Canadian Dollar / Yen', 106.70), mkForex('CHF/JPY', 'Swiss Franc / Yen', 168.60),
+  mkForex('NZD/JPY', 'New Zealand Dollar / Yen', 86.90), mkForex('EUR/AUD', 'Euro / Australian Dollar', 1.6470),
+  mkForex('GBP/AUD', 'British Pound / Australian Dollar', 1.9780), mkForex('EUR/CAD', 'Euro / Canadian Dollar', 1.4880),
+  mkForex('GBP/CAD', 'British Pound / Canadian Dollar', 1.7860), mkForex('EUR/CHF', 'Euro / Swiss Franc', 0.9415),
+  mkForex('GBP/CHF', 'British Pound / Swiss Franc', 1.1305), mkForex('AUD/CAD', 'Australian Dollar / Canadian Dollar', 0.9030),
+  mkForex('AUD/NZD', 'Australian Dollar / New Zealand Dollar', 1.1085), mkForex('USD/SGD', 'US Dollar / Singapore Dollar', 1.3420),
+  mkForex('USD/CNH', 'US Dollar / Offshore Yuan China', 7.2650), mkForex('USD/THB', 'US Dollar / Thai Baht', 33.85),
+  mkForex('USD/MXN', 'US Dollar / Mexican Peso', 20.35), mkForex('USD/ZAR', 'US Dollar / South African Rand', 18.40),
+  // ==================== METALS (10 Precious & Industrial Metals) ====================
+  mkMetal('XAU/USD', 'Gold Spot / Emas Dunia (USD)', 2915.0), mkMetal('XAU/IDR', 'Emas Spot / Gram (IDR Proxy)', 1528000),
+  mkMetal('XAG/USD', 'Silver Spot / Perak (USD)', 32.65), mkMetal('XPT/USD', 'Platinum Spot (USD)', 988.0),
+  mkMetal('XPD/USD', 'Palladium Spot (USD)', 975.0), mkMetal('HG/USD', 'Copper LME / Tembaga (USD/lb)', 4.58),
+  mkMetal('NI/USD', 'Nickel LME / Nikel (USD/Ton)', 15680), mkMetal('SN/USD', 'Tin LME / Timah (USD/Ton)', 31450),
+  mkMetal('AL/USD', 'Aluminum LME (USD/Ton)', 2640), mkMetal('LI/USD', 'Lithium Carbonate (USD/Ton)', 10850),
+  // ==================== COMMODITIES & CFTC FUTURES (16 Energy, Nusantara & Agriculture) ====================
+  mkComm('WTI', 'WTI Crude Oil / Minyak Mentah AS', 71.20, 'USO'),
+  mkComm('BRENT', 'Brent Crude Oil / Minyak Global', 75.10, 'BNO'),
+  mkComm('NATGAS', 'Henry Hub Natural Gas / Gas Alam', 3.75, 'UNG'),
+  mkComm('CPO', 'Crude Palm Oil / Minyak Sawit (MYR/Ton)', 4520, 'CPO'),
+  mkComm('COAL', 'Newcastle Coal / Batu Bara (USD/Ton)', 124.50, 'COAL'),
+  mkComm('HEATOIL', 'NY Harbor Heating Oil Futures', 2.38, 'UHN'),
+  mkComm('GASOLINE', 'RBOB Gasoline Futures', 2.12, 'UGA'),
+  mkComm('WHEAT', 'CFTC CBOT Wheat / Gandum', 592.0, 'WEAT'),
+  mkComm('CORN', 'CFTC CBOT Corn / Jagung', 496.0, 'CORN'),
+  mkComm('SOYBEAN', 'CFTC CBOT Soybeans / Kedelai', 1048.0, 'SOYB'),
+  mkComm('COFFEE', 'CFTC Arabica Coffee / Kopi', 385.0, 'JO'),
+  mkComm('COCOA', 'CFTC ICE Cocoa / Kakao (USD/Ton)', 9850.0, 'NIB'),
+  mkComm('SUGAR', 'CFTC Sugar No.11 / Gula Mentah', 19.85, 'CANE'),
+  mkComm('COTTON', 'CFTC ICE Cotton / Kapas', 68.40, 'BAL'),
+  mkComm('CATTLE', 'CFTC CME Live Cattle Futures', 196.50, 'COW'),
+  mkComm('LUMBER', 'Random Length Lumber / Kayu', 585.0, 'WOOD'),
+  // ==================== SAHAM INDONESIA (IDX LQ45 & Sektoral Unggulan) ====================
+  mkStock('IHSG', 'Indeks Harga Saham Gabungan (JKSE)', 6825, 'ID'),
+  mkStock('BBCA.JK', 'Bank Central Asia Tbk (Rp)', 9350, 'ID'),
+  mkStock('BBRI.JK', 'Bank Rakyat Indonesia Tbk (Rp)', 4120, 'ID'),
+  mkStock('BMRI.JK', 'Bank Mandiri (Persero) Tbk (Rp)', 5375, 'ID'),
+  mkStock('BBNI.JK', 'Bank Negara Indonesia Tbk (Rp)', 4480, 'ID'),
+  mkStock('BRIS.JK', 'Bank Syariah Indonesia Tbk (Rp)', 2940, 'ID'),
+  mkStock('TLKM.JK', 'Telkom Indonesia (Persero) Tbk (Rp)', 2680, 'ID'),
+  mkStock('ASII.JK', 'Astra International Tbk (Rp)', 4790, 'ID'),
+  mkStock('AMMN.JK', 'Amman Mineral Internasional Tbk (Rp)', 7450, 'ID'),
+  mkStock('BREN.JK', 'Barito Renewables Energy Tbk (Rp)', 6950, 'ID'),
+  mkStock('TPIA.JK', 'Chandra Asri Pacific Tbk (Rp)', 7200, 'ID'),
+  mkStock('GOTO.JK', 'GoTo Gojek Tokopedia Tbk (Rp)', 81, 'ID'),
+  mkStock('ADRO.JK', 'Alamtri Resources / Adaro Energy (Rp)', 2360, 'ID'),
+  mkStock('PTBA.JK', 'Bukit Asam Tbk - Batu Bara (Rp)', 2750, 'ID'),
+  mkStock('ITMG.JK', 'Indo Tambangraya Megah Tbk (Rp)', 25800, 'ID'),
+  mkStock('ANTM.JK', 'Aneka Tambang Tbk - Emas & Nikel (Rp)', 1645, 'ID'),
+  mkStock('MDKA.JK', 'Merdeka Copper Gold Tbk (Rp)', 1820, 'ID'),
+  mkStock('INCO.JK', 'Vale Indonesia Tbk - Nikel (Rp)', 3420, 'ID'),
+  mkStock('PGAS.JK', 'Perusahaan Gas Negara Tbk (Rp)', 1660, 'ID'),
+  mkStock('MEDC.JK', 'Medco Energi Internasional Tbk (Rp)', 1135, 'ID'),
+  mkStock('AKRA.JK', 'AKR Corporindo Tbk (Rp)', 1245, 'ID'),
+  mkStock('UNTR.JK', 'United Tractors Tbk (Rp)', 25100, 'ID'),
+  mkStock('ICBP.JK', 'Indofood CBP Sukses Makmur Tbk (Rp)', 11450, 'ID'),
+  mkStock('INDF.JK', 'Indofood Sukses Makmur Tbk (Rp)', 7650, 'ID'),
+  mkStock('UNVR.JK', 'Unilever Indonesia Tbk (Rp)', 1580, 'ID'),
+  mkStock('KLBF.JK', 'Kalbe Farma Tbk (Rp)', 1265, 'ID'),
+  mkStock('CPIN.JK', 'Charoen Pokphand Indonesia Tbk (Rp)', 4680, 'ID'),
+  mkStock('SMGR.JK', 'Semen Indonesia (Persero) Tbk (Rp)', 2890, 'ID'),
+  mkStock('BSDE.JK', 'Bumi Serpong Damai Tbk (Rp)', 945, 'ID'),
+  mkStock('BUKA.JK', 'Bukalapak.com Tbk (Rp)', 128, 'ID'),
+  // ==================== SAHAM AMERIKA SERIKAT (US Wall Street & Indices) ====================
+  mkStock('SPY', 'S&P 500 Index ETF', 604.5, 'US'),
+  mkStock('QQQ', 'Nasdaq 100 Tech ETF', 528.2, 'US'),
+  mkStock('DIA', 'Dow Jones Industrial ETF', 442.8, 'US'),
+  mkStock('IWM', 'Russell 2000 Small Cap ETF', 224.6, 'US'),
+  mkStock('NVDA', 'NVIDIA Corporation (AI)', 136.8, 'US'),
+  mkStock('AAPL', 'Apple Inc.', 242.5, 'US'),
+  mkStock('MSFT', 'Microsoft Corporation', 416.0, 'US'),
+  mkStock('AMZN', 'Amazon.com Inc.', 228.4, 'US'),
+  mkStock('GOOGL', 'Alphabet Inc. (Google)', 186.2, 'US'),
+  mkStock('META', 'Meta Platforms Inc.', 698.5, 'US'),
+  mkStock('TSLA', 'Tesla Inc.', 354.0, 'US'),
+  mkStock('AMD', 'Advanced Micro Devices', 114.2, 'US'),
+  mkStock('AVGO', 'Broadcom Inc.', 232.0, 'US'),
+  mkStock('NFLX', 'Netflix Inc.', 1015.0, 'US'),
+  mkStock('BRK.B', 'Berkshire Hathaway', 476.0, 'US'),
+  mkStock('JPM', 'JPMorgan Chase & Co.', 272.5, 'US'),
+  mkStock('V', 'Visa Inc.', 348.0, 'US'),
+  mkStock('LLY', 'Eli Lilly & Co.', 865.0, 'US'),
+  mkStock('XOM', 'Exxon Mobil Corp.', 110.5, 'US'),
+  mkStock('PLTR', 'Palantir Technologies', 112.4, 'US'),
+  mkStock('COIN', 'Coinbase Global Inc.', 274.0, 'US'),
+  mkStock('MSTR', 'Strategy / MicroStrategy', 332.0, 'US'),
+  // ==================== SAHAM & INDEKS GLOBAL (Asia, Eropa, Timur Tengah) ====================
+  mkStock('JP225', 'Nikkei 225 Index (Jepang)', 38950, 'JP'),
+  mkStock('7203.T', 'Toyota Motor Corp (JPY)', 2845, 'JP'),
+  mkStock('6758.T', 'Sony Group Corp (JPY)', 3480, 'JP'),
+  mkStock('9984.T', 'SoftBank Group (JPY)', 9620, 'JP'),
+  mkStock('HK50', 'Hang Seng Index (Hong Kong)', 21850, 'HK'),
+  mkStock('BABA', 'Alibaba Group Holding', 118.5, 'CN'),
+  mkStock('0700.HK', 'Tencent Holdings (HKD)', 468.0, 'CN'),
+  mkStock('1211.HK', 'BYD Company EV (HKD)', 342.0, 'CN'),
+  mkStock('TSM', 'Taiwan Semiconductor (TSMC)', 204.5, 'TW'),
+  mkStock('005930.KS', 'Samsung Electronics (KRW)', 56800, 'KR'),
+  mkStock('DE40', 'DAX 40 Index (Jerman)', 22150, 'EU'),
+  mkStock('UK100', 'FTSE 100 Index (Inggris)', 8740, 'UK'),
+  mkStock('ASML', 'ASML Holding NV (Belanda)', 738.0, 'EU'),
+  mkStock('MC.PA', 'LVMH Moet Hennessy (EUR)', 692.0, 'EU'),
+  mkStock('NVO', 'Novo Nordisk A/S (Denmark)', 84.5, 'EU'),
+  mkStock('D05.SI', 'DBS Group Bank (Singapura SGD)', 44.8, 'SG'),
+  mkStock('SE', 'Sea Limited / Shopee (Asia)', 126.4, 'SG'),
+  mkStock('2222.SR', 'Saudi Aramco (Arab Saudi SAR)', 27.85, 'SA')
+];
+// Dynamic Registry so users can add any of the 1,500+ Binance crypto pairs on the fly
+export function registerDynamicInstrument(inst) {
+  if (!inst || !inst.symbol) return;
+  const exists = DEFAULT_INSTRUMENTS.find(i => i.symbol.toUpperCase() === inst.symbol.toUpperCase());
+  if (!exists) DEFAULT_INSTRUMENTS.push(inst);
+}
+export function getInstrumentMeta(symbol) {
+  const clean = String(symbol || 'BTC/USDT').trim().toUpperCase();
+  const found = DEFAULT_INSTRUMENTS.find(i => i.symbol.toUpperCase() === clean || i.providerSymbol.toUpperCase() === clean);
+  if (found) return found;
+  if (clean.endsWith('/USDT') || clean.endsWith('USDT')) {
+    const base = clean.replace('/USDT', '').replace('USDT', '');
+    const dyn = mkCrypto(base, `${base} Crypto Asset`, 1.0);
+    DEFAULT_INSTRUMENTS.push(dyn);
+    return dyn;
+  }
+  return DEFAULT_INSTRUMENTS[0];
+}
+export function calcSMA(values, period) {
+  const res = new Array(values.length).fill(null);
   let sum = 0;
   for (let i = 0; i < values.length; i++) {
-    sum += Number(values[i] || 0);
-    if (i >= period) sum -= Number(values[i - period] || 0);
-    if (i >= period - 1) out[i] = sum / period;
+    sum += values[i];
+    if (i >= period) sum -= values[i - period];
+    if (i >= period - 1) res[i] = sum / period;
   }
-  return out;
+  return res;
 }
-export function computeEMA(values, period) {
-  const out = new Array(values.length).fill(null);
-  if (!Array.isArray(values) || values.length < period || period <= 0) return out;
+export function calcEMA(values, period) {
+  const res = new Array(values.length).fill(null);
+  if (values.length < period) return res;
   const k = 2 / (period + 1);
-  let sum = 0;
-  for (let i = 0; i < period; i++) sum += Number(values[i] || 0);
-  let prev = sum / period;
-  out[period - 1] = prev;
+  let ema = 0;
+  for (let i = 0; i < period; i++) ema += values[i];
+  ema /= period;
+  res[period - 1] = ema;
   for (let i = period; i < values.length; i++) {
-    const v = Number(values[i] || 0);
-    prev = v * k + prev * (1 - k);
-    out[i] = prev;
+    ema = values[i] * k + ema * (1 - k);
+    res[i] = ema;
   }
-  return out;
+  return res;
 }
-export function computeRSI(closes, period = 14) {
-  const out = new Array(closes.length).fill(null);
-  if (!Array.isArray(closes) || closes.length <= period) return out;
-  let gainSum = 0;
-  let lossSum = 0;
+export function calcRSI(closes, period = 14) {
+  const res = new Array(closes.length).fill(50);
+  if (closes.length <= period) return res;
+  let gains = 0, losses = 0;
   for (let i = 1; i <= period; i++) {
     const diff = closes[i] - closes[i - 1];
-    if (diff >= 0) gainSum += diff;
-    else lossSum -= diff;
+    if (diff >= 0) gains += diff; else losses -= diff;
   }
-  let avgGain = gainSum / period;
-  let avgLoss = lossSum / period;
-  out[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  res[period] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
   for (let i = period + 1; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];
-    const gain = diff > 0 ? diff : 0;
-    const loss = diff < 0 ? -diff : 0;
-    avgGain = (avgGain * (period - 1) + gain) / period;
-    avgLoss = (avgLoss * (period - 1) + loss) / period;
-    out[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+    const g = diff > 0 ? diff : 0;
+    const l = diff < 0 ? -diff : 0;
+    avgGain = (avgGain * (period - 1) + g) / period;
+    avgLoss = (avgLoss * (period - 1) + l) / period;
+    res[i] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
   }
-  return out;
+  return res;
 }
-export function computeATR(bars, period = 14) {
-  const n = Array.isArray(bars) ? bars.length : 0;
-  const out = new Array(n).fill(null);
-  if (n <= period) return out;
-  const tr = new Array(n).fill(0);
-  tr[0] = bars[0].high - bars[0].low;
-  for (let i = 1; i < n; i++) {
-    const h = bars[i].high;
-    const l = bars[i].low;
-    const pc = bars[i - 1].close;
-    tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+export function calcATR(candles, period = 14) {
+  const tr = new Array(candles.length).fill(0);
+  for (let i = 0; i < candles.length; i++) {
+    if (i === 0) tr[i] = candles[i].high - candles[i].low;
+    else {
+      const hl = candles[i].high - candles[i].low;
+      const hc = Math.abs(candles[i].high - candles[i - 1].close);
+      const lc = Math.abs(candles[i].low - candles[i - 1].close);
+      tr[i] = Math.max(hl, hc, lc);
+    }
   }
-  let sum = 0;
-  for (let i = 0; i < period; i++) sum += tr[i];
-  let prev = sum / period;
-  out[period - 1] = prev;
-  for (let i = period; i < n; i++) {
-    prev = (prev * (period - 1) + tr[i]) / period;
-    out[i] = prev;
-  }
-  return out;
+  return calcSMA(tr, period);
 }
-export function computeMACD(closes, fast = 12, slow = 26, signalPeriod = 9) {
-  const n = closes.length;
-  const emaFast = computeEMA(closes, fast);
-  const emaSlow = computeEMA(closes, slow);
-  const macdLine = new Array(n).fill(null);
-  const validMacd = [];
-  const validIdx = [];
-  for (let i = 0; i < n; i++) {
-    if (emaFast[i] !== null && emaSlow[i] !== null) {
-      const val = emaFast[i] - emaSlow[i];
-      macdLine[i] = val;
-      validMacd.push(val);
-      validIdx.push(i);
-    }
-  }
-  const sigCompact = computeEMA(validMacd, signalPeriod);
-  const signalLine = new Array(n).fill(null);
-  const histogram = new Array(n).fill(null);
-  for (let j = 0; j < validIdx.length; j++) {
-    const idx = validIdx[j];
-    if (sigCompact[j] !== null) {
-      signalLine[idx] = sigCompact[j];
-      histogram[idx] = macdLine[idx] - sigCompact[j];
-    }
-  }
-  return { macdLine, signalLine, histogram };
+export function calcMACD(closes, fast = 12, slow = 26, sig = 9) {
+  const emaFast = calcEMA(closes, fast);
+  const emaSlow = calcEMA(closes, slow);
+  const macdLine = closes.map((_, i) => (emaFast[i] !== null && emaSlow[i] !== null) ? emaFast[i] - emaSlow[i] : 0);
+  const sigLine = calcEMA(macdLine, sig);
+  const hist = macdLine.map((v, i) => sigLine[i] !== null ? v - sigLine[i] : 0);
+  return { macdLine, sigLine, hist };
 }
-export function computeBollingerBands(closes, period = 20, mult = 2) {
-  const n = closes.length;
-  const middle = computeSMA(closes, period);
-  const upper = new Array(n).fill(null);
-  const lower = new Array(n).fill(null);
-  const widthPct = new Array(n).fill(null);
-  for (let i = period - 1; i < n; i++) {
-    const mean = middle[i];
-    let varianceSum = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      const d = closes[j] - mean;
-      varianceSum += d * d;
-    }
-    const std = Math.sqrt(varianceSum / period);
-    upper[i] = mean + mult * std;
-    lower[i] = mean - mult * std;
-    widthPct[i] = mean > 0 ? ((upper[i] - lower[i]) / mean) * 100 : 0;
+export function calcBollinger(closes, period = 20, mult = 2) {
+  const mid = calcSMA(closes, period);
+  const upper = new Array(closes.length).fill(null);
+  const lower = new Array(closes.length).fill(null);
+  const widthPct = new Array(closes.length).fill(0);
+  for (let i = period - 1; i < closes.length; i++) {
+    let sq = 0;
+    for (let j = i - period + 1; j <= i; j++) sq += Math.pow(closes[j] - mid[i], 2);
+    const std = Math.sqrt(sq / period);
+    upper[i] = mid[i] + mult * std;
+    lower[i] = mid[i] - mult * std;
+    widthPct[i] = mid[i] > 0 ? ((upper[i] - lower[i]) / mid[i]) * 100 : 0;
   }
-  return { upper, middle, lower, widthPct };
+  return { mid, upper, lower, widthPct };
 }
-export function computeStochRSI(closes, rsiPeriod = 14, stochPeriod = 14, kSmooth = 3, dSmooth = 3) {
-  const n = closes.length;
-  const rsi = computeRSI(closes, rsiPeriod);
-  const rawK = new Array(n).fill(null);
-  for (let i = rsiPeriod + stochPeriod - 1; i < n; i++) {
-    let minR = Infinity;
-    let maxR = -Infinity;
-    for (let j = i - stochPeriod + 1; j <= i; j++) {
-      const v = rsi[j];
-      if (v !== null) {
-        if (v < minR) minR = v;
-        if (v > maxR) maxR = v;
-      }
+export function detectSwingsNoLookahead(candles, leftRight = 3) {
+  const swings = [];
+  for (let i = leftRight; i < candles.length - leftRight; i++) {
+    let isHigh = true, isLow = true;
+    for (let j = 1; j <= leftRight; j++) {
+      if (candles[i].high <= candles[i - j].high || candles[i].high < candles[i + j].high) isHigh = false;
+      if (candles[i].low >= candles[i - j].low || candles[i].low > candles[i + j].low) isLow = false;
     }
-    if (Number.isFinite(minR) && Number.isFinite(maxR)) {
-      rawK[i] = maxR === minR ? 50 : ((rsi[i] - minR) / (maxR - minR)) * 100;
-    }
+    if (isHigh) swings.push({ type: 'HIGH', index: i, confirmedAtIndex: i + leftRight, price: candles[i].high, time: candles[i].time });
+    if (isLow) swings.push({ type: 'LOW', index: i, confirmedAtIndex: i + leftRight, price: candles[i].low, time: candles[i].time });
   }
-  const kCompact = [];
-  const kIdx = [];
-  for (let i = 0; i < n; i++) {
-    if (rawK[i] !== null) {
-      kCompact.push(rawK[i]);
-      kIdx.push(i);
-    }
-  }
-  const kSmoothedCompact = computeSMA(kCompact, kSmooth);
-  const dCompact = computeSMA(kSmoothedCompact.map((v) => v ?? 50), dSmooth);
-  const k = new Array(n).fill(null);
-  const d = new Array(n).fill(null);
-  for (let j = 0; j < kIdx.length; j++) {
-    const idx = kIdx[j];
-    k[idx] = kSmoothedCompact[j];
-    d[idx] = dCompact[j];
-  }
-  return { k, d };
+  return swings;
 }
-export function computeADX(bars, period = 14) {
-  const n = bars.length;
-  const adx = new Array(n).fill(null);
-  const plusDI = new Array(n).fill(null);
-  const minusDI = new Array(n).fill(null);
-  if (n <= period * 2) return { adx, plusDI, minusDI };
-  const tr = new Array(n).fill(0);
-  const pDM = new Array(n).fill(0);
-  const mDM = new Array(n).fill(0);
-  for (let i = 1; i < n; i++) {
-    const upMove = bars[i].high - bars[i - 1].high;
-    const downMove = bars[i - 1].low - bars[i].low;
-    pDM[i] = upMove > downMove && upMove > 0 ? upMove : 0;
-    mDM[i] = downMove > upMove && downMove > 0 ? downMove : 0;
-    tr[i] = Math.max(
-      bars[i].high - bars[i].low,
-      Math.abs(bars[i].high - bars[i - 1].close),
-      Math.abs(bars[i].low - bars[i - 1].close)
-    );
+export function calcVolumeProfile(candles, bins = 24) {
+  if (!candles || candles.length === 0) return { poc: 0, vah: 0, val: 0 };
+  const slice = candles.slice(-120);
+  let minP = Infinity, maxP = -Infinity;
+  for (const c of slice) {
+    if (c.low < minP) minP = c.low;
+    if (c.high > maxP) maxP = c.high;
   }
-  let sTR = 0;
-  let sPDM = 0;
-  let sMDM = 0;
-  for (let i = 1; i <= period; i++) {
-    sTR += tr[i];
-    sPDM += pDM[i];
-    sMDM += mDM[i];
+  if (maxP <= minP) return { poc: slice[slice.length - 1].close, vah: maxP, val: minP };
+  const step = (maxP - minP) / bins;
+  const hist = new Array(bins).fill(0);
+  for (const c of slice) {
+    const mid = (c.high + c.low + c.close) / 3;
+    const idx = Math.min(bins - 1, Math.max(0, Math.floor((mid - minP) / step)));
+    hist[idx] += (c.volume || 1);
   }
-  const dxList = new Array(n).fill(0);
-  for (let i = period; i < n; i++) {
-    if (i > period) {
-      sTR = sTR - sTR / period + tr[i];
-      sPDM = sPDM - sPDM / period + pDM[i];
-      sMDM = sMDM - sMDM / period + mDM[i];
-    }
-    const pdi = sTR === 0 ? 0 : (sPDM / sTR) * 100;
-    const mdi = sTR === 0 ? 0 : (sMDM / sTR) * 100;
-    plusDI[i] = pdi;
-    minusDI[i] = mdi;
-    const sumDI = pdi + mdi;
-    dxList[i] = sumDI === 0 ? 0 : (Math.abs(pdi - mdi) / sumDI) * 100;
+  let maxVol = -1, pocIdx = 0;
+  for (let i = 0; i < bins; i++) {
+    if (hist[i] > maxVol) { maxVol = hist[i]; pocIdx = i; }
   }
-  let dxSum = 0;
-  for (let i = period; i < period * 2; i++) dxSum += dxList[i];
-  let prevAdx = dxSum / period;
-  adx[period * 2 - 1] = prevAdx;
-  for (let i = period * 2; i < n; i++) {
-    prevAdx = (prevAdx * (period - 1) + dxList[i]) / period;
-    adx[i] = prevAdx;
-  }
-  return { adx, plusDI, minusDI };
-}
-export function computeSessionVWAP(bars) {
-  const n = bars.length;
-  const vwap = new Array(n).fill(null);
-  let cumPV = 0;
-  let cumV = 0;
-  let currentDay = null;
-  for (let i = 0; i < n; i++) {
-    const tSec = Number(bars[i].time || 0);
-    const dayKey = Math.floor(tSec / 86400);
-    if (dayKey !== currentDay) {
-      currentDay = dayKey;
-      cumPV = 0;
-      cumV = 0;
-    }
-    const typical = (bars[i].high + bars[i].low + bars[i].close) / 3;
-    const vol = Math.max(Number(bars[i].volume || 0), 1e-8);
-    cumPV += typical * vol;
-    cumV += vol;
-    vwap[i] = cumPV / cumV;
-  }
-  return vwap;
-}
-export function computeVolumeDeltaAndCVD(bars) {
-  const n = bars.length;
-  const delta = new Array(n).fill(0);
-  const cvd = new Array(n).fill(0);
-  let running = 0;
-  for (let i = 0; i < n; i++) {
-    const range = bars[i].high - bars[i].low;
-    const vol = Number(bars[i].volume || 0);
-    let buyRatio = 0.5;
-    if (range > 0) {
-      buyRatio = (bars[i].close - bars[i].low) / range;
-    } else if (bars[i].close > bars[i].open) {
-      buyRatio = 0.75;
-    } else if (bars[i].close < bars[i].open) {
-      buyRatio = 0.25;
-    }
-    const barDelta = vol * (2 * buyRatio - 1);
-    delta[i] = barDelta;
-    running += barDelta;
-    cvd[i] = running;
-  }
-  return { delta, cvd };
-}
-export function computeConfirmedSwingsAndSMC(bars, upToIndex = null, leftRight = 3) {
-  const maxIdx = upToIndex === null ? bars.length - 1 : Math.min(upToIndex, bars.length - 1);
-  const swingHighs = [];
-  const swingLows = [];
-  for (let i = leftRight; i <= maxIdx - leftRight; i++) {
-    const confirmedAtIndex = i + leftRight;
-    if (confirmedAtIndex > maxIdx) break;
-    const candidateHigh = bars[i].high;
-    const candidateLow = bars[i].low;
-    let isHigh = true;
-    let isLow = true;
-    for (let k = i - leftRight; k <= i + leftRight; k++) {
-      if (k === i) continue;
-      if (bars[k].high >= candidateHigh) isHigh = false;
-      if (bars[k].low <= candidateLow) isLow = false;
-    }
-    if (isHigh) {
-      swingHighs.push({ index: i, confirmedAtIndex, time: bars[i].time, price: candidateHigh });
-    }
-    if (isLow) {
-      swingLows.push({ index: i, confirmedAtIndex, time: bars[i].time, price: candidateLow });
-    }
-  }
-  let lastStructure = 'NEUTRAL';
-  const lastHigh = swingHighs.length ? swingHighs[swingHighs.length - 1] : null;
-  const prevHigh = swingHighs.length > 1 ? swingHighs[swingHighs.length - 2] : null;
-  const lastLow = swingLows.length ? swingLows[swingLows.length - 1] : null;
-  const prevLow = swingLows.length > 1 ? swingLows[swingLows.length - 2] : null;
-  const currentClose = maxIdx >= 0 ? bars[maxIdx].close : 0;
-  if (lastHigh && currentClose > lastHigh.price) {
-    lastStructure = prevLow && lastLow && lastLow.price < prevLow.price ? 'BULLISH_CHOCH' : 'BULLISH_BOS';
-  } else if (lastLow && currentClose < lastLow.price) {
-    lastStructure = prevHigh && lastHigh && lastHigh.price > prevHigh.price ? 'BEARISH_CHOCH' : 'BEARISH_BOS';
-  }
-  let bullishOB = null;
-  let bearishOB = null;
-  if (lastLow) {
-    const b = bars[lastLow.index];
-    bullishOB = { top: Math.max(b.open, b.close), bottom: b.low, index: lastLow.index, time: b.time };
-  }
-  if (lastHigh) {
-    const b = bars[lastHigh.index];
-    bearishOB = { top: b.high, bottom: Math.min(b.open, b.close), index: lastHigh.index, time: b.time };
-  }
-  return { swingHighs, swingLows, lastStructure, bullishOB, bearishOB };
-}
-export function computeVPVR24(bars, lookback = 160, numBins = 24) {
-  const slice = bars.slice(Math.max(0, bars.length - lookback));
-  if (!slice.length) return { bins: [], poc: 0, vah: 0, val: 0 };
-  let minP = Infinity;
-  let maxP = -Infinity;
-  for (const b of slice) {
-    if (b.low < minP) minP = b.low;
-    if (b.high > maxP) maxP = b.high;
-  }
-  if (!Number.isFinite(minP) || !Number.isFinite(maxP) || maxP <= minP) {
-    const p = slice[slice.length - 1].close;
-    return { bins: [], poc: p, vah: p * 1.01, val: p * 0.99 };
-  }
-  const step = (maxP - minP) / numBins;
-  const bins = Array.from({ length: numBins }, (_, idx) => ({
-    binIndex: idx,
-    low: minP + idx * step,
-    high: minP + (idx + 1) * step,
-    mid: minP + (idx + 0.5) * step,
-    volume: 0,
-    buyVolume: 0,
-    sellVolume: 0
-  }));
-  let totalVol = 0;
-  for (const b of slice) {
-    const typical = (b.high + b.low + b.close) / 3;
-    let idx = Math.floor((typical - minP) / step);
-    if (idx < 0) idx = 0;
-    if (idx >= numBins) idx = numBins - 1;
-    const v = Math.max(Number(b.volume || 0), 1);
-    const isBull = b.close >= b.open;
-    bins[idx].volume += v;
-    if (isBull) bins[idx].buyVolume += v;
-    else bins[idx].sellVolume += v;
-    totalVol += v;
-  }
-  let pocIdx = 0;
-  for (let i = 1; i < numBins; i++) {
-    if (bins[i].volume > bins[pocIdx].volume) pocIdx = i;
-  }
-  const targetVol = totalVol * 0.7;
-  let accVol = bins[pocIdx].volume;
-  let lowIdx = pocIdx;
-  let highIdx = pocIdx;
-  while (accVol < targetVol && (lowIdx > 0 || highIdx < numBins - 1)) {
-    const nextLowVol = lowIdx > 0 ? bins[lowIdx - 1].volume : -1;
-    const nextHighVol = highIdx < numBins - 1 ? bins[highIdx + 1].volume : -1;
-    if (nextHighVol >= nextLowVol && highIdx < numBins - 1) {
-      highIdx++;
-      accVol += bins[highIdx].volume;
-    } else if (lowIdx > 0) {
-      lowIdx--;
-      accVol += bins[lowIdx].volume;
-    } else {
-      break;
-    }
-  }
-  const maxBinVol = bins[pocIdx].volume || 1;
-  for (const bin of bins) {
-    bin.pctOfMax = (bin.volume / maxBinVol) * 100;
-  }
-  return {
-    bins,
-    poc: bins[pocIdx].mid,
-    vah: bins[highIdx].high,
-    val: bins[lowIdx].low
-  };
-}
-export function computeAllIndicators(bars) {
-  if (!Array.isArray(bars) || bars.length === 0) {
-    return { series: {}, summary: {}, smc: {}, vpvr: {} };
-  }
-  const closes = bars.map((b) => Number(b.close));
-  const ema20 = computeEMA(closes, 20);
-  const ema50 = computeEMA(closes, 50);
-  const ema200 = computeEMA(closes, 200);
-  const rsi14 = computeRSI(closes, 14);
-  const atr14 = computeATR(bars, 14);
-  const macd = computeMACD(closes, 12, 26, 9);
-  const bb = computeBollingerBands(closes, 20, 2);
-  const stoch = computeStochRSI(closes, 14, 14, 3, 3);
-  const adxObj = computeADX(bars, 14);
-  const vwap = computeSessionVWAP(bars);
-  const flow = computeVolumeDeltaAndCVD(bars);
-  const smc = computeConfirmedSwingsAndSMC(bars, bars.length - 1, 3);
-  const vpvr = computeVPVR24(bars, 160, 24);
-  const last = bars.length - 1;
-  const lastClose = closes[last];
-  const lastAtr = atr14[last] ?? lastClose * 0.012;
-  const lastAdx = adxObj.adx[last] ?? 18;
-  const bbWidth = bb.widthPct[last] ?? 3.5;
-  let regime = 'RANGING';
-  if (lastAdx >= 25) regime = 'STRONG_TREND';
-  else if (bbWidth < 2.2) regime = 'VOLATILITY_SQUEEZE';
-  else if (lastAdx >= 20) regime = 'MODERATE_TREND';
-  return {
-    series: {
-      ema20,
-      ema50,
-      ema200,
-      rsi14,
-      atr14,
-      macdLine: macd.macdLine,
-      macdSignal: macd.signalLine,
-      macdHist: macd.histogram,
-      bbUpper: bb.upper,
-      bbMiddle: bb.middle,
-      bbLower: bb.lower,
-      bbWidthPct: bb.widthPct,
-      stochK: stoch.k,
-      stochD: stoch.d,
-      adx14: adxObj.adx,
-      plusDI: adxObj.plusDI,
-      minusDI: adxObj.minusDI,
-      vwap,
-      delta: flow.delta,
-      cvd: flow.cvd
-    },
-    summary: {
-      close: lastClose,
-      ema20: ema20[last] ?? lastClose,
-      ema50: ema50[last] ?? lastClose,
-      ema200: ema200[last] ?? lastClose,
-      rsi14: rsi14[last] ?? 50,
-      atr14: lastAtr,
-      macdLine: macd.macdLine[last] ?? 0,
-      macdSignal: macd.signalLine[last] ?? 0,
-      macdHist: macd.histogram[last] ?? 0,
-      bbUpper: bb.upper[last] ?? lastClose * 1.02,
-      bbMiddle: bb.middle[last] ?? lastClose,
-      bbLower: bb.lower[last] ?? lastClose * 0.98,
-      bbWidthPct: bbWidth,
-      bbSqueeze: bbWidth < 2.2,
-      stochK: stoch.k[last] ?? 50,
-      stochD: stoch.d[last] ?? 50,
-      adx14: lastAdx,
-      plusDI: adxObj.plusDI[last] ?? 20,
-      minusDI: adxObj.minusDI[last] ?? 20,
-      vwap: vwap[last] ?? lastClose,
-      delta: flow.delta[last] ?? 0,
-      cvd: flow.cvd[last] ?? 0,
-      regime
-    },
-    smc,
-    vpvr
-  };
+  const poc = minP + (pocIdx + 0.5) * step;
+  const vah = minP + Math.min(bins, pocIdx + 5) * step;
+  const val = minP + Math.max(0, pocIdx - 4) * step;
+  return { poc, vah, val };
 }

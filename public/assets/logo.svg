@@ -1,19 +1,67 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 280" width="100%" height="100%">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#232c37"/>
-      <stop offset="50%" stop-color="#151b23"/>
-      <stop offset="100%" stop-color="#0d1117"/>
+    <linearGradient id="bgSlate" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141920"/>
+      <stop offset="50%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#171d26"/>
     </linearGradient>
-    <linearGradient id="steelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#dce8f7"/>
-      <stop offset="50%" stop-color="#8ba6c4"/>
-      <stop offset="100%" stop-color="#4db6a3"/>
+    <linearGradient id="silverLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="25%" stop-color="#dce5ef"/>
+      <stop offset="55%" stop-color="#9aa7b8"/>
+      <stop offset="85%" stop-color="#cdd7e3"/>
+      <stop offset="100%" stop-color="#697584"/>
     </linearGradient>
+    <linearGradient id="silverDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b98a9"/>
+      <stop offset="50%" stop-color="#4e5968"/>
+      <stop offset="100%" stop-color="#2c3440"/>
+    </linearGradient>
+    <linearGradient id="iceGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8ec5ff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#d8ecff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#8ec5ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="dropShadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#000000" flood-opacity="0.75"/>
+    </filter>
   </defs>
-  <polygon points="22,6 98,6 114,22 114,98 98,114 22,114 6,98 6,22" fill="url(#bgGrad)" stroke="#5a708a" stroke-width="3"/>
-  <polygon points="26,12 94,12 108,26 108,94 94,108 26,108 12,94 12,26" fill="none" stroke="#313d4b" stroke-width="1.5"/>
-  <path d="M30 30 L52 60 L30 90 L44 90 L60 68 L76 90 L90 90 L68 60 L90 30 L76 30 L60 52 L44 30 Z" fill="url(#steelGrad)"/>
-  <polygon points="60,18 65,28 55,28" fill="#4db6a3"/>
-  <polygon points="60,102 65,92 55,92" fill="#e0675f"/>
+  <!-- Architectural Dark Panel Background -->
+  <rect width="680" height="280" rx="18" fill="url(#bgSlate)" stroke="#2b3646" stroke-width="2"/>
+  <line x1="0" y1="42" x2="680" y2="42" stroke="#1e2631" stroke-width="1.5"/>
+  <line x1="0" y1="238" x2="680" y2="238" stroke="#1e2631" stroke-width="1.5"/>
+  <line x1="145" y1="0" x2="145" y2="280" stroke="#1e2631" stroke-width="1.5"/>
+  <line x1="535" y1="0" x2="535" y2="280" stroke="#1e2631" stroke-width="1.5"/>
+  <!-- Neon Seam Accents -->
+  <rect x="35" y="40" width="75" height="3" fill="url(#iceGlow)"/>
+  <rect x="440" y="40" width="85" height="3" fill="url(#iceGlow)"/>
+  <rect x="155" y="236" width="90" height="3" fill="url(#iceGlow)"/>
+  <rect x="550" y="236" width="85" height="3" fill="url(#iceGlow)"/>
+  <g filter="url(#dropShadow)">
+    <!-- Upper Chart Peak + Diamond + Rising Arrow + Gauge + Star -->
+    <!-- Diamond Backing -->
+    <polygon points="335,66 385,66 408,92 360,136 312,92" fill="url(#silverDark)" stroke="#dce5ef" stroke-width="1.2"/>
+    <polygon points="338,70 382,70 401,91 360,70" fill="url(#silverLight)" opacity="0.85"/>
+    <!-- Rising Chart Line into Arrow -->
+    <path d="M 245,134 L 272,134 L 318,86 L 358,125 L 434,52 L 422,46 L 456,36 L 446,70 L 438,62 L 358,142 L 318,103 L 278,139 Z" fill="url(#silverLight)" stroke="#556170" stroke-width="1.2"/>
+    <!-- 5-Point Metallic Star at Peak -->
+    <polygon points="474,18 479,32 494,32 482,41 487,55 474,46 461,55 466,41 454,32 469,32" fill="url(#silverLight)" stroke="#4e5968" stroke-width="1"/>
+    <!-- Speedometer / Gauge Arc & Needle -->
+    <path d="M 412,134 A 46,46 0 0,1 492,134 L 508,134 L 496,138 L 478,138 A 36,36 0 0,0 422,134 Z" fill="url(#silverLight)" stroke="#4e5968" stroke-width="1"/>
+    <polygon points="402,136 476,72 444,120 415,138" fill="url(#silverLight)" stroke="#3b4554" stroke-width="1"/>
+    <!-- Faceted 3D 'X' with Top-Right Arrow Extension -->
+    <!-- Left-Top to Bottom-Right Bar -->
+    <polygon points="64,120 105,120 144,174 185,232 144,232 106,180" fill="url(#silverLight)" stroke="#495464" stroke-width="1.2"/>
+    <polygon points="64,120 85,120 125,176 106,180" fill="url(#silverDark)"/>
+    <!-- Bottom-Left to Top-Right Arrow Bar -->
+    <polygon points="64,232 104,232 194,116 208,126 222,84 180,98 190,108" fill="url(#silverLight)" stroke="#495464" stroke-width="1.2"/>
+    <polygon points="104,232 125,176 204,104 194,116" fill="url(#silverDark)" opacity="0.75"/>
+    <!-- Center Facet Lines on X -->
+    <line x1="64" y1="120" x2="185" y2="232" stroke="#dce8f7" stroke-width="1" opacity="0.6"/>
+    <line x1="64" y1="232" x2="205" y2="96" stroke="#dce8f7" stroke-width="1" opacity="0.6"/>
+    <!-- 3D Brushed Metallic 'STARZG' Typography -->
+    <text x="196" y="210" font-family="'Segoe UI', 'Inter', 'Arial Black', sans-serif" font-weight="900" font-size="82" letter-spacing="4" fill="url(#silverLight)" stroke="#394352" stroke-width="2">STARZG</text>
+    <!-- Subtle Horizontal Underline Bar -->
+    <rect x="198" y="222" width="424" height="5" rx="2.5" fill="url(#silverDark)" opacity="0.7"/>
+  </g>
 </svg>

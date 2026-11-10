@@ -1,323 +1,327 @@
 <!DOCTYPE html>
-<html lang="id" dir="ltr" data-theme="slate-steel">
+<html lang="id" dir="ltr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-  <title data-i18n="meta.title">XSTARZG Analysis — Terminal Kuantitatif Multi-Aset Institusional</title>
-  <meta name="description" content="Terminal Analisis Kuantitatif Multi-Aset Institusional: 50+ Instrumen Crypto, Forex, Emas/Logam Mulia, Komoditas Energi, dan Saham AS." />
-  <meta name="theme-color" content="#11161d" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>XSTARZG Analysis — Multi-Asset Quantitative & CFTC Terminal (2026)</title>
   <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
-  <link rel="stylesheet" href="/css/main.css" />
-  <script src="/vendor/lightweight-charts.js"></script>
+  <link rel="stylesheet" href="/css/app.css" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="/vendor/lightweight-charts.js"></script>
 </head>
-<body>
-  <!-- ===================================================================== -->
-  <!-- GERBANG LOGIN UTAMA (WAJIB LEWAT SINI SEBELUM MASUK KE DASHBOARD)      -->
-  <!-- ===================================================================== -->
-  <section id="loginGateScreen" class="login-gate-backdrop">
+<body class="theme-slate-chamfer">
+  <!-- ==================== FULL-SCREEN LOGIN GATE ==================== -->
+  <section id="loginGateScreen" class="login-gate-overlay">
     <div class="login-gate-card chamfer-box">
-      <div class="login-gate-logo-wrap">
-        <img src="/assets/logo.svg" alt="XSTARZG Emblem" class="login-gate-logo" />
-        <div class="login-gate-badge">TERMINAL KUANTITATIF INSTITUSIONAL v2.0</div>
-        <h1 class="login-gate-title">XSTARZG ANALYSIS</h1>
-        <p class="login-gate-subtitle">
-          Multi-Asset Quantitative Engine • 5-Pillar Confluence • Zero-Lookahead Walk-Forward Backtest
-        </p>
+      <div class="login-gate-brand">
+        <img src="/assets/logo.svg" alt="XSTARZG Official Logo" class="login-gate-logo-wide" />
+        <div class="login-gate-badge">INSTITUTIONAL MULTI-ASSET & CFTC COT TERMINAL • 2026</div>
+        <p class="login-gate-sub">Crypto (1.500+ Pair) • Forex Major/Minor • Metals • Komoditas CFTC • Saham Indonesia (IDX) & Global</p>
       </div>
-      <div class="login-gate-features">
-        <div class="lg-feat"><span>📊</span> 50 Instrumen Lintas-Aset (Crypto, Forex, Gold, Oil, US Stocks)</div>
-        <div class="lg-feat"><span>⚡</span> Indikator Institusional Lengkap (SMC, VPVR 24-Bin, Session VWAP, CVD)</div>
-        <div class="lg-feat"><span>🛡️</span> Proteksi Risiko: Kalkulator Posisi ATR & Mode Spot Investor (Long-Only)</div>
-      </div>
-      <!-- KOTAK LOGIN GOOGLE UTAMA -->
-      <div class="login-gate-action-box">
-        <div class="lg-box-title">AUTENTIKASI AKUN GOOGLE RESMI</div>
-        <p class="lg-box-desc">
-          Masuk dengan Google untuk mengaktifkan akses <strong>Owner Admin</strong>, <strong>VIP Quant Pro</strong>, atau kuota <strong>Member (5 Analisis/Hari)</strong>.
-        </p>
-        <div id="gateGoogleButtonMount" class="gate-google-btn-mount"></div>
-        <!-- Jika GOOGLE_CLIENT_ID belum terbaca dari server, tampilkan input langsung agar tetap bisa dipakai detik itu juga -->
+      <div class="login-gate-actions">
+        <div id="gateGoogleButtonMount" class="gate-google-mount"></div>
+        <button id="btnFallbackGoogleClick" class="btn-chamfer btn-primary-ice w-full">
+          <span>🔐 Login dengan Akun Google</span>
+        </button>
         <div id="gateClientIdSetupBox" class="gate-clientid-box hidden">
-          <p style="font-size:11px;color:var(--warn-amber);margin-bottom:6px;">
-            Masukkan <strong>Google Client ID</strong> Anda sekali saja untuk mengaktifkan tombol Google Sign-In di browser ini:
-          </p>
-          <div style="display:flex;gap:6px;">
-            <input id="inpManualGoogleClientId" type="text" placeholder="xxxx.apps.googleusercontent.com" class="chamfer-input" style="flex:1;" />
-            <button id="btnSaveManualClientId" type="button" class="btn-chamfer btn-primary btn-sm">Aktifkan</button>
+          <label class="gate-input-label">Masukkan Google OAuth Client ID (.apps.googleusercontent.com):</label>
+          <div class="gate-input-row">
+            <input type="text" id="inputGateGoogleClientId" class="input-chamfer" placeholder="123456789-xxx.apps.googleusercontent.com" />
+            <button id="btnSaveGateClientId" class="btn-chamfer btn-teal">Simpan & Aktifkan</button>
           </div>
         </div>
-        <div class="lg-divider"><span>ATAU</span></div>
-        <button id="btnEnterGuestTerminal" type="button" class="btn-chamfer btn-block lg-guest-btn">
-          🚀 Masuk Terminal sebagai Tamu (Pratinjau 2 Analisis/Hari)
+        <div class="gate-divider"><span>ATAU AKSES LANGSUNG</span></div>
+        <button id="btnEnterGuestTerminal" class="btn-chamfer btn-steel-outline w-full">
+          🚀 Masuk Terminal Analisa (Mode Preview / Instan)
         </button>
       </div>
       <div class="login-gate-footer">
-        ⚠️ <strong>Pernyataan Risiko:</strong> Seluruh sinyal kuantitatif dan statistik backtest disediakan murni untuk riset algoritmik & edukasi, bukan saran keuangan.
+        <span>© 2026 XSTARZG Quantitative Systems</span>
+        <span>Zero Look-Ahead • CFTC COT • Multi-Timeframe M1-1Y</span>
       </div>
     </div>
   </section>
-  <!-- ===================================================================== -->
-  <!-- DASHBOARD TERMINAL UTAMA                                              -->
-  <!-- ===================================================================== -->
-  <div id="appWorkspaceWrapper" class="hidden">
+  <!-- ==================== MAIN TERMINAL WORKSPACE ==================== -->
+  <div id="appWorkspaceWrapper" class="app-shell hidden">
     <!-- TOP NAVIGATION BAR -->
-    <header class="topbar">
-      <div class="topbar-brand">
-        <img src="/assets/logo.svg" alt="XSTARZG Logo" class="brand-logo" />
-        <div class="brand-titles">
-          <div class="brand-name-row">
-            <span class="brand-name" data-i18n="nav.brandName">XSTARZG</span>
-            <span class="brand-tag" data-i18n="nav.brandTag">ANALYSIS TERMINAL v2.0</span>
+    <header class="topbar chamfer-bar">
+      <div class="brand-cluster">
+        <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-rect" />
+        <div class="brand-meta">
+          <div class="brand-title-row">
+            <span class="brand-name">XSTARZG</span>
+            <span class="brand-tag">QUANT COT 2026</span>
           </div>
-          <div class="brand-sys-status">
-            <span id="sysStatusDot" class="status-dot status-online"></span>
-            <span id="sysStatusText" data-i18n="nav.systemOnline">QUANT ENGINE ONLINE • 50 INSTRUMEN AKTIF</span>
+          <span class="brand-sub" id="activeFeedSourceLabel">REALTIME MULTI-ASSET EDGE FEED</span>
+        </div>
+      </div>
+      <!-- ASSET CATEGORY TABS + SEARCH ANY TICKER + SELECT DROPDOWN -->
+      <div class="instrument-cluster">
+        <div class="asset-tabs" id="assetClassTabs">
+          <button class="asset-tab active" data-asset="all">ALL (180+)</button>
+          <button class="asset-tab" data-asset="crypto">CRYPTO (1500+)</button>
+          <button class="asset-tab" data-asset="forex">FOREX (28)</button>
+          <button class="asset-tab" data-asset="metals">METALS (10)</button>
+          <button class="asset-tab" data-asset="commodities">KOMODITAS (16)</button>
+          <button class="asset-tab" data-asset="stocks_id">🇸🇬/🇮🇩 SAHAM IDX</button>
+          <button class="asset-tab" data-asset="stocks_global">🌎 SAHAM AS & DUNIA</button>
+        </div>
+        <div class="selector-row">
+          <select id="instrumentSelect" class="select-chamfer" aria-label="Pilih Instrumen"></select>
+          <div class="search-ticker-box">
+            <input type="text" id="customTickerSearch" class="input-chamfer input-search-sm" placeholder="Cari Ticker (mis: BBCA.JK, PEPE, XAU, RENDER)..." />
+            <button id="btnLoadCustomTicker" class="btn-chamfer btn-teal btn-sm">Muat</button>
           </div>
         </div>
       </div>
-      <div class="topbar-center">
-        <div class="mode-switch-group" role="group" aria-label="Trading Mode Switch">
-          <button id="modeTraderBtn" type="button" class="mode-btn active" data-mode="trader">
-            <span class="mode-icon">⚡</span>
-            <span data-i18n="nav.modeTrader">Mode Trader (2-Arah)</span>
+      <!-- MODE SWITCHER (TRADER vs SPOT INVESTOR) + USER / VIP / LANG -->
+      <div class="control-cluster">
+        <div class="mode-toggle-group" role="group" aria-label="Mode Analisa">
+          <button id="btnModeTrader" class="mode-btn active" data-mode="trader" title="Mode Trader Derivatif (Long/Short, Leverage, TP1-TP3)">
+            ⚡ TRADER MODE
           </button>
-          <button id="modeInvestorBtn" type="button" class="mode-btn" data-mode="investor">
-            <span class="mode-icon">🛡️</span>
-            <span data-i18n="nav.modeInvestor">Spot Investor (Long-Only)</span>
+          <button id="btnModeInvestor" class="mode-btn" data-mode="investor" title="Mode Spot Investor (Zona Akumulasi DCA 3-Tahap & Valuasi)">
+            🏦 SPOT INVESTOR
           </button>
         </div>
-      </div>
-      <div class="topbar-actions">
-        <div class="lang-selector-wrap">
-          <label for="languageSelect" class="sr-only" data-i18n="nav.languageLabel">Bahasa</label>
-          <select id="languageSelect" class="chamfer-select" aria-label="Select Language"></select>
-        </div>
-        <button id="btnGoogleLogin" type="button" class="btn-chamfer btn-auth">
-          <span class="auth-dot"></span>
-          <span data-i18n="nav.loginGoogle">Akun / Upgrade VIP</span>
-        </button>
+        <select id="langSelect" class="select-chamfer select-sm" aria-label="Bahasa">
+          <option value="id">🇮🇩 ID</option>
+          <option value="en">🇬🇧 EN</option>
+          <option value="zh-CN">🇨🇳 ZH</option>
+          <option value="ja">🇯🇵 JA</option>
+          <option value="ko">🇰🇷 KO</option>
+          <option value="ar">🇸🇦 AR</option>
+          <option value="ru">🇷🇺 RU</option>
+          <option value="es">🇪🇸 ES</option>
+          <option value="de">🇩🇪 DE</option>
+          <option value="fr">🇫🇷 FR</option>
+        </select>
+        <button id="btnOpenVipModal" class="btn-chamfer btn-gold-outline btn-sm">💎 VIP USDT</button>
+        <button id="btnUserSession" class="btn-chamfer btn-steel-outline btn-sm">👤 Guest</button>
       </div>
     </header>
-    <!-- INSTRUMENT & TIMEFRAME SELECTOR BAR -->
-    <section class="control-ribbon">
-      <div class="asset-tabs" id="assetClassTabs" role="tablist">
-        <button type="button" class="asset-tab active" data-asset="all">SEMUA (50)</button>
-        <button type="button" class="asset-tab" data-asset="crypto">CRYPTO (16)</button>
-        <button type="button" class="asset-tab" data-asset="forex">FOREX (10)</button>
-        <button type="button" class="asset-tab" data-asset="metals">METALS (4)</button>
-        <button type="button" class="asset-tab" data-asset="commodities">COMMODITIES (6)</button>
-        <button type="button" class="asset-tab" data-asset="stocks">US STOCKS (14)</button>
+    <!-- QUICK TICKER RIBBON -->
+    <div id="quickTickerRibbon" class="quick-ticker-ribbon"></div>
+    <!-- STRATEGY HORIZON & TIMEFRAME SELECTOR BAR -->
+    <section class="horizon-tf-bar chamfer-box">
+      <div class="horizon-group">
+        <span class="bar-section-label">GAYA TRADING / HORIZON:</span>
+        <div class="horizon-buttons" id="horizonButtonGroup">
+          <button class="horizon-btn" data-horizon="scalping">⚡ SCALPING (M1-M15)</button>
+          <button class="horizon-btn active" data-horizon="intraday">🎯 INTRADAY (M15-H1)</button>
+          <button class="horizon-btn" data-horizon="swing">🌊 SWING (H4-W1)</button>
+          <button class="horizon-btn" data-horizon="macro">🏛️ INVESTOR / MACRO (D1-1Y)</button>
+          <button class="horizon-btn" data-horizon="all">ALL TF</button>
+        </div>
       </div>
-      <div class="instrument-picker">
-        <label for="symbolSelect" class="control-label">INSTRUMEN:</label>
-        <select id="symbolSelect" class="chamfer-select symbol-select"></select>
+      <div class="tf-group">
+        <span class="bar-section-label" id="tfGroupHintLabel">TIMEFRAME AKTIF:</span>
+        <div class="tf-buttons" id="timeframeButtonGroup"></div>
       </div>
-      <div class="timeframe-bar" id="timeframeBar" role="group" aria-label="Timeframe Selector">
-        <button type="button" class="tf-btn" data-tf="M1" data-scalp="1">M1</button>
-        <button type="button" class="tf-btn" data-tf="M5" data-scalp="1">M5</button>
-        <button type="button" class="tf-btn" data-tf="M15" data-scalp="1">M15</button>
-        <button type="button" class="tf-btn" data-tf="M30">M30</button>
-        <button type="button" class="tf-btn active" data-tf="H1">H1</button>
-        <button type="button" class="tf-btn" data-tf="H4">H4</button>
-        <button type="button" class="tf-btn" data-tf="D1">D1</button>
-        <button type="button" class="tf-btn" data-tf="W1">W1</button>
-        <button type="button" class="tf-btn" data-tf="MN">MN</button>
-        <button type="button" class="tf-btn" data-tf="1Y">1Y</button>
-      </div>
-      <div id="scalpingLockNotice" class="scalping-lock-pill hidden">
-        🔒 M1/M5/M15 Dikunci (Khusus Feed Real-Time Crypto)
+      <div class="overlay-toggles">
+        <label class="chk-pill"><input type="checkbox" id="chkShowEma" checked /> <span>EMA 20/50/200</span></label>
+        <label class="chk-pill"><input type="checkbox" id="chkShowLevels" checked /> <span>Garis Entry/SL/TP/DCA</span></label>
+        <label class="chk-pill"><input type="checkbox" id="chkShowVp" checked /> <span>POC Volume</span></label>
       </div>
     </section>
-    <!-- QUICK TICKER PILLS RIBBON (KLIK LANGSUNG INSTRUMEN POPULER) -->
-    <div id="quickTickerRibbon" class="quick-ticker-ribbon"></div>
-    <!-- HONEST DATA SOURCE & PROXY DISCLOSURE BANNER -->
-    <div id="honestSourceBanner" class="honest-source-banner hidden"></div>
-    <!-- MAIN WORKSPACE GRID -->
+    <!-- MAIN 3-COLUMN QUANT WORKSPACE -->
     <main class="workspace-grid">
-      <div class="workspace-main-col">
-        <!-- MARKET TELEMETRY HEADER -->
-        <section class="market-header-card chamfer-box">
-          <div class="mh-left">
-            <div class="mh-symbol-wrap">
-              <h1 id="activeSymbolTitle" class="mh-symbol">BTC/USDT</h1>
-              <span id="valSourceExchange" class="mh-exchange-badge">EDGE REALTIME</span>
-            </div>
-            <div class="mh-price-wrap">
-              <span id="activePrice" class="mh-price">--</span>
-              <span id="activePriceChange" class="mh-change neutral">0.00%</span>
-            </div>
+      <!-- LEFT COLUMN: CHART + TECHNICAL/FUNDAMENTAL/COT DEEP-DIVE -->
+      <section class="chart-column">
+        <!-- INSTRUMENT TELEMETRY HEADER -->
+        <div class="telemetry-strip chamfer-box">
+          <div class="sym-primary">
+            <h1 id="lblActiveSymbol" class="sym-code">BTC/USDT</h1>
+            <span id="lblActiveName" class="sym-name">Bitcoin</span>
+            <span id="lblFeedBadge" class="badge-feed badge-realtime">● REALTIME FEED</span>
           </div>
-          <div class="mh-center" id="derivativesBar">
-            <div class="mh-stat">
-              <span class="mh-stat-label">Funding Rate (8h)</span>
-              <span id="valFundingRate" class="mh-stat-val">--</span>
+          <div class="sym-metrics">
+            <div class="metric-cell">
+              <span class="m-label">HARGA TERAKHIR</span>
+              <span id="lblLastPrice" class="m-val price-hl">--</span>
             </div>
-            <div class="mh-stat">
-              <span class="mh-stat-label">Open Interest</span>
-              <span id="valOpenInterest" class="mh-stat-val">--</span>
+            <div class="metric-cell">
+              <span class="m-label">PERUBAHAN</span>
+              <span id="lblChangePct" class="m-val">--</span>
             </div>
-          </div>
-          <div class="mh-right">
-            <span id="feedStatusBadge" class="feed-badge feed-realtime">REALTIME</span>
-            <span id="cacheAgeBadge" class="cache-badge">Cache 0m</span>
-          </div>
-        </section>
-        <!-- CHART WORKSPACE PANEL -->
-        <section class="chart-section chamfer-box">
-          <div class="chart-toolbar">
-            <div class="overlay-toggles">
-              <span class="toolbar-label">OVERLAY:</span>
-              <button type="button" class="overlay-toggle active" data-overlay="ema">EMA 20/50/200</button>
-              <button type="button" class="overlay-toggle active" data-overlay="bb">Bollinger</button>
-              <button type="button" class="overlay-toggle active" data-overlay="vwap">VWAP</button>
-              <button type="button" class="overlay-toggle active" data-overlay="smc">SMC / OrderBlock</button>
-              <button type="button" class="overlay-toggle active" data-overlay="vpvr">VPVR (24-Bin)</button>
+            <div class="metric-cell">
+              <span class="m-label">REZIM VOLATILITAS</span>
+              <span id="lblRegime" class="m-val">--</span>
             </div>
-            <div class="oscillator-tabs">
-              <span class="toolbar-label">OSILATOR:</span>
-              <button type="button" class="osc-tab active" data-osc="delta">Vol Delta / CVD</button>
-              <button type="button" class="osc-tab" data-osc="rsi">RSI (14)</button>
-              <button type="button" class="osc-tab" data-osc="macd">MACD</button>
-              <button type="button" class="osc-tab" data-osc="stoch">Stoch RSI</button>
-              <button type="button" class="osc-tab" data-osc="adx">ADX / Regime</button>
+            <div class="metric-cell">
+              <span class="m-label">STRUKTUR PASAR</span>
+              <span id="lblStructureTag" class="m-val">--</span>
+            </div>
+            <div class="metric-cell">
+              <span class="m-label">ATR(14) %</span>
+              <span id="lblAtrPct" class="m-val">--</span>
             </div>
           </div>
-          <div class="chart-stage-wrap">
-            <div id="mainChartContainer" class="main-chart-canvas"></div>
-            <div id="vpvrOverlay" class="vpvr-overlay-container"></div>
-          </div>
-          <div class="osc-stage-wrap">
-            <div id="oscChartContainer" class="osc-chart-canvas"></div>
-          </div>
-        </section>
-        <!-- INSTITUTIONAL 6-CELL TELEMETRY MATRIX -->
-        <section class="telemetry-matrix">
-          <div class="telemetry-cell chamfer-box">
-            <span class="tel-label">TREND & REGIME (ADX/EMA)</span>
-            <span id="valTrendMain" class="tel-value">--</span>
-          </div>
-          <div class="telemetry-cell chamfer-box">
-            <span class="tel-label">MOMENTUM (RSI/MACD/STOCH)</span>
-            <span id="valMomentumMain" class="tel-value">--</span>
-          </div>
-          <div class="telemetry-cell chamfer-box">
-            <span class="tel-label">VOLATILITAS (ATR / BB SQUEEZE)</span>
-            <span id="valVolatilityMain" class="tel-value">--</span>
-          </div>
-          <div class="telemetry-cell chamfer-box">
-            <span class="tel-label">ANCHORED SESSION VWAP</span>
-            <span id="valVwapMain" class="tel-value">--</span>
-          </div>
-          <div class="telemetry-cell chamfer-box">
-            <span class="tel-label">STRUKTUR SMC & VPVR POC</span>
-            <span id="valSmcMain" class="tel-value">--</span>
-          </div>
-          <div class="telemetry-cell chamfer-box">
-            <span class="tel-label">ORDERFLOW DELTA & CVD</span>
-            <span id="valDeltaMain" class="tel-value">--</span>
-          </div>
-        </section>
-        <!-- FUNDAMENTAL & MACRO INTELLIGENCE PANEL -->
-        <section class="bottom-panel chamfer-box">
-          <div class="panel-header">
-            <div>
-              <h2 class="panel-title">INTELIJEN FUNDAMENTAL, MAKRO & SEC EDGAR</h2>
-              <p class="panel-subtitle">Valuasi Lintas-Aset, Neraca Keuangan GAAP SEC, Kebijakan Suku Bunga & Posisioning Institusional</p>
+        </div>
+        <!-- TRADINGVIEW LIGHTWEIGHT CHART CANVAS -->
+        <div class="chart-stage chamfer-box">
+          <div id="mainChartContainer" class="chart-canvas-main"></div>
+          <div class="rsi-sub-header">RSI (14) Momentum Oscillator • Overbought 70 / Oversold 30</div>
+          <div id="rsiChartContainer" class="chart-canvas-rsi"></div>
+        </div>
+        <!-- SHARP TECHNICAL + FUNDAMENTAL + CFTC COT INSTITUTIONAL MATRIX -->
+        <div class="deep-analysis-grid">
+          <!-- Technical Matrix Card -->
+          <div class="deep-card chamfer-box">
+            <div class="card-header-strip">
+              <h3>📐 Analisa Teknikal Presisi & Orderflow</h3>
+              <span id="badgeTechSummary" class="pill-tag">MULTI-LAYER</span>
             </div>
-            <button id="btnRefreshFundamentals" type="button" class="btn-chamfer btn-sm">Muat Ulang Data</button>
+            <div class="tech-metrics-grid" id="techMatrixContent"></div>
           </div>
-          <div id="fundamentalMount" class="panel-body"></div>
-        </section>
-        <!-- MULTI-ASSET QUANTITATIVE SCANNER PANEL -->
-        <section class="bottom-panel chamfer-box">
-          <div id="scannerMount" class="panel-body"></div>
-        </section>
-      </div>
-      <!-- RIGHT SIDEBAR: QUANT SIGNAL ENGINE + POSITION SIZING CALCULATOR -->
-      <aside class="workspace-side-col">
-        <section class="signal-panel chamfer-box">
-          <div class="panel-header">
-            <div class="signal-header-left">
-              <h2 class="panel-title">KEPUTUSAN QUANT & BACKTEST</h2>
-              <span id="signalStatusPill" class="signal-status-pill">READY</span>
+          <!-- Fundamental & CFTC COT Matrix Card -->
+          <div class="deep-card chamfer-box">
+            <div class="card-header-strip">
+              <h3>🏛️ Fundamental Makro & Posisi Institusi (CFTC COT)</h3>
+              <span id="badgeCotBias" class="pill-tag">CFTC COT</span>
             </div>
-            <button id="btnRunFullAnalysis" type="button" class="btn-chamfer btn-primary">
-              ⚡ Analisis Penuh
-            </button>
+            <div id="fundamentalCotContent" class="fund-cot-body"></div>
           </div>
-          <div id="signalCardBody" class="signal-card-body"></div>
-        </section>
-        <section id="calculatorPanel" class="calc-panel chamfer-box">
-          <div class="panel-header">
-            <h2 class="panel-title">KALKULATOR UKURAN POSISI & RISIKO</h2>
-            <span id="calcAtrBadge" class="atr-pill">ATR(14): --</span>
+        </div>
+      </section>
+      <!-- RIGHT COLUMN: EXECUTION BLUEPRINT (TRADER vs INVESTOR), CONFLUENCE, BACKTEST & MULTI-ASSET RADAR -->
+      <aside class="signal-column">
+        <!-- CARD 1: DYNAMIC EXECUTION BLUEPRINT (Changes completely between Trader & Spot Investor!) -->
+        <div class="signal-card chamfer-box" id="executionBlueprintCard">
+          <div class="card-header-strip">
+            <h2 id="lblBlueprintTitle">⚡ Blueprint Eksekusi Trader</h2>
+            <span id="badgeActiveHorizon" class="pill-tag">INTRADAY • H1</span>
           </div>
-          <div class="calc-form-grid">
-            <div class="calc-field">
-              <label for="calcBalance">Modal Akun (USD)</label>
-              <input id="calcBalance" type="number" step="10" min="10" value="1000" class="chamfer-input" />
+          <!-- Primary Signal Banner -->
+          <div class="signal-hero-banner" id="signalHeroBanner">
+            <div class="sig-dir-box">
+              <span class="sig-sub-label" id="lblDirectionHeader">REKOMENDASI UTAMA</span>
+              <div id="lblSignalDirection" class="sig-direction-text">NEUTRAL</div>
+              <div id="lblInvestorSubStatus" class="sig-investor-sub hidden"></div>
             </div>
-            <div class="calc-field">
-              <label for="calcRiskPct">Risiko per Trade (%)</label>
-              <input id="calcRiskPct" type="number" step="0.1" min="0.1" max="20" value="1.0" class="chamfer-input" />
+            <div class="sig-score-box">
+              <span class="sig-sub-label">CONFLUENCE SCORE</span>
+              <div class="score-dial"><span id="lblConfluenceScore">--</span><small>/100</small></div>
             </div>
-            <div class="calc-field">
-              <label for="calcEntryPrice">Harga Entry</label>
-              <input id="calcEntryPrice" type="number" step="any" placeholder="Otomatis / Manual" class="chamfer-input" />
+          </div>
+          <!-- Sub-score Breakdown Bars -->
+          <div class="subscore-bars" id="subscoreBarsContainer"></div>
+          <!-- TRADER MODE LEVELS (Entry, SL, TP1, TP2, TP3, Position Sizing) -->
+          <div id="traderLevelsPanel" class="levels-grid-panel">
+            <div class="level-row row-entry">
+              <span>🎯 Entry Trigger (Market/Limit)</span>
+              <strong id="valEntryPrice">--</strong>
             </div>
-            <div class="calc-field">
-              <div class="calc-label-row">
-                <label for="calcStopLoss">Harga Stop Loss</label>
-                <button id="btnCalcUseAtr" type="button" class="btn-link-xs">Gunakan 2x ATR</button>
+            <div class="level-row row-sl">
+              <span>🛑 Stop Loss (Batas Invalidasi)</span>
+              <strong id="valSlPrice">--</strong>
+            </div>
+            <div class="level-row row-tp">
+              <span>✅ Take Profit 1 (1.5R Conservative)</span>
+              <strong id="valTp1Price">--</strong>
+            </div>
+            <div class="level-row row-tp">
+              <span>✅ Take Profit 2 (2.5R Optimal)</span>
+              <strong id="valTp2Price">--</strong>
+            </div>
+            <div class="level-row row-tp">
+              <span>🚀 Take Profit 3 (4.0R Runner)</span>
+              <strong id="valTp3Price">--</strong>
+            </div>
+            <!-- Interactive Risk Calculator -->
+            <div class="risk-calc-Mini">
+              <div class="rc-inputs">
+                <label>Modal ($): <input type="number" id="inpAccountBalance" value="1000" class="input-chamfer input-xs" /></label>
+                <label>Risiko (%): <input type="number" id="inpRiskPct" value="1.0" step="0.5" class="input-chamfer input-xs" /></label>
               </div>
-              <input id="calcStopLoss" type="number" step="any" placeholder="Stop Loss" class="chamfer-input" />
-            </div>
-            <div class="calc-field calc-field-full">
-              <label for="calcLeverage">Leverage Akun (1x = Spot Murni)</label>
-              <input id="calcLeverage" type="number" step="1" min="1" max="100" value="1" class="chamfer-input" />
+              <div class="rc-output" id="lblPositionSizeOutput">Risiko: $10.00 | Ukuran Posisi: -- Unit</div>
             </div>
           </div>
-          <div class="calc-results-grid">
-            <div class="calc-res-item">
-              <span class="calc-res-label">Ukuran Posisi (Unit)</span>
-              <span id="resPosSizeUnits" class="calc-res-val">--</span>
+          <!-- SPOT INVESTOR MODE PANEL (3-Tier DCA Accumulation + Cycle Targets + Holding Horizon) -->
+          <div id="investorLevelsPanel" class="levels-grid-panel hidden">
+            <div class="investor-banner-note">
+              🏦 <strong>Mode Spot Investor Aktif:</strong> Tanpa posisi Short/Leverage. Fokus pada zona cicil beli (DCA Support) dan target valuasi menengah-panjang.
             </div>
-            <div class="calc-res-item">
-              <span class="calc-res-label">Nilai Nosional Posisi</span>
-              <span id="resPosNotional" class="calc-res-val">--</span>
+            <div class="level-row row-dca1">
+              <span>🟢 DCA Tranche 1 (40% Alokasi • Area Spot)</span>
+              <strong id="valDca1">--</strong>
             </div>
-            <div class="calc-res-item">
-              <span class="calc-res-label">Risiko Kerugian Maks (1R)</span>
-              <span id="resMaxLossUsd" class="calc-res-val text-bear">--</span>
+            <div class="level-row row-dca2">
+              <span>🟢 DCA Tranche 2 (35% Alokasi • Value Support)</span>
+              <strong id="valDca2">--</strong>
             </div>
-            <div class="calc-res-item">
-              <span class="calc-res-label">Margin Dibutuhkan</span>
-              <span id="resReqMargin" class="calc-res-val">--</span>
+            <div class="level-row row-dca3">
+              <span>🟢 DCA Tranche 3 (25% Alokasi • Diskon Ekstrem)</span>
+              <strong id="valDca3">--</strong>
             </div>
-            <div class="calc-res-item">
-              <span class="calc-res-label">Leverage Efektif</span>
-              <span id="resEffectiveLev" class="calc-res-val">--</span>
+            <div class="level-row row-tp">
+              <span>🎯 Target Valuasi Siklus 1 (+12% Fair Value)</span>
+              <strong id="valInvTp1">--</strong>
             </div>
-            <div class="calc-res-item">
-              <span class="calc-res-label">Est. Harga Likuidasi</span>
-              <span id="resLiqPrice" class="calc-res-val">--</span>
+            <div class="level-row row-tp">
+              <span>🎯 Target Valuasi Siklus 2 (+28% Expansion)</span>
+              <strong id="valInvTp2">--</strong>
+            </div>
+            <div class="level-row row-tp">
+              <span>🚀 Target Valuasi Siklus 3 (+55% Macro Peak)</span>
+              <strong id="valInvTp3">--</strong>
+            </div>
+            <div class="level-row row-sl">
+              <span>🛡️ Batas Evaluasi / Cut-Loss Struktur Kuartalan</span>
+              <strong id="valInvSl">--</strong>
             </div>
           </div>
-        </section>
+          <!-- Explainable AI Quant Reasons -->
+          <div class="reasons-box">
+            <h4>🧠 Rincian Alasan Kuantitatif & Fundamental:</h4>
+            <ul id="signalReasonsList" class="reasons-list"></ul>
+          </div>
+        </div>
+        <!-- CARD 2: WALK-FORWARD HISTORICAL BACKTEST (SEPARATED FROM CONFLUENCE) -->
+        <div class="signal-card chamfer-box">
+          <div class="card-header-strip">
+            <h2>📊 Bukti Backtest Historis (Walk-Forward)</h2>
+            <span id="badgeBacktestStatus" class="pill-tag">ZERO LOOK-AHEAD</span>
+          </div>
+          <div id="backtestMetricsPanel" class="bt-grid"></div>
+        </div>
+        <!-- CARD 3: MULTI-ASSET RECOMMENDATION RADAR BY HORIZON (SCALPING / INTRADAY / SWING) -->
+        <div class="signal-card chamfer-box">
+          <div class="card-header-strip">
+            <h2>🛰️ Rekomendasi Instrumen Multi-Aset</h2>
+            <button id="btnRefreshRadar" class="btn-chamfer btn-xs">🔄 Scan Pasar</button>
+          </div>
+          <p class="radar-sub-note">Pilih kelompok gaya trading untuk melihat instrumen dengan Confluence tertinggi beserta Timeframe-nya:</p>
+          <div class="radar-horizon-tabs" id="radarHorizonTabs">
+            <button class="radar-tab active" data-rhorizon="scalping">⚡ Scalping (M1-M15)</button>
+            <button class="radar-tab" data-rhorizon="intraday">🎯 Intraday (M15-H1)</button>
+            <button class="radar-tab" data-rhorizon="swing">🌊 Swing (H4-D1)</button>
+          </div>
+          <div id="topRadarList" class="radar-list"></div>
+        </div>
       </aside>
     </main>
-    <!-- PERSISTENT FOOTER -->
-    <footer class="app-footer">
-      <div class="footer-disclaimer">
-        PERINGATAN RISIKO & PENOLAKAN TANGGUNG JAWAB (BUKAN SARAN KEUANGAN): Seluruh sinyal kuantitatif, skor konfluensi, dan statistik backtest walk-forward di XSTARZG Analysis disediakan murni untuk tujuan riset algoritmik dan edukasi. Kinerja masa lalu tidak menjamin hasil di masa depan.
+    <!-- VIP BSC USDT MODAL -->
+    <div id="vipModal" class="modal-backdrop hidden">
+      <div class="modal-card chamfer-box">
+        <div class="card-header-strip">
+          <h2>💎 Upgrade VIP Institutional Access (BSC BEP-20 USDT)</h2>
+          <button id="btnCloseVipModal" class="btn-chamfer btn-xs">✕</button>
+        </div>
+        <div class="modal-body">
+          <p>Dapatkan akses tanpa batas ke seluruh scanner CFTC COT, 1.500+ Crypto Real-Time, Forex, Komoditas, dan Saham Indonesia/Global.</p>
+          <div class="wallet-box">
+            <span>Alamat Wallet Resmi Penerima USDT (Jaringan BSC / BEP-20):</span>
+            <code id="ownerWalletCode">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
+          </div>
+          <div class="tx-verify-row">
+            <input type="text" id="inpBscTxHash" class="input-chamfer" placeholder="Tempel TxHash BSC (0x...)" />
+            <button id="btnVerifyTxHash" class="btn-chamfer btn-teal">Verifikasi On-Chain</button>
+          </div>
+          <div id="txVerifyStatus" class="tx-status-msg"></div>
+        </div>
       </div>
-      <div class="footer-meta">
-        <span>© 2026 XSTARZG Analysis. Seluruh hak cipta dilindungi.</span>
-        <span class="footer-sep">•</span>
-        <span>Zero-Lookahead Quantitative Engine v2.0</span>
-      </div>
-    </footer>
+    </div>
   </div>
   <script type="module" src="/js/app.js"></script>
 </body>
