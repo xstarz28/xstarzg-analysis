@@ -1,33 +1,68 @@
-import { getInstrumentMeta, generateInstitutionalSeries } from '../../lib/quant-core.js';
-import { runFullAnalysis } from '../../lib/signal-engine.js';
+﻿import { INSTRUMENTS, fetchMarketCandles } from '../../lib/quant-core.js';
+import { evaluateFullAnalysis } from '../../lib/signal-engine.js';
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
-  const mode = url.searchParams.get('mode') || 'trader';
-  const horizon = url.searchParams.get('horizon') || 'intraday';
-  const sampleList = horizon === 'scalping'
-    ? [
-        { sym: 'BTC/USDT', tf: 'M5' }, { sym: 'SOL/USDT', tf: 'M5' }, { sym: 'XAU/USD', tf: 'M15' },
-        { sym: 'EUR/USD', tf: 'M5' }, { sym: 'PEPE/USDT', tf: 'M5' }, { sym: 'WTI', tf: 'M15' }
-      ]
-    : horizon === 'swing'
-    ? [
-        { sym: 'BTC/USDT', tf: 'H4' }, { sym: 'XAU/IDR', tf: 'D1' }, { sym: 'BBRI.JK', tf: 'D1' },
-        { sym: 'CPO', tf: 'H4' }, { sym: 'COAL', tf: 'D1' }, { sym: 'SPY', tf: 'D1' }
-      ]
-    : [
-        { sym: 'ETH/USDT', tf: 'M30' }, { sym: 'XAU/USD', tf: 'H1' }, { sym: 'BBCA.JK', tf: 'H1' },
-        { sym: 'BMRI.JK', tf: 'H1' }, { sym: 'USD/IDR', tf: 'H1' }, { sym: 'NVDA', tf: 'H1' }
-      ];
-  const signals = [];
-  for (const item of sampleList) {
-    const meta = getInstrumentMeta(item.sym);
-    const candles = generateInstitutionalSeries(meta, item.tf, 260);
-    const res = runFullAnalysis({ symbol: meta.symbol, timeframe: item.tf, mode, horizon, candles });
-    if (res && !res.error) {
-      delete res.series;
-      signals.push(res);
-    }
+  const horizon = (url.searchParams.get('horizon') || 'INTRADAY').toUpperCase();
+  const mode = (url.searchParams.get('mode') || 'TRADER').toUpperCase();
+  // SPOT INVESTOR MODE: EXCLUSIVELY SPOT-ELIGIBLE VALUE, BLUE-CHIP & GROWTH ASSETS (ZERO FOREX MARGIN / SHORT CALLS)
+  if (mode === 'SPOT_INVESTOR') {
+    const investorPools = {
+      VALUE:    ['BBRI.JK', 'TLKM.JK', 'ASII.JK', 'ADRO.JK', 'XAG/USD', 'LINK/USDT'],
+      BLUECHIP: ['XAU/USD', 'BBCA.JK', 'BMRI.JK', 'BTC/USDT', 'AAPL', 'MSFT'],
+      GROWTH:   ['NVDA', 'SOL/USDT', 'AMMN.JK', 'ANTM.JK', 'ETH/USDT', 'META']
+    };
+    const pool = investorPools[horizon] || investorPools.BLUECHIP;
+    const results = await Promise.all(pool.map(async (sym) => {
+      const { candles } = await fetchMarketCandles(sym, 'D1', 200);
+      const sig = evaluateFullAnalysis(sym, 'D1', candles, 'SPOT_INVESTOR');
+      return {
+        symbol: sig.symbol,
+        name: sig.name,
+        assetClass: sig.assetClass,
+        timeframe: 'D1 (SPOT)',
+        horizon,
+        mode: 'SPOT_INVESTOR',
+        direction: 'ACCUMULATE SPOT',
+        confidence: sig.confidence,
+        lastPrice: sig.lastPrice,
+        entryPrice: sig.spotPlan.dcaZones[0].price,
+        stopLoss: sig.spotPlan.dcaZones[1].price,
+        tp1: sig.spotPlan.cycleTargets[0].price,
+        tp2: sig.spotPlan.cycleTargets[1].price,
+        fairValue: sig.spotPlan.fairValue,
+        marginOfSafetyPct: sig.spotPlan.marginOfSafetyPct,
+        winRate: sig.backtest.winRate,
+        profitFactor: sig.backtest.profitFactor
+      };
+    }));
+    results.sort((a, b) => b.confidence - a.confidence);
+    return Response.json({ ok: true, horizon, mode, signals: results });
   }
-  signals.sort((a, b) => b.confluenceScore - a.confluenceScore);
-  return Response.json({ horizon, mode, count: signals.length, signals });
+  // TRADER MODE
+  const tfMap = { SCALPING: 'M5', INTRADAY: 'M30', SWING: 'H4', INVESTOR: 'D1' };
+  const tf = tfMap[horizon] || 'H1';
+  const watchPool = ['BTC/USDT', 'XAU/USD', 'EUR/USD', 'SOL/USDT', 'GBP/USD', 'BBCA.JK', 'NVDA', 'WTI'];
+  const results = await Promise.all(watchPool.map(async (sym) => {
+    const { candles } = await fetchMarketCandles(sym, tf, 200);
+    const sig = evaluateFullAnalysis(sym, tf, candles, 'TRADER');
+    return {
+      symbol: sig.symbol,
+      name: sig.name,
+      assetClass: sig.assetClass,
+      timeframe: tf,
+      horizon,
+      mode: 'TRADER',
+      direction: sig.traderPlan.direction,
+      confidence: sig.confidence,
+      lastPrice: sig.lastPrice,
+      entryPrice: sig.traderPlan.entryPrice,
+      stopLoss: sig.traderPlan.stopLoss,
+      tp1: sig.traderPlan.tp1,
+      tp2: sig.traderPlan.tp2,
+      winRate: sig.backtest.winRate,
+      profitFactor: sig.backtest.profitFactor
+    };
+  }));
+  results.sort((a, b) => b.confidence - a.confidence);
+  return Response.json({ ok: true, horizon, mode: 'TRADER', signals: results.slice(0, 6) });
 }
