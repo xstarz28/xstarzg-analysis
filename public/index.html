@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="id" dir="ltr" data-theme="slate-steel">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title data-i18n="meta.title">XSTARZG Analysis — Terminal Kuantitatif Multi-Aset Institusional</title>
+  <meta name="description" content="Terminal Analisis Kuantitatif Multi-Aset Institusional: Crypto, Forex, Emas/Logam Mulia, Komoditas Energi, dan Saham AS dengan Backtest Walk-Forward Tanpa Bias." />
+  <meta name="theme-color" content="#11161d" />
+  <link rel="icon" type="image/png" href="/assets/logo.png" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <script src="/vendor/lightweight-charts.js"></script>
+</head>
+<body>
+  <!-- TOP NAVIGATION BAR -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <img src="/assets/logo.png" alt="XSTARZG Logo" class="brand-logo" onerror="this.style.display='none'" />
+      <div class="brand-titles">
+        <div class="brand-name-row">
+          <span class="brand-name" data-i18n="nav.brandName">XSTARZG</span>
+          <span class="brand-tag" data-i18n="nav.brandTag">ANALYSIS TERMINAL v2.0</span>
+        </div>
+        <div class="brand-sys-status">
+          <span id="sysStatusDot" class="status-dot status-online"></span>
+          <span id="sysStatusText" data-i18n="nav.systemOnline">QUANT ENGINE ONLINE</span>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <div class="mode-switch-group" role="group" aria-label="Trading Mode Switch">
+        <button id="modeTraderBtn" type="button" class="mode-btn active" data-mode="trader">
+          <span class="mode-icon">⚡</span>
+          <span data-i18n="nav.modeTrader">Mode Trader (2-Arah)</span>
+        </button>
+        <button id="modeInvestorBtn" type="button" class="mode-btn" data-mode="investor">
+          <span class="mode-icon">🛡️</span>
+          <span data-i18n="nav.modeInvestor">Spot Investor (Long-Only)</span>
+        </button>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="lang-selector-wrap">
+        <label for="languageSelect" class="sr-only" data-i18n="nav.languageLabel">Bahasa</label>
+        <select id="languageSelect" class="chamfer-select" aria-label="Select Language"></select>
+      </div>
+      <button id="btnGoogleLogin" type="button" class="btn-chamfer btn-auth">
+        <span class="auth-dot"></span>
+        <span data-i18n="nav.loginGoogle">Login Google / Kuota</span>
+      </button>
+    </div>
+  </header>
+  <!-- INSTRUMENT & TIMEFRAME SELECTOR BAR -->
+  <section class="control-ribbon">
+    <div class="asset-tabs" id="assetClassTabs" role="tablist">
+      <button type="button" class="asset-tab active" data-asset="crypto" data-i18n="workspace.assetCrypto">CRYPTO (10)</button>
+      <button type="button" class="asset-tab" data-asset="forex" data-i18n="workspace.assetForex">FOREX (6)</button>
+      <button type="button" class="asset-tab" data-asset="metals" data-i18n="workspace.assetMetals">METALS (2)</button>
+      <button type="button" class="asset-tab" data-asset="commodities" data-i18n="workspace.assetCommodities">COMMODITIES (4)</button>
+      <button type="button" class="asset-tab" data-asset="stocks" data-i18n="workspace.assetStocks">US STOCKS (8)</button>
+    </div>
+    <div class="instrument-picker">
+      <label for="symbolSelect" class="control-label" data-i18n="workspace.instrumentLabel">INSTRUMEN:</label>
+      <select id="symbolSelect" class="chamfer-select symbol-select"></select>
+    </div>
+    <div class="timeframe-bar" id="timeframeBar" role="group" aria-label="Timeframe Selector">
+      <button type="button" class="tf-btn" data-tf="M1" data-scalp="1">M1</button>
+      <button type="button" class="tf-btn" data-tf="M5" data-scalp="1">M5</button>
+      <button type="button" class="tf-btn" data-tf="M15" data-scalp="1">M15</button>
+      <button type="button" class="tf-btn" data-tf="M30">M30</button>
+      <button type="button" class="tf-btn active" data-tf="H1">H1</button>
+      <button type="button" class="tf-btn" data-tf="H4">H4</button>
+      <button type="button" class="tf-btn" data-tf="D1">D1</button>
+      <button type="button" class="tf-btn" data-tf="W1">W1</button>
+      <button type="button" class="tf-btn" data-tf="MN">MN</button>
+      <button type="button" class="tf-btn" data-tf="1Y">1Y</button>
+    </div>
+    <div id="scalpingLockNotice" class="scalping-lock-pill hidden" data-i18n="workspace.scalpingLockedNotice">
+      🔒 M1/M5/M15 Dikunci (Khusus Feed Real-Time Tick)
+    </div>
+  </section>
+  <!-- HONEST DATA SOURCE & PROXY DISCLOSURE BANNER -->
+  <div id="honestSourceBanner" class="honest-source-banner hidden"></div>
+  <!-- MAIN WORKSPACE GRID -->
+  <main class="workspace-grid">
+    <!-- LEFT/CENTER COLUMN: CHART + TELEMETRY + FUNDAMENTALS + SCANNER -->
+    <div class="workspace-main-col">
+      <!-- MARKET TELEMETRY HEADER -->
+      <section class="market-header-card chamfer-box">
+        <div class="mh-left">
+          <div class="mh-symbol-wrap">
+            <h1 id="activeSymbolTitle" class="mh-symbol">BTC/USDT</h1>
+            <span id="valSourceExchange" class="mh-exchange-badge">BINANCE REALTIME</span>
+          </div>
+          <div class="mh-price-wrap">
+            <span id="activePrice" class="mh-price">--</span>
+            <span id="activePriceChange" class="mh-change neutral">0.00%</span>
+          </div>
+        </div>
+        <div class="mh-center" id="derivativesBar">
+          <div class="mh-stat">
+            <span class="mh-stat-label" data-i18n="workspace.fundingRate">Funding Rate (8h)</span>
+            <span id="valFundingRate" class="mh-stat-val">--</span>
+          </div>
+          <div class="mh-stat">
+            <span class="mh-stat-label" data-i18n="workspace.openInterest">Open Interest</span>
+            <span id="valOpenInterest" class="mh-stat-val">--</span>
+          </div>
+        </div>
+        <div class="mh-right">
+          <span id="feedStatusBadge" class="feed-badge feed-realtime">REALTIME WS</span>
+          <span id="cacheAgeBadge" class="cache-badge">Cache 0m</span>
+        </div>
+      </section>
+      <!-- CHART WORKSPACE PANEL -->
+      <section class="chart-section chamfer-box">
+        <div class="chart-toolbar">
+          <div class="overlay-toggles">
+            <span class="toolbar-label" data-i18n="workspace.overlaysLabel">OVERLAY:</span>
+            <button type="button" class="overlay-toggle active" data-overlay="ema">EMA 20/50/200</button>
+            <button type="button" class="overlay-toggle active" data-overlay="bb">Bollinger</button>
+            <button type="button" class="overlay-toggle active" data-overlay="vwap">VWAP</button>
+            <button type="button" class="overlay-toggle active" data-overlay="smc">SMC / OrderBlock</button>
+            <button type="button" class="overlay-toggle active" data-overlay="vpvr">VPVR (24-Bin)</button>
+          </div>
+          <div class="oscillator-tabs">
+            <span class="toolbar-label" data-i18n="workspace.oscillatorLabel">OSILATOR:</span>
+            <button type="button" class="osc-tab active" data-osc="delta">Vol Delta / CVD</button>
+            <button type="button" class="osc-tab" data-osc="rsi">RSI (14)</button>
+            <button type="button" class="osc-tab" data-osc="macd">MACD</button>
+            <button type="button" class="osc-tab" data-osc="stoch">Stoch RSI</button>
+            <button type="button" class="osc-tab" data-osc="adx">ADX / Regime</button>
+          </div>
+        </div>
+        <div class="chart-stage-wrap">
+          <div id="mainChartContainer" class="main-chart-canvas"></div>
+          <div id="vpvrOverlay" class="vpvr-overlay-container"></div>
+        </div>
+        <div class="osc-stage-wrap">
+          <div id="oscChartContainer" class="osc-chart-canvas"></div>
+        </div>
+      </section>
+      <!-- INSTITUTIONAL 6-CELL TELEMETRY MATRIX -->
+      <section class="telemetry-matrix">
+        <div class="telemetry-cell chamfer-box">
+          <span class="tel-label" data-i18n="workspace.telTrend">TREND & REGIME (ADX/EMA)</span>
+          <span id="valTrendMain" class="tel-value">--</span>
+        </div>
+        <div class="telemetry-cell chamfer-box">
+          <span class="tel-label" data-i18n="workspace.telMomentum">MOMENTUM (RSI/MACD/STOCH)</span>
+          <span id="valMomentumMain" class="tel-value">--</span>
+        </div>
+        <div class="telemetry-cell chamfer-box">
+          <span class="tel-label" data-i18n="workspace.telVolatility">VOLATILITAS (ATR / BB SQUEEZE)</span>
+          <span id="valVolatilityMain" class="tel-value">--</span>
+        </div>
+        <div class="telemetry-cell chamfer-box">
+          <span class="tel-label" data-i18n="workspace.telVwap">ANCHORED SESSION VWAP</span>
+          <span id="valVwapMain" class="tel-value">--</span>
+        </div>
+        <div class="telemetry-cell chamfer-box">
+          <span class="tel-label" data-i18n="workspace.telSmc">STRUKTUR SMC & VPVR POC</span>
+          <span id="valSmcMain" class="tel-value">--</span>
+        </div>
+        <div class="telemetry-cell chamfer-box">
+          <span class="tel-label" data-i18n="workspace.telDelta">ORDERFLOW DELTA & CVD</span>
+          <span id="valDeltaMain" class="tel-value">--</span>
+        </div>
+      </section>
+      <!-- FUNDAMENTAL & MACRO INTELLIGENCE PANEL -->
+      <section class="bottom-panel chamfer-box">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" data-i18n="fundamental.panelTitle">INTELIJEN FUNDAMENTAL, MAKRO & SEC EDGAR</h2>
+            <p class="panel-subtitle" data-i18n="fundamental.panelSubtitle">Valuasi Lintas-Aset, Neraca Keuangan GAAP SEC, Kebijakan Suku Bunga & Posisioning Institusional</p>
+          </div>
+          <button id="btnRefreshFundamentals" type="button" class="btn-chamfer btn-sm" data-i18n="fundamental.refreshBtn">Muat Ulang Data</button>
+        </div>
+        <div id="fundamentalMount" class="panel-body"></div>
+      </section>
+      <!-- MULTI-ASSET QUANTITATIVE SCANNER PANEL -->
+      <section class="bottom-panel chamfer-box">
+        <div id="scannerMount" class="panel-body"></div>
+      </section>
+    </div>
+    <!-- RIGHT SIDEBAR: QUANT SIGNAL ENGINE + POSITION SIZING CALCULATOR -->
+    <aside class="workspace-side-col">
+      <!-- QUANTITATIVE SIGNAL CARD -->
+      <section class="signal-panel chamfer-box">
+        <div class="panel-header">
+          <div class="signal-header-left">
+            <h2 class="panel-title" data-i18n="signal.panelTitle">KEPUTUSAN QUANT & BACKTEST</h2>
+            <span id="signalStatusPill" class="signal-status-pill">READY</span>
+          </div>
+          <button id="btnRunFullAnalysis" type="button" class="btn-chamfer btn-primary" data-i18n="signal.runAnalysisBtn">
+            ⚡ Analisis Penuh
+          </button>
+        </div>
+        <div id="signalCardBody" class="signal-card-body"></div>
+      </section>
+      <!-- RISK & POSITION SIZING CALCULATOR -->
+      <section id="calculatorPanel" class="calc-panel chamfer-box">
+        <div class="panel-header">
+          <h2 class="panel-title" data-i18n="calc.panelTitle">KALKULATOR UKURAN POSISI & RISIKO</h2>
+          <span id="calcAtrBadge" class="atr-pill">ATR(14): --</span>
+        </div>
+        <div class="calc-form-grid">
+          <div class="calc-field">
+            <label for="calcBalance" data-i18n="calc.accountBalance">Modal Akun (USD)</label>
+            <input id="calcBalance" type="number" step="10" min="10" value="1000" class="chamfer-input" />
+          </div>
+          <div class="calc-field">
+            <label for="calcRiskPct" data-i18n="calc.riskPerTrade">Risiko per Trade (%)</label>
+            <input id="calcRiskPct" type="number" step="0.1" min="0.1" max="20" value="1.0" class="chamfer-input" />
+          </div>
+          <div class="calc-field">
+            <label for="calcEntryPrice" data-i18n="calc.entryPrice">Harga Entry</label>
+            <input id="calcEntryPrice" type="number" step="any" placeholder="Otomatis / Manual" class="chamfer-input" />
+          </div>
+          <div class="calc-field">
+            <div class="calc-label-row">
+              <label for="calcStopLoss" data-i18n="calc.stopLossPrice">Harga Stop Loss</label>
+              <button id="btnCalcUseAtr" type="button" class="btn-link-xs" data-i18n="calc.useAtrStop">Gunakan 2x ATR</button>
+            </div>
+            <input id="calcStopLoss" type="number" step="any" placeholder="Stop Loss" class="chamfer-input" />
+          </div>
+          <div class="calc-field calc-field-full">
+            <label for="calcLeverage" data-i18n="calc.leverageLabel">Leverage Akun (1x = Spot Murni)</label>
+            <input id="calcLeverage" type="number" step="1" min="1" max="100" value="1" class="chamfer-input" />
+          </div>
+        </div>
+        <div class="calc-results-grid">
+          <div class="calc-res-item">
+            <span class="calc-res-label" data-i18n="calc.posSizeUnits">Ukuran Posisi (Unit)</span>
+            <span id="resPosSizeUnits" class="calc-res-val">--</span>
+          </div>
+          <div class="calc-res-item">
+            <span class="calc-res-label" data-i18n="calc.posNotional">Nilai Nosional Posisi</span>
+            <span id="resPosNotional" class="calc-res-val">--</span>
+          </div>
+          <div class="calc-res-item">
+            <span class="calc-res-label" data-i18n="calc.maxLossUsd">Risiko Kerugian Maks (1R)</span>
+            <span id="resMaxLossUsd" class="calc-res-val text-bear">--</span>
+          </div>
+          <div class="calc-res-item">
+            <span class="calc-res-label" data-i18n="calc.reqMargin">Margin Dibutuhkan</span>
+            <span id="resReqMargin" class="calc-res-val">--</span>
+          </div>
+          <div class="calc-res-item">
+            <span class="calc-res-label" data-i18n="calc.effectiveLev">Leverage Efektif</span>
+            <span id="resEffectiveLev" class="calc-res-val">--</span>
+          </div>
+          <div class="calc-res-item">
+            <span class="calc-res-label" data-i18n="calc.estLiqPrice">Est. Harga Likuidasi</span>
+            <span id="resLiqPrice" class="calc-res-val">--</span>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+  <!-- PERSISTENT LAYER-3 REGULATORY & RISK DISCLAIMER FOOTER -->
+  <footer class="app-footer">
+    <div class="footer-disclaimer" data-i18n="disclaimer.footerPersistent">
+      PERINGATAN RISIKO & PENOLAKAN TANGGUNG JAWAB (BUKAN SARAN KEUANGAN): Seluruh sinyal kuantitatif, skor konfluensi, dan statistik backtest walk-forward di XSTARZG Analysis disediakan murni untuk tujuan riset algoritmik dan edukasi. Kinerja masa lalu tidak menjamin hasil di masa depan. Perdagangan aset kripto, derivatif, valuta asing (Forex), komoditas, dan saham memiliki risiko kehilangan modal yang tinggi.
+    </div>
+    <div class="footer-meta">
+      <span data-i18n="footer.copyright">© 2026 XSTARZG Analysis. Seluruh hak cipta dilindungi.</span>
+      <span class="footer-sep">•</span>
+      <span data-i18n="footer.architecture">Zero-Lookahead Quantitative Engine v2.0</span>
+    </div>
+  </footer>
+  <!-- LAYER-1 FIRST-VISIT RISK DISCLAIMER MODAL -->
+  <div id="riskModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="riskModalTitle">
+    <div class="modal-card chamfer-box">
+      <div class="modal-header">
+        <h3 id="riskModalTitle" data-i18n="disclaimer.modalTitle">⚠️ PERNYATAAN RISIKO KUANTITATIF & BUKAN SARAN KEUANGAN</h3>
+      </div>
+      <div class="modal-body">
+        <p data-i18n="disclaimer.modalBody1">
+          Selamat datang di Terminal Kuantitatif Multi-Aset <strong>XSTARZG Analysis</strong>. Sebelum menggunakan sistem ini, Anda wajib memahami dan menyetujui ketentuan berikut:
+        </p>
+        <ul class="modal-list">
+          <li data-i18n="disclaimer.modalPoint1"><strong>Bukan Penasihat Keuangan:</strong> Seluruh output matematis, level Entry/SL/TP, dan simulasi backtest bukanlah ajakan membeli atau menjual instrumen keuangan apa pun.</li>
+          <li data-i18n="disclaimer.modalPoint2"><strong>Pemisahan Skor Konfluensi & Win Rate:</strong> Skor Konfluensi (0-100) mengukur keselarasan indikator saat ini dan BUKAN probabilitas kemenangan. Probabilitas historis diukur secara terpisah melalui Walk-Forward Backtest setelah dikurangi estimasi biaya transaksi & slippage.</li>
+          <li data-i18n="disclaimer.modalPoint3"><strong>Transparansi Sumber Data:</strong> Instrumen Kripto terhubung secara Real-Time ke bursa publik, sedangkan instrumen Non-Kripto menggunakan kuota EOD/Delayed/ETF Proxy yang dilabeli secara jujur pada layar.</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button id="btnAcceptRiskModal" type="button" class="btn-chamfer btn-primary btn-block" data-i18n="disclaimer.modalAcceptBtn">
+          Saya Memahami Risiko & Setuju Melanjutkan
+        </button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
