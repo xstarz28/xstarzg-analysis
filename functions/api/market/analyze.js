@@ -14,14 +14,9 @@ const US_EXCHANGE_MAP = {
   'NVDA': 'NASDAQ:NVDA', 'AAPL': 'NASDAQ:AAPL', 'MSFT': 'NASDAQ:MSFT', 'AMZN': 'NASDAQ:AMZN',
   'GOOGL': 'NASDAQ:GOOGL', 'META': 'NASDAQ:META', 'TSLA': 'NASDAQ:TSLA', 'AVGO': 'NASDAQ:AVGO',
   'COST': 'NASDAQ:COST', 'NFLX': 'NASDAQ:NFLX', 'AMD': 'NASDAQ:AMD', 'INTC': 'NASDAQ:INTC',
-  'QCOM': 'NASDAQ:QCOM', 'PEP': 'NASDAQ:PEP', 'CSCO': 'NASDAQ:CSCO', 'PLTR': 'NASDAQ:PLTR',
-  'COIN': 'NASDAQ:COIN', 'MSTR': 'NASDAQ:MSTR', 'ABNB': 'NASDAQ:ABNB',
-  'BRK-B': 'NYSE:BRK.B', 'JPM': 'NYSE:JPM', 'LLY': 'NYSE:LLY', 'V': 'NYSE:V',
-  'UNH': 'NYSE:UNH', 'XOM': 'NYSE:XOM', 'MA': 'NYSE:MA', 'HD': 'NYSE:HD',
-  'PG': 'NYSE:PG', 'JNJ': 'NYSE:JNJ', 'BAC': 'NYSE:BAC', 'WMT': 'NYSE:WMT',
-  'DIS': 'NYSE:DIS', 'KO': 'NYSE:KO', 'CRM': 'NYSE:CRM', 'ORCL': 'NYSE:ORCL',
-  'UBER': 'NYSE:UBER', 'BA': 'NYSE:BA', 'CAT': 'NYSE:CAT', 'GS': 'NYSE:GS',
-  'MS': 'NYSE:MS', 'CVX': 'NYSE:CVX'
+  'QCOM': 'NASDAQ:QCOM', 'BRK-B': 'NYSE:BRK.B', 'JPM': 'NYSE:JPM', 'V': 'NYSE:V',
+  'UNH': 'NYSE:UNH', 'XOM': 'NYSE:XOM', 'MA': 'NYSE:MA', 'WMT': 'NYSE:WMT',
+  'PG': 'NYSE:PG', 'JNJ': 'NYSE:JNJ', 'DIS': 'NYSE:DIS'
 };
 function getBrokerTickers(sym) {
   if (sym === 'XAU/USD') return ['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'];
@@ -29,9 +24,9 @@ function getBrokerTickers(sym) {
   if (sym === 'XPT/USD') return ['OANDA:XPTUSD', 'FOREXCOM:XPTUSD'];
   if (sym === 'XPD/USD') return ['OANDA:XPDUSD', 'FOREXCOM:XPDUSD'];
   if (sym === 'COPPER/USD') return ['OANDA:XCUUSD', 'FOREXCOM:XCUUSD'];
-  if (sym === 'WTI/USD') return ['TVC:USOIL', 'OANDA:WTICOUSD', 'FOREXCOM:WTIUSD'];
-  if (sym === 'BRENT/USD') return ['TVC:UKOIL', 'OANDA:BCOUSD', 'FOREXCOM:BRENTUSD'];
-  if (sym === 'NATGAS/USD') return ['OANDA:NATGASUSD', 'FOREXCOM:NATGASUSD'];
+  if (sym === 'WTI/USD') return ['TVC:USOIL', 'OANDA:WTICOUSD'];
+  if (sym === 'BRENT/USD') return ['TVC:UKOIL', 'OANDA:BCOUSD'];
+  if (sym === 'NATGAS/USD') return ['OANDA:NATGASUSD', 'NYMEX:NG1!'];
   if (sym === 'WHEAT/USD') return ['OANDA:WHEATUSD', 'CBOT:ZW1!'];
   if (sym === 'CORN/USD') return ['OANDA:CORNUSD', 'CBOT:ZC1!'];
   if (sym === 'SOYBEAN/USD') return ['OANDA:SOYBNUSD', 'CBOT:ZS1!'];
@@ -52,7 +47,7 @@ function getBrokerTickers(sym) {
   }
   return [];
 }
-async function queryTvTickers(tickers) {
+async function queryTvScanner(tickers) {
   if (!tickers || !tickers.length) return null;
   try {
     const res = await fetch('https://scanner.tradingview.com/global/scan', {
@@ -70,8 +65,8 @@ async function queryTvTickers(tickers) {
     if (!res.ok) return null;
     const json = await res.json();
     if (json && Array.isArray(json.data) && json.data.length > 0) {
-      for (const preferred of tickers) {
-        const row = json.data.find(r => r && r.s === preferred && Array.isArray(r.d) && Number(r.d[0]) > 0);
+      for (const t of tickers) {
+        const row = json.data.find(r => r && r.s === t && Array.isArray(r.d) && Number(r.d[0]) > 0);
         if (row) {
           const c = Number(row.d[0]);
           const o = Number(row.d[1] || c);
@@ -102,6 +97,22 @@ async function queryTvTickers(tickers) {
   } catch (e) {}
   return null;
 }
+async function fetchSwissquoteSpot(base, quote) {
+  try {
+    const res = await fetch('https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/' + base + '/' + quote, {
+      cache: 'no-store',
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const p = data?.[0]?.spreadProfilePrices?.[0];
+    if (p && Number(p.bid) > 0 && Number(p.ask) > 0) {
+      const mid = (Number(p.bid) + Number(p.ask)) / 2;
+      return { ticker: 'SWISSQUOTE:' + base + quote, close: mid, open: mid, high: Number(p.ask), low: Number(p.bid), volume: 2500 };
+    }
+  } catch (e) {}
+  return null;
+}
 async function fetchExactBrokerQuote(sym) {
   if (sym === 'XAU/IDR') {
     const [xau, idr] = await Promise.all([
@@ -121,11 +132,16 @@ async function fetchExactBrokerQuote(sym) {
     }
   }
   const candidates = getBrokerTickers(sym);
-  const batchQuote = await queryTvTickers(candidates);
+  const batchQuote = await queryTvScanner(candidates);
   if (batchQuote && batchQuote.close > 0) return batchQuote;
   for (const single of candidates) {
-    const q = await queryTvTickers([single]);
+    const q = await queryTvScanner([single]);
     if (q && q.close > 0) return q;
+  }
+  if (sym.includes('/') && !sym.endsWith('/USDT')) {
+    const [b, q] = sym.split('/');
+    const sq = await fetchSwissquoteSpot(b, q);
+    if (sq && sq.close > 0) return sq;
   }
   return null;
 }
@@ -205,15 +221,17 @@ function buildCandlesFromBrokerQuote(liveQuote, tf, sym) {
   const nowSec = Math.floor(Date.now() / 1000);
   const currentBucket = Math.floor(nowSec / step) * step;
   const decimals = sym === 'XAU/IDR' ? 0 : price < 0.01 ? 6 : price < 10 ? 4 : 2;
-  const volPct = sym.includes('/') && !sym.includes('XAU') ? 0.0015 : 0.0038;
+  const tfScale = Math.min(1, Math.sqrt(step / 86400));
+  const volPct = (sym.includes('/') && !sym.includes('XAU') ? 0.0012 : 0.0032) * Math.max(0.25, tfScale);
   let seed = 0;
   for (let i = 0; i < sym.length; i++) seed = (seed * 31 + sym.charCodeAt(i)) % 100000;
   const series = new Array(160);
+  const barOpen = Number((price * (1 - 0.0004)).toFixed(decimals));
   series[159] = {
     time: currentBucket,
-    open: Number(liveQuote.open.toFixed(decimals)),
-    high: Number(Math.max(liveQuote.high, price).toFixed(decimals)),
-    low: Number(Math.min(liveQuote.low, price).toFixed(decimals)),
+    open: barOpen,
+    high: Number(Math.max(barOpen, price).toFixed(decimals)),
+    low: Number(Math.min(barOpen, price).toFixed(decimals)),
     close: Number(price.toFixed(decimals)),
     volume: liveQuote.volume || 1500
   };
@@ -273,7 +291,7 @@ export async function onRequestGet(context) {
     return new Response(JSON.stringify({ ok: false, symbol }), { status: 503, headers });
   }
   if (url.searchParams.get('batch') === '1') {
-    const list = (url.searchParams.get('symbols') || 'XAU/USD,XAU/IDR,EUR/USD,USD/IDR,BBCA.JK,BMRI.JK,NVDA,AAPL,WTI/USD').split(',');
+    const list = (url.searchParams.get('symbols') || 'XAU/USD,XAU/IDR,EUR/USD,GBP/USD,USD/JPY,USD/IDR,BBCA.JK,BBRI.JK,BMRI.JK,ANTM.JK,NVDA,AAPL,TSLA,WTI/USD').split(',');
     const quotes = {};
     await Promise.all(list.map(async (s) => {
       const sym = s.trim();

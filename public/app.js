@@ -1756,107 +1756,99 @@
 
 
 
-// === XSTARZG REALTIME BROKER OVERRIDE v2026.22 ===
-async function fetchRealMarketCandles(sym, tf) {
-  const bInterval = BINANCE_TF_MAP[tf] || '1h';
-  try {
-    if (sym.endsWith('/USDT')) {
-      const pair = sym.replace('/', '');
-      const res = await fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${pair}&interval=${bInterval}&limit=160&_t=${Date.now()}`, { cache: 'no-store' });
+// === XSTARZG REALTIME BROKER OVERRIDE v2026.23 ===
+(function() {
+  let rtTimer = null;
+  let rtWs = null;
+  let batchTimer = null;
+  async function syncAllBrokerBatchPrices() {
+    try {
+      const res = await fetch('/api/market/analyze?batch=1&_t=' + Date.now(), { cache: 'no-store' });
       if (res.ok) {
-        const raw = await res.json();
-        if (Array.isArray(raw) && raw.length > 20) {
-          const parsed = raw.map(k => ({
-            time: Math.floor(k[0] / 1000),
-            open: parseFloat(k[1]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            close: parseFloat(k[4]),
-            volume: parseFloat(k[5])
-          }));
-          livePrices[sym] = parsed[parsed.length - 1].close;
-          state.activeBrokerSource = 'BINANCE:' + pair;
+        const data = await res.json();
+        if (data && data.quotes && typeof livePrices !== 'undefined') {
+          Object.entries(data.quotes).forEach(([k, v]) => {
+            if (Number(v) > 0) livePrices[k] = Number(v);
+          });
+          if (typeof renderTickerTape === 'function') renderTickerTape();
+        }
+      }
+    } catch (e) {}
+  }
+  window.fetchRealMarketCandles = async function(sym, tf) {
+    const bInterval = (typeof BINANCE_TF_MAP !== 'undefined' && BINANCE_TF_MAP[tf]) ? BINANCE_TF_MAP[tf] : '1h';
+    try {
+      if (sym.endsWith('/USDT')) {
+        const pair = sym.replace('/', '');
+        const res = await fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${pair}&interval=${bInterval}&limit=160&_t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const raw = await res.json();
+          if (Array.isArray(raw) && raw.length > 20) {
+            const parsed = raw.map(k => ({
+              time: Math.floor(k[0] / 1000),
+              open: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              low: parseFloat(k[3]),
+              close: parseFloat(k[4]),
+              volume: parseFloat(k[5])
+            }));
+            if (typeof livePrices !== 'undefined') livePrices[sym] = parsed[parsed.length - 1].close;
+            const lblStatus = document.getElementById('lblEngineStatus');
+            if (lblStatus) lblStatus.textContent = `LIVE REAL-TIME • BINANCE:${pair}`;
+            return parsed;
+          }
+        }
+      }
+      const res = await fetch(`/api/market/analyze?symbol=${encodeURIComponent(sym)}&tf=${encodeURIComponent(tf)}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.candles) && data.candles.length > 20) {
+          const exactClose = Number(data.livePrice || data.candles[data.candles.length - 1].close);
+          if (typeof livePrices !== 'undefined') livePrices[sym] = exactClose;
           const lblStatus = document.getElementById('lblEngineStatus');
-          if (lblStatus) lblStatus.textContent = `LIVE REAL-TIME • BINANCE:${pair}`;
-          return parsed;
+          if (lblStatus && data.source) {
+            lblStatus.textContent = `LIVE REAL-TIME • ${data.source}`;
+          }
+          return data.candles;
         }
       }
-    }
-    const res = await fetch(`/api/market/analyze?symbol=${encodeURIComponent(sym)}&tf=${encodeURIComponent(tf)}&_t=${Date.now()}`, {
-      cache: 'no-store',
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.candles) && data.candles.length > 20) {
-        const exactClose = Number(data.livePrice || data.candles[data.candles.length - 1].close);
-        livePrices[sym] = exactClose;
-        state.activeBrokerSource = data.source || sym;
-        const lblStatus = document.getElementById('lblEngineStatus');
-        if (lblStatus && data.source) {
-          lblStatus.textContent = `LIVE REAL-TIME • ${data.source}`;
-        }
-        return data.candles;
-      }
-    }
-  } catch (e) {}
-  return null;
-}
-function updateLiveHeaderOnly() {
-  const sym = state.symbol;
-  const price = (state.candles && state.candles.length ? state.candles[state.candles.length - 1].close : 0) || livePrices[sym];
-  if (!price) return;
-  const prevPrice = state.lastHeaderPrice || price;
-  state.lastHeaderPrice = price;
-  const firstOpen = state.candles.length > 24 ? state.candles[state.candles.length - 24].open : (state.candles[0]?.open || price);
-  const chgPct = firstOpen ? ((price - firstOpen) / firstOpen) * 100 : 0;
-  const hdrPrice = document.getElementById('hdrLivePrice');
-  if (hdrPrice) {
-    hdrPrice.textContent = fmtPrice(price, sym);
-    hdrPrice.style.color = chgPct >= 0 ? '#10B981' : '#F43F5E';
-    if (price !== prevPrice) {
-      hdrPrice.style.transition = 'none';
-      hdrPrice.style.textShadow = price > prevPrice ? '0 0 12px rgba(16,185,129,0.75)' : '0 0 12px rgba(244,63,94,0.75)';
-      setTimeout(() => {
-        if (hdrPrice) {
-          hdrPrice.style.transition = 'text-shadow 0.4s ease';
-          hdrPrice.style.textShadow = 'none';
-        }
-      }, 350);
-    }
-  }
-  const hdrChg = document.getElementById('hdrLiveChange');
-  if (hdrChg) {
-    hdrChg.textContent = `${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
-    hdrChg.className = `price-change-badge ${chgPct >= 0 ? 'up' : 'down'}`;
-  }
-}
-function connectRealtimeStream() {
-  if (wsConnection) {
-    try { wsConnection.close(); } catch (e) {}
-    wsConnection = null;
-  }
-  if (livePollTimer) {
-    clearInterval(livePollTimer);
-    livePollTimer = null;
-  }
-  const sym = state.symbol;
-  const bInterval = BINANCE_TF_MAP[state.timeframe] || '1h';
-  const applyBrokerTick = (targetSym, rawPrice, brokerSource) => {
-    if (!rawPrice || rawPrice <= 0 || targetSym !== state.symbol) return;
+    } catch (e) {}
+    return null;
+  };
+  function pushTickToActiveChart(targetSym, rawPrice, sourceLabel) {
+    if (!rawPrice || rawPrice <= 0 || typeof state === 'undefined' || targetSym !== state.symbol) return;
     const decimals = targetSym === 'XAU/IDR' ? 0 : rawPrice < 0.01 ? 6 : rawPrice < 10 ? 4 : 2;
     const cleanPrice = Number(rawPrice.toFixed(decimals));
-    livePrices[targetSym] = cleanPrice;
-    if (brokerSource) {
-      state.activeBrokerSource = brokerSource;
+    if (typeof livePrices !== 'undefined') livePrices[targetSym] = cleanPrice;
+    if (sourceLabel) {
       const lblStatus = document.getElementById('lblEngineStatus');
-      if (lblStatus) lblStatus.textContent = `LIVE REAL-TIME • ${brokerSource}`;
+      if (lblStatus) lblStatus.textContent = `LIVE REAL-TIME • ${sourceLabel}`;
     }
-    if (state.candles && state.candles.length > 0 && candleSeries) {
-      const step = TF_SECONDS[state.timeframe] || 3600;
+    if (state.candles && state.candles.length > 0 && typeof candleSeries !== 'undefined' && candleSeries) {
+      const step = (typeof TF_SECONDS !== 'undefined' && TF_SECONDS[state.timeframe]) ? TF_SECONDS[state.timeframe] : 3600;
       const nowSec = Math.floor(Date.now() / 1000);
       const bucket = Math.floor(nowSec / step) * step;
       const last = state.candles[state.candles.length - 1];
+      // Jika selisih harga chart lama > 0.15% (misal dari seed lama), kalibrasikan seluruh seri candle seketika!
+      if (last.close > 0 && Math.abs(cleanPrice - last.close) / cleanPrice > 0.0015) {
+        const diff = cleanPrice - last.close;
+        state.candles = state.candles.map(c => ({
+          time: c.time,
+          open: Number((c.open + diff).toFixed(decimals)),
+          high: Number((c.high + diff).toFixed(decimals)),
+          low: Number((c.low + diff).toFixed(decimals)),
+          close: Number((c.close + diff).toFixed(decimals)),
+          volume: c.volume
+        }));
+        state.candles[state.candles.length - 1].close = cleanPrice;
+        try { candleSeries.setData(state.candles); } catch (e) {}
+        state.forceRecalcSetup = true;
+        if (typeof renderAllAnalysis === 'function') renderAllAnalysis();
+        return;
+      }
       if (bucket > last.time) {
         const newBar = {
           time: bucket,
@@ -1868,13 +1860,8 @@ function connectRealtimeStream() {
         };
         state.candles.push(newBar);
         if (state.candles.length > 180) state.candles.shift();
-        try {
-          candleSeries.update(newBar);
-          if (volumeSeries) {
-            volumeSeries.update({ time: newBar.time, value: newBar.volume, color: 'rgba(16, 185, 129, 0.35)' });
-          }
-        } catch (e) {}
-        renderAllAnalysis();
+        try { candleSeries.update(newBar); } catch (e) {}
+        if (typeof renderAllAnalysis === 'function') renderAllAnalysis();
         return;
       } else {
         last.close = cleanPrice;
@@ -1891,49 +1878,90 @@ function connectRealtimeStream() {
         } catch (e) {}
       }
     }
-    updateLiveHeaderOnly();
-  };
-  // 1. WEBSOCKET HANYA UNTUK CRYPTO (.../USDT) - EMAS XAU/USD MURNI KE OANDA/FOREXCOM!
-  if (sym.endsWith('/USDT')) {
-    const wsPair = sym.replace('/', '').toLowerCase();
-    try {
-      wsConnection = new WebSocket(`wss://stream.binance.com:9443/ws/${wsPair}@kline_${bInterval}`);
-      wsConnection.onmessage = (evt) => {
-        if (state.symbol !== sym) return;
-        const msg = JSON.parse(evt.data);
-        if (!msg || !msg.k) return;
-        const rawClose = parseFloat(msg.k.c);
-        if (rawClose > 0) applyBrokerTick(sym, rawClose, 'BINANCE:' + sym.replace('/', ''));
-      };
-    } catch (e) {}
+    // Update Header Price Flash
+    const hdrPrice = document.getElementById('hdrLivePrice');
+    if (hdrPrice && typeof fmtPrice === 'function') {
+      const prev = state.lastHeaderPrice || cleanPrice;
+      state.lastHeaderPrice = cleanPrice;
+      const firstOpen = (state.candles && state.candles.length > 24) ? state.candles[state.candles.length - 24].open : cleanPrice;
+      const chgPct = firstOpen ? ((cleanPrice - firstOpen) / firstOpen) * 100 : 0;
+      hdrPrice.textContent = fmtPrice(cleanPrice, targetSym);
+      hdrPrice.style.color = chgPct >= 0 ? '#10B981' : '#F43F5E';
+      if (cleanPrice !== prev) {
+        hdrPrice.style.textShadow = cleanPrice > prev ? '0 0 12px rgba(16,185,129,0.8)' : '0 0 12px rgba(244,63,94,0.8)';
+        setTimeout(() => { if (hdrPrice) hdrPrice.style.textShadow = 'none'; }, 350);
+      }
+      const hdrChg = document.getElementById('hdrLiveChange');
+      if (hdrChg) {
+        hdrChg.textContent = `${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
+        hdrChg.className = `price-change-badge ${chgPct >= 0 ? 'up' : 'down'}`;
+      }
+    }
   }
-  // 2. AUTO-TICK REAL-TIME SETIAP 1.2 DETIK DARI BROKER RESMI (TANPA PERLU REFRESH LAYAR)
-  const pollLiveQuote = async () => {
-    const activeSym = state.symbol;
-    try {
-      if (activeSym.endsWith('/USDT')) {
-        const pair = activeSym.replace('/', '');
-        const res = await fetch(`https://data-api.binance.vision/api/v3/ticker/price?symbol=${pair}&_t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          const p = parseFloat(data.price);
-          if (p > 0) applyBrokerTick(activeSym, p, 'BINANCE:' + pair);
+  window.connectRealtimeStream = function() {
+    if (typeof wsConnection !== 'undefined' && wsConnection) {
+      try { wsConnection.close(); } catch (e) {}
+      wsConnection = null;
+    }
+    if (typeof livePollTimer !== 'undefined' && livePollTimer) {
+      clearInterval(livePollTimer);
+      livePollTimer = null;
+    }
+    if (rtWs) {
+      try { rtWs.close(); } catch (e) {}
+      rtWs = null;
+    }
+    if (rtTimer) {
+      clearInterval(rtTimer);
+      rtTimer = null;
+    }
+    if (typeof state === 'undefined') return;
+    const sym = state.symbol;
+    const bInterval = (typeof BINANCE_TF_MAP !== 'undefined' && BINANCE_TF_MAP[state.timeframe]) ? BINANCE_TF_MAP[state.timeframe] : '1h';
+    if (sym.endsWith('/USDT')) {
+      const wsPair = sym.replace('/', '').toLowerCase();
+      try {
+        rtWs = new WebSocket(`wss://stream.binance.com:9443/ws/${wsPair}@kline_${bInterval}`);
+        rtWs.onmessage = (evt) => {
+          if (state.symbol !== sym) return;
+          const msg = JSON.parse(evt.data);
+          if (msg && msg.k && parseFloat(msg.k.c) > 0) {
+            pushTickToActiveChart(sym, parseFloat(msg.k.c), 'BINANCE:' + sym.replace('/', ''));
+          }
+        };
+      } catch (e) {}
+    }
+    const pollNow = async () => {
+      const activeSym = state.symbol;
+      try {
+        if (activeSym.endsWith('/USDT')) {
+          const pair = activeSym.replace('/', '');
+          const r = await fetch(`https://data-api.binance.vision/api/v3/ticker/price?symbol=${pair}&_t=${Date.now()}`, { cache: 'no-store' });
+          if (r.ok) {
+            const d = await r.json();
+            if (d && parseFloat(d.price) > 0) pushTickToActiveChart(activeSym, parseFloat(d.price), 'BINANCE:' + pair);
+          }
+          return;
         }
-        return;
-      }
-      const res = await fetch(`/api/market/analyze?quote=1&symbol=${encodeURIComponent(activeSym)}&_t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const p = Number(data?.price || 0);
-        if (p > 0 && state.symbol === activeSym) {
-          applyBrokerTick(activeSym, p, data.source || activeSym);
+        const r = await fetch(`/api/market/analyze?quote=1&symbol=${encodeURIComponent(activeSym)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (d && Number(d.price) > 0 && state.symbol === activeSym) {
+            pushTickToActiveChart(activeSym, Number(d.price), d.source || activeSym);
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    };
+    pollNow();
+    rtTimer = setInterval(pollNow, 1200);
   };
-  pollLiveQuote();
-  livePollTimer = setInterval(pollLiveQuote, 1200);
-}
+  // Start automatic daemon immediately
+  setTimeout(() => {
+    syncAllBrokerBatchPrices();
+    if (typeof window.connectRealtimeStream === 'function') window.connectRealtimeStream();
+    if (!batchTimer) batchTimer = setInterval(syncAllBrokerBatchPrices, 8000);
+  }, 600);
+})();
