@@ -1754,3 +1754,186 @@
 })();
 
 
+
+
+// === XSTARZG REALTIME BROKER OVERRIDE v2026.22 ===
+async function fetchRealMarketCandles(sym, tf) {
+  const bInterval = BINANCE_TF_MAP[tf] || '1h';
+  try {
+    if (sym.endsWith('/USDT')) {
+      const pair = sym.replace('/', '');
+      const res = await fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${pair}&interval=${bInterval}&limit=160&_t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw) && raw.length > 20) {
+          const parsed = raw.map(k => ({
+            time: Math.floor(k[0] / 1000),
+            open: parseFloat(k[1]),
+            high: parseFloat(k[2]),
+            low: parseFloat(k[3]),
+            close: parseFloat(k[4]),
+            volume: parseFloat(k[5])
+          }));
+          livePrices[sym] = parsed[parsed.length - 1].close;
+          state.activeBrokerSource = 'BINANCE:' + pair;
+          const lblStatus = document.getElementById('lblEngineStatus');
+          if (lblStatus) lblStatus.textContent = `LIVE REAL-TIME • BINANCE:${pair}`;
+          return parsed;
+        }
+      }
+    }
+    const res = await fetch(`/api/market/analyze?symbol=${encodeURIComponent(sym)}&tf=${encodeURIComponent(tf)}&_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.candles) && data.candles.length > 20) {
+        const exactClose = Number(data.livePrice || data.candles[data.candles.length - 1].close);
+        livePrices[sym] = exactClose;
+        state.activeBrokerSource = data.source || sym;
+        const lblStatus = document.getElementById('lblEngineStatus');
+        if (lblStatus && data.source) {
+          lblStatus.textContent = `LIVE REAL-TIME • ${data.source}`;
+        }
+        return data.candles;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+function updateLiveHeaderOnly() {
+  const sym = state.symbol;
+  const price = (state.candles && state.candles.length ? state.candles[state.candles.length - 1].close : 0) || livePrices[sym];
+  if (!price) return;
+  const prevPrice = state.lastHeaderPrice || price;
+  state.lastHeaderPrice = price;
+  const firstOpen = state.candles.length > 24 ? state.candles[state.candles.length - 24].open : (state.candles[0]?.open || price);
+  const chgPct = firstOpen ? ((price - firstOpen) / firstOpen) * 100 : 0;
+  const hdrPrice = document.getElementById('hdrLivePrice');
+  if (hdrPrice) {
+    hdrPrice.textContent = fmtPrice(price, sym);
+    hdrPrice.style.color = chgPct >= 0 ? '#10B981' : '#F43F5E';
+    if (price !== prevPrice) {
+      hdrPrice.style.transition = 'none';
+      hdrPrice.style.textShadow = price > prevPrice ? '0 0 12px rgba(16,185,129,0.75)' : '0 0 12px rgba(244,63,94,0.75)';
+      setTimeout(() => {
+        if (hdrPrice) {
+          hdrPrice.style.transition = 'text-shadow 0.4s ease';
+          hdrPrice.style.textShadow = 'none';
+        }
+      }, 350);
+    }
+  }
+  const hdrChg = document.getElementById('hdrLiveChange');
+  if (hdrChg) {
+    hdrChg.textContent = `${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
+    hdrChg.className = `price-change-badge ${chgPct >= 0 ? 'up' : 'down'}`;
+  }
+}
+function connectRealtimeStream() {
+  if (wsConnection) {
+    try { wsConnection.close(); } catch (e) {}
+    wsConnection = null;
+  }
+  if (livePollTimer) {
+    clearInterval(livePollTimer);
+    livePollTimer = null;
+  }
+  const sym = state.symbol;
+  const bInterval = BINANCE_TF_MAP[state.timeframe] || '1h';
+  const applyBrokerTick = (targetSym, rawPrice, brokerSource) => {
+    if (!rawPrice || rawPrice <= 0 || targetSym !== state.symbol) return;
+    const decimals = targetSym === 'XAU/IDR' ? 0 : rawPrice < 0.01 ? 6 : rawPrice < 10 ? 4 : 2;
+    const cleanPrice = Number(rawPrice.toFixed(decimals));
+    livePrices[targetSym] = cleanPrice;
+    if (brokerSource) {
+      state.activeBrokerSource = brokerSource;
+      const lblStatus = document.getElementById('lblEngineStatus');
+      if (lblStatus) lblStatus.textContent = `LIVE REAL-TIME • ${brokerSource}`;
+    }
+    if (state.candles && state.candles.length > 0 && candleSeries) {
+      const step = TF_SECONDS[state.timeframe] || 3600;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const bucket = Math.floor(nowSec / step) * step;
+      const last = state.candles[state.candles.length - 1];
+      if (bucket > last.time) {
+        const newBar = {
+          time: bucket,
+          open: cleanPrice,
+          high: cleanPrice,
+          low: cleanPrice,
+          close: cleanPrice,
+          volume: Math.round((last.volume || 1200) * 0.15)
+        };
+        state.candles.push(newBar);
+        if (state.candles.length > 180) state.candles.shift();
+        try {
+          candleSeries.update(newBar);
+          if (volumeSeries) {
+            volumeSeries.update({ time: newBar.time, value: newBar.volume, color: 'rgba(16, 185, 129, 0.35)' });
+          }
+        } catch (e) {}
+        renderAllAnalysis();
+        return;
+      } else {
+        last.close = cleanPrice;
+        if (cleanPrice > last.high) last.high = cleanPrice;
+        if (cleanPrice < last.low) last.low = cleanPrice;
+        try {
+          candleSeries.update({
+            time: last.time,
+            open: last.open,
+            high: last.high,
+            low: last.low,
+            close: last.close
+          });
+        } catch (e) {}
+      }
+    }
+    updateLiveHeaderOnly();
+  };
+  // 1. WEBSOCKET HANYA UNTUK CRYPTO (.../USDT) - EMAS XAU/USD MURNI KE OANDA/FOREXCOM!
+  if (sym.endsWith('/USDT')) {
+    const wsPair = sym.replace('/', '').toLowerCase();
+    try {
+      wsConnection = new WebSocket(`wss://stream.binance.com:9443/ws/${wsPair}@kline_${bInterval}`);
+      wsConnection.onmessage = (evt) => {
+        if (state.symbol !== sym) return;
+        const msg = JSON.parse(evt.data);
+        if (!msg || !msg.k) return;
+        const rawClose = parseFloat(msg.k.c);
+        if (rawClose > 0) applyBrokerTick(sym, rawClose, 'BINANCE:' + sym.replace('/', ''));
+      };
+    } catch (e) {}
+  }
+  // 2. AUTO-TICK REAL-TIME SETIAP 1.2 DETIK DARI BROKER RESMI (TANPA PERLU REFRESH LAYAR)
+  const pollLiveQuote = async () => {
+    const activeSym = state.symbol;
+    try {
+      if (activeSym.endsWith('/USDT')) {
+        const pair = activeSym.replace('/', '');
+        const res = await fetch(`https://data-api.binance.vision/api/v3/ticker/price?symbol=${pair}&_t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const p = parseFloat(data.price);
+          if (p > 0) applyBrokerTick(activeSym, p, 'BINANCE:' + pair);
+        }
+        return;
+      }
+      const res = await fetch(`/api/market/analyze?quote=1&symbol=${encodeURIComponent(activeSym)}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const p = Number(data?.price || 0);
+        if (p > 0 && state.symbol === activeSym) {
+          applyBrokerTick(activeSym, p, data.source || activeSym);
+        }
+      }
+    } catch (e) {}
+  };
+  pollLiveQuote();
+  livePollTimer = setInterval(pollLiveQuote, 1200);
+}
