@@ -18,47 +18,90 @@ const US_EXCHANGE_MAP = {
   'MA': 'NYSE:MA', 'UNH': 'NYSE:UNH', 'XOM': 'NYSE:XOM', 'WMT': 'NYSE:WMT',
   'PG': 'NYSE:PG', 'JNJ': 'NYSE:JNJ', 'DIS': 'NYSE:DIS'
 };
-const CFD_TICKER_MAP = {
-  'XAU/USD': 'OANDA:XAUUSD', 'XAG/USD': 'OANDA:XAGUSD', 'XPT/USD': 'OANDA:XPTUSD',
-  'XPD/USD': 'OANDA:XPDUSD', 'COPPER/USD': 'OANDA:XCUUSD', 'WTI/USD': 'TVC:USOIL',
-  'BRENT/USD': 'TVC:UKOIL', 'NATGAS/USD': 'OANDA:NATGASUSD', 'WHEAT/USD': 'OANDA:WHEATUSD',
-  'CORN/USD': 'OANDA:CORNUSD', 'SOYBEAN/USD': 'OANDA:SOYBNUSD', 'COFFEE/USD': 'ICEUS:KC1!',
-  'COCOA/USD': 'ICEUS:CC1!'
-};
-async function queryTvScanner(market, payload) {
-  try {
-    const res = await fetch('https://scanner.tradingview.com/' + market + '/scan', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Origin': 'https://www.tradingview.com',
-        'Referer': 'https://www.tradingview.com/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (json && Array.isArray(json.data) && json.data.length > 0) {
-      for (const row of json.data) {
-        if (row && Array.isArray(row.d) && Number(row.d[0]) > 0) {
-          return {
-            ticker: row.s,
-            close: Number(row.d[0]),
-            open: Number(row.d[1] || row.d[0]),
-            high: Number(row.d[2] || row.d[0]),
-            low: Number(row.d[3] || row.d[0]),
-            volume: Number(row.d[4] || 1500)
-          };
+function getGlobalTickers(sym) {
+  if (sym === 'XAU/USD') return ['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD', 'TVC:GOLD'];
+  if (sym === 'XAG/USD') return ['OANDA:XAGUSD', 'FOREXCOM:XAGUSD', 'TVC:SILVER'];
+  if (sym === 'XPT/USD') return ['OANDA:XPTUSD', 'TVC:PLATINUM'];
+  if (sym === 'XPD/USD') return ['OANDA:XPDUSD', 'TVC:PALLADIUM'];
+  if (sym === 'COPPER/USD') return ['OANDA:XCUUSD', 'CAPITALCOM:COPPER'];
+  if (sym === 'WTI/USD') return ['TVC:USOIL', 'OANDA:WTICOUSD', 'NYMEX:CL1!'];
+  if (sym === 'BRENT/USD') return ['TVC:UKOIL', 'OANDA:BCOUSD', 'ICEEUR:BRN1!'];
+  if (sym === 'NATGAS/USD') return ['OANDA:NATGASUSD', 'NYMEX:NG1!'];
+  if (sym === 'WHEAT/USD') return ['OANDA:WHEATUSD', 'CBOT:ZW1!'];
+  if (sym === 'CORN/USD') return ['OANDA:CORNUSD', 'CBOT:ZC1!'];
+  if (sym === 'SOYBEAN/USD') return ['OANDA:SOYBNUSD', 'CBOT:ZS1!'];
+  if (sym === 'COFFEE/USD') return ['ICEUS:KC1!', 'CAPITALCOM:COFFEE'];
+  if (sym === 'COCOA/USD') return ['ICEUS:CC1!', 'CAPITALCOM:COCOA'];
+  if (sym.endsWith('.JK')) return ['IDX:' + sym.replace('.JK', '')];
+  if (US_EXCHANGE_MAP[sym]) return [US_EXCHANGE_MAP[sym]];
+  if (sym.includes('/') && !sym.endsWith('/USDT')) {
+    const clean = sym.replace('/', '');
+    return ['OANDA:' + clean, 'FX_IDC:' + clean, 'FOREXCOM:' + clean, 'FX:' + clean];
+  }
+  return [];
+}
+async function queryTvGlobal(tickers) {
+  if (!tickers || !tickers.length) return null;
+  const cols = ['close|1', 'close', 'open', 'high', 'low', 'volume'];
+  const tryFetch = async (tList) => {
+    try {
+      const res = await fetch('https://scanner.tradingview.com/global/scan?_t=' + Date.now(), {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://www.tradingview.com',
+          'Referer': 'https://www.tradingview.com/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        body: JSON.stringify({ symbols: { tickers: tList }, columns: cols })
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (json && Array.isArray(json.data) && json.data.length > 0) {
+        for (const preferred of tList) {
+          const row = json.data.find(r => r && r.s === preferred && Array.isArray(r.d) && (Number(r.d[0]) > 0 || Number(r.d[1]) > 0));
+          if (row) {
+            const liveClose = Number(row.d[0]) > 0 ? Number(row.d[0]) : Number(row.d[1]);
+            return {
+              ticker: row.s,
+              close: liveClose,
+              open: Number(row.d[2] || liveClose),
+              high: Math.max(liveClose, Number(row.d[3] || liveClose)),
+              low: Math.min(liveClose, Number(row.d[4] || liveClose)),
+              volume: Number(row.d[5] || 1500)
+            };
+          }
+        }
+        for (const row of json.data) {
+          if (row && Array.isArray(row.d) && (Number(row.d[0]) > 0 || Number(row.d[1]) > 0)) {
+            const liveClose = Number(row.d[0]) > 0 ? Number(row.d[0]) : Number(row.d[1]);
+            return {
+              ticker: row.s,
+              close: liveClose,
+              open: Number(row.d[2] || liveClose),
+              high: Math.max(liveClose, Number(row.d[3] || liveClose)),
+              low: Math.min(liveClose, Number(row.d[4] || liveClose)),
+              volume: Number(row.d[5] || 1500)
+            };
+          }
         }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+    return null;
+  };
+  let res = await tryFetch(tickers);
+  if (res) return res;
+  for (const single of tickers) {
+    res = await tryFetch([single]);
+    if (res) return res;
+  }
   return null;
 }
 async function fetchSwissquoteSpot(base, quote) {
   try {
-    const res = await fetch('https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/' + base + '/' + quote, {
+    const res = await fetch('https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/' + base + '/' + quote + '?_t=' + Date.now(), {
+      cache: 'no-store',
       headers: { 'User-Agent': 'Mozilla/5.0' }
     });
     if (!res.ok) return null;
@@ -73,7 +116,8 @@ async function fetchSwissquoteSpot(base, quote) {
 }
 async function fetchGoldPriceOrg() {
   try {
-    const res = await fetch('https://data-asg.goldprice.org/dbXRates/USD,IDR', {
+    const res = await fetch('https://data-asg.goldprice.org/dbXRates/USD,IDR?_t=' + Date.now(), {
+      cache: 'no-store',
       headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://goldprice.org/' }
     });
     if (!res.ok) return null;
@@ -97,7 +141,7 @@ async function fetchLiveFxCrossRate(base, quote) {
   ];
   for (const u of urls) {
     try {
-      const res = await fetch(u);
+      const res = await fetch(u, { cache: 'no-store' });
       if (!res.ok) continue;
       const data = await res.json();
       const rates = data.rates || data.usd;
@@ -108,14 +152,13 @@ async function fetchLiveFxCrossRate(base, quote) {
       const qRate = Number(rates[qKey] || rates[qKey.toLowerCase()] || (qKey === 'USD' ? 1 : 0));
       if (bRate > 0 && qRate > 0) {
         const cross = qRate / bRate;
-        return { ticker: 'FX_SPOT:' + base + quote, close: cross, open: cross, high: cross * 1.001, low: cross * 0.999, volume: 2000 };
+        return { ticker: 'FX_SPOT:' + base + quote, close: cross, open: cross, high: cross * 1.0008, low: cross * 0.9992, volume: 2000 };
       }
     } catch (e) {}
   }
   return null;
 }
 async function fetchExactLiveQuote(sym) {
-  // 1. PHYSICAL GOLD IDR / GRAM
   if (sym === 'XAU/IDR') {
     const [xauQuote, idrQuote, gp] = await Promise.all([
       fetchExactLiveQuote('XAU/USD'),
@@ -124,82 +167,35 @@ async function fetchExactLiveQuote(sym) {
     ]);
     if (xauQuote && idrQuote && xauQuote.close > 0 && idrQuote.close > 0) {
       const gram = Math.round((xauQuote.close * idrQuote.close) / 31.1034768);
-      return { ticker: 'SPOT:XAUIDR_GRAM', close: gram, open: gram, high: Math.round(gram * 1.002), low: Math.round(gram * 0.998), volume: 3000 };
+      return { ticker: 'SPOT:XAUIDR_GRAM', close: gram, open: gram, high: Math.round(gram * 1.0015), low: Math.round(gram * 0.9985), volume: 3000 };
     }
     if (gp && gp.xauIdrGram > 0) {
       const gram = Math.round(gp.xauIdrGram);
       return { ticker: 'GOLDPRICE:XAUIDR', close: gram, open: gram, high: gram, low: gram, volume: 3000 };
     }
   }
-  // 2. SPOT GOLD & SILVER (Multi-Source Institutional)
+  const tickers = getGlobalTickers(sym);
   if (sym === 'XAU/USD' || sym === 'XAG/USD') {
     const base = sym.split('/')[0];
-    const [sq, tv, gp] = await Promise.all([
+    const [tv, sq, gp] = await Promise.all([
+      queryTvGlobal(tickers),
       fetchSwissquoteSpot(base, 'USD'),
-      queryTvScanner('cfd', { symbols: { tickers: [CFD_TICKER_MAP[sym]] }, columns: ['close', 'open', 'high', 'low', 'volume'] }),
       fetchGoldPriceOrg()
     ]);
     if (tv && tv.close > 0) return tv;
     if (sq && sq.close > 0) return sq;
     if (gp) {
       const p = sym === 'XAU/USD' ? gp.xauUsd : gp.xagUsd;
-      if (p > 0) return { ticker: 'GOLDPRICE:' + sym, close: p, open: p, high: p * 1.002, low: p * 0.998, volume: 3000 };
+      if (p > 0) return { ticker: 'GOLDPRICE:' + sym, close: p, open: p, high: p * 1.001, low: p * 0.999, volume: 3000 };
     }
   }
-  // 3. INDONESIAN IDX STOCKS (.JK)
-  if (sym.endsWith('.JK')) {
-    const code = sym.replace('.JK', '');
-    const tvExact = await queryTvScanner('indonesia', {
-      symbols: { tickers: ['IDX:' + code] },
-      columns: ['close', 'open', 'high', 'low', 'volume']
-    });
-    if (tvExact && tvExact.close > 0) return tvExact;
-    const tvFilter = await queryTvScanner('indonesia', {
-      filter: [{ left: 'name', operation: 'equal', right: code }],
-      columns: ['close', 'open', 'high', 'low', 'volume'],
-      range: [0, 1]
-    });
-    if (tvFilter && tvFilter.close > 0) return tvFilter;
+  if (tickers.length > 0) {
+    const tv = await queryTvGlobal(tickers);
+    if (tv && tv.close > 0) return tv;
   }
-  // 4. US WALL STREET STOCKS
-  if (!sym.includes('/') && !sym.endsWith('.JK')) {
-    const exactTicker = US_EXCHANGE_MAP[sym];
-    if (exactTicker) {
-      const tvExact = await queryTvScanner('america', {
-        symbols: { tickers: [exactTicker] },
-        columns: ['close', 'open', 'high', 'low', 'volume']
-      });
-      if (tvExact && tvExact.close > 0) return tvExact;
-    }
-    const cleanName = sym.replace('-', '.');
-    const tvFilter = await queryTvScanner('america', {
-      filter: [{ left: 'name', operation: 'equal', right: cleanName }],
-      columns: ['close', 'open', 'high', 'low', 'volume'],
-      sort: { sortBy: 'volume', sortOrder: 'desc' },
-      range: [0, 3]
-    });
-    if (tvFilter && tvFilter.close > 0) return tvFilter;
-  }
-  // 5. GLOBAL COMMODITIES & OTHER METALS
-  if (CFD_TICKER_MAP[sym]) {
-    const tvCfd = await queryTvScanner('global', {
-      symbols: { tickers: [CFD_TICKER_MAP[sym]] },
-      columns: ['close', 'open', 'high', 'low', 'volume']
-    });
-    if (tvCfd && tvCfd.close > 0) return tvCfd;
-  }
-  // 6. ALL 28 FOREX PAIRS
   if (sym.includes('/') && !sym.endsWith('/USDT')) {
     const [base, quote] = sym.split('/');
-    const clean = base + quote;
-    const [tvFx, sqFx] = await Promise.all([
-      queryTvScanner('forex', {
-        symbols: { tickers: ['FX_IDC:' + clean] },
-        columns: ['close', 'open', 'high', 'low', 'volume']
-      }),
-      fetchSwissquoteSpot(base, quote)
-    ]);
-    if (tvFx && tvFx.close > 0) return tvFx;
+    const sqFx = await fetchSwissquoteSpot(base, quote);
     if (sqFx && sqFx.close > 0) return sqFx;
     const fxCross = await fetchLiveFxCrossRate(base, quote);
     if (fxCross && fxCross.close > 0) return fxCross;
@@ -214,13 +210,12 @@ async function fetchYahooCandles(yfSym, tf) {
   const hosts = ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo.com'];
   for (const host of hosts) {
     try {
-      const url = host + '/v8/finance/chart/' + encodeURIComponent(yfSym) + '?interval=' + interval + '&range=' + range + '&includePrePost=false';
+      const url = host + '/v8/finance/chart/' + encodeURIComponent(yfSym) + '?interval=' + interval + '&range=' + range + '&includePrePost=false&_t=' + Date.now();
       const res = await fetch(url, {
+        cache: 'no-store',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept': 'application/json,text/plain,*/*',
-          'Origin': 'https://finance.yahoo.com',
-          'Referer': 'https://finance.yahoo.com/'
+          'Accept': 'application/json,text/plain,*/*'
         }
       });
       if (!res.ok) continue;
@@ -269,7 +264,7 @@ function calibrateCandlesToLivePrice(candles, livePrice) {
   const lastClose = candles[candles.length - 1].close;
   if (!lastClose || lastClose <= 0) return candles;
   const ratio = livePrice / lastClose;
-  const decimals = livePrice < 0.01 ? 6 : livePrice < 10 ? 4 : livePrice >= 1000 ? 2 : 2;
+  const decimals = livePrice < 0.01 ? 6 : livePrice < 10 ? 4 : 2;
   const calibrated = candles.map(c => ({
     time: c.time,
     open: Number((c.open * ratio).toFixed(decimals)),
@@ -326,9 +321,46 @@ export async function onRequestGet(context) {
   const headers = {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+    'Pragma': 'no-cache',
     'Access-Control-Allow-Origin': '*'
   };
-  // BATCH QUOTE ENDPOINT FOR TICKER TAPE & INITIAL SYNC
+  const symbol = url.searchParams.get('symbol') || 'BTC/USDT';
+  const tf = url.searchParams.get('tf') || 'H1';
+  // 1. ULTRA-FAST SINGLE QUOTE ENDPOINT (CALLED EVERY 1.5s FOR REAL-TIME AUTO-TICK)
+  if (url.searchParams.get('quote') === '1') {
+    if (symbol.endsWith('/USDT')) {
+      try {
+        const pair = symbol.replace('/', '');
+        const r = await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol=' + pair, { cache: 'no-store' });
+        if (r.ok) {
+          const d = await r.json();
+          if (d && Number(d.price) > 0) {
+            return new Response(JSON.stringify({ ok: true, symbol, price: Number(d.price), source: 'BINANCE_LIVE' }), { headers });
+          }
+        }
+      } catch (e) {}
+    }
+    const q = await fetchExactLiveQuote(symbol);
+    if (q && q.close > 0) {
+      return new Response(JSON.stringify({
+        ok: true,
+        symbol,
+        price: q.close,
+        open: q.open,
+        high: q.high,
+        low: q.low,
+        source: q.ticker || 'LIVE_SPOT'
+      }), { headers });
+    }
+    const yfSym = YF_MAP[symbol] || symbol;
+    const yf = await fetchYahooCandles(yfSym, 'M1');
+    if (yf && yf.length > 0) {
+      const last = yf[yf.length - 1];
+      return new Response(JSON.stringify({ ok: true, symbol, price: last.close, high: last.high, low: last.low, source: 'YAHOO_LIVE' }), { headers });
+    }
+    return new Response(JSON.stringify({ ok: false, symbol }), { status: 503, headers });
+  }
+  // 2. BATCH QUOTE ENDPOINT FOR TICKER TAPE
   if (url.searchParams.get('batch') === '1') {
     const list = (url.searchParams.get('symbols') || 'XAU/USD,XAU/IDR,EUR/USD,USD/IDR,BBCA.JK,BMRI.JK,NVDA,AAPL,WTI/USD').split(',');
     const quotes = {};
@@ -340,15 +372,13 @@ export async function onRequestGet(context) {
     }));
     return new Response(JSON.stringify({ ok: true, quotes }), { headers });
   }
-  const symbol = url.searchParams.get('symbol') || 'BTC/USDT';
-  const tf = url.searchParams.get('tf') || 'H1';
+  // 3. FULL CANDLE + SPOT CALIBRATION ENDPOINT
   try {
-    // 1. CRYPTO VIA BINANCE VISION
     if (symbol.endsWith('/USDT')) {
       const pair = symbol.replace('/', '');
       const bTfMap = { 'M1':'1m', 'M5':'5m', 'M15':'15m', 'M30':'30m', 'H1':'1h', 'H4':'4h', 'D1':'1d', 'W1':'1w', 'MN':'1M', '1Y':'1M' };
       const bInterval = bTfMap[tf] || '1h';
-      const bRes = await fetch('https://data-api.binance.vision/api/v3/klines?symbol=' + pair + '&interval=' + bInterval + '&limit=160');
+      const bRes = await fetch('https://data-api.binance.vision/api/v3/klines?symbol=' + pair + '&interval=' + bInterval + '&limit=160', { cache: 'no-store' });
       if (bRes.ok) {
         const raw = await bRes.json();
         if (Array.isArray(raw) && raw.length > 20) {
@@ -364,18 +394,16 @@ export async function onRequestGet(context) {
         }
       }
     }
-    // 2. FETCH EXACT LIVE SPOT QUOTE + HISTORICAL CANDLES IN PARALLEL
     const yfSym = YF_MAP[symbol] || (symbol === 'XAU/IDR' ? 'GC=F' : symbol);
     let [liveQuote, yfCandles] = await Promise.all([
       fetchExactLiveQuote(symbol),
       fetchYahooCandles(yfSym, tf)
     ]);
-    // For XAU/USD & XAU/IDR: if Yahoo is rate-limited, use real PAXGUSDT candles calibrated to exact Spot Gold price
     if ((!yfCandles || yfCandles.length < 20) && (symbol === 'XAU/USD' || symbol === 'XAU/IDR')) {
       try {
         const bTfMap = { 'M1':'1m', 'M5':'5m', 'M15':'15m', 'M30':'30m', 'H1':'1h', 'H4':'4h', 'D1':'1d', 'W1':'1w', 'MN':'1M', '1Y':'1M' };
         const bInterval = bTfMap[tf] || '1h';
-        const paxgRes = await fetch('https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=' + bInterval + '&limit=160');
+        const paxgRes = await fetch('https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=' + bInterval + '&limit=160', { cache: 'no-store' });
         if (paxgRes.ok) {
           const raw = await paxgRes.json();
           if (Array.isArray(raw) && raw.length > 20) {
