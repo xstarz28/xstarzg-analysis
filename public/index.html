@@ -3,16 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-  <title>XSTARZG Analysis &mdash; Institutional Multi-Asset Quant &amp; Smart Money Terminal (2026)</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2026.6" />
-  <link rel="shortcut icon" type="image/svg+xml" href="/assets/favicon.svg?v=2026.6" />
-  <link rel="apple-touch-icon" href="/assets/logo.svg?v=2026.6" />
-  <link rel="stylesheet" href="/styles.css?v=2026.9" />
-  <script src="/vendor/lightweight-charts.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-
-<style id="xstarzg-core-lock">
+  <title>XSTARZG Analysis — Institutional Multi-Asset Quant &amp; Smart Money Terminal (2026)</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2026.10" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css?v=2026.10" />
+  <style id="xstarzg-core-lock">
 :root {
   --bg-main: #060a12;
   --bg-card: #0d1524;
@@ -86,7 +83,7 @@ img.brand-logo-svg {
 }
 .front-nav {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 12px 14px; background: rgba(13, 21, 36, 0.95); border: 1px solid var(--border-subtle);
+  padding: 12px 16px; background: rgba(13, 21, 36, 0.95); border: 1px solid var(--border-subtle);
   border-radius: 14px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 .front-login-trigger {
@@ -315,375 +312,445 @@ img.login-gate-logo { height: 44px !important; margin: 0 auto 12px !important; }
 .tx-input { padding: 9px 10px; font-size: 0.78rem; }
 .btn-verify-tx { background: linear-gradient(135deg, #10b981, #059669) !important; border: none !important; padding: 10px !important; font-weight: 800 !important; }
 .terminal-footer { margin-top: auto; padding: 14px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 0.72rem; color: #94a3b8; }
-</style>
+  </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body>
-  <!-- STAGE 1: FRONT OVERVIEW LANDING SCREEN -->
-  <div id="frontLandingScreen" class="front-landing-screen">
+<body style="background:#060a12;color:#f8fafc;margin:0;">
+  <!-- STAGE 1: FRONT OVERVIEW DASHBOARD -->
+  <section id="frontLandingScreen" class="front-landing-screen">
     <nav class="front-nav">
-      <div class="front-brand">
-        <img src="/assets/logo.svg?v=2026.6" alt="XSTARZG" class="front-nav-logo" />
+      <div class="brand-id">
+        <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-svg" width="130" height="36" style="height:36px !important;width:auto !important;max-width:140px !important;display:block;" />
         <div>
-          <span class="front-brand-name">XSTARZG <span class="accent-cyan">ANALYSIS</span></span>
-          <span class="front-brand-tag">REAL-MARKET QUANT &amp; SMART MONEY COMPASS</span>
+          <div class="brand-title">XSTARZG ANALYSIS</div>
+          <div class="brand-sub">REAL-MARKET QUANT &amp; SMART MONEY COMPASS</div>
         </div>
       </div>
-      <div class="front-nav-actions">
-        <button id="btnFrontGoLogin" class="front-btn-primary">&#x1F510; Masuk / Login Terminal &rarr;</button>
-      </div>
+      <button id="btnFrontToLoginTop" class="front-login-trigger" style="background:linear-gradient(135deg,#0284c7,#2563eb);color:#fff;border:1px solid #38bdf8;padding:9px 14px;border-radius:10px;font-weight:800;">&#x1F510; Masuk / Login Terminal &rarr;</button>
     </nav>
-    <header class="front-hero">
-      <div class="front-hero-badge">&#x2728; DIRANCANG UNTUK TRADER &amp; INVESTOR NYATA &bull; 2026</div>
-      <h1>Berhenti Menebak Arah Pasar.<br /><span class="gradient-headline">Lihat Peta Harga Seperti Institusi Besar.</span></h1>
-      <p class="front-hero-lead">
+    <div class="front-hero-box">
+      <div class="front-badge">&#x2728; DIRANCANG UNTUK TRADER &amp; INVESTOR NYATA &bull; 2026</div>
+      <h1 class="front-headline">Berhenti Menebak Arah Pasar.<br/>Lihat Peta Harga Seperti Institusi Besar.</h1>
+      <p class="front-subheadline">
         Pernah merasa harga selalu berbalik arah tepat setelah Anda masuk posisi? Itu terjadi karena ritel hanya melihat 1&ndash;2 indikator yang terlambat.
-        <strong>XSTARZG Analysis</strong> menyatukan <strong>12 Indikator Teknikal Klasik &amp; Modern (Smart Money Concepts, Volume Profile, VWAP)</strong> dengan
-        <strong>Data Fundamental Makro &amp; Posisi Kontrak Institusi (CFTC COT)</strong> dalam satu layar yang rapi, jujur, dan mudah dipahami.
+        <strong>XSTARZG Analysis</strong> menyatukan <strong>12 Indikator Teknikal Klasik &amp; Modern (Smart Money Concepts, Volume Profile, VWAP)</strong> dengan <strong>Data Fundamental Makro &amp; Posisi Kontrak Institusi (CFTC COT)</strong> dalam satu layar yang rapi, jujur, dan mudah dipahami.
       </p>
-      <div class="front-hero-cta-group">
-        <button id="btnHeroGoLogin" class="front-cta-main">&#x1F680; Mulai Analisa Sekarang (Login Akun)</button>
-        <button id="btnHeroQuickPreview" class="front-cta-sub">&#x26A1; Langsung Buka Terminal Analisa</button>
+      <div class="front-cta-row">
+        <button id="btnFrontToLoginHero" class="btn-front-primary" style="background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;padding:13px 20px;border-radius:12px;font-weight:800;border:1px solid #38bdf8;">&#x1F680; Mulai Analisa Sekarang (Login Akun)</button>
+        <button id="btnFrontQuickPreview" class="btn-front-secondary" style="background:#1e293b;color:#f8fafc;padding:13px 20px;border-radius:12px;font-weight:700;border:1px solid rgba(148,163,184,0.35);">&#x26A1; Langsung Buka Terminal Analisa</button>
       </div>
-      <div class="front-stats-strip">
-        <div class="f-stat"><strong>1,600+</strong><span>Instrumen Real-Time (Kripto, Forex, Emas, Saham IDX &amp; AS)</span></div>
-        <div class="f-stat"><strong>12 Lapis</strong><span>Konfluensi Teknikal Klasik + Smart Money Institusi</span></div>
-        <div class="f-stat"><strong>CFTC COT</strong><span>Data Posisi Hedge Fund, Bank Sentral &amp; Valuasi Riil</span></div>
-        <div class="f-stat"><strong>$29 / Bln</strong><span>Akses Penuh VIP 30 Hari Tanpa Batas Timeframe</span></div>
+    </div>
+    <div class="front-stats-strip">
+      <div class="front-stat-card">
+        <strong>1,600+</strong>
+        <span>Instrumen Real-Time (Kripto, Forex, Emas, Saham IDX &amp; AS)</span>
       </div>
-    </header>
-    <section class="front-section">
-      <h2>Kenapa Trader &amp; Investor Memilih XSTARZG Analysis?</h2>
-      <div class="front-cards-grid">
-        <div class="front-info-card">
-          <div class="f-icon">&#x1F4CA;</div>
+      <div class="front-stat-card">
+        <strong>12 Lapis</strong>
+        <span>Konfluensi Teknikal Klasik + Smart Money Institusi</span>
+      </div>
+      <div class="front-stat-card">
+        <strong>CFTC COT</strong>
+        <span>Data Posisi Hedge Fund, Bank Sentral &amp; Valuasi Riil</span>
+      </div>
+      <div class="front-stat-card">
+        <strong>$29 / Bln</strong>
+        <span>Akses Penuh VIP 30 Hari Tanpa Batas Timeframe</span>
+      </div>
+    </div>
+    <div class="front-features-section">
+      <h2 class="front-section-title">Kenapa Trader &amp; Investor Memilih XSTARZG Analysis?</h2>
+      <div class="front-feature-grid">
+        <div class="front-feature-card">
+          <div class="ff-icon">&#x1F4CA;</div>
           <h3>1. Chart Rapi Sekelas TradingView + Real-Time</h3>
           <p>Candlestick bergerak secara <em>real-time</em> mengikuti detak harga pasar asli lengkap dengan hitung mundur penutupan candle, tanpa garis berantakan yang menutupi harga.</p>
         </div>
-        <div class="front-info-card">
-          <div class="f-icon">&#x1F3AF;</div>
+        <div class="front-feature-card">
+          <div class="ff-icon">&#x1F3AF;</div>
           <h3>2. Rencana Eksekusi Jelas (Bukan Sekadar Garis)</h3>
           <p>Langsung dapatkan titik <strong>Entry Trigger</strong>, batas aman <strong>Stop Loss berbasis volatilitas ATR</strong>, serta target <strong>TP1, TP2, dan TP3</strong> lengkap dengan kalkulator ukuran lot otomatis.</p>
         </div>
-        <div class="front-info-card">
-          <div class="f-icon">&#x1F3DB;&#xFE0F;</div>
+        <div class="front-feature-card">
+          <div class="ff-icon">&#x1F3DB;&#xFE0F;</div>
           <h3>3. Gabungan Teknikal Klasik, Modern &amp; Fundamental</h3>
           <p>Menggabungkan EMA 20/50/200, RSI, MACD, &amp; Bollinger dengan VWAP, Volume Profile (POC/VAH/VAL), struktur BOS/CHoCH, Fair Value Gap (FVG), serta laporan CFTC COT.</p>
         </div>
-        <div class="front-info-card">
-          <div class="f-icon">&#x1F4BC;</div>
+        <div class="front-feature-card">
+          <div class="ff-icon">&#x1F4BC;</div>
           <h3>4. Dua Mode Berbeda: Trader Aktif &amp; Spot Investor</h3>
           <p>Mau <em>Scalping/Intraday/Swing</em> dua arah? Gunakan mode <strong>Trader</strong>. Mau menabung saham IDX/AS, Emas, atau Kripto Spot tanpa stres? Gunakan <strong>Spot Investor DCA 3-Tahap</strong>.</p>
         </div>
       </div>
-    </section>
-    <section class="front-bottom-cta">
-      <h2>Siap Mengambil Keputusan Pasar yang Lebih Tenang &amp; Terukur?</h2>
-      <p>Masuk dengan akun Google Anda atau langsung buka terminal analisa di bawah ini.</p>
-      <button id="btnBottomGoLogin" class="front-cta-main">Masuk ke Halaman Login &rarr;</button>
-    </section>
-  </div>
-  <!-- STAGE 2: LOGIN GATE SCREEN -->
-  <div id="loginGateScreen" class="login-gate-overlay" style="display:none;">
+    </div>
+    <div class="front-bottom-banner">
+      <div>
+        <h3>Siap Mengambil Keputusan Pasar yang Lebih Tenang &amp; Terukur?</h3>
+        <p>Masuk dengan akun Google Anda atau langsung buka terminal analisa di bawah ini.</p>
+      </div>
+      <button id="btnFrontToLoginBottom" class="btn-front-primary" style="background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;padding:13px 20px;border-radius:12px;font-weight:800;border:1px solid #38bdf8;">Masuk ke Halaman Login &rarr;</button>
+    </div>
+  </section>
+  <!-- STAGE 2: DEDICATED LOGIN GATE -->
+  <section id="loginGateScreen" class="login-gate-screen hidden">
     <div class="login-gate-card">
-      <img src="/assets/logo.svg?v=2026.6" alt="XSTARZG Logo" class="login-gate-logo" />
-      <div class="login-gate-badge">INSTITUTIONAL MULTI-ASSET TERMINAL &bull; 2026</div>
-      <h1>XSTARZG <span class="accent-cyan">ANALYSIS</span></h1>
-      <p class="login-gate-sub">
-        Silakan masuk menggunakan akun Google Anda untuk menyinkronkan profil dan status akses VIP, atau lanjutkan langsung ke terminal analisa.
-      </p>
-      <div class="login-gate-actions">
-        <div id="googleSignInGateBtn" class="google-btn-wrap"></div>
-        <button id="btnSkipLoginGate" class="btn-enter-terminal">
-          &#x26A1; Masuk Langsung ke Terminal Analisa &rarr;
-        </button>
-        <button id="btnBackToFrontLanding" class="btn-back-front">
-          &larr; Kembali ke Halaman Penjelasan Depan
-        </button>
+      <button id="btnBackToFront" class="btn-back-front">&larr; Kembali ke Beranda Penjelasan</button>
+      <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-svg login-gate-logo" width="150" height="44" style="height:44px !important;width:auto !important;max-width:160px !important;display:block;margin:0 auto 12px;" />
+      <h2 class="login-gate-title">Masuk ke Terminal XSTARZG</h2>
+      <p class="login-gate-desc">Gunakan akun Google Anda untuk menyinkronkan sesi, akses Owner/VIP, atau masuk melalui mode Pratinjau Instan.</p>
+      <div id="googleSignInContainer" class="login-google-box"></div>
+      <div class="login-divider"><span>atau akses cepat</span></div>
+      <button id="btnGuestEnterTerminal" class="btn-guest-enter" style="background:rgba(14,165,233,0.2);color:#38bdf8;border:1px solid #38bdf8;padding:12px;border-radius:10px;width:100%;font-weight:800;">&#x26A1; Masuk Terminal Sekarang (Mode Pratinjau)</button>
+      <div class="login-perks-mini">
+        <span>&#x2705; Semua Timeframe M1 &ndash; 1Y Terbuka</span>
+        <span>&#x2705; Harga Real-Time Akurat Sesuai TradingView</span>
+        <span>&#x2705; Bisa Login / Ganti Akun Kapan Saja di Pojok Kanan Atas</span>
       </div>
     </div>
-  </div>
-  <!-- STAGE 3: CORE ANALYSIS WORKSPACE -->
-  <div id="appWorkspaceWrapper" style="display:none;">
-    <header class="topbar">
-      <div class="brand-col">
-        <img src="/assets/logo.svg?v=2026.6" alt="XSTARZG" class="brand-logo" />
-        <div class="brand-text">
-          <div class="brand-title">XSTARZG <span class="accent-cyan">ANALYSIS</span></div>
-          <div class="brand-subtitle">12-INDICATOR CONFLUENCE &bull; CFTC COT &amp; REAL-TIME TERMINAL</div>
+  </section>
+  <!-- STAGE 3: MAIN ANALYSIS WORKSPACE -->
+  <div id="appWorkspaceWrapper" class="app-workspace-wrapper hidden">
+    <header class="top-navbar">
+      <div class="brand-id" id="btnBrandHome" title="Klik untuk melihat Beranda Penjelasan" style="cursor:pointer;">
+        <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-svg" width="130" height="36" style="height:36px !important;width:auto !important;max-width:140px !important;display:block;" />
+        <div>
+          <div class="brand-title">XSTARZG ANALYSIS</div>
+          <div class="brand-sub">INSTITUTIONAL QUANT &amp; SMART MONEY</div>
         </div>
       </div>
-      <div class="mode-switch-col">
-        <span class="control-label">MODE ANALISA:</span>
-        <div class="segmented-mode">
-          <button id="btnModeTrader" class="mode-btn active" data-mode="TRADER">&#x26A1; TRADER (2-Way)</button>
-          <button id="btnModeSpot" class="mode-btn" data-mode="SPOT_INVESTOR">&#x1F4BC; SPOT INVESTOR (DCA)</button>
+      <div class="instrument-selector-bar">
+        <div class="asset-group-tabs" id="assetCategoryTabs">
+          <button class="cat-tab active" data-cat="ALL">ALL</button>
+          <button class="cat-tab" data-cat="CRYPTO">CRYPTO</button>
+          <button class="cat-tab" data-cat="FOREX">FOREX</button>
+          <button class="cat-tab" data-cat="METALS">GOLD &amp; METALS</button>
+          <button class="cat-tab" data-cat="STOCKS_ID">SAHAM IDX</button>
+          <button class="cat-tab" data-cat="STOCKS_US">US STOCKS</button>
+          <button class="cat-tab" data-cat="COMMODITIES">COMMODITIES</button>
+        </div>
+        <div class="symbol-picker-wrap">
+          <input type="text" id="symbolSearchInput" class="symbol-search-input" placeholder="Cari aset (BTC, XAU, BBCA...)" />
+          <select id="symbolSelect" class="symbol-select"></select>
         </div>
       </div>
-      <div class="user-action-col">
-        <button id="btnOpenVipModal" class="vip-upgrade-btn">&#x1F48E; VIP ACCESS ($29/Bln)</button>
-        <div class="profile-menu-container">
-          <button id="btnUserSession" class="user-session-pill" type="button">
-            <span class="status-dot online"></span>
-            <span id="lblUserStatus">Guest / Akun &#x25BC;</span>
-          </button>
-          <div id="userProfileDropdown" class="profile-dropdown-menu" style="display:none;">
-            <div class="profile-dropdown-header">
-              <strong id="dropdownUserName">Guest Trader</strong>
-              <span id="dropdownUserEmail">Mode Preview Aktif</span>
-              <span id="dropdownUserTier" class="tier-pill">FREE PREVIEW</span>
+      <div class="nav-actions">
+        <button id="btnOpenVipModal" class="btn-vip-upgrade">&#x1F48E; VIP $29/Bln</button>
+        <div class="user-menu-wrapper">
+          <button id="btnUserSession" class="btn-user-session">&#x1F464; Masuk / Akun &#x25BE;</button>
+          <div id="userProfileDropdown" class="user-profile-dropdown hidden">
+            <div class="upd-header">
+              <strong id="updUserName">Mode Pratinjau</strong>
+              <span id="updUserEmail">Belum terhubung ke Google</span>
+              <span id="updUserTier" class="upd-tier-badge">PREVIEW ACCESS</span>
             </div>
-            <hr class="dropdown-divider" />
-            <button id="btnMenuOpenLogin" type="button" class="dropdown-item">&#x1F511; Login / Ganti Akun Google</button>
-            <button id="btnMenuOpenVip" type="button" class="dropdown-item">&#x1F48E; Paket VIP ($29 USDT / Bulan)</button>
-            <button id="btnMenuGoFrontPage" type="button" class="dropdown-item">&#x1F3E0; Lihat Halaman Depan (Overview)</button>
-            <hr class="dropdown-divider" />
-            <button id="btnMenuLogout" type="button" class="dropdown-item logout-danger">&#x1F6AA; Keluar / Logout Sesi</button>
+            <div id="updGoogleButtonBox" style="margin:8px 0;display:flex;justify-content:center;"></div>
+            <div class="upd-actions">
+              <button id="btnMenuSwitchLogin" class="upd-item">&#x1F511; Masuk / Ganti Akun Google</button>
+              <button id="btnMenuOpenVip" class="upd-item">&#x1F48E; Status &amp; Upgrade VIP ($29)</button>
+              <button id="btnMenuBackFront" class="upd-item">&#x1F3E0; Lihat Beranda Penjelasan</button>
+              <button id="btnMenuLogout" class="upd-item upd-danger">&#x1F6AA; Keluar (Logout)</button>
+            </div>
           </div>
         </div>
       </div>
     </header>
-    <!-- INSTRUMENT & STRATEGY HORIZON BAR -->
-    <section class="market-control-bar">
-      <div class="asset-tabs-wrap">
-        <div class="asset-tabs" id="assetClassTabs">
-          <button class="asset-tab active" data-asset="ALL">SEMUA ASET</button>
-          <button class="asset-tab" data-asset="CRYPTO">CRYPTO</button>
-          <button class="asset-tab" data-asset="FOREX">FOREX</button>
-          <button class="asset-tab" data-asset="METALS">EMAS &amp; LOGAM</button>
-          <button class="asset-tab" data-asset="COMMODITIES">KOMODITAS</button>
-          <button class="asset-tab" data-asset="STOCKS">SAHAM IDX &amp; GLOBAL</button>
-        </div>
-        <div class="instrument-picker-row">
-          <div class="select-wrap">
-            <select id="instrumentSelect" aria-label="Pilih Instrumen"></select>
-          </div>
-          <div class="search-wrap">
-            <input type="text" id="customTickerSearch" placeholder="Cari simbol (mis: BTC, XAU, EUR/USD, BBCA, NVDA)..." />
-            <button id="btnLoadCustomTicker">Muat</button>
-          </div>
-          <div class="asset-count-badge" id="lblAssetCounter">180+ Preset + 1,500+ Live Crypto</div>
-        </div>
-      </div>
-      <div class="horizon-tf-wrap">
-        <div class="horizon-group">
-          <span class="control-label">GAYA &amp; HORIZON:</span>
-          <div class="horizon-btns" id="horizonButtonGroup">
-            <button class="horizon-btn" data-horizon="SCALPING">&#x26A1; SCALPING</button>
-            <button class="horizon-btn" data-horizon="INTRADAY">&#x1F3AF; INTRADAY</button>
-            <button class="horizon-btn" data-horizon="SWING">&#x1F30A; SWING</button>
-            <button class="horizon-btn" data-horizon="INVESTOR">&#x1F3DB;&#xFE0F; INVESTOR / MACRO</button>
-            <button class="horizon-btn active" data-horizon="ALL">ALL TF</button>
-          </div>
-        </div>
-        <div class="tf-group">
-          <span class="control-label">TIMEFRAME AKTIF:</span>
-          <div class="tf-btns" id="timeframeBar"></div>
-        </div>
-      </div>
-    </section>
-    <!-- TOP OPPORTUNITY RADAR -->
-    <section class="opportunity-radar-strip">
-      <div class="opportunity-radar-head">
-        <div class="radar-title-col">
-          <span class="radar-pulse"></span>
-          <strong>RADAR PELUANG MULTI-ASET TERBAIK</strong>
-          <span class="radar-sub">(Rekomendasi Setup Terbaik Sesuai Gaya Trading)</span>
-        </div>
-        <div class="radar-horizon-tabs" id="radarHorizonTabs">
-          <button class="radar-tab-btn" data-rhorizon="SCALPING">&#x26A1; Scalping (M1-M15)</button>
-          <button class="radar-tab-btn active" data-rhorizon="INTRADAY">&#x1F3AF; Intraday (M15-H1)</button>
-          <button class="radar-tab-btn" data-rhorizon="SWING">&#x1F30A; Swing (H4-D1)</button>
-        </div>
-      </div>
-      <div class="opportunity-cards-grid" id="topRadarGrid"></div>
-    </section>
-    <!-- MAIN WORKSPACE GRID -->
-    <main class="workspace-grid">
-      <!-- LEFT COLUMN: CHART + TECHNICAL TABLE -->
-      <div class="chart-and-tech-col">
-        <div class="chart-card">
-          <div class="chart-header">
-            <div class="active-instrument-info">
-              <div class="symbol-line">
-                <h2 id="lblActiveSymbol">BTC/USDT</h2>
-                <span class="inst-name-pill" id="lblActiveName">Bitcoin Spot</span>
-                <span class="candle-countdown-pill" id="lblCandleCountdown">&#x23F1; Live Candle</span>
+    <main class="terminal-grid">
+      <section class="workspace-left">
+        <div class="glass-panel chart-stage-card">
+          <div class="chart-top-bar">
+            <div class="ticker-identity">
+              <div class="ticker-title-row">
+                <h1 id="lblSymbolTitle">BTC/USDT</h1>
+                <span id="lblAssetCategory" class="badge-cat">CRYPTO</span>
+                <span id="lblAssetSubcat" class="badge-subcat">MAJOR L1</span>
               </div>
-              <div class="price-line">
-                <span class="active-price" id="lblActivePrice">--</span>
-                <span class="active-change" id="lblActiveChange">--%</span>
+              <div class="ticker-price-cluster">
+                <span id="lblLivePrice" class="live-price mono">$0.00</span>
+                <span id="lblPriceChange" class="price-change-badge mono">+0.00%</span>
               </div>
             </div>
-            <div class="chart-overlay-toggles">
-              <button class="ov-toggle active" data-ov="ema">EMA 20/50/200</button>
-              <button class="ov-toggle active" data-ov="vwap">VWAP</button>
-              <button class="ov-toggle" data-ov="bb">Bollinger</button>
-              <button class="ov-toggle active" data-ov="smc">POC &amp; Level Kunci</button>
-              <button id="btnResetChartZoom" class="ov-toggle reset-zoom-btn" title="Rapikan tampilan chart seperti TradingView">&#x1F50D; Rapikan Chart</button>
+            <div class="mode-switch-bar" id="modeToggleGroup">
+              <button class="mode-btn active" data-mode="TRADER">&#x26A1; TRADER (2-ARAH)</button>
+              <button class="mode-btn" data-mode="SPOT_INVESTOR">&#x1F4BC; SPOT INVESTOR (DCA)</button>
+            </div>
+          </div>
+          <div class="chart-controls-strip">
+            <div class="horizon-selector-wrap">
+              <span class="ctrl-label">GAYA ANALISA:</span>
+              <div class="horizon-pill-group" id="horizonButtonGroup">
+                <button class="horizon-pill active" data-horizon="ALL">ALL TF</button>
+                <button class="horizon-pill" data-horizon="SCALPING">&#x26A1; SCALPING (M1-M15)</button>
+                <button class="horizon-pill" data-horizon="INTRADAY">&#x1F3AF; INTRADAY (M15-H1)</button>
+                <button class="horizon-pill" data-horizon="SWING">&#x1F30A; SWING (H4-W1)</button>
+                <button class="horizon-pill" data-horizon="INVESTOR">&#x1F3DB;&#xFE0F; INVESTOR / MACRO (D1-1Y)</button>
+              </div>
+            </div>
+            <div class="tf-toolbar-row">
+              <div class="tf-button-group" id="tfButtonGroup">
+                <button class="tf-pill" data-tf="M1">M1</button>
+                <button class="tf-pill" data-tf="M5">M5</button>
+                <button class="tf-pill" data-tf="M15">M15</button>
+                <button class="tf-pill" data-tf="M30">M30</button>
+                <button class="tf-pill active" data-tf="H1">H1</button>
+                <button class="tf-pill" data-tf="H4">H4</button>
+                <button class="tf-pill" data-tf="D1">D1</button>
+                <button class="tf-pill" data-tf="W1">W1</button>
+                <button class="tf-pill" data-tf="MN">MN</button>
+                <button class="tf-pill" data-tf="1Y">1Y</button>
+              </div>
+              <div class="overlay-toggle-group">
+                <label class="toggle-chip"><input type="checkbox" id="chkShowEma" checked /> <span>EMA 20/50/200</span></label>
+                <label class="toggle-chip"><input type="checkbox" id="chkShowVwap" checked /> <span>VWAP</span></label>
+                <label class="toggle-chip"><input type="checkbox" id="chkShowBb" /> <span>Bollinger</span></label>
+                <label class="toggle-chip"><input type="checkbox" id="chkShowLevels" checked /> <span>Target &amp; POC</span></label>
+                <button id="btnResetChartZoom" class="btn-reset-zoom" title="Fokuskan ke 85 candle terakhir">&#x1F50D; Rapikan Chart</button>
+              </div>
             </div>
           </div>
           <div class="tv-chart-wrapper">
-            <div id="tvFloatingLegend" class="tv-floating-legend">
-              <div class="tv-legend-ohlc">
-                O: <span id="legOpen">--</span> &bull;
-                H: <span id="legHigh">--</span> &bull;
-                L: <span id="legLow">--</span> &bull;
-                C: <span id="legClose">--</span>
-              </div>
-              <div class="tv-legend-indicators">
-                <span class="leg-item ema20">EMA20: <b id="legEma20">--</b></span>
-                <span class="leg-item ema50">EMA50: <b id="legEma50">--</b></span>
-                <span class="leg-item ema200">MA200: <b id="legEma200">--</b></span>
-                <span class="leg-item vwap">VWAP: <b id="legVwap">--</b></span>
-                <span class="leg-item poc">POC: <b id="legPoc">--</b></span>
-              </div>
+            <div class="tv-floating-legend" id="tvFloatingLegend">
+              <div class="tv-legend-title" id="tvLegendTitle">BTC/USDT &bull; H1</div>
+              <div class="tv-legend-ohlc" id="tvLegendOhlc">O: - H: - L: - C: -</div>
+              <div class="tv-legend-ind" id="tvLegendInd">EMA20: - &bull; EMA50: - &bull; EMA200: - &bull; VWAP: -</div>
             </div>
-            <div id="tvChartContainer" class="tv-chart-container"></div>
+            <div id="tvChartContainer" class="tv-chart-canvas"></div>
           </div>
+          <div class="chart-footer-meta">
+            <div class="chart-meta-left">
+              <span class="candle-timer-pill mono" id="lblCandleCountdown">&#x23F1; Close Candle: --:--</span>
+              <span class="session-pill" id="lblMarketSession">Sesi: Global Active</span>
+            </div>
+            <div class="chart-meta-right">
+              <span id="lblGoldIdrGram" class="gold-idr-pill mono hidden">Emas Fisik: Rp 0 / gram</span>
+            </div>
+          </div>
+        </div>
+        <!-- OPPORTUNITY RADAR -->
+        <div class="glass-panel radar-panel">
+          <div class="panel-header-row">
+            <div>
+              <h2 id="lblRadarTitle">&#x1F4E1; Opportunity Radar (Sinyal Konfluensi Tertinggi)</h2>
+              <p class="panel-subtitle" id="lblRadarSubtitle">Memindai peluang probabilitas tinggi secara real-time di berbagai kelas aset</p>
+            </div>
+            <div class="radar-style-tabs" id="radarStyleTabs">
+              <button class="radar-tab active" data-rstyle="ALL">Semua</button>
+              <button class="radar-tab" data-rstyle="SCALPING">&#x26A1; Scalping</button>
+              <button class="radar-tab" data-rstyle="INTRADAY">&#x1F3AF; Intraday</button>
+              <button class="radar-tab" data-rstyle="SWING">&#x1F30A; Swing</button>
+            </div>
+          </div>
+          <div id="topSignalsGrid" class="radar-grid"></div>
         </div>
         <!-- 11-PILLAR TECHNICAL CONFLUENCE MATRIX -->
-        <div class="panel-card">
-          <div class="panel-head">
-            <h3>&#x1F4CA; Matriks Konfluensi Teknikal Klasik &amp; Institusi Modern</h3>
-            <span class="panel-badge" id="lblTechConfluenceBadge">11-PILLAR VERIFIED</span>
+        <div class="glass-panel matrix-panel">
+          <div class="panel-header-row">
+            <div>
+              <h2>&#x1F9E9; 11-Pillar Classical + Smart Money Technical Matrix</h2>
+              <p class="panel-subtitle">Konfluensi indikator teknikal klasik (EMA, RSI, MACD, BB, Pivot) &amp; institusional (VWAP, Volume Profile POC/VAH/VAL, TPO, BOS/CHoCH, FVG, Liquidity Sweep)</p>
+            </div>
+            <span id="lblConfluenceSummary" class="panel-badge">Memuat...</span>
           </div>
-          <div class="tech-table-wrap">
-            <table class="tech-table">
-              <thead>
-                <tr>
-                  <th>Komponen Indikator (Klasik &amp; Modern)</th>
-                  <th>Nilai &amp; Struktur Saat Ini</th>
-                  <th>Bias Sinyal</th>
-                </tr>
-              </thead>
-              <tbody id="techConfluenceBody"></tbody>
-            </table>
+          <div id="technicalMatrixGrid" class="matrix-grid"></div>
+        </div>
+      </section>
+      <!-- RIGHT PANEL -->
+      <aside class="workspace-right">
+        <div class="glass-panel signal-card">
+          <div class="signal-hero-banner" id="signalBannerBox">
+            <div class="sig-hero-left">
+              <span class="sig-caption" id="lblModeCaption">KEPUTUSAN KUANTITATIF (TRADER MODE)</span>
+              <h2 id="lblSignalAction" class="sig-action-title">MEMUAT...</h2>
+              <span id="lblSignalGrade" class="sig-grade-pill">Grade A</span>
+            </div>
+            <div class="sig-score-dial">
+              <span id="lblSignalScore" class="score-number mono">0</span>
+              <span class="score-unit">/100 Skor</span>
+            </div>
+          </div>
+          <p id="lblExecutiveNarrative" class="narrative-box">Menganalisa struktur pasar dan aliran order institusi...</p>
+          <!-- TRADER EXECUTION PLAN -->
+          <div id="traderExecutionSection">
+            <div class="levels-list">
+              <div class="level-row entry-row">
+                <span class="lvl-tag">&#x1F3AF; ENTRY TRIGGER</span>
+                <strong id="lblEntryPrice" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row sl-row">
+                <span class="lvl-tag">&#x1F6D1; STOP LOSS (INVALIDASI)</span>
+                <strong id="lblStopLoss" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row tp-row">
+                <span class="lvl-tag">&#x2705; TAKE PROFIT 1 (1.5R)</span>
+                <strong id="lblTp1" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row tp-row">
+                <span class="lvl-tag">&#x2705; TAKE PROFIT 2 (2.5R)</span>
+                <strong id="lblTp2" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row tp-row">
+                <span class="lvl-tag">&#x1F680; TAKE PROFIT 3 (4.0R RUNNER)</span>
+                <strong id="lblTp3" class="lvl-val mono">-</strong>
+              </div>
+            </div>
+            <div class="risk-calculator-box">
+              <div class="calc-title">&#x1F9EE; KALKULATOR UKURAN POSISI &amp; RISIKO</div>
+              <div class="calc-inputs">
+                <div>
+                  <label>Modal Akun ($)</label>
+                  <input type="number" id="inpAccountBalance" value="1000" min="10" step="100" />
+                </div>
+                <div>
+                  <label>Risiko / Trade (%)</label>
+                  <input type="number" id="inpRiskPercent" value="1.0" min="0.1" max="10" step="0.1" />
+                </div>
+              </div>
+              <div class="calc-outputs">
+                <div><span>Risiko Maksimal:</span> <strong id="lblRiskDollar" class="mono">$10.00</strong></div>
+                <div><span>Ukuran Posisi Ideal:</span> <strong id="lblPositionUnits" class="mono">- Unit</strong></div>
+                <div><span>Rasio Risk/Reward:</span> <strong id="lblRiskReward" class="mono">1 : 2.50</strong></div>
+                <div><span>Volatilitas ATR(14):</span> <strong id="lblAtrValue" class="mono">-</strong></div>
+              </div>
+            </div>
+          </div>
+          <!-- SPOT INVESTOR DCA & INTRINSIC VALUATION -->
+          <div id="spotInvestorSection" class="hidden">
+            <div class="spot-valuation-grid">
+              <div class="spot-val-item">
+                <span>Nilai Wajar Intrinsik (Fair Value)</span>
+                <strong id="lblSpotFairValue" class="mono text-cyan">-</strong>
+              </div>
+              <div class="spot-val-item">
+                <span>Margin of Safety (Diskon/Premi)</span>
+                <strong id="lblSpotMos" class="mono">-</strong>
+              </div>
+              <div class="spot-val-item">
+                <span>Fase Siklus Pasar (Wyckoff)</span>
+                <strong id="lblSpotWyckoff">-</strong>
+              </div>
+              <div class="spot-val-item">
+                <span>Potensi Dividen / Yield Tahunan</span>
+                <strong id="lblSpotYield" class="mono">-</strong>
+              </div>
+            </div>
+            <div class="levels-list" style="margin-top:10px;">
+              <div class="level-row entry-row">
+                <span class="lvl-tag">&#x1F7E2; ZONA AKUMULASI DCA 1 (40% MODAL)</span>
+                <strong id="lblDca1" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row entry-row">
+                <span class="lvl-tag">&#x1F7E1; ZONA DISKON DCA 2 (35% MODAL)</span>
+                <strong id="lblDca2" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row entry-row">
+                <span class="lvl-tag">&#x1F535; ZONA DEEP VALUE DCA 3 (25% MODAL)</span>
+                <strong id="lblDca3" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row sl-row">
+                <span class="lvl-tag">&#x2696;&#xFE0F; ESTIMASI HARGA RATA-RATA (AVG COST)</span>
+                <strong id="lblDcaAvg" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row tp-row">
+                <span class="lvl-tag">&#x1F3AF; TARGET NILAI WAJAR (+15% s/d +28%)</span>
+                <strong id="lblSpotTarget1" class="lvl-val mono">-</strong>
+              </div>
+              <div class="level-row tp-row">
+                <span class="lvl-tag">&#x1F3C6; TARGET SIKLUS BULL (+55% JANGKA PANJANG)</span>
+                <strong id="lblSpotTarget2" class="lvl-val mono">-</strong>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <!-- RIGHT COLUMN: EXECUTION, FUNDAMENTAL & WALK-FORWARD -->
-      <div class="decision-and-macro-col">
-        <div class="signal-decision-banner" id="signalDecisionBanner">
-          <div class="sig-left">
-            <span class="sig-label">KEPUTUSAN KUANTITATIF &amp; INSTITUSI</span>
-            <h2 id="lblSignalDirection">LOADING...</h2>
-            <p id="lblSignalSub">Mengkalkulasi struktur pasar &amp; makro...</p>
+        <!-- DEEP FUNDAMENTAL & CFTC COT -->
+        <div class="glass-panel fundamental-card">
+          <div class="panel-header-row">
+            <h2>&#x1F3DB;&#xFE0F; Fundamental Makro &amp; Posisi Institusi (CFTC COT)</h2>
+            <span id="lblFundamentalBias" class="panel-badge">NEUTRAL</span>
           </div>
-          <div class="sig-right">
-            <div class="confidence-ring">
-              <span class="conf-num" id="lblConfidenceScore">--%</span>
-              <span class="conf-cap">CONFIDENCE</span>
+          <div class="cot-meter-box">
+            <div class="cot-bar-labels">
+              <span>Institusi Long: <strong id="lblCotLongPct" class="text-bull">50%</strong></span>
+              <span>Short: <strong id="lblCotShortPct" class="text-bear">50%</strong></span>
             </div>
+            <div class="cot-bar-track">
+              <div id="cotProgressFill" class="cot-bar-fill" style="width:50%;"></div>
+            </div>
+            <div id="lblCotIndexNote" class="cot-sub-note">COT Index: 50/100 &bull; Net Positioning</div>
           </div>
-        </div>
-        <!-- TRADER EXECUTION PLAN -->
-        <div class="panel-card" id="traderExecutionCard">
-          <div class="panel-head">
-            <h3>&#x1F3AF; Rencana Eksekusi Trader (Entry, Stop Loss &amp; Target R:R)</h3>
-            <span class="panel-badge">ATR VOLATILITY ADJUSTED</span>
-          </div>
-          <div class="exec-levels-grid">
-            <div class="exec-item entry">
-              <span>ENTRY TRIGGER</span>
-              <strong id="valEntryPrice">--</strong>
-            </div>
-            <div class="exec-item sl">
-              <span>STOP LOSS (INVALIDASI)</span>
-              <strong id="valStopLoss">--</strong>
-            </div>
-            <div class="exec-item tp">
-              <span>TAKE PROFIT 1 (1.5R)</span>
-              <strong id="valTp1">--</strong>
-            </div>
-            <div class="exec-item tp">
-              <span>TAKE PROFIT 2 (2.5R)</span>
-              <strong id="valTp2">--</strong>
-            </div>
-            <div class="exec-item tp">
-              <span>TAKE PROFIT 3 (4.0R)</span>
-              <strong id="valTp3">--</strong>
-            </div>
-          </div>
-          <div class="pos-sizer-box">
-            <h4>&#x1F9EE; Kalkulator Ukuran Posisi &amp; Risiko Otomatis</h4>
-            <div class="sizer-inputs">
-              <label>Modal Akun ($ USD)
-                <input type="number" id="inpAccountBalance" value="1000" min="10" step="100" />
-              </label>
-              <label>Risiko per Trade (%)
-                <input type="number" id="inpRiskPercent" value="1.0" min="0.1" max="10" step="0.1" />
-              </label>
-            </div>
-            <div class="sizer-outputs">
-              <div>Risiko Maksimal: <strong id="outRiskUsd">$10.00</strong></div>
-              <div>Ukuran Posisi Ideal: <strong id="outPositionUnits">-- Unit</strong></div>
-            </div>
-          </div>
-        </div>
-        <!-- SPOT INVESTOR DCA PLAN -->
-        <div class="panel-card" id="spotInvestorCard" style="display:none;">
-          <div class="panel-head">
-            <h3>&#x1F4BC; Blueprint Akumulasi Spot Investor &amp; Valuasi Intrinsik</h3>
-            <span class="panel-badge">LONG-ONLY WEALTH BUILDER</span>
-          </div>
-          <p class="spot-intro-note">
-            Dirancang khusus untuk <strong>Investor Spot (Saham IDX/Global, Emas Fisik, &amp; Crypto Spot)</strong> tanpa risiko likuidasi leverage. Fokus pada nilai wajar intrinsik, dividen/yield, dan akumulasi bertahap (DCA) di area diskon.
-          </p>
-          <div class="dca-grid" id="dcaZoneGrid"></div>
-          <div class="spot-targets-row" id="spotTargetGrid"></div>
-        </div>
-        <!-- DEEP FUNDAMENTAL & CFTC COT REPORT -->
-        <div class="panel-card">
-          <div class="panel-head">
-            <h3>&#x1F3DB;&#xFE0F; Analisa Fundamental Mendalam, Makro &amp; Laporan CFTC COT</h3>
-            <span class="panel-badge" id="lblFundamentalBias">MACRO &amp; COT ACTIVE</span>
-          </div>
-          <div class="fundamental-detail-grid" id="fundamentalDetailGrid"></div>
+          <div id="fundamentalPillarsGrid" class="fundamental-pillars-list"></div>
         </div>
         <!-- REAL WALK-FORWARD BACKTEST -->
-        <div class="panel-card">
-          <div class="panel-head">
-            <h3>&#x1F9EA; Bukti Backtest Historis (Walk-Forward)</h3>
-            <span class="sample-badge ok" id="lblBacktestSampleBadge">&#x2705; TERVERIFIKASI REAL WALK-FORWARD</span>
+        <div class="glass-panel backtest-card">
+          <div class="panel-header-row">
+            <h2>&#x1F9EA; Real Walk-Forward Backtest</h2>
+            <span id="lblBacktestBadge" class="panel-badge badge-verified">&#x2705; TERVERIFIKASI REAL WALK-FORWARD</span>
           </div>
-          <div class="backtest-metrics-grid" id="backtestMetricsGrid"></div>
+          <div class="backtest-metrics-grid">
+            <div class="bt-stat">
+              <span>Win Rate Historis</span>
+              <strong id="lblBtWinRate" class="mono text-bull">0.0%</strong>
+            </div>
+            <div class="bt-stat">
+              <span>Profit Factor</span>
+              <strong id="lblBtProfitFactor" class="mono">0.00</strong>
+            </div>
+            <div class="bt-stat">
+              <span>Total Sampel Trade</span>
+              <strong id="lblBtTotalTrades" class="mono">0 Setup</strong>
+            </div>
+            <div class="bt-stat">
+              <span>Expectancy / Trade</span>
+              <strong id="lblBtExpectancy" class="mono">+0.00R</strong>
+            </div>
+            <div class="bt-stat">
+              <span>Max Drawdown</span>
+              <strong id="lblBtDrawdown" class="mono text-bear">0.0%</strong>
+            </div>
+            <div class="bt-stat">
+              <span>Sharpe Ratio</span>
+              <strong id="lblBtSharpe" class="mono">0.00</strong>
+            </div>
+          </div>
+          <p id="lblBacktestSummary" class="bt-footnote">Simulasi walk-forward tanpa pengintipan masa depan (zero look-ahead bias) pada data candle riil.</p>
         </div>
-      </div>
+      </aside>
     </main>
-    <footer class="app-footer">
-      <div>&copy; 2026 <strong>XSTARZG Analysis</strong> &mdash; Institutional Multi-Asset Quantitative &amp; Smart Money Terminal.</div>
-      <div>Seluruh Timeframe (M1&ndash;1Y) Terbuka &bull; Kombinasi Teknikal Klasik, SMC, &amp; Fundamental CFTC COT.</div>
+    <footer class="terminal-footer">
+      <div>&copy; 2026 <strong>XSTARZG Analysis</strong> &mdash; Institutional Multi-Asset Quantitative &amp; Smart Money Market Intelligence.</div>
+      <div>Data Real-Time: Binance Spot, Yahoo Finance Live v8 &amp; Global FX Feeds.</div>
     </footer>
   </div>
-  <!-- VIP MODAL ($29 USDT / MONTH) -->
-  <div id="vipModal" class="modal-backdrop" style="display:none;">
-    <div class="modal-box">
-      <div class="modal-head">
-        <h3>&#x1F48E; Paket Langganan VIP XSTARZG Analysis</h3>
-        <button id="btnCloseVipModal" class="modal-close">&times;</button>
+  <!-- VIP UPGRADE MODAL -->
+  <div id="vipModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal-card glass-panel">
+      <button id="btnCloseVipModal" class="modal-close-btn">&#x2715;</button>
+      <div class="vip-modal-header">
+        <span class="vip-crown-badge">&#x1F48E; XSTARZG INSTITUTIONAL VIP</span>
+        <h2>Akses Penuh Tanpa Batas &bull; 30 Hari</h2>
+        <div class="vip-price-tag">$29.00 <small>USDT / Bulan</small></div>
       </div>
-      <div class="modal-body">
-        <div class="vip-price-highlight">
-          <div class="vip-price-tag">$29.00 <span>USDT / Bulan</span></div>
-          <div class="vip-price-duration">Akses Penuh Selama 1 Bulan Penuh (30 Hari) &bull; Seluruh Aset &amp; Timeframe</div>
+      <ul class="vip-perks-list">
+        <li>&#x2705; Semua 1,600+ Instrumen Kripto, Forex, Emas, Saham IDX &amp; AS</li>
+        <li>&#x2705; Semua Timeframe M1, M5, M15, M30, H1, H4, D1, W1, MN, 1Y</li>
+        <li>&#x2705; Mode Trader Aktif (2-Arah) &amp; Spot Investor DCA 3-Tahap</li>
+        <li>&#x2705; Verifikasi Otomatis On-Chain BSC (BEP-20)</li>
+      </ul>
+      <div class="wallet-pay-box">
+        <label>Transfer tepat <strong>29.00 USDT</strong> melalui jaringan <strong>BNB Smart Chain (BEP-20)</strong> ke alamat resmi Owner:</label>
+        <div class="wallet-addr-row">
+          <code id="lblVipWalletAddr">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
+          <button id="btnCopyWallet" class="btn-copy-small">Salin</button>
         </div>
-        <p>Kirim tepat <strong>$29.00 USDT</strong> melalui jaringan <strong>BNB Smart Chain (BEP-20)</strong> ke alamat dompet resmi di bawah ini untuk mengaktifkan akses VIP 30 hari:</p>
-        <div class="wallet-box">
-          <span>Alamat Wallet Penerima USDT (BSC BEP-20):</span>
-          <div class="wallet-copy-row">
-            <code id="vipWalletAddress">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
-            <button id="btnCopyVipWallet" type="button" class="btn-copy-wallet">&#x1F4CB; Salin Alamat</button>
-          </div>
-        </div>
-        <div class="tx-verify-form">
-          <label>Masukkan Transaction Hash (TxHash BSC) Setelah Transfer:</label>
-          <input type="text" id="inpBscTxHash" placeholder="0x..." />
-          <button id="btnVerifyTxHash">Verifikasi Pembayaran $29 USDT Otomatis</button>
-          <div id="vipVerifyStatusMsg" class="verify-status-msg"></div>
-        </div>
+        <small>Kontrak Resmi USDT BSC: <code>0x55d398326f99059fF775485246999027B3197955</code></small>
+      </div>
+      <div class="tx-verify-form">
+        <label>Masukkan Transaction Hash (TxHash BSC) setelah transfer:</label>
+        <input type="text" id="inpBscTxHash" placeholder="0x..." class="tx-input mono" />
+        <button id="btnVerifyTxHash" class="btn-verify-tx">&#x26A1; Verifikasi Pembayaran On-Chain</button>
+        <div id="lblTxVerifyStatus" class="tx-status-msg"></div>
       </div>
     </div>
   </div>
-  <script src="/app.js?v=2026.9"></script>
+  <script src="/vendor/lightweight-charts.js?v=2026.10"></script>
+  <script src="/app.js?v=2026.10"></script>
 </body>
 </html>
