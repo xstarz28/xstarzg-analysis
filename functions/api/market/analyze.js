@@ -18,6 +18,10 @@ const US_EXCHANGE_MAP = {
   'UNH': 'NYSE:UNH', 'XOM': 'NYSE:XOM', 'MA': 'NYSE:MA', 'WMT': 'NYSE:WMT',
   'PG': 'NYSE:PG', 'JNJ': 'NYSE:JNJ', 'DIS': 'NYSE:DIS'
 };
+const TV_TF_SUFFIX = {
+  'M1': '|1', 'M5': '|5', 'M15': '|15', 'M30': '|30',
+  'H1': '|60', 'H4': '|240', 'D1': '', 'W1': '|1W', 'MN': '|1M', '1Y': '|1M'
+};
 function getBrokerTickers(sym) {
   if (sym === 'XAU/USD') return ['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'];
   if (sym === 'XAG/USD') return ['OANDA:XAGUSD', 'FOREXCOM:XAGUSD', 'FX_IDC:XAGUSD'];
@@ -47,8 +51,10 @@ function getBrokerTickers(sym) {
   }
   return [];
 }
-async function queryTvScanner(tickers) {
+async function queryTvScanner(tickers, tf = 'H1') {
   if (!tickers || !tickers.length) return null;
+  const sfx = TV_TF_SUFFIX[tf] !== undefined ? TV_TF_SUFFIX[tf] : '|60';
+  const cols = ['close', 'open' + sfx, 'high' + sfx, 'low' + sfx, 'close' + sfx, 'volume' + sfx];
   try {
     const res = await fetch('https://scanner.tradingview.com/global/scan', {
       method: 'POST',
@@ -59,65 +65,32 @@ async function queryTvScanner(tickers) {
       },
       body: JSON.stringify({
         symbols: { tickers: tickers, query: { types: [] } },
-        columns: ['close', 'open', 'high', 'low', 'volume']
+        columns: cols
       })
     });
     if (!res.ok) return null;
     const json = await res.json();
     if (json && Array.isArray(json.data) && json.data.length > 0) {
       for (const t of tickers) {
-        const row = json.data.find(r => r && r.s === t && Array.isArray(r.d) && Number(r.d[0]) > 0);
+        const row = json.data.find(r => r && r.s === t && Array.isArray(r.d) && (Number(r.d[0]) > 0 || Number(r.d[4]) > 0));
         if (row) {
-          const c = Number(row.d[0]);
+          const c = Number(row.d[4] || row.d[0]);
           const o = Number(row.d[1] || c);
-          return {
-            ticker: row.s,
-            close: c,
-            open: o,
-            high: Math.max(c, o, Number(row.d[2] || c)),
-            low: Math.min(c, o, Number(row.d[3] || c)),
-            volume: Number(row.d[4] || 1500)
-          };
+          const h = Math.max(c, o, Number(row.d[2] || c));
+          const l = Math.min(c, o, Number(row.d[3] || c));
+          const v = Number(row.d[5] || 1500);
+          return { ticker: row.s, close: c, open: o, high: h, low: l, volume: v };
         }
       }
-      const first = json.data.find(r => r && Array.isArray(r.d) && Number(r.d[0]) > 0);
-      if (first) {
-        const c = Number(first.d[0]);
-        const o = Number(first.d[1] || c);
-        return {
-          ticker: first.s,
-          close: c,
-          open: o,
-          high: Math.max(c, o, Number(first.d[2] || c)),
-          low: Math.min(c, o, Number(first.d[3] || c)),
-          volume: Number(first.d[4] || 1500)
-        };
-      }
     }
   } catch (e) {}
   return null;
 }
-async function fetchSwissquoteSpot(base, quote) {
-  try {
-    const res = await fetch('https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/' + base + '/' + quote, {
-      cache: 'no-store',
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const p = data?.[0]?.spreadProfilePrices?.[0];
-    if (p && Number(p.bid) > 0 && Number(p.ask) > 0) {
-      const mid = (Number(p.bid) + Number(p.ask)) / 2;
-      return { ticker: 'SWISSQUOTE:' + base + quote, close: mid, open: mid, high: Number(p.ask), low: Number(p.bid), volume: 2500 };
-    }
-  } catch (e) {}
-  return null;
-}
-async function fetchExactBrokerQuote(sym) {
+async function fetchExactBrokerQuote(sym, tf = 'H1') {
   if (sym === 'XAU/IDR') {
     const [xau, idr] = await Promise.all([
-      fetchExactBrokerQuote('XAU/USD'),
-      fetchExactBrokerQuote('USD/IDR')
+      fetchExactBrokerQuote('XAU/USD', tf),
+      fetchExactBrokerQuote('USD/IDR', tf)
     ]);
     if (xau && idr && xau.close > 0 && idr.close > 0) {
       const gram = Math.round((xau.close * idr.close) / 31.1034768);
@@ -132,15 +105,10 @@ async function fetchExactBrokerQuote(sym) {
     }
   }
   const candidates = getBrokerTickers(sym);
-  const batchQuote = await queryTvScanner(candidates);
-  if (batchQuote && batchQuote.close > 0) return batchQuote;
+  const q = await queryTvScanner(candidates, tf);
+  if (q && q.close > 0) return q;
   for (const single of candidates) {
-    const q = await queryTvScanner([single]);
-    if (q && q.close > 0) return q;
-  }
-  if (sym.includes('/') && !sym.endsWith('/USDT')) {
-    const [b, q] = sym.split('/');
-    const sq = await fetchSwissquoteSpot(b, q);
+    const sq = await queryTvScanner([single], tf);
     if (sq && sq.close > 0) return sq;
   }
   return null;
@@ -192,8 +160,9 @@ async function fetchYahooCandles(yfSym, tf) {
   }
   return null;
 }
-function calibrateCandlesToBrokerPrice(candles, brokerPrice, sym) {
-  if (!candles || !candles.length || !brokerPrice || brokerPrice <= 0) return candles;
+function calibrateCandlesToBrokerQuote(candles, brokerQuote, sym) {
+  if (!candles || !candles.length || !brokerQuote || brokerQuote.close <= 0) return candles;
+  const brokerPrice = brokerQuote.close;
   const lastClose = candles[candles.length - 1].close;
   if (!lastClose || lastClose <= 0) return candles;
   const decimals = sym === 'XAU/IDR' ? 0 : brokerPrice < 0.01 ? 6 : brokerPrice < 10 ? 4 : 2;
@@ -222,16 +191,15 @@ function buildCandlesFromBrokerQuote(liveQuote, tf, sym) {
   const currentBucket = Math.floor(nowSec / step) * step;
   const decimals = sym === 'XAU/IDR' ? 0 : price < 0.01 ? 6 : price < 10 ? 4 : 2;
   const tfScale = Math.min(1, Math.sqrt(step / 86400));
-  const volPct = (sym.includes('/') && !sym.includes('XAU') ? 0.0012 : 0.0032) * Math.max(0.25, tfScale);
+  const volPct = (sym.includes('/') && !sym.includes('XAU') ? 0.0012 : 0.0032) * Math.max(0.22, tfScale);
   let seed = 0;
   for (let i = 0; i < sym.length; i++) seed = (seed * 31 + sym.charCodeAt(i)) % 100000;
   const series = new Array(160);
-  const barOpen = Number((price * (1 - 0.0004)).toFixed(decimals));
   series[159] = {
     time: currentBucket,
-    open: barOpen,
-    high: Number(Math.max(barOpen, price).toFixed(decimals)),
-    low: Number(Math.min(barOpen, price).toFixed(decimals)),
+    open: Number(liveQuote.open.toFixed(decimals)),
+    high: Number(Math.max(liveQuote.high, price).toFixed(decimals)),
+    low: Number(Math.min(liveQuote.low, price).toFixed(decimals)),
     close: Number(price.toFixed(decimals)),
     volume: liveQuote.volume || 1500
   };
@@ -276,7 +244,7 @@ export async function onRequestGet(context) {
         }
       } catch (e) {}
     }
-    const q = await fetchExactBrokerQuote(symbol);
+    const q = await fetchExactBrokerQuote(symbol, tf);
     if (q && q.close > 0) {
       return new Response(JSON.stringify({
         ok: true,
@@ -291,12 +259,12 @@ export async function onRequestGet(context) {
     return new Response(JSON.stringify({ ok: false, symbol }), { status: 503, headers });
   }
   if (url.searchParams.get('batch') === '1') {
-    const list = (url.searchParams.get('symbols') || 'XAU/USD,XAU/IDR,EUR/USD,GBP/USD,USD/JPY,USD/IDR,BBCA.JK,BBRI.JK,BMRI.JK,ANTM.JK,NVDA,AAPL,TSLA,WTI/USD').split(',');
+    const list = (url.searchParams.get('symbols') || 'XAU/USD,XAU/IDR,XAG/USD,EUR/USD,GBP/USD,USD/JPY,USD/IDR,BBCA.JK,BBRI.JK,BMRI.JK,ANTM.JK,NVDA,AAPL,TSLA,WTI/USD').split(',');
     const quotes = {};
     await Promise.all(list.map(async (s) => {
       const sym = s.trim();
       if (!sym) return;
-      const q = await fetchExactBrokerQuote(sym);
+      const q = await fetchExactBrokerQuote(sym, 'H1');
       if (q && q.close > 0) quotes[sym] = q.close;
     }));
     return new Response(JSON.stringify({ ok: true, quotes }), { headers });
@@ -331,11 +299,11 @@ export async function onRequestGet(context) {
     }
     const yfSym = YF_MAP[symbol] || (symbol === 'XAU/IDR' ? 'GC=F' : symbol);
     const [brokerQuote, yfCandles] = await Promise.all([
-      fetchExactBrokerQuote(symbol),
+      fetchExactBrokerQuote(symbol, tf),
       fetchYahooCandles(yfSym, tf)
     ]);
     if (yfCandles && yfCandles.length > 20 && brokerQuote && brokerQuote.close > 0) {
-      const calibrated = calibrateCandlesToBrokerPrice(yfCandles, brokerQuote.close, symbol);
+      const calibrated = calibrateCandlesToBrokerQuote(yfCandles, brokerQuote, symbol);
       return new Response(JSON.stringify({
         ok: true,
         symbol,
