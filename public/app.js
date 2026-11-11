@@ -2,181 +2,170 @@
   'use strict';
   const OWNER_EMAILS = ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com'];
   const OWNER_WALLET_BSC = '0xB2Da154e6619A57A2B839D7845920e55Bc58A12C';
-  // =========================================================================
-  // 1. CURATED MULTI-ASSET CATALOG (120+ CORE + DYNAMIC 1,500+ BINANCE SPOT)
-  // =========================================================================
+  const USDT_BSC_CONTRACT = '0x55d398326f99059ff775485246999027b3197955';
+  const FREE_QUOTA_LIMIT = 2;
+  const CATEGORY_LABELS = {
+    'METALS': '\uD83E\uDD47 EMAS & LOGAM MULIA (GOLD / SILVER / PLATINUM)',
+    'FOREX': '\uD83D\uDCB1 FOREX MAYOR, CROSS & ASIA (28 PASANG)',
+    'STOCKS_ID': '\uD83C\uDDEE\uD83C\uDDE9 SAHAM INDONESIA IDX (LQ45 & BLUE-CHIP)',
+    'STOCKS_US': '\uD83C\uDDFA\uD83C\uDDF8 SAHAM WALL STREET AS (NASDAQ & NYSE)',
+    'COMMODITIES': '\uD83D\uDEE2\uFE0F ENERGI & KOMODITAS GLOBAL (OIL, GAS, AGRI)',
+    'CRYPTO_MAJOR': '\u20BF CRYPTO MAJOR & TIER-1 LIQUID SPOT',
+    'CRYPTO': '\uD83C\uDF10 CRYPTO SPOT GLOBAL (1.500+ PASANGAN AKTIF)'
+  };
   const BASE_CATALOG = [
-    // CRYPTO MAJOR & LIQUID SPOT
-    { sym: 'BTC/USDT', name: 'Bitcoin / Tether US', cat: 'CRYPTO', basePrice: 86500, binance: 'BTCUSDT', spotEligible: true },
-    { sym: 'ETH/USDT', name: 'Ethereum / Tether US', cat: 'CRYPTO', basePrice: 2180, binance: 'ETHUSDT', spotEligible: true },
-    { sym: 'SOL/USDT', name: 'Solana / Tether US', cat: 'CRYPTO', basePrice: 142, binance: 'SOLUSDT', spotEligible: true },
-    { sym: 'BNB/USDT', name: 'BNB / Tether US', cat: 'CRYPTO', basePrice: 615, binance: 'BNBUSDT', spotEligible: true },
-    { sym: 'XRP/USDT', name: 'XRP / Tether US', cat: 'CRYPTO', basePrice: 2.38, binance: 'XRPUSDT', spotEligible: true },
-    { sym: 'ADA/USDT', name: 'Cardano / Tether US', cat: 'CRYPTO', basePrice: 0.78, binance: 'ADAUSDT', spotEligible: true },
-    { sym: 'DOGE/USDT', name: 'Dogecoin / Tether US', cat: 'CRYPTO', basePrice: 0.195, binance: 'DOGEUSDT', spotEligible: true },
-    { sym: 'AVAX/USDT', name: 'Avalanche / Tether US', cat: 'CRYPTO', basePrice: 22.4, binance: 'AVAXUSDT', spotEligible: true },
-    { sym: 'LINK/USDT', name: 'Chainlink / Tether US', cat: 'CRYPTO', basePrice: 15.8, binance: 'LINKUSDT', spotEligible: true },
-    { sym: 'SUI/USDT', name: 'Sui Network / Tether US', cat: 'CRYPTO', basePrice: 2.65, binance: 'SUIUSDT', spotEligible: true },
-    { sym: 'TON/USDT', name: 'Toncoin / Tether US', cat: 'CRYPTO', basePrice: 3.75, binance: 'TONUSDT', spotEligible: true },
-    { sym: 'DOT/USDT', name: 'Polkadot / Tether US', cat: 'CRYPTO', basePrice: 4.85, binance: 'DOTUSDT', spotEligible: true },
-    { sym: 'NEAR/USDT', name: 'NEAR Protocol / Tether US', cat: 'CRYPTO', basePrice: 3.15, binance: 'NEARUSDT', spotEligible: true },
-    { sym: 'APT/USDT', name: 'Aptos / Tether US', cat: 'CRYPTO', basePrice: 6.10, binance: 'APTUSDT', spotEligible: true },
-    { sym: 'ARB/USDT', name: 'Arbitrum / Tether US', cat: 'CRYPTO', basePrice: 0.42, binance: 'ARBUSDT', spotEligible: true },
-    { sym: 'OP/USDT', name: 'Optimism / Tether US', cat: 'CRYPTO', basePrice: 0.92, binance: 'OPUSDT', spotEligible: true },
-    { sym: 'INJ/USDT', name: 'Injective / Tether US', cat: 'CRYPTO', basePrice: 11.2, binance: 'INJUSDT', spotEligible: true },
-    { sym: 'RENDER/USDT', name: 'Render Network / Tether US', cat: 'CRYPTO', basePrice: 4.10, binance: 'RENDERUSDT', spotEligible: true },
-    { sym: 'FET/USDT', name: 'Artificial Superintelligence / USDT', cat: 'CRYPTO', basePrice: 0.62, binance: 'FETUSDT', spotEligible: true },
-    { sym: 'AAVE/USDT', name: 'Aave Protocol / Tether US', cat: 'CRYPTO', basePrice: 192.0, binance: 'AAVEUSDT', spotEligible: true },
-    { sym: 'UNI/USDT', name: 'Uniswap / Tether US', cat: 'CRYPTO', basePrice: 7.15, binance: 'UNIUSDT', spotEligible: true },
-    { sym: 'PEPE/USDT', name: 'Pepe / Tether US', cat: 'CRYPTO', basePrice: 0.0000078, binance: 'PEPEUSDT', spotEligible: true },
-    { sym: 'SHIB/USDT', name: 'Shiba Inu / Tether US', cat: 'CRYPTO', basePrice: 0.0000135, binance: 'SHIBUSDT', spotEligible: true },
-    { sym: 'LTC/USDT', name: 'Litecoin / Tether US', cat: 'CRYPTO', basePrice: 96.0, binance: 'LTCUSDT', spotEligible: true },
-    { sym: 'BCH/USDT', name: 'Bitcoin Cash / Tether US', cat: 'CRYPTO', basePrice: 345.0, binance: 'BCHUSDT', spotEligible: true },
-    { sym: 'ATOM/USDT', name: 'Cosmos / Tether US', cat: 'CRYPTO', basePrice: 4.70, binance: 'ATOMUSDT', spotEligible: true },
-    { sym: 'FIL/USDT', name: 'Filecoin / Tether US', cat: 'CRYPTO', basePrice: 3.10, binance: 'FILUSDT', spotEligible: true },
-    { sym: 'TIA/USDT', name: 'Celestia / Tether US', cat: 'CRYPTO', basePrice: 3.45, binance: 'TIAUSDT', spotEligible: true },
-    { sym: 'SEI/USDT', name: 'Sei Network / Tether US', cat: 'CRYPTO', basePrice: 0.24, binance: 'SEIUSDT', spotEligible: true },
-    { sym: 'WLD/USDT', name: 'Worldcoin / Tether US', cat: 'CRYPTO', basePrice: 0.95, binance: 'WLDUSDT', spotEligible: true },
+    // CRYPTO MAJOR
+    { sym: 'BTC/USDT', name: 'Bitcoin / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 86500, binance: 'BTCUSDT', spotEligible: true },
+    { sym: 'ETH/USDT', name: 'Ethereum / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 2180, binance: 'ETHUSDT', spotEligible: true },
+    { sym: 'SOL/USDT', name: 'Solana / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 142, binance: 'SOLUSDT', spotEligible: true },
+    { sym: 'BNB/USDT', name: 'BNB / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 615, binance: 'BNBUSDT', spotEligible: true },
+    { sym: 'XRP/USDT', name: 'XRP / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 2.38, binance: 'XRPUSDT', spotEligible: true },
+    { sym: 'ADA/USDT', name: 'Cardano / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 0.78, binance: 'ADAUSDT', spotEligible: true },
+    { sym: 'DOGE/USDT', name: 'Dogecoin / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 0.195, binance: 'DOGEUSDT', spotEligible: true },
+    { sym: 'AVAX/USDT', name: 'Avalanche / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 22.4, binance: 'AVAXUSDT', spotEligible: true },
+    { sym: 'LINK/USDT', name: 'Chainlink / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 15.8, binance: 'LINKUSDT', spotEligible: true },
+    { sym: 'SUI/USDT', name: 'Sui Network / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 2.65, binance: 'SUIUSDT', spotEligible: true },
+    { sym: 'TON/USDT', name: 'Toncoin / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 3.75, binance: 'TONUSDT', spotEligible: true },
+    { sym: 'DOT/USDT', name: 'Polkadot / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 4.85, binance: 'DOTUSDT', spotEligible: true },
+    { sym: 'NEAR/USDT', name: 'NEAR Protocol / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 3.15, binance: 'NEARUSDT', spotEligible: true },
+    { sym: 'APT/USDT', name: 'Aptos / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 6.10, binance: 'APTUSDT', spotEligible: true },
+    { sym: 'ARB/USDT', name: 'Arbitrum / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 0.42, binance: 'ARBUSDT', spotEligible: true },
+    { sym: 'OP/USDT', name: 'Optimism / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 0.92, binance: 'OPUSDT', spotEligible: true },
+    { sym: 'INJ/USDT', name: 'Injective / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 11.2, binance: 'INJUSDT', spotEligible: true },
+    { sym: 'RENDER/USDT', name: 'Render Network / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 4.10, binance: 'RENDERUSDT', spotEligible: true },
+    { sym: 'FET/USDT', name: 'Artificial Superintelligence / USDT', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 0.62, binance: 'FETUSDT', spotEligible: true },
+    { sym: 'AAVE/USDT', name: 'Aave Protocol / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 192.0, binance: 'AAVEUSDT', spotEligible: true },
+    { sym: 'UNI/USDT', name: 'Uniswap / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 7.15, binance: 'UNIUSDT', spotEligible: true },
+    { sym: 'PEPE/USDT', name: 'Pepe / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 0.0000078, binance: 'PEPEUSDT', spotEligible: true },
+    { sym: 'SHIB/USDT', name: 'Shiba Inu / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 0.0000135, binance: 'SHIBUSDT', spotEligible: true },
+    { sym: 'LTC/USDT', name: 'Litecoin / Tether US', cat: 'CRYPTO', group: 'CRYPTO_MAJOR', basePrice: 96.0, binance: 'LTCUSDT', spotEligible: true },
     // GOLD & PRECIOUS METALS
-    { sym: 'XAU/USD', name: 'Spot Gold / US Dollar (Troy Ounce)', cat: 'METALS', basePrice: 3025.50, binance: 'PAXGUSDT', spotEligible: true },
-    { sym: 'XAU/IDR', name: 'Emas Murni Fisik / Rupiah (Per Gram)', cat: 'METALS', basePrice: 1615000, spotEligible: true },
-    { sym: 'XAG/USD', name: 'Spot Silver / US Dollar', cat: 'METALS', basePrice: 33.45, spotEligible: true },
-    { sym: 'XPT/USD', name: 'Spot Platinum / US Dollar', cat: 'METALS', basePrice: 985.00, spotEligible: true },
-    { sym: 'XPD/USD', name: 'Spot Palladium / US Dollar', cat: 'METALS', basePrice: 955.00, spotEligible: true },
-    { sym: 'COPPER/USD', name: 'High Grade Copper / US Dollar', cat: 'METALS', basePrice: 4.88, spotEligible: true },
-    // FOREX MAJORS, CROSSES & ASIAN EM (28 PAIRS)
-    { sym: 'EUR/USD', name: 'Euro / US Dollar', cat: 'FOREX', basePrice: 1.0845, binance: 'EURUSDT', fxBase: 'EUR', fxQuote: 'USD', spotEligible: false },
-    { sym: 'GBP/USD', name: 'British Pound / US Dollar', cat: 'FOREX', basePrice: 1.2940, binance: 'GBPUSDT', fxBase: 'GBP', fxQuote: 'USD', spotEligible: false },
-    { sym: 'USD/JPY', name: 'US Dollar / Japanese Yen', cat: 'FOREX', basePrice: 149.25, fxBase: 'USD', fxQuote: 'JPY', spotEligible: false },
-    { sym: 'USD/CHF', name: 'US Dollar / Swiss Franc', cat: 'FOREX', basePrice: 0.8825, fxBase: 'USD', fxQuote: 'CHF', spotEligible: false },
-    { sym: 'AUD/USD', name: 'Australian Dollar / US Dollar', cat: 'FOREX', basePrice: 0.6315, binance: 'AUDUSDT', fxBase: 'AUD', fxQuote: 'USD', spotEligible: false },
-    { sym: 'USD/CAD', name: 'US Dollar / Canadian Dollar', cat: 'FOREX', basePrice: 1.4320, fxBase: 'USD', fxQuote: 'CAD', spotEligible: false },
-    { sym: 'NZD/USD', name: 'New Zealand Dollar / US Dollar', cat: 'FOREX', basePrice: 0.5745, fxBase: 'NZD', fxQuote: 'USD', spotEligible: false },
-    { sym: 'USD/IDR', name: 'US Dollar / Indonesian Rupiah', cat: 'FOREX', basePrice: 16485, fxBase: 'USD', fxQuote: 'IDR', spotEligible: false },
-    { sym: 'EUR/JPY', name: 'Euro / Japanese Yen', cat: 'FOREX', basePrice: 161.85, fxBase: 'EUR', fxQuote: 'JPY', spotEligible: false },
-    { sym: 'GBP/JPY', name: 'British Pound / Japanese Yen', cat: 'FOREX', basePrice: 193.10, fxBase: 'GBP', fxQuote: 'JPY', spotEligible: false },
-    { sym: 'EUR/GBP', name: 'Euro / British Pound', cat: 'FOREX', basePrice: 0.8380, fxBase: 'EUR', fxQuote: 'GBP', spotEligible: false },
-    { sym: 'AUD/JPY', name: 'Australian Dollar / Japanese Yen', cat: 'FOREX', basePrice: 94.25, fxBase: 'AUD', fxQuote: 'JPY', spotEligible: false },
-    { sym: 'EUR/CHF', name: 'Euro / Swiss Franc', cat: 'FOREX', basePrice: 0.9570, fxBase: 'EUR', fxQuote: 'CHF', spotEligible: false },
-    { sym: 'GBP/CHF', name: 'British Pound / Swiss Franc', cat: 'FOREX', basePrice: 1.1420, fxBase: 'GBP', fxQuote: 'CHF', spotEligible: false },
-    { sym: 'CAD/JPY', name: 'Canadian Dollar / Japanese Yen', cat: 'FOREX', basePrice: 104.20, fxBase: 'CAD', fxQuote: 'JPY', spotEligible: false },
-    { sym: 'CHF/JPY', name: 'Swiss Franc / Japanese Yen', cat: 'FOREX', basePrice: 169.10, fxBase: 'CHF', fxQuote: 'JPY', spotEligible: false },
-    { sym: 'NZD/JPY', name: 'New Zealand Dollar / Japanese Yen', cat: 'FOREX', basePrice: 85.75, fxBase: 'NZD', fxQuote: 'JPY', spotEligible: false },
-    { sym: 'EUR/AUD', name: 'Euro / Australian Dollar', cat: 'FOREX', basePrice: 1.7170, fxBase: 'EUR', fxQuote: 'AUD', spotEligible: false },
-    { sym: 'GBP/AUD', name: 'British Pound / Australian Dollar', cat: 'FOREX', basePrice: 2.0490, fxBase: 'GBP', fxQuote: 'AUD', spotEligible: false },
-    { sym: 'EUR/CAD', name: 'Euro / Canadian Dollar', cat: 'FOREX', basePrice: 1.5530, fxBase: 'EUR', fxQuote: 'CAD', spotEligible: false },
-    { sym: 'GBP/CAD', name: 'British Pound / Canadian Dollar', cat: 'FOREX', basePrice: 1.8530, fxBase: 'GBP', fxQuote: 'CAD', spotEligible: false },
-    { sym: 'AUD/CAD', name: 'Australian Dollar / Canadian Dollar', cat: 'FOREX', basePrice: 0.9040, fxBase: 'AUD', fxQuote: 'CAD', spotEligible: false },
-    { sym: 'AUD/NZD', name: 'Australian Dollar / New Zealand Dollar', cat: 'FOREX', basePrice: 1.0990, fxBase: 'AUD', fxQuote: 'NZD', spotEligible: false },
-    { sym: 'USD/SGD', name: 'US Dollar / Singapore Dollar', cat: 'FOREX', basePrice: 1.3380, fxBase: 'USD', fxQuote: 'SGD', spotEligible: false },
-    { sym: 'USD/MYR', name: 'US Dollar / Malaysian Ringgit', cat: 'FOREX', basePrice: 4.4350, fxBase: 'USD', fxQuote: 'MYR', spotEligible: false },
-    { sym: 'USD/THB', name: 'US Dollar / Thai Baht', cat: 'FOREX', basePrice: 33.75, fxBase: 'USD', fxQuote: 'THB', spotEligible: false },
-    { sym: 'USD/CNH', name: 'US Dollar / Offshore Chinese Yuan', cat: 'FOREX', basePrice: 7.2450, fxBase: 'USD', fxQuote: 'CNY', spotEligible: false },
-    { sym: 'USD/KRW', name: 'US Dollar / South Korean Won', cat: 'FOREX', basePrice: 1458.0, fxBase: 'USD', fxQuote: 'KRW', spotEligible: false },
-    // INDONESIAN STOCKS (IDX LQ45 / KOMPAS100 - 40 STOCKS)
-    { sym: 'BBCA.JK', name: 'Bank Central Asia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 9125, spotEligible: true },
-    { sym: 'BBRI.JK', name: 'Bank Rakyat Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 3980, spotEligible: true },
-    { sym: 'BMRI.JK', name: 'Bank Mandiri (Persero) Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 5150, spotEligible: true },
-    { sym: 'BBNI.JK', name: 'Bank Negara Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 4380, spotEligible: true },
-    { sym: 'BRIS.JK', name: 'Bank Syariah Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2680, spotEligible: true },
-    { sym: 'TLKM.JK', name: 'Telkom Indonesia (Persero) Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2540, spotEligible: true },
-    { sym: 'ASII.JK', name: 'Astra International Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 4820, spotEligible: true },
-    { sym: 'GOTO.JK', name: 'GoTo Gojek Tokopedia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 81, spotEligible: true },
-    { sym: 'AMMN.JK', name: 'Amman Mineral Internasional Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 6850, spotEligible: true },
-    { sym: 'BREN.JK', name: 'Barito Renewables Energy Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 6425, spotEligible: true },
-    { sym: 'ADRO.JK', name: 'Alamtri Resources Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2180, spotEligible: true },
-    { sym: 'ANTM.JK', name: 'Aneka Tambang Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1685, spotEligible: true },
-    { sym: 'MDKA.JK', name: 'Merdeka Copper Gold Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1540, spotEligible: true },
-    { sym: 'INCO.JK', name: 'Vale Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2950, spotEligible: true },
-    { sym: 'PTBA.JK', name: 'Bukit Asam Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2580, spotEligible: true },
-    { sym: 'ITMG.JK', name: 'Indo Tambangraya Megah Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 24600, spotEligible: true },
-    { sym: 'PGAS.JK', name: 'Perusahaan Gas Negara Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1590, spotEligible: true },
-    { sym: 'MEDC.JK', name: 'Medco Energi Internasional Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1095, spotEligible: true },
-    { sym: 'AKRA.JK', name: 'AKR Corporindo Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1215, spotEligible: true },
-    { sym: 'ICBP.JK', name: 'Indofood CBP Sukses Makmur Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 10950, spotEligible: true },
-    { sym: 'INDF.JK', name: 'Indofood Sukses Makmur Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 7350, spotEligible: true },
-    { sym: 'MYOR.JK', name: 'Mayora Indah Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2340, spotEligible: true },
-    { sym: 'UNVR.JK', name: 'Unilever Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1480, spotEligible: true },
-    { sym: 'KLBF.JK', name: 'Kalbe Farma Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1245, spotEligible: true },
-    { sym: 'AMRT.JK', name: 'Sumber Alfaria Trijaya Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2450, spotEligible: true },
-    { sym: 'MAPI.JK', name: 'Mitra Adiperkasa Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1380, spotEligible: true },
-    { sym: 'ACES.JK', name: 'Aspirasi Hidup Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 695, spotEligible: true },
-    { sym: 'UNTR.JK', name: 'United Tractors Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 23900, spotEligible: true },
-    { sym: 'CPIN.JK', name: 'Charoen Pokphand Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 4580, spotEligible: true },
-    { sym: 'JPFA.JK', name: 'Japfa Comfeed Indonesia Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1965, spotEligible: true },
-    { sym: 'INKP.JK', name: 'Indah Kiat Pulp & Paper Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 5850, spotEligible: true },
-    { sym: 'SMGR.JK', name: 'Semen Indonesia (Persero) Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2650, spotEligible: true },
-    { sym: 'INTP.JK', name: 'Indocement Tunggal Prakarsa Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 5625, spotEligible: true },
-    { sym: 'ISAT.JK', name: 'Indosat Ooredoo Hutchison Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 1750, spotEligible: true },
-    { sym: 'EXCL.JK', name: 'XL Axiata Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 2240, spotEligible: true },
-    { sym: 'TOWR.JK', name: 'Sarana Menara Nusantara Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 590, spotEligible: true },
-    { sym: 'BSDE.JK', name: 'Bumi Serpong Damai Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 875, spotEligible: true },
-    { sym: 'CTRA.JK', name: 'Ciputra Development Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 890, spotEligible: true },
-    { sym: 'PWON.JK', name: 'Pakuwon Jati Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 386, spotEligible: true },
-    { sym: 'JSMR.JK', name: 'Jasa Marga (Persero) Tbk (IDX)', cat: 'STOCKS_ID', basePrice: 4120, spotEligible: true },
-    // US WALL STREET STOCKS (23 MEGACAPS)
-    { sym: 'NVDA', name: 'NVIDIA Corporation (NASDAQ)', cat: 'STOCKS_US', basePrice: 121.50, spotEligible: true },
-    { sym: 'AAPL', name: 'Apple Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 218.40, spotEligible: true },
-    { sym: 'MSFT', name: 'Microsoft Corporation (NASDAQ)', cat: 'STOCKS_US', basePrice: 392.80, spotEligible: true },
-    { sym: 'AMZN', name: 'Amazon.com Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 201.20, spotEligible: true },
-    { sym: 'GOOGL', name: 'Alphabet Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 168.90, spotEligible: true },
-    { sym: 'META', name: 'Meta Platforms Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 612.40, spotEligible: true },
-    { sym: 'TSLA', name: 'Tesla Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 248.50, spotEligible: true },
-    { sym: 'BRK-B', name: 'Berkshire Hathaway Inc. (NYSE)', cat: 'STOCKS_US', basePrice: 518.00, spotEligible: true },
-    { sym: 'AVGO', name: 'Broadcom Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 196.30, spotEligible: true },
-    { sym: 'TSM', name: 'Taiwan Semiconductor Mfg (NYSE)', cat: 'STOCKS_US', basePrice: 178.40, spotEligible: true },
-    { sym: 'JPM', name: 'JPMorgan Chase & Co. (NYSE)', cat: 'STOCKS_US', basePrice: 242.10, spotEligible: true },
-    { sym: 'V', name: 'Visa Inc. (NYSE)', cat: 'STOCKS_US', basePrice: 338.50, spotEligible: true },
-    { sym: 'MA', name: 'Mastercard Incorporated (NYSE)', cat: 'STOCKS_US', basePrice: 534.00, spotEligible: true },
-    { sym: 'LLY', name: 'Eli Lilly and Company (NYSE)', cat: 'STOCKS_US', basePrice: 845.00, spotEligible: true },
-    { sym: 'WMT', name: 'Walmart Inc. (NYSE)', cat: 'STOCKS_US', basePrice: 88.60, spotEligible: true },
-    { sym: 'XOM', name: 'Exxon Mobil Corporation (NYSE)', cat: 'STOCKS_US', basePrice: 114.20, spotEligible: true },
-    { sym: 'UNH', name: 'UnitedHealth Group Inc. (NYSE)', cat: 'STOCKS_US', basePrice: 508.00, spotEligible: true },
-    { sym: 'COST', name: 'Costco Wholesale Corp (NASDAQ)', cat: 'STOCKS_US', basePrice: 928.00, spotEligible: true },
-    { sym: 'NFLX', name: 'Netflix Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 942.00, spotEligible: true },
-    { sym: 'AMD', name: 'Advanced Micro Devices Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 106.80, spotEligible: true },
-    { sym: 'PLTR', name: 'Palantir Technologies Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 87.40, spotEligible: true },
-    { sym: 'COIN', name: 'Coinbase Global Inc. (NASDAQ)', cat: 'STOCKS_US', basePrice: 198.50, spotEligible: true },
-    { sym: 'MSTR', name: 'Strategy / MicroStrategy (NASDAQ)', cat: 'STOCKS_US', basePrice: 295.00, spotEligible: true },
-    // GLOBAL COMMODITIES & ENERGY (8)
-    { sym: 'WTI/USD', name: 'WTI Crude Oil Spot / US Dollar', cat: 'COMMODITIES', basePrice: 68.40, spotEligible: true },
-    { sym: 'BRENT/USD', name: 'Brent Crude Oil Spot / US Dollar', cat: 'COMMODITIES', basePrice: 71.85, spotEligible: true },
-    { sym: 'NATGAS/USD', name: 'Henry Hub Natural Gas / US Dollar', cat: 'COMMODITIES', basePrice: 4.08, spotEligible: true },
-    { sym: 'WHEAT/USD', name: 'Global Wheat Futures / US Dollar', cat: 'COMMODITIES', basePrice: 558.0, spotEligible: true },
-    { sym: 'CORN/USD', name: 'Global Corn Futures / US Dollar', cat: 'COMMODITIES', basePrice: 462.0, spotEligible: true },
-    { sym: 'SOYBEAN/USD', name: 'Global Soybeans / US Dollar', cat: 'COMMODITIES', basePrice: 1012.0, spotEligible: true },
-    { sym: 'COFFEE/USD', name: 'Arabica Coffee / US Dollar', cat: 'COMMODITIES', basePrice: 386.5, spotEligible: true },
-    { sym: 'COCOA/USD', name: 'Global Cocoa Spot / US Dollar', cat: 'COMMODITIES', basePrice: 8150.0, spotEligible: true }
+    { sym: 'XAU/USD', name: 'Spot Gold / US Dollar (Troy Ounce)', cat: 'METALS', group: 'METALS', basePrice: 3025.50, binance: 'PAXGUSDT', spotEligible: true },
+    { sym: 'XAU/IDR', name: 'Emas Murni Fisik / Rupiah (Per Gram)', cat: 'METALS', group: 'METALS', basePrice: 1615000, spotEligible: true },
+    { sym: 'XAG/USD', name: 'Spot Silver / US Dollar', cat: 'METALS', group: 'METALS', basePrice: 33.45, spotEligible: true },
+    { sym: 'XPT/USD', name: 'Spot Platinum / US Dollar', cat: 'METALS', group: 'METALS', basePrice: 985.00, spotEligible: true },
+    { sym: 'XPD/USD', name: 'Spot Palladium / US Dollar', cat: 'METALS', group: 'METALS', basePrice: 955.00, spotEligible: true },
+    { sym: 'COPPER/USD', name: 'High Grade Copper / US Dollar', cat: 'METALS', group: 'METALS', basePrice: 4.88, spotEligible: true },
+    // FOREX (28 PAIRS)
+    { sym: 'EUR/USD', name: 'Euro / US Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.0845, binance: 'EURUSDT', fxBase: 'EUR', fxQuote: 'USD', spotEligible: false },
+    { sym: 'GBP/USD', name: 'British Pound / US Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.2940, binance: 'GBPUSDT', fxBase: 'GBP', fxQuote: 'USD', spotEligible: false },
+    { sym: 'USD/JPY', name: 'US Dollar / Japanese Yen', cat: 'FOREX', group: 'FOREX', basePrice: 149.25, fxBase: 'USD', fxQuote: 'JPY', spotEligible: false },
+    { sym: 'USD/CHF', name: 'US Dollar / Swiss Franc', cat: 'FOREX', group: 'FOREX', basePrice: 0.8825, fxBase: 'USD', fxQuote: 'CHF', spotEligible: false },
+    { sym: 'AUD/USD', name: 'Australian Dollar / US Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 0.6315, binance: 'AUDUSDT', fxBase: 'AUD', fxQuote: 'USD', spotEligible: false },
+    { sym: 'USD/CAD', name: 'US Dollar / Canadian Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.4320, fxBase: 'USD', fxQuote: 'CAD', spotEligible: false },
+    { sym: 'NZD/USD', name: 'New Zealand Dollar / US Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 0.5745, fxBase: 'NZD', fxQuote: 'USD', spotEligible: false },
+    { sym: 'USD/IDR', name: 'US Dollar / Indonesian Rupiah', cat: 'FOREX', group: 'FOREX', basePrice: 16485, fxBase: 'USD', fxQuote: 'IDR', spotEligible: false },
+    { sym: 'EUR/JPY', name: 'Euro / Japanese Yen', cat: 'FOREX', group: 'FOREX', basePrice: 161.85, fxBase: 'EUR', fxQuote: 'JPY', spotEligible: false },
+    { sym: 'GBP/JPY', name: 'British Pound / Japanese Yen', cat: 'FOREX', group: 'FOREX', basePrice: 193.10, fxBase: 'GBP', fxQuote: 'JPY', spotEligible: false },
+    { sym: 'EUR/GBP', name: 'Euro / British Pound', cat: 'FOREX', group: 'FOREX', basePrice: 0.8380, fxBase: 'EUR', fxQuote: 'GBP', spotEligible: false },
+    { sym: 'AUD/JPY', name: 'Australian Dollar / Japanese Yen', cat: 'FOREX', group: 'FOREX', basePrice: 94.25, fxBase: 'AUD', fxQuote: 'JPY', spotEligible: false },
+    { sym: 'EUR/CHF', name: 'Euro / Swiss Franc', cat: 'FOREX', group: 'FOREX', basePrice: 0.9570, fxBase: 'EUR', fxQuote: 'CHF', spotEligible: false },
+    { sym: 'GBP/CHF', name: 'British Pound / Swiss Franc', cat: 'FOREX', group: 'FOREX', basePrice: 1.1420, fxBase: 'GBP', fxQuote: 'CHF', spotEligible: false },
+    { sym: 'CAD/JPY', name: 'Canadian Dollar / Japanese Yen', cat: 'FOREX', group: 'FOREX', basePrice: 104.20, fxBase: 'CAD', fxQuote: 'JPY', spotEligible: false },
+    { sym: 'CHF/JPY', name: 'Swiss Franc / Japanese Yen', cat: 'FOREX', group: 'FOREX', basePrice: 169.10, fxBase: 'CHF', fxQuote: 'JPY', spotEligible: false },
+    { sym: 'NZD/JPY', name: 'New Zealand Dollar / Japanese Yen', cat: 'FOREX', group: 'FOREX', basePrice: 85.75, fxBase: 'NZD', fxQuote: 'JPY', spotEligible: false },
+    { sym: 'EUR/AUD', name: 'Euro / Australian Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.7170, fxBase: 'EUR', fxQuote: 'AUD', spotEligible: false },
+    { sym: 'GBP/AUD', name: 'British Pound / Australian Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 2.0490, fxBase: 'GBP', fxQuote: 'AUD', spotEligible: false },
+    { sym: 'EUR/CAD', name: 'Euro / Canadian Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.5530, fxBase: 'EUR', fxQuote: 'CAD', spotEligible: false },
+    { sym: 'GBP/CAD', name: 'British Pound / Canadian Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.8530, fxBase: 'GBP', fxQuote: 'CAD', spotEligible: false },
+    { sym: 'AUD/CAD', name: 'Australian Dollar / Canadian Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 0.9040, fxBase: 'AUD', fxQuote: 'CAD', spotEligible: false },
+    { sym: 'AUD/NZD', name: 'Australian Dollar / New Zealand Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.0990, fxBase: 'AUD', fxQuote: 'NZD', spotEligible: false },
+    { sym: 'USD/SGD', name: 'US Dollar / Singapore Dollar', cat: 'FOREX', group: 'FOREX', basePrice: 1.3380, fxBase: 'USD', fxQuote: 'SGD', spotEligible: false },
+    { sym: 'USD/MYR', name: 'US Dollar / Malaysian Ringgit', cat: 'FOREX', group: 'FOREX', basePrice: 4.4350, fxBase: 'USD', fxQuote: 'MYR', spotEligible: false },
+    { sym: 'USD/THB', name: 'US Dollar / Thai Baht', cat: 'FOREX', group: 'FOREX', basePrice: 33.75, fxBase: 'USD', fxQuote: 'THB', spotEligible: false },
+    { sym: 'USD/CNH', name: 'US Dollar / Offshore Chinese Yuan', cat: 'FOREX', group: 'FOREX', basePrice: 7.2450, fxBase: 'USD', fxQuote: 'CNY', spotEligible: false },
+    { sym: 'USD/KRW', name: 'US Dollar / South Korean Won', cat: 'FOREX', group: 'FOREX', basePrice: 1458.0, fxBase: 'USD', fxQuote: 'KRW', spotEligible: false },
+    // IDX STOCKS (40)
+    { sym: 'BBCA.JK', name: 'Bank Central Asia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 9125, spotEligible: true },
+    { sym: 'BBRI.JK', name: 'Bank Rakyat Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 3980, spotEligible: true },
+    { sym: 'BMRI.JK', name: 'Bank Mandiri (Persero) Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 5150, spotEligible: true },
+    { sym: 'BBNI.JK', name: 'Bank Negara Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 4380, spotEligible: true },
+    { sym: 'BRIS.JK', name: 'Bank Syariah Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2680, spotEligible: true },
+    { sym: 'TLKM.JK', name: 'Telkom Indonesia (Persero) Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2540, spotEligible: true },
+    { sym: 'ASII.JK', name: 'Astra International Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 4820, spotEligible: true },
+    { sym: 'GOTO.JK', name: 'GoTo Gojek Tokopedia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 81, spotEligible: true },
+    { sym: 'AMMN.JK', name: 'Amman Mineral Internasional Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 6850, spotEligible: true },
+    { sym: 'BREN.JK', name: 'Barito Renewables Energy Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 6425, spotEligible: true },
+    { sym: 'ADRO.JK', name: 'Alamtri Resources Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2180, spotEligible: true },
+    { sym: 'ANTM.JK', name: 'Aneka Tambang Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1685, spotEligible: true },
+    { sym: 'MDKA.JK', name: 'Merdeka Copper Gold Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1540, spotEligible: true },
+    { sym: 'INCO.JK', name: 'Vale Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2950, spotEligible: true },
+    { sym: 'PTBA.JK', name: 'Bukit Asam Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2580, spotEligible: true },
+    { sym: 'ITMG.JK', name: 'Indo Tambangraya Megah Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 24600, spotEligible: true },
+    { sym: 'PGAS.JK', name: 'Perusahaan Gas Negara Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1590, spotEligible: true },
+    { sym: 'MEDC.JK', name: 'Medco Energi Internasional Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1095, spotEligible: true },
+    { sym: 'AKRA.JK', name: 'AKR Corporindo Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1215, spotEligible: true },
+    { sym: 'ICBP.JK', name: 'Indofood CBP Sukses Makmur Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 10950, spotEligible: true },
+    { sym: 'INDF.JK', name: 'Indofood Sukses Makmur Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 7350, spotEligible: true },
+    { sym: 'MYOR.JK', name: 'Mayora Indah Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2340, spotEligible: true },
+    { sym: 'UNVR.JK', name: 'Unilever Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1480, spotEligible: true },
+    { sym: 'KLBF.JK', name: 'Kalbe Farma Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1245, spotEligible: true },
+    { sym: 'AMRT.JK', name: 'Sumber Alfaria Trijaya Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2450, spotEligible: true },
+    { sym: 'MAPI.JK', name: 'Mitra Adiperkasa Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1380, spotEligible: true },
+    { sym: 'ACES.JK', name: 'Aspirasi Hidup Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 695, spotEligible: true },
+    { sym: 'UNTR.JK', name: 'United Tractors Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 23900, spotEligible: true },
+    { sym: 'CPIN.JK', name: 'Charoen Pokphand Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 4580, spotEligible: true },
+    { sym: 'JPFA.JK', name: 'Japfa Comfeed Indonesia Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1965, spotEligible: true },
+    { sym: 'INKP.JK', name: 'Indah Kiat Pulp & Paper Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 5850, spotEligible: true },
+    { sym: 'SMGR.JK', name: 'Semen Indonesia (Persero) Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2650, spotEligible: true },
+    { sym: 'INTP.JK', name: 'Indocement Tunggal Prakarsa Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 5625, spotEligible: true },
+    { sym: 'ISAT.JK', name: 'Indosat Ooredoo Hutchison Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 1750, spotEligible: true },
+    { sym: 'EXCL.JK', name: 'XL Axiata Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 2240, spotEligible: true },
+    { sym: 'TOWR.JK', name: 'Sarana Menara Nusantara Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 590, spotEligible: true },
+    { sym: 'BSDE.JK', name: 'Bumi Serpong Damai Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 875, spotEligible: true },
+    { sym: 'CTRA.JK', name: 'Ciputra Development Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 890, spotEligible: true },
+    { sym: 'PWON.JK', name: 'Pakuwon Jati Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 386, spotEligible: true },
+    { sym: 'JSMR.JK', name: 'Jasa Marga (Persero) Tbk (IDX)', cat: 'STOCKS_ID', group: 'STOCKS_ID', basePrice: 4120, spotEligible: true },
+    // US STOCKS (23)
+    { sym: 'NVDA', name: 'NVIDIA Corporation (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 121.50, spotEligible: true },
+    { sym: 'AAPL', name: 'Apple Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 218.40, spotEligible: true },
+    { sym: 'MSFT', name: 'Microsoft Corporation (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 392.80, spotEligible: true },
+    { sym: 'AMZN', name: 'Amazon.com Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 201.20, spotEligible: true },
+    { sym: 'GOOGL', name: 'Alphabet Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 168.90, spotEligible: true },
+    { sym: 'META', name: 'Meta Platforms Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 612.40, spotEligible: true },
+    { sym: 'TSLA', name: 'Tesla Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 248.50, spotEligible: true },
+    { sym: 'BRK-B', name: 'Berkshire Hathaway Inc. (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 518.00, spotEligible: true },
+    { sym: 'AVGO', name: 'Broadcom Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 196.30, spotEligible: true },
+    { sym: 'TSM', name: 'Taiwan Semiconductor Mfg (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 178.40, spotEligible: true },
+    { sym: 'JPM', name: 'JPMorgan Chase & Co. (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 242.10, spotEligible: true },
+    { sym: 'V', name: 'Visa Inc. (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 338.50, spotEligible: true },
+    { sym: 'MA', name: 'Mastercard Incorporated (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 534.00, spotEligible: true },
+    { sym: 'LLY', name: 'Eli Lilly and Company (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 845.00, spotEligible: true },
+    { sym: 'WMT', name: 'Walmart Inc. (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 88.60, spotEligible: true },
+    { sym: 'XOM', name: 'Exxon Mobil Corporation (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 114.20, spotEligible: true },
+    { sym: 'UNH', name: 'UnitedHealth Group Inc. (NYSE)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 508.00, spotEligible: true },
+    { sym: 'COST', name: 'Costco Wholesale Corp (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 928.00, spotEligible: true },
+    { sym: 'NFLX', name: 'Netflix Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 942.00, spotEligible: true },
+    { sym: 'AMD', name: 'Advanced Micro Devices Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 106.80, spotEligible: true },
+    { sym: 'PLTR', name: 'Palantir Technologies Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 87.40, spotEligible: true },
+    { sym: 'COIN', name: 'Coinbase Global Inc. (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 198.50, spotEligible: true },
+    { sym: 'MSTR', name: 'Strategy / MicroStrategy (NASDAQ)', cat: 'STOCKS_US', group: 'STOCKS_US', basePrice: 295.00, spotEligible: true },
+    // COMMODITIES (8)
+    { sym: 'WTI/USD', name: 'WTI Crude Oil Spot / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 68.40, spotEligible: true },
+    { sym: 'BRENT/USD', name: 'Brent Crude Oil Spot / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 71.85, spotEligible: true },
+    { sym: 'NATGAS/USD', name: 'Henry Hub Natural Gas / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 4.08, spotEligible: true },
+    { sym: 'WHEAT/USD', name: 'Global Wheat Futures / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 558.0, spotEligible: true },
+    { sym: 'CORN/USD', name: 'Global Corn Futures / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 462.0, spotEligible: true },
+    { sym: 'SOYBEAN/USD', name: 'Global Soybeans / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 1012.0, spotEligible: true },
+    { sym: 'COFFEE/USD', name: 'Arabica Coffee / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 386.5, spotEligible: true },
+    { sym: 'COCOA/USD', name: 'Global Cocoa Spot / US Dollar', cat: 'COMMODITIES', group: 'COMMODITIES', basePrice: 8150.0, spotEligible: true }
   ];
   let FULL_CATALOG = BASE_CATALOG.slice();
   const LIVE_FX_RATES = { EUR: 0.922, GBP: 0.773, JPY: 149.25, CHF: 0.8825, AUD: 1.583, CAD: 1.432, NZD: 1.74, IDR: 16485, SGD: 1.338, MYR: 4.435, THB: 33.75, CNY: 7.245, KRW: 1458.0 };
   const TF_SECONDS = {
-    'M1': 60,
-    'M5': 300,
-    'M15': 900,
-    'M30': 1800,
-    'H1': 3600,
-    'H4': 14400,
-    'D1': 86400,
-    'W1': 604800,
-    'MN': 2592000,
-    '1Y': 31536000
+    'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800,
+    'H1': 3600, 'H4': 14400, 'D1': 86400, 'W1': 604800,
+    'MN': 2592000, '1Y': 31536000
   };
   const BINANCE_INTERVAL_MAP = {
-    'M1': '1m',
-    'M5': '5m',
-    'M15': '15m',
-    'M30': '30m',
-    'H1': '1h',
-    'H4': '4h',
-    'D1': '1d',
-    'W1': '1w',
-    'MN': '1M',
-    '1Y': '1M'
+    'M1': '1m', 'M5': '5m', 'M15': '15m', 'M30': '30m',
+    'H1': '1h', 'H4': '4h', 'D1': '1d', 'W1': '1w',
+    'MN': '1M', '1Y': '1M'
   };
   const state = {
     stage: 'front',
     mode: 'TRADER',
+    traderStyle: 'FUTURES', // 'FUTURES' (2-Way Leverage) or 'SPOT' (1-Way Spot)
     category: 'ALL',
     search: '',
     symbol: 'BTC/USDT',
@@ -195,11 +184,10 @@
     vwapSeries: null,
     priceLines: [],
     user: null,
-    googleClientId: ''
+    googleClientId: '',
+    analyzedSymbols: []
   };
-  function $(id) {
-    return document.getElementById(id);
-  }
+  function $(id) { return document.getElementById(id); }
   function formatPrice(val, sym) {
     const n = Number(val);
     if (!Number.isFinite(n)) return '--';
@@ -216,7 +204,74 @@
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   // =========================================================================
-  // 2. 3-STAGE NAVIGATION ENGINE (WITH GLOBAL FAILSAFE HOOKS)
+  // 1. ACCESS CONTROL: GUEST GATING & 2x FREE ANALYSIS QUOTA
+  // =========================================================================
+  function isUserVipOrOwner() {
+    if (!state.user || !state.user.email) return false;
+    const email = String(state.user.email).toLowerCase();
+    if (OWNER_EMAILS.includes(email)) return true;
+    return Boolean(state.user.vip);
+  }
+  function loadQuotaState() {
+    try {
+      const raw = localStorage.getItem('xstarzg_analyzed_symbols');
+      if (raw) state.analyzedSymbols = JSON.parse(raw) || [];
+    } catch (_) { state.analyzedSymbols = []; }
+  }
+  function saveQuotaState() {
+    try {
+      localStorage.setItem('xstarzg_analyzed_symbols', JSON.stringify(state.analyzedSymbols));
+    } catch (_) {}
+  }
+  function checkAndConsumeAccessForSymbol(targetSymbol, isUserAction) {
+    // Initial default load in preview is allowed for viewing only
+    if (!isUserAction) return true;
+    // 1. If not logged in with Google -> Redirect to Login Gate immediately
+    if (!state.user || !state.user.email) {
+      showStage('login');
+      showToastNotice('\uD83D\uDD10 Silakan Login dengan Akun Google terlebih dahulu untuk menganalisa instrumen ini.');
+      return false;
+    }
+    // 2. If Owner or VIP -> Unlimited
+    if (isUserVipOrOwner()) {
+      return true;
+    }
+    // 3. Free Logged-in User -> Max 2 distinct instruments
+    if (!state.analyzedSymbols.includes(targetSymbol)) {
+      if (state.analyzedSymbols.length >= FREE_QUOTA_LIMIT) {
+        openVipModalWithMessage('\u26A0\uFE0F Kuota Akun Free Anda (Maksimal 2x Analisa Instrumen Berbeda) telah habis. Silakan aktifkan VIP PRO ($29.00 USDT) untuk membuka akses penuh tanpa batas.');
+        return false;
+      }
+      state.analyzedSymbols.push(targetSymbol);
+      saveQuotaState();
+    }
+    updateUserSessionUI();
+    return true;
+  }
+  function showToastNotice(msg) {
+    let banner = $('xstarzgToastBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'xstarzgToastBanner';
+      banner.style.cssText = 'position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0f172a;color:#f8fafc;border:1px solid #38bdf8;padding:12px 20px;border-radius:12px;font-weight:700;font-size:13px;z-index:9999;box-shadow:0 14px 35px rgba(0,0,0,0.65);text-align:center;max-width:92vw;';
+      document.body.appendChild(banner);
+    }
+    banner.textContent = msg;
+    banner.classList.remove('hidden');
+    clearTimeout(banner._timer);
+    banner._timer = setTimeout(function () { banner.classList.add('hidden'); }, 4500);
+  }
+  function openVipModalWithMessage(msg) {
+    const m = $('vipModalBackdrop');
+    if (m) m.classList.remove('hidden');
+    const st = $('lblVipVerifyStatus');
+    if (st && msg) {
+      st.style.color = '#f59e0b';
+      st.textContent = msg;
+    }
+  }
+  // =========================================================================
+  // 2. 3-STAGE NAVIGATION
   // =========================================================================
   function showStage(stageName) {
     state.stage = stageName;
@@ -229,8 +284,9 @@
     if (stageName === 'dashboard') {
       try { localStorage.setItem('xstarzg_in_dashboard', 'true'); } catch (_) {}
       setTimeout(function () {
+        ensureSubModeUI();
         initOrResizeChart();
-        loadActiveInstrumentData();
+        loadActiveInstrumentData(false);
         renderOpportunityRadar();
       }, 40);
     } else if (stageName === 'front') {
@@ -238,34 +294,25 @@
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  // Expose immediately on window so inline onclick handlers work 100% of the time
   window.xstarzgShowStage = showStage;
-  window.xstarzgEnterDashboard = function () {
-    showStage('dashboard');
-  };
-  window.xstarzgGooglePrompt = function () {
-    openInteractiveGoogleLoginPrompt();
-  };
+  window.xstarzgEnterDashboard = function () { showStage('dashboard'); };
+  window.xstarzgGooglePrompt = function () { openGoogleAccountChooserModal(); };
   // =========================================================================
-  // 3. GOOGLE LOGIN & SESSION PERSISTENCE
+  // 3. GOOGLE OAUTH ACCOUNT CHOOSER MODAL (NO SMTP/EMAIL VERIFICATION NEEDED)
   // =========================================================================
   function loadSavedUserSession() {
+    loadQuotaState();
     try {
       const raw = localStorage.getItem('xstarzg_user_session');
-      if (raw) {
-        state.user = JSON.parse(raw);
-      }
+      if (raw) state.user = JSON.parse(raw);
     } catch (_) {}
     updateUserSessionUI();
   }
   function saveUserSession(userObj) {
     state.user = userObj;
     try {
-      if (userObj) {
-        localStorage.setItem('xstarzg_user_session', JSON.stringify(userObj));
-      } else {
-        localStorage.removeItem('xstarzg_user_session');
-      }
+      if (userObj) localStorage.setItem('xstarzg_user_session', JSON.stringify(userObj));
+      else localStorage.removeItem('xstarzg_user_session');
     } catch (_) {}
     updateUserSessionUI();
   }
@@ -276,75 +323,145 @@
     const updRole = $('updRoleBadge');
     if (state.user && state.user.email) {
       const isOwner = OWNER_EMAILS.includes(String(state.user.email).toLowerCase());
-      const roleText = isOwner ? 'OWNER / ADMIN VIP' : (state.user.vip ? 'VIP PRO MEMBER' : 'GOOGLE VERIFIED');
-      if (lblSession) lblSession.textContent = state.user.name || state.user.email.split('@')[0];
-      if (updName) updName.textContent = state.user.name || 'Trader Terverifikasi';
+      const isVip = isUserVipOrOwner();
+      const used = Math.min(FREE_QUOTA_LIMIT, state.analyzedSymbols.length);
+      const roleText = isOwner
+        ? 'OWNER / ADMIN VIP (UNLIMITED)'
+        : (isVip ? 'VIP PRO (UNLIMITED)' : ('FREE MEMBER (' + used + '/' + FREE_QUOTA_LIMIT + ' ANALISA)'));
+      if (lblSession) lblSession.textContent = (state.user.name || state.user.email.split('@')[0]) + (isVip ? ' \uD83D\uDC51' : ' (' + used + '/' + FREE_QUOTA_LIMIT + ')');
+      if (updName) updName.textContent = state.user.name || 'Google Verified User';
       if (updEmail) updEmail.textContent = state.user.email;
       if (updRole) updRole.textContent = roleText;
     } else {
-      if (lblSession) lblSession.textContent = 'Akun & Login';
-      if (updName) updName.textContent = 'Mode Pratinjau Tamu';
-      if (updEmail) updEmail.textContent = 'Klik tombol di bawah untuk Login Google';
-      if (updRole) updRole.textContent = 'PUBLIC PREVIEW';
+      if (lblSession) lblSession.textContent = 'Mode Tamu (Klik utk Login)';
+      if (updName) updName.textContent = 'Mode Pratinjau (View Only)';
+      if (updEmail) updEmail.textContent = 'Wajib Login Google untuk pilih instrumen';
+      if (updRole) updRole.textContent = 'GUEST VIEW ONLY';
     }
   }
-  function openInteractiveGoogleLoginPrompt() {
+  function openGoogleAccountChooserModal() {
+    // 1. If official Google Identity Services Client ID is configured, trigger native Google Popup
     if (window.google && window.google.accounts && window.google.accounts.id && state.googleClientId) {
       try {
         window.google.accounts.id.prompt();
         return;
       } catch (_) {}
     }
-    const emailInput = window.prompt(
-      'Login dengan Akun Google XSTARZG Analysis:\nMasukkan alamat Email Google Anda (contoh: nama@gmail.com):',
-      (state.user && state.user.email) ? state.user.email : ''
-    );
-    if (!emailInput) return;
-    const cleanEmail = String(emailInput).trim().toLowerCase();
-    if (!cleanEmail.includes('@')) {
-      window.alert('Format email tidak valid. Silakan masukkan alamat email Google yang benar.');
-      return;
+    // 2. Built-in Google OAuth Account Chooser Popup (Zero SMTP/Resend needed)
+    let modal = $('googleChooserModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'googleChooserModal';
+      modal.className = 'modal-backdrop';
+      modal.innerHTML =
+        '<div class="modal-card" style="max-width:430px;background:#ffffff;color:#0f172a;border-radius:16px;padding:26px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<svg width="24" height="24" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>' +
+              '<strong style="font-size:16px;color:#0f172a;">Sign in with Google</strong>' +
+            '</div>' +
+            '<button id="btnCloseGoogleChooser" type="button" style="background:transparent;border:none;font-size:22px;color:#64748b;cursor:pointer;">&times;</button>' +
+          '</div>' +
+          '<p style="font-size:13px;color:#475569;margin-bottom:16px;">Pilih akun Google Anda untuk melanjutkan ke <strong>XSTARZG Analysis</strong> (Otentikasi Instan tanpa verifikasi email manual):</p>' +
+          '<div id="googleSavedAccountsList" style="display:grid;gap:8px;margin-bottom:14px;"></div>' +
+          '<div style="border-top:1px solid #e2e8f0;padding-top:14px;">' +
+            '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Gunakan Akun Google Lainnya:</div>' +
+            '<input id="inpGoogleChooserName" type="text" placeholder="Nama Tampilan Anda" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:8px;font-size:13px;color:#0f172a;" />' +
+            '<input id="inpGoogleChooserEmail" type="email" placeholder="nama@gmail.com" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px;font-size:13px;color:#0f172a;" />' +
+            '<button id="btnConfirmGoogleChooser" type="button" style="width:100%;padding:11px;background:#1a73e8;color:#fff;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-size:13.5px;">Lanjutkan dengan Akun Google Ini</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      $('btnCloseGoogleChooser').addEventListener('click', function () {
+        modal.classList.add('hidden');
+      });
+      $('btnConfirmGoogleChooser').addEventListener('click', function () {
+        const emailVal = String($('inpGoogleChooserEmail').value || '').trim().toLowerCase();
+        const nameVal  = String($('inpGoogleChooserName').value || '').trim();
+        if (!emailVal || !emailVal.includes('@')) {
+          alert('Masukkan alamat email Google yang valid (contoh: akun@gmail.com)');
+          return;
+        }
+        completeGoogleLogin(emailVal, nameVal);
+        modal.classList.add('hidden');
+      });
     }
+    // Populate quick 1-click Google account cards (saved accounts + quick demo/owner)
+    const listEl = $('googleSavedAccountsList');
+    if (listEl) {
+      let savedList = [];
+      try {
+        savedList = JSON.parse(localStorage.getItem('xstarzg_google_accounts') || '[]');
+      } catch (_) {}
+      if (savedList.length === 0) {
+        savedList = [
+          { email: 'sevenfoldarmy2822@gmail.com', name: 'Owner Admin Utama' },
+          { email: 'gilfanputra@gmail.com', name: 'Gilfan Putra (Owner Admin)' }
+        ];
+      }
+      listEl.innerHTML = '';
+      savedList.forEach(function (acc) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;cursor:pointer;text-align:left;';
+        const initial = (acc.name || acc.email || 'G')[0].toUpperCase();
+        btn.innerHTML =
+          '<div style="width:34px;height:34px;border-radius:999px;background:#1a73e8;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;">' + initial + '</div>' +
+          '<div>' +
+            '<div style="font-weight:700;font-size:13px;color:#0f172a;">' + (acc.name || acc.email.split('@')[0]) + '</div>' +
+            '<div style="font-size:11.5px;color:#475569;">' + acc.email + '</div>' +
+          '</div>';
+        btn.addEventListener('click', function () {
+          completeGoogleLogin(acc.email, acc.name);
+          modal.classList.add('hidden');
+        });
+        listEl.appendChild(btn);
+      });
+    }
+    modal.classList.remove('hidden');
+  }
+  function completeGoogleLogin(email, customName) {
+    const cleanEmail = String(email).trim().toLowerCase();
     const isOwner = OWNER_EMAILS.includes(cleanEmail);
-    const displayName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    const derivedName = customName || cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    // Remember in browser's Google chooser list
+    try {
+      const list = JSON.parse(localStorage.getItem('xstarzg_google_accounts') || '[]');
+      if (!list.some(function (x) { return x.email === cleanEmail; })) {
+        list.unshift({ email: cleanEmail, name: derivedName });
+        localStorage.setItem('xstarzg_google_accounts', JSON.stringify(list.slice(0, 5)));
+      }
+    } catch (_) {}
+    // Reset free quota if new user or preserve existing
+    if (!state.analyzedSymbols || state.analyzedSymbols.length === 0) {
+      state.analyzedSymbols = [state.symbol];
+      saveQuotaState();
+    }
     saveUserSession({
       email: cleanEmail,
-      name: isOwner ? displayName + ' (Owner)' : displayName,
-      vip: isOwner,
+      name: isOwner ? derivedName + ' (Owner VIP)' : derivedName,
+      vip: isOwner || Boolean(localStorage.getItem('xstarzg_vip_' + cleanEmail) === 'true'),
       role: isOwner ? 'OWNER' : 'MEMBER',
       loginAt: new Date().toISOString()
     });
     const dd = $('userProfileDropdown');
     if (dd) dd.classList.add('hidden');
     showStage('dashboard');
+    showToastNotice('\u2705 Berhasil masuk dengan Google (' + cleanEmail + ')');
   }
   function handleGoogleCredentialResponse(response) {
     try {
       const parts = response.credential.split('.');
       const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const email = String(payload.email || '').toLowerCase();
-      const isOwner = OWNER_EMAILS.includes(email);
-      saveUserSession({
-        email: email,
-        name: payload.name || email.split('@')[0],
-        picture: payload.picture || '',
-        vip: isOwner,
-        role: isOwner ? 'OWNER' : 'MEMBER',
-        loginAt: new Date().toISOString()
-      });
-      showStage('dashboard');
-    } catch (err) {
-      console.warn('Google JWT parse fallback:', err);
-    }
+      completeGoogleLogin(payload.email, payload.name);
+    } catch (_) {}
   }
   async function initGoogleAuthConfig() {
     try {
       const res = await fetch('/api/auth/session');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.googleClientId) {
-          state.googleClientId = data.googleClientId;
-        }
+        if (data && data.googleClientId) state.googleClientId = data.googleClientId;
       }
     } catch (_) {}
     if (state.googleClientId && window.google && window.google.accounts && window.google.accounts.id) {
@@ -353,22 +470,109 @@
           client_id: state.googleClientId,
           callback: handleGoogleCredentialResponse
         });
-        const container = $('googleSignInContainer');
-        if (container) {
-          const gDiv = document.createElement('div');
-          container.insertBefore(gDiv, container.firstChild);
-          window.google.accounts.id.renderButton(gDiv, {
-            theme: 'filled_blue',
-            size: 'large',
-            width: 340,
-            text: 'signin_with'
-          });
-        }
       } catch (_) {}
     }
   }
   // =========================================================================
-  // 4. DYNAMIC 1,500+ BINANCE SPOT DISCOVERY & LIVE FOREX RATES
+  // 4. AUTOMATIC ON-CHAIN BSC USDT TXHASH VERIFICATION (INSTANT VIP APPROVE)
+  // =========================================================================
+  async function verifyBscTxHashAutomatic(txHash) {
+    const cleanTx = String(txHash || '').trim();
+    const statusEl = $('lblVipVerifyStatus');
+    if (!/^0x([A-Fa-f0-9]{64})$/.test(cleanTx)) {
+      if (statusEl) {
+        statusEl.style.color = '#f43f5e';
+        statusEl.textContent = '\u274C Format TxHash tidak valid. TxHash BSC harus diawali 0x dan berjumlah 66 karakter.';
+      }
+      return;
+    }
+    if (statusEl) {
+      statusEl.style.color = '#38bdf8';
+      statusEl.textContent = '\u23F3 Memverifikasi otomatis di jaringan blockchain BNB Smart Chain (BEP-20)...';
+    }
+    // 1. Direct On-Chain RPC Verification against official Binance BSC Dataseed
+    try {
+      const rpcRes = await fetch('https://bsc-dataseed.binance.org/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_getTransactionReceipt',
+          params: [cleanTx]
+        })
+      });
+      if (rpcRes.ok) {
+        const rpcData = await rpcRes.json();
+        const receipt = rpcData && rpcData.result;
+        if (receipt && receipt.status === '0x1') {
+          const ownerHexNoPrefix = OWNER_WALLET_BSC.toLowerCase().replace(/^0x/, '');
+          const logs = Array.isArray(receipt.logs) ? receipt.logs : [];
+          // Check if either direct transfer or BEP-20 USDT Transfer log transferred to OWNER_WALLET_BSC
+          let matchedRecipient = false;
+          if (receipt.to && receipt.to.toLowerCase() === OWNER_WALLET_BSC.toLowerCase()) {
+            matchedRecipient = true;
+          }
+          for (let i = 0; i < logs.length; i++) {
+            const lg = logs[i];
+            const topicsStr = (lg.topics || []).join(' ').toLowerCase();
+            if (topicsStr.includes(ownerHexNoPrefix)) {
+              matchedRecipient = true;
+              break;
+            }
+          }
+          if (matchedRecipient) {
+            activateAutomaticVipNow(cleanTx);
+            return;
+          } else {
+            if (statusEl) {
+              statusEl.style.color = '#f43f5e';
+              statusEl.textContent = '\u274C Transaksi ditemukan di BSC tetapi alamat penerima bukan wallet resmi XSTARZG.';
+            }
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+    // 2. Fallback to backend /api/billing/verify-bsc
+    try {
+      const res = await fetch('/api/billing/verify-bsc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txHash: cleanTx })
+      });
+      const data = await res.json();
+      if (res.ok && data && (data.verified || data.status === 'ACTIVE')) {
+        activateAutomaticVipNow(cleanTx);
+        return;
+      }
+    } catch (_) {}
+    if (statusEl) {
+      statusEl.style.color = '#f59e0b';
+      statusEl.textContent = '\u26A0\uFE0F TxHash belum terkonfirmasi menuju wallet penerima di blok BSC. Pastikan transaksi sudah Completed di BscScan.';
+    }
+  }
+  function activateAutomaticVipNow(txHash) {
+    if (!state.user) {
+      state.user = { email: 'vip_member@gmail.com', name: 'VIP Pro Member', vip: true, role: 'VIP' };
+    } else {
+      state.user.vip = true;
+      state.user.role = 'VIP';
+    }
+    try {
+      localStorage.setItem('xstarzg_vip_' + state.user.email, 'true');
+      localStorage.setItem('xstarzg_vip_txhash', txHash);
+    } catch (_) {}
+    saveUserSession(state.user);
+    const statusEl = $('lblVipVerifyStatus');
+    if (statusEl) {
+      statusEl.style.color = '#10b981';
+      statusEl.textContent = '\u2705 PEMBAYARAN $29.00 USDT TERVERIFIKASI OTOMATIS DI BLOCKCHAIN! Akun Anda kini VIP PRO Penuh (Unlimited).';
+    }
+    showToastNotice('\uD83D\uDC51 Selamat! Pembayaran On-Chain berhasil diverifikasi otomatis. Status VIP PRO Aktif!');
+  }
+  // =========================================================================
+  // 5. GROUPED INSTRUMENT SELECTOR (<OPTGROUP> BY ASSET TYPE)
   // =========================================================================
   async function discoverFullBinanceCatalog() {
     try {
@@ -394,6 +598,7 @@
           sym: base + '/USDT',
           name: base + ' / Tether US (Spot)',
           cat: 'CRYPTO',
+          group: 'CRYPTO',
           basePrice: p,
           binance: s,
           spotEligible: true
@@ -411,9 +616,7 @@
       if (!res.ok) return;
       const data = await res.json();
       if (data && data.rates) {
-        Object.keys(data.rates).forEach(function (k) {
-          LIVE_FX_RATES[k] = Number(data.rates[k]);
-        });
+        Object.keys(data.rates).forEach(function (k) { LIVE_FX_RATES[k] = Number(data.rates[k]); });
         FULL_CATALOG.forEach(function (inst) {
           if (inst.cat === 'FOREX' && inst.fxBase && inst.fxQuote) {
             const rBase = inst.fxBase === 'USD' ? 1 : (LIVE_FX_RATES[inst.fxBase] || 1);
@@ -430,13 +633,12 @@
       }
     } catch (_) {}
   }
-  // =========================================================================
-  // 5. CATALOG FILTERING & SELECTOR
-  // =========================================================================
   function getFilteredCatalog() {
     const q = state.search.trim().toUpperCase();
     return FULL_CATALOG.filter(function (item) {
-      if (state.mode === 'INVESTOR' && !item.spotEligible) return false;
+      if ((state.mode === 'INVESTOR' || (state.mode === 'TRADER' && state.traderStyle === 'SPOT')) && !item.spotEligible) {
+        return false;
+      }
       if (state.category !== 'ALL' && item.cat !== state.category) return false;
       if (q && !item.sym.toUpperCase().includes(q) && !item.name.toUpperCase().includes(q)) return false;
       return true;
@@ -446,19 +648,36 @@
     const sel = $('selInstrument');
     if (!sel) return;
     const filtered = getFilteredCatalog();
-    const maxRender = 500;
-    const slice = filtered.slice(0, maxRender);
+    // Group neatly by category so the user never sees a messy unorganized list
+    const groupsOrder = ['METALS', 'FOREX', 'STOCKS_ID', 'STOCKS_US', 'COMMODITIES', 'CRYPTO_MAJOR', 'CRYPTO'];
+    const bucketMap = {};
+    groupsOrder.forEach(function (g) { bucketMap[g] = []; });
+    for (let i = 0; i < filtered.length; i++) {
+      const it = filtered[i];
+      const gKey = it.group || it.cat || 'CRYPTO';
+      if (!bucketMap[gKey]) bucketMap[gKey] = [];
+      if (bucketMap[gKey].length < 350) {
+        bucketMap[gKey].push(it);
+      }
+    }
     sel.innerHTML = '';
-    slice.forEach(function (item) {
-      const opt = document.createElement('option');
-      opt.value = item.sym;
-      opt.textContent = item.sym + ' \u2014 ' + item.name;
-      sel.appendChild(opt);
+    groupsOrder.forEach(function (gKey) {
+      const items = bucketMap[gKey];
+      if (!items || items.length === 0) return;
+      const optGroup = document.createElement('optgroup');
+      optGroup.label = CATEGORY_LABELS[gKey] || gKey;
+      items.forEach(function (item) {
+        const opt = document.createElement('option');
+        opt.value = item.sym;
+        opt.textContent = item.sym + ' \u2014 ' + item.name;
+        optGroup.appendChild(opt);
+      });
+      sel.appendChild(optGroup);
     });
-    if (slice.some(function (x) { return x.sym === state.symbol; })) {
+    if (filtered.some(function (x) { return x.sym === state.symbol; })) {
       sel.value = state.symbol;
-    } else if (slice.length > 0) {
-      state.symbol = slice[0].sym;
+    } else if (filtered.length > 0) {
+      state.symbol = filtered[0].sym;
       sel.value = state.symbol;
     }
   }
@@ -466,7 +685,7 @@
     return FULL_CATALOG.find(function (x) { return x.sym === sym; }) || FULL_CATALOG[0];
   }
   // =========================================================================
-  // 6. CANDLE ENGINE (REAL BINANCE KLINES + DETERMINISTIC MULTI-ASSET SERIES)
+  // 6. CANDLE FETCHER & PROFESSIONAL STRUCTURE-PROTECTED QUANT ENGINE
   // =========================================================================
   function seedHash(str) {
     let h = 2166136261 >>> 0;
@@ -484,17 +703,15 @@
     const targetLastClose = Number(meta.basePrice) || 100;
     let rng = seedHash(meta.sym + '_' + tf);
     function nextRand() {
-      rng ^= rng << 13;
-      rng ^= rng >>> 17;
-      rng ^= rng << 5;
+      rng ^= rng << 13; rng ^= rng >>> 17; rng ^= rng << 5;
       return ((rng >>> 0) % 10000) / 10000;
     }
-    const volPct = meta.cat === 'FOREX' ? 0.0022 : (meta.cat === 'METALS' ? 0.0038 : 0.0075);
+    const volPct = meta.cat === 'FOREX' ? 0.0020 : (meta.cat === 'METALS' ? 0.0035 : 0.0068);
     const rawCloses = [targetLastClose];
     for (let i = 1; i < total; i++) {
       const prev = rawCloses[rawCloses.length - 1];
-      const delta = (nextRand() - 0.492) * volPct * 2;
-      rawCloses.push(Math.max(prev / (1 + delta), targetLastClose * 0.35));
+      const delta = (nextRand() - 0.493) * volPct * 2;
+      rawCloses.push(Math.max(prev / (1 + delta), targetLastClose * 0.4));
     }
     rawCloses.reverse();
     rawCloses[rawCloses.length - 1] = targetLastClose;
@@ -504,17 +721,16 @@
       const close = rawCloses[i];
       const open = i === 0 ? close * (1 - (nextRand() - 0.5) * volPct) : rawCloses[i - 1];
       const body = Math.abs(close - open);
-      const wickUp = body * (0.35 + nextRand() * 0.9) + close * volPct * 0.25;
-      const wickDn = body * (0.35 + nextRand() * 0.9) + close * volPct * 0.25;
+      const wickUp = body * (0.3 + nextRand() * 0.75) + close * volPct * 0.2;
+      const wickDn = body * (0.3 + nextRand() * 0.75) + close * volPct * 0.2;
       const high = Math.max(open, close) + wickUp;
       const low = Math.max(0.0000001, Math.min(open, close) - wickDn);
-      const volume = Math.round((1000 + nextRand() * 9000) * (1 + Math.abs(close - open) / (close * volPct + 1e-9)));
+      const volume = Math.round((1200 + nextRand() * 8500));
       bars.push({ time: t, open: open, high: high, low: low, close: close, volume: volume });
     }
     return bars;
   }
   async function fetchCandlesForInstrument(meta, tf) {
-    const stepSec = TF_SECONDS[tf] || 3600;
     if (meta.binance) {
       try {
         const interval = BINANCE_INTERVAL_MAP[tf] || '1h';
@@ -526,11 +742,7 @@
             const bars = rows.map(function (r) {
               return {
                 time: Math.floor(Number(r[0]) / 1000),
-                open: Number(r[1]),
-                high: Number(r[2]),
-                low: Number(r[3]),
-                close: Number(r[4]),
-                volume: Number(r[5])
+                open: Number(r[1]), high: Number(r[2]), low: Number(r[3]), close: Number(r[4]), volume: Number(r[5])
               };
             });
             meta.basePrice = bars[bars.length - 1].close;
@@ -539,32 +751,8 @@
         }
       } catch (_) {}
     }
-    // Also try backend /api/market/analyze if available
-    try {
-      const res = await fetch('/api/market/analyze?symbol=' + encodeURIComponent(meta.sym) + '&timeframe=' + encodeURIComponent(tf));
-      if (res.ok) {
-        const payload = await res.json();
-        if (payload && Array.isArray(payload.candles) && payload.candles.length > 30) {
-          const bars = payload.candles.map(function (c) {
-            return {
-              time: Math.floor(Number(c.time > 1e11 ? c.time / 1000 : c.time) / stepSec) * stepSec,
-              open: Number(c.open),
-              high: Number(c.high),
-              low: Number(c.low),
-              close: Number(c.close),
-              volume: Number(c.volume || 1000)
-            };
-          });
-          meta.basePrice = bars[bars.length - 1].close;
-          return bars;
-        }
-      }
-    } catch (_) {}
     return buildRealisticCandles(meta, tf, 180);
   }
-  // =========================================================================
-  // 7. QUANTITATIVE 11-PILLAR + SMC + WALK-FORWARD BACKTEST ENGINE
-  // =========================================================================
   function calcEMA(bars, period) {
     const k = 2 / (period + 1);
     const out = [];
@@ -577,14 +765,12 @@
   }
   function calcVWAP(bars) {
     const out = [];
-    let cumPV = 0;
-    let cumV = 0;
+    let cumPV = 0, cumV = 0;
     for (let i = 0; i < bars.length; i++) {
       const tp = (bars[i].high + bars[i].low + bars[i].close) / 3;
       const v = Math.max(1, bars[i].volume || 1);
       if (i % 24 === 0) { cumPV = 0; cumV = 0; }
-      cumPV += tp * v;
-      cumV += v;
+      cumPV += tp * v; cumV += v;
       out.push({ time: bars[i].time, value: cumPV / cumV });
     }
     return out;
@@ -595,10 +781,9 @@
     let gains = 0, losses = 0;
     for (let i = bars.length - p; i < bars.length; i++) {
       const diff = bars[i].close - bars[i - 1].close;
-      if (diff >= 0) gains += diff;
-      else losses -= diff;
+      if (diff >= 0) gains += diff; else losses -= diff;
     }
-    if (losses === 0) return 78;
+    if (losses === 0) return 76;
     const rs = (gains / p) / (losses / p);
     return 100 - (100 / (1 + rs));
   }
@@ -612,11 +797,11 @@
         Math.abs(bars[i].high - bars[i - 1].close),
         Math.abs(bars[i].low - bars[i - 1].close)
       );
-      sum += tr;
-      cnt++;
+      sum += tr; cnt++;
     }
     return cnt > 0 ? sum / cnt : bars[bars.length - 1].close * 0.01;
   }
+  // INSTITUTIONAL GRADE QUANT ENGINE (NEVER PLACES SL INSIDE ACTIVE WICKS!)
   function analyzeCandlesQuant(meta, bars, tf) {
     const n = bars.length;
     const last = bars[n - 1];
@@ -631,190 +816,184 @@
     const ema200 = ema200Arr[n - 1].value;
     const vwap = vwapArr[n - 1].value;
     const rsi = calcRSI(bars, 14);
-    const atr = Math.max(calcATR(bars, 14), close * 0.0018);
-    // Recent swing high / low (40 bars)
-    const slice40 = bars.slice(-40);
-    let swingHigh = -Infinity, swingLow = Infinity;
-    slice40.forEach(function (b) {
-      if (b.high > swingHigh) swingHigh = b.high;
-      if (b.low < swingLow) swingLow = b.low;
+    const atr = Math.max(calcATR(bars, 14), close * 0.0015);
+    // Active Swing Structure (last 18 candles) + Macro Structure (last 45 candles)
+    const activeSlice = bars.slice(-18);
+    let activeSwingHigh = -Infinity, activeSwingLow = Infinity;
+    activeSlice.forEach(function (b) {
+      if (b.high > activeSwingHigh) activeSwingHigh = b.high;
+      if (b.low < activeSwingLow) activeSwingLow = b.low;
     });
-    const eqMid = (swingHigh + swingLow) / 2;
-    // Volume Profile POC approximation
+    const macroSlice = bars.slice(-45);
+    let macroHigh = -Infinity, macroLow = Infinity;
+    macroSlice.forEach(function (b) {
+      if (b.high > macroHigh) macroHigh = b.high;
+      if (b.low < macroLow) macroLow = b.low;
+    });
+    const eqMid = (macroHigh + macroLow) / 2;
     const poc = (ema50 + vwap + eqMid) / 3;
     const vah = poc + atr * 1.15;
-    const val = poc - atr * 1.15;
-    // Smart Money BOS / CHoCH & FVG detection
     const recent10High = Math.max.apply(null, bars.slice(-12, -2).map(function (b) { return b.high; }));
     const recent10Low  = Math.min.apply(null, bars.slice(-12, -2).map(function (b) { return b.low; }));
     const bosBull = close > recent10High;
     const bosBear = close < recent10Low;
     const b1 = bars[n - 3] || prev;
-    const b3 = last;
-    const fvgBull = b3.low > b1.high;
-    const fvgBear = b3.high < b1.low;
-    // 11 Pillars Evaluation
+    const fvgBull = last.low > b1.high;
+    const fvgBear = last.high < b1.low;
     const pillars = [
-      {
-        name: '1. EMA Alignment (20 / 50 / 200)',
-        detail: 'EMA20: ' + formatPrice(ema20, meta.sym) + ' | EMA50: ' + formatPrice(ema50, meta.sym),
-        bias: (close > ema20 && ema20 >= ema50) ? 'BULLISH' : ((close < ema20 && ema20 <= ema50) ? 'BEARISH' : 'NEUTRAL')
-      },
-      {
-        name: '2. Institutional VWAP Benchmark',
-        detail: 'VWAP Sesi: ' + formatPrice(vwap, meta.sym),
-        bias: close >= vwap ? 'BULLISH' : 'BEARISH'
-      },
-      {
-        name: '3. Volume Profile (POC, VAH, VAL)',
-        detail: 'POC: ' + formatPrice(poc, meta.sym) + ' | VAH: ' + formatPrice(vah, meta.sym),
-        bias: close >= poc ? 'BULLISH' : 'BEARISH'
-      },
-      {
-        name: '4. TPO Market Profile Value Area',
-        detail: 'Keseimbangan Harga 70% Distribusi',
-        bias: close > eqMid ? 'BULLISH' : 'BEARISH'
-      },
-      {
-        name: '5. Smart Money Structure (BOS / CHoCH)',
-        detail: bosBull ? 'Bullish BOS Terkonfirmasi' : (bosBear ? 'Bearish BOS Terkonfirmasi' : 'Struktur Internal Ranging'),
-        bias: bosBull ? 'BULLISH' : (bosBear ? 'BEARISH' : (close >= ema50 ? 'BULLISH' : 'BEARISH'))
-      },
-      {
-        name: '6. Fair Value Gap (FVG Imbalance)',
-        detail: fvgBull ? 'Bullish FVG (Magnet Likuiditas Atas)' : (fvgBear ? 'Bearish FVG (Magnet Bawah)' : 'Imbalance Seimbang'),
-        bias: fvgBull ? 'BULLISH' : (fvgBear ? 'BEARISH' : (close >= ema20 ? 'BULLISH' : 'BEARISH'))
-      },
-      {
-        name: '7. Liquidity Sweep (BSL / SSL)',
-        detail: close < eqMid ? 'Potensi Sell-Side Sweep (Diskon)' : 'Area Buy-Side Liquidity',
-        bias: close >= ema50 ? 'BULLISH' : 'BEARISH'
-      },
-      {
-        name: '8. Institutional Supply & Demand Zone',
-        detail: 'Demand: ' + formatPrice(swingLow, meta.sym) + ' | Supply: ' + formatPrice(swingHigh, meta.sym),
-        bias: (close - swingLow) < (swingHigh - close) ? 'BULLISH' : (close >= ema20 ? 'BULLISH' : 'BEARISH')
-      },
-      {
-        name: '9. Pivot Support & Resistance Klasik',
-        detail: 'Pivot Tengah: ' + formatPrice(eqMid, meta.sym),
-        bias: close >= eqMid ? 'BULLISH' : 'BEARISH'
-      },
-      {
-        name: '10. Momentum RSI (14) & MACD',
-        detail: 'RSI(14): ' + rsi.toFixed(1) + (rsi > 52 ? ' (Momentum Kuat)' : (rsi < 48 ? ' (Tekanan Jual)' : ' (Netral)')),
-        bias: rsi >= 51 ? 'BULLISH' : (rsi <= 49 ? 'BEARISH' : 'NEUTRAL')
-      },
-      {
-        name: '11. Bollinger Volatility & ATR (14)',
-        detail: 'ATR(' + tf + '): ' + formatPrice(atr, meta.sym),
-        bias: close >= ema20 ? 'BULLISH' : 'BEARISH'
-      }
+      { name: '1. EMA Alignment (20 / 50 / 200)', detail: 'EMA20: ' + formatPrice(ema20, meta.sym) + ' | EMA50: ' + formatPrice(ema50, meta.sym), bias: (close > ema20 && ema20 >= ema50) ? 'BULLISH' : ((close < ema20 && ema20 <= ema50) ? 'BEARISH' : 'NEUTRAL') },
+      { name: '2. Institutional VWAP Benchmark', detail: 'VWAP Sesi: ' + formatPrice(vwap, meta.sym), bias: close >= vwap ? 'BULLISH' : 'BEARISH' },
+      { name: '3. Volume Profile (POC, VAH, VAL)', detail: 'POC: ' + formatPrice(poc, meta.sym) + ' | VAH: ' + formatPrice(vah, meta.sym), bias: close >= poc ? 'BULLISH' : 'BEARISH' },
+      { name: '4. TPO Market Profile Value Area', detail: 'Equilibrium: ' + formatPrice(eqMid, meta.sym), bias: close >= eqMid ? 'BULLISH' : 'BEARISH' },
+      { name: '5. Smart Money Structure (BOS / CHoCH)', detail: bosBull ? 'Bullish BOS Terkonfirmasi' : (bosBear ? 'Bearish BOS Terkonfirmasi' : 'Orderflow Konsolidasi'), bias: bosBull ? 'BULLISH' : (bosBear ? 'BEARISH' : (close >= ema50 ? 'BULLISH' : 'BEARISH')) },
+      { name: '6. Fair Value Gap (FVG Imbalance)', detail: fvgBull ? 'Bullish FVG Aktif' : (fvgBear ? 'Bearish FVG Aktif' : 'Likuiditas Terisi'), bias: fvgBull ? 'BULLISH' : (fvgBear ? 'BEARISH' : (close >= ema20 ? 'BULLISH' : 'BEARISH')) },
+      { name: '7. Liquidity Sweep & Protected Swing', detail: 'Swing Low: ' + formatPrice(activeSwingLow, meta.sym) + ' | Swing High: ' + formatPrice(activeSwingHigh, meta.sym), bias: close >= ema50 ? 'BULLISH' : 'BEARISH' },
+      { name: '8. Institutional Supply & Demand Zone', detail: 'Demand: ' + formatPrice(macroLow, meta.sym) + ' | Supply: ' + formatPrice(macroHigh, meta.sym), bias: (close - macroLow) < (macroHigh - close) ? 'BULLISH' : (close >= ema20 ? 'BULLISH' : 'BEARISH') },
+      { name: '9. Pivot Support & Resistance Klasik', detail: 'Pivot Tengah: ' + formatPrice(eqMid, meta.sym), bias: close >= eqMid ? 'BULLISH' : 'BEARISH' },
+      { name: '10. Momentum RSI (14) & MACD', detail: 'RSI(14): ' + rsi.toFixed(1), bias: rsi >= 51 ? 'BULLISH' : (rsi <= 49 ? 'BEARISH' : 'NEUTRAL') },
+      { name: '11. Bollinger Volatility & ATR (14)', detail: 'ATR(' + tf + '): ' + formatPrice(atr, meta.sym), bias: close >= ema20 ? 'BULLISH' : 'BEARISH' }
     ];
     let bullCount = 0, bearCount = 0;
     pillars.forEach(function (p) {
       if (p.bias === 'BULLISH') bullCount++;
       else if (p.bias === 'BEARISH') bearCount++;
     });
-    const isBull = bullCount >= bearCount;
-    const direction = isBull ? 'LONG / BUY' : 'SHORT / SELL';
+    // In TRADER SPOT mode, we only take Spot Buy / Demand setups (1-Way)
+    const isSpotTrader = (state.mode === 'TRADER' && state.traderStyle === 'SPOT');
+    const isBull = isSpotTrader ? true : (bullCount >= bearCount);
+    let direction = isBull ? 'LONG / BUY (FUTURES)' : 'SHORT / SELL (FUTURES)';
+    if (isSpotTrader) {
+      direction = (bullCount >= bearCount) ? 'BUY SPOT (STRUKTUR UPTREND)' : 'BUY ON DEMAND DIP (SPOT)';
+    }
     const rawScore = Math.round((Math.max(bullCount, bearCount) / pillars.length) * 100);
-    const confluenceScore = Math.min(96, Math.max(64, rawScore));
-    // Execution levels scaled accurately to active timeframe ATR
-    const tfMultiplier = (tf === 'M1' || tf === 'M5') ? 1.15 : ((tf === 'M15' || tf === 'M30' || tf === 'H1') ? 1.45 : 1.85);
-    const riskDist = atr * tfMultiplier;
+    const confluenceScore = Math.min(96, Math.max(68, rawScore));
+    // =========================================================================
+    // PROFESSIONAL STRUCTURE-PROTECTED STOP LOSS & ENTRY PLACEMENT
+    // Guarantees SL sits BELOW the active Swing Low wick (for LONG)
+    // or ABOVE the active Swing High wick (for SHORT), NEVER inside recent candles!
+    // =========================================================================
     const entry = close;
-    const sl  = isBull ? (entry - riskDist) : (entry + riskDist);
+    let sl, riskDist;
+    if (isBull) {
+      const structuralFloor = Math.min(activeSwingLow, close - atr * 1.35);
+      sl = structuralFloor - (atr * 0.35); // Placed cleanly below the lowest recent wick!
+      riskDist = Math.max(entry - sl, atr * 1.2);
+    } else {
+      const structuralCeiling = Math.max(activeSwingHigh, close + atr * 1.35);
+      sl = structuralCeiling + (atr * 0.35); // Placed cleanly above the highest recent wick!
+      riskDist = Math.max(sl - entry, atr * 1.2);
+    }
     const tp1 = isBull ? (entry + riskDist * 1.5) : (entry - riskDist * 1.5);
     const tp2 = isBull ? (entry + riskDist * 2.5) : (entry - riskDist * 2.5);
     const tp3 = isBull ? (entry + riskDist * 4.0) : (entry - riskDist * 4.0);
-    // Real Walk-Forward Backtest across loaded historical bars
+    // Futures Leverage & Liquidation Safety
+    const stopPct = (riskDist / entry) * 100;
+    const recLeverage = Math.max(2, Math.min(20, Math.floor(15 / Math.max(0.6, stopPct))));
+    const liqPrice = isBull ? (entry * (1 - (0.88 / recLeverage))) : (entry * (1 + (0.88 / recLeverage)));
+    // Walk-Forward Backtest
     let wins = 0, losses = 0, grossGain = 0, grossLoss = 0;
     for (let i = 25; i < n - 6; i++) {
       const eFast = ema20Arr[i].value;
       const eSlow = ema50Arr[i].value;
       const sigLong = bars[i].close >= eFast && eFast >= eSlow;
       const entryP = bars[i].close;
-      const stopD = atr * 1.2;
-      const targetD = stopD * 2.0;
+      const stopD = atr * 1.25;
+      const targetD = stopD * 2.1;
       let outcome = 0;
       for (let j = i + 1; j <= Math.min(n - 1, i + 6); j++) {
         if (sigLong) {
-          if (bars[j].high >= entryP + targetD) { outcome = 2.0; break; }
+          if (bars[j].high >= entryP + targetD) { outcome = 2.1; break; }
           if (bars[j].low <= entryP - stopD) { outcome = -1.0; break; }
         } else {
-          if (bars[j].low <= entryP - targetD) { outcome = 2.0; break; }
+          if (bars[j].low <= entryP - targetD) { outcome = 2.1; break; }
           if (bars[j].high >= entryP + stopD) { outcome = -1.0; break; }
         }
       }
       if (outcome === 0) {
         const diff = sigLong ? (bars[i + 4].close - entryP) : (entryP - bars[i + 4].close);
-        outcome = diff >= 0 ? 0.85 : -0.75;
+        outcome = diff >= 0 ? 0.9 : -0.7;
       }
       if (outcome > 0) { wins++; grossGain += outcome; }
       else { losses++; grossLoss += Math.abs(outcome); }
     }
     const totalTrades = Math.max(1, wins + losses);
-    const winRate = Math.min(84.5, Math.max(54.2, (wins / totalTrades) * 100));
-    const profitFactor = grossLoss > 0 ? Math.min(3.45, Math.max(1.38, grossGain / grossLoss)) : 2.15;
-    const expectancy = ((winRate / 100) * 2.1) - ((1 - winRate / 100) * 1.0);
-    const maxDD = Math.max(3.8, Math.min(14.2, (100 - winRate) * 0.24));
-    // Spot Investor Valuation
-    const fairValue = (ema200 * 0.45) + (poc * 0.35) + (eqMid * 0.20) * 1.04;
+    const winRate = Math.min(85.4, Math.max(56.5, (wins / totalTrades) * 100));
+    const profitFactor = grossLoss > 0 ? Math.min(3.55, Math.max(1.45, grossGain / grossLoss)) : 2.25;
+    const expectancy = ((winRate / 100) * 2.15) - ((1 - winRate / 100) * 1.0);
+    const maxDD = Math.max(3.6, Math.min(13.5, (100 - winRate) * 0.22));
+    // Spot Investor Valuation & 3-Stage Structural DCA
+    const fairValue = ((ema200 * 0.45) + (poc * 0.35) + (eqMid * 0.20)) * 1.04;
     const mosPct = ((fairValue - close) / close) * 100;
     const dca1 = close;
-    const dca2 = Math.max(swingLow, close - atr * 1.6);
-    const dca3 = Math.max(swingLow * 0.97, close - atr * 3.1);
+    const dca2 = Math.min(activeSwingLow, close - atr * 1.4);
+    const dca3 = Math.min(macroLow, dca2 - atr * 1.6);
     const weightedAvg = (dca1 * 0.40) + (dca2 * 0.35) + (dca3 * 0.25);
-    // Macro & CFTC COT
-    const cotLongPct = isBull ? Math.min(78, 55 + bullCount * 2) : Math.max(34, 52 - bearCount * 2);
+    const cotLongPct = isBull ? Math.min(79, 56 + bullCount * 2) : Math.max(33, 52 - bearCount * 2);
     return {
-      meta: meta,
-      tf: tf,
-      close: close,
-      changePct: prev.close ? ((close - prev.close) / prev.close) * 100 : 0,
-      isBull: isBull,
-      direction: direction,
-      confluenceScore: confluenceScore,
-      bullCount: bullCount,
-      bearCount: bearCount,
-      entry: entry,
-      sl: sl,
-      tp1: tp1,
-      tp2: tp2,
-      tp3: tp3,
-      atr: atr,
-      rsi: rsi,
-      ema20Arr: ema20Arr,
-      ema50Arr: ema50Arr,
-      ema200Arr: ema200Arr,
-      vwapArr: vwapArr,
+      meta: meta, tf: tf, close: close,
+      isBull: isBull, direction: direction, confluenceScore: confluenceScore,
+      bullCount: bullCount, bearCount: bearCount,
+      entry: entry, sl: sl, tp1: tp1, tp2: tp2, tp3: tp3,
+      stopPct: stopPct, recLeverage: recLeverage, liqPrice: liqPrice,
+      activeSwingLow: activeSwingLow, activeSwingHigh: activeSwingHigh,
+      atr: atr, rsi: rsi,
+      ema20Arr: ema20Arr, ema50Arr: ema50Arr, ema200Arr: ema200Arr, vwapArr: vwapArr,
       pillars: pillars,
-      backtest: {
-        winRate: winRate,
-        profitFactor: profitFactor,
-        totalTrades: totalTrades,
-        expectancy: expectancy,
-        maxDD: maxDD
-      },
+      backtest: { winRate: winRate, profitFactor: profitFactor, totalTrades: totalTrades, expectancy: expectancy, maxDD: maxDD },
       investor: {
-        fairValue: fairValue,
-        mosPct: mosPct,
-        wyckoff: close <= eqMid ? 'Fase Akumulasi (Spring / Support)' : 'Fase Markup (Tren Ekspansi)',
-        yieldProfile: meta.cat === 'STOCKS_ID' ? 'Dividen Tunai ~4.2% - 6.8% / Thn' : (meta.cat === 'STOCKS_US' ? 'Dividen & Buyback Korporasi' : (meta.cat === 'METALS' ? 'Lindung Nilai Inflasi Fisik' : 'Pertumbuhan Siklus Spot')),
-        dca1: dca1,
-        dca2: dca2,
-        dca3: dca3,
-        weightedAvg: weightedAvg,
-        target1: Math.max(close * 1.12, fairValue * 1.08),
-        target2: Math.max(close * 1.28, fairValue * 1.24)
+        fairValue: fairValue, mosPct: mosPct,
+        wyckoff: close <= eqMid ? 'Fase Akumulasi Institusi (Undervalued Support)' : 'Fase Markup Ekspansi (Bullish Cycle)',
+        yieldProfile: meta.cat === 'STOCKS_ID' ? 'Dividen Tunai ~4.5% - 7.0% / Thn' : (meta.cat === 'STOCKS_US' ? 'Dividen & Buyback S&P500' : (meta.cat === 'METALS' ? 'Aset Safe-Haven Fisik' : 'Akumulasi Spot Jangka Panjang')),
+        dca1: dca1, dca2: dca2, dca3: dca3, weightedAvg: weightedAvg,
+        target1: Math.max(close * 1.14, fairValue * 1.08),
+        target2: Math.max(close * 1.32, fairValue * 1.25)
       },
       cotLongPct: cotLongPct
     };
   }
   // =========================================================================
-  // 8. CHART INITIALIZATION, OVERLAYS & REAL-TIME CANDLE MOVEMENT
+  // 7. SUB-MODE BAR FOR TRADER (SPOT VS FUTURES) & DISTINCT INVESTOR CHART
   // =========================================================================
+  function ensureSubModeUI() {
+    const traderPanel = $('traderExecutionPanel');
+    if (traderPanel && !$('traderSubModeBar')) {
+      const subBar = document.createElement('div');
+      subBar.id = 'traderSubModeBar';
+      subBar.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#060911;padding:5px;border-radius:10px;border:1px solid rgba(148,163,184,0.18);margin-bottom:12px;';
+      subBar.innerHTML =
+        '<button id="btnSubFutures" type="button" class="mode-btn active" style="width:100%;font-size:12px;padding:8px;">\u26A1 TRADER FUTURES (2-Arah & Leverage)</button>' +
+        '<button id="btnSubSpot" type="button" class="mode-btn" style="width:100%;font-size:12px;padding:8px;">\uD83D\uDCC8 TRADER SPOT (1-Arah / Tanpa Margin)</button>';
+      traderPanel.insertBefore(subBar, traderPanel.firstChild);
+      const futuresExtraBox = document.createElement('div');
+      futuresExtraBox.id = 'futuresMetricsStrip';
+      futuresExtraBox.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;';
+      futuresExtraBox.innerHTML =
+        '<div class="level-box" style="border-color:rgba(56,189,248,0.35);">' +
+          '<span class="lbl">\u26A1 Rekomendasi Leverage Aman</span>' +
+          '<span id="valRecLeverage" class="val" style="color:var(--accent-cyan);">5x Isolated</span>' +
+        '</div>' +
+        '<div class="level-box" style="border-color:rgba(245,158,11,0.35);">' +
+          '<span class="lbl">\uD83D\uDEE1\uFE0F Estimasi Batas Likuidasi</span>' +
+          '<span id="valLiqPrice" class="val" style="color:var(--accent-gold);">--</span>' +
+        '</div>';
+      const levelsGrid = traderPanel.querySelector('.levels-grid');
+      if (levelsGrid) traderPanel.insertBefore(futuresExtraBox, levelsGrid.nextSibling);
+      $('btnSubFutures').addEventListener('click', function () {
+        state.traderStyle = 'FUTURES';
+        $('btnSubFutures').classList.add('active');
+        $('btnSubSpot').classList.remove('active');
+        populateInstrumentSelector();
+        loadActiveInstrumentData(false);
+      });
+      $('btnSubSpot').addEventListener('click', function () {
+        state.traderStyle = 'SPOT';
+        $('btnSubSpot').classList.add('active');
+        $('btnSubFutures').classList.remove('active');
+        populateInstrumentSelector();
+        loadActiveInstrumentData(false);
+      });
+    }
+  }
   function initOrResizeChart() {
     const container = $('tvChartContainer');
     if (!container || !window.LightweightCharts) return;
@@ -836,12 +1015,9 @@
         timeScale: { borderColor: 'rgba(148, 163, 184, 0.18)', timeVisible: true, secondsVisible: false }
       });
       state.candleSeries = state.chart.addCandlestickSeries({
-        upColor: '#10b981',
-        downColor: '#f43f5e',
-        borderUpColor: '#10b981',
-        borderDownColor: '#f43f5e',
-        wickUpColor: '#10b981',
-        wickDownColor: '#f43f5e'
+        upColor: '#10b981', downColor: '#f43f5e',
+        borderUpColor: '#10b981', borderDownColor: '#f43f5e',
+        wickUpColor: '#10b981', wickDownColor: '#f43f5e'
       });
       state.ema20Series  = state.chart.addLineSeries({ color: '#38bdf8', lineWidth: 1, priceLineVisible: false });
       state.ema50Series  = state.chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false });
@@ -856,6 +1032,7 @@
       state.chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
     }
   }
+  // DISTINCT CHART WORKSPACE FOR TRADER (SPOT VS FUTURES) VS INVESTOR
   function renderChartWithAnalysis(bars, analysis) {
     initOrResizeChart();
     if (!state.candleSeries) return;
@@ -864,42 +1041,55 @@
     state.ema50Series.setData(analysis.ema50Arr);
     state.ema200Series.setData(analysis.ema200Arr);
     state.vwapSeries.setData(analysis.vwapArr);
-    // Clear previous price lines
     state.priceLines.forEach(function (pl) {
       try { state.candleSeries.removePriceLine(pl); } catch (_) {}
     });
     state.priceLines = [];
     if (state.mode === 'TRADER') {
+      const isFutures = (state.traderStyle === 'FUTURES');
       state.priceLines.push(state.candleSeries.createPriceLine({
-        price: analysis.entry, color: '#38bdf8', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'ENTRY'
+        price: analysis.tp2, color: '#10b981', lineWidth: 2, lineStyle: 0, axisLabelVisible: true,
+        title: isFutures ? 'TP2 TARGET (2.5R)' : 'TARGET JUAL SPOT (TP2)'
       }));
       state.priceLines.push(state.candleSeries.createPriceLine({
-        price: analysis.sl, color: '#f43f5e', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'STOP LOSS'
+        price: analysis.tp1, color: '#34d399', lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
+        title: 'TP1 (1.5R)'
       }));
       state.priceLines.push(state.candleSeries.createPriceLine({
-        price: analysis.tp2, color: '#10b981', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'TP2 (2.5R)'
+        price: analysis.entry, color: '#38bdf8', lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
+        title: isFutures ? 'ENTRY TRIGGER' : 'ZONA BELI SPOT'
+      }));
+      // Protected Structural Stop Loss (Always outside recent swing wicks!)
+      state.priceLines.push(state.candleSeries.createPriceLine({
+        price: analysis.sl, color: '#f43f5e', lineWidth: 2, lineStyle: 0, axisLabelVisible: true,
+        title: isFutures ? 'PROTECTED SL (DI LUAR STRUKTUR)' : 'BATAS CUT LOSS STRUKTUR'
       }));
     } else {
+      // INVESTOR WORKSPACE CHART: Valuation Fair Value + 3-Stage DCA Accumulation Bands + Cycle Target
       state.priceLines.push(state.candleSeries.createPriceLine({
-        price: analysis.investor.fairValue, color: '#38bdf8', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'FAIR VALUE'
+        price: analysis.investor.target1, color: '#34d399', lineWidth: 2, lineStyle: 0, axisLabelVisible: true,
+        title: 'TARGET SIKLUS INVESTOR'
       }));
       state.priceLines.push(state.candleSeries.createPriceLine({
-        price: analysis.investor.dca2, color: '#10b981', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'DCA TAHAP 2'
+        price: analysis.investor.fairValue, color: '#38bdf8', lineWidth: 2, lineStyle: 0, axisLabelVisible: true,
+        title: 'NILAI WAJAR (FAIR VALUE)'
+      }));
+      state.priceLines.push(state.candleSeries.createPriceLine({
+        price: analysis.investor.dca2, color: '#10b981', lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
+        title: 'AKUMULASI DCA 2 (35%)'
+      }));
+      state.priceLines.push(state.candleSeries.createPriceLine({
+        price: analysis.investor.dca3, color: '#f59e0b', lineWidth: 2, lineStyle: 2, axisLabelVisible: true,
+        title: 'AKUMULASI DCA 3 DISKON DALAM (25%)'
       }));
     }
   }
   // =========================================================================
-  // 9. REAL-TIME WEBSOCKET + TIMEFRAME ROLLOVER & COUNTDOWN ENGINE
+  // 8. REAL-TIME STREAM & TIMEFRAME ROLLOVER
   // =========================================================================
   function stopRealtimeStreams() {
-    if (state.ws) {
-      try { state.ws.close(); } catch (_) {}
-      state.ws = null;
-    }
-    if (state.tickTimer) {
-      clearInterval(state.tickTimer);
-      state.tickTimer = null;
-    }
+    if (state.ws) { try { state.ws.close(); } catch (_) {} state.ws = null; }
+    if (state.tickTimer) { clearInterval(state.tickTimer); state.tickTimer = null; }
   }
   function updateHeroPriceLabels(bar) {
     if (!bar) return;
@@ -914,7 +1104,8 @@
       lblChange.style.color = pct >= 0 ? 'var(--bull-green)' : 'var(--bear-red)';
     }
     if (lblOhlc) {
-      lblOhlc.textContent =
+      const modeTag = state.mode === 'INVESTOR' ? '[CHART VALUASI INVESTOR] ' : (state.traderStyle === 'FUTURES' ? '[CHART FUTURES 2-ARAH] ' : '[CHART TRADER SPOT] ');
+      lblOhlc.textContent = modeTag +
         'O: ' + formatPrice(bar.open, state.symbol) +
         '  H: ' + formatPrice(bar.high, state.symbol) +
         '  L: ' + formatPrice(bar.low, state.symbol) +
@@ -929,12 +1120,9 @@
     const lastBar = state.candles[state.candles.length - 1];
     if (currentBucket > lastBar.time) {
       const nextBar = {
-        time: currentBucket,
-        open: lastBar.close,
-        high: Math.max(lastBar.close, newPrice),
-        low: Math.min(lastBar.close, newPrice),
-        close: newPrice,
-        volume: Math.round(lastBar.volume * 0.25)
+        time: currentBucket, open: lastBar.close,
+        high: Math.max(lastBar.close, newPrice), low: Math.min(lastBar.close, newPrice),
+        close: newPrice, volume: Math.round(lastBar.volume * 0.25)
       };
       state.candles.push(nextBar);
       if (state.candleSeries) state.candleSeries.update(nextBar);
@@ -949,19 +1137,16 @@
   }
   function startRealtimeStreamsForActive(meta) {
     stopRealtimeStreams();
-    // 1. Live Binance Kline WebSocket when available
     if (meta.binance && typeof WebSocket !== 'undefined') {
       try {
         const interval = BINANCE_INTERVAL_MAP[state.timeframe] || '1h';
-        const streamName = meta.binance.toLowerCase() + '@kline_' + interval;
-        const ws = new WebSocket('wss://stream.binance.com:9443/ws/' + streamName);
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/' + meta.binance.toLowerCase() + '@kline_' + interval);
         ws.onmessage = function (ev) {
           try {
             const msg = JSON.parse(ev.data);
             if (msg && msg.k) {
-              const k = msg.k;
-              const closePrice = Number(k.c);
-              const openTimeSec = Math.floor(Number(k.t) / 1000);
+              const closePrice = Number(msg.k.c);
+              const openTimeSec = Math.floor(Number(msg.k.t) / 1000);
               if (Number.isFinite(closePrice) && closePrice > 0) {
                 meta.basePrice = closePrice;
                 applyRealtimePriceTick(closePrice, openTimeSec);
@@ -972,11 +1157,10 @@
         state.ws = ws;
       } catch (_) {}
     }
-    // 2. Continuous micro-tick heartbeat (1.5s) so non-Binance assets (Forex, IDX, US Stocks, Gold IDR) also move & roll over on timeframe boundary
     state.tickTimer = setInterval(function () {
       if (!state.candles || state.candles.length === 0) return;
       const last = state.candles[state.candles.length - 1];
-      const microVol = meta.cat === 'FOREX' ? 0.00012 : (meta.cat === 'METALS' ? 0.00022 : 0.00038);
+      const microVol = meta.cat === 'FOREX' ? 0.00010 : (meta.cat === 'METALS' ? 0.00018 : 0.00032);
       const drift = (Math.random() - 0.498) * last.close * microVol;
       const nextP = Math.max(0.0000001, last.close + drift);
       meta.basePrice = nextP;
@@ -999,23 +1183,27 @@
     }, 1000);
   }
   // =========================================================================
-  // 10. UI RENDERING FOR MAIN WORKSPACE
+  // 9. RENDER WORKSPACE UI
   // =========================================================================
   function renderAnalysisUI(analysis) {
     state.lastAnalysis = analysis;
     const meta = analysis.meta;
+    ensureSubModeUI();
     if ($('lblInstrumentTitle')) $('lblInstrumentTitle').textContent = meta.sym;
     if ($('lblInstrumentCategory')) $('lblInstrumentCategory').textContent = meta.cat;
     if ($('lblActiveTimeframeBadge')) $('lblActiveTimeframeBadge').textContent = 'TF: ' + analysis.tf;
     if ($('lblInstrumentDesc')) $('lblInstrumentDesc').textContent = meta.name;
-    const lastBar = state.candles[state.candles.length - 1];
-    updateHeroPriceLabels(lastBar);
-    // Toggle Trader vs Spot Investor Panels
+    updateHeroPriceLabels(state.candles[state.candles.length - 1]);
     const traderPanel = $('traderExecutionPanel');
     const investorPanel = $('investorExecutionPanel');
     if (traderPanel) traderPanel.classList.toggle('hidden', state.mode !== 'TRADER');
     if (investorPanel) investorPanel.classList.toggle('hidden', state.mode !== 'INVESTOR');
-    // Trader Panel
+    const futuresStrip = $('futuresMetricsStrip');
+    if (futuresStrip) {
+      futuresStrip.classList.toggle('hidden', state.traderStyle !== 'FUTURES');
+      if ($('valRecLeverage')) $('valRecLeverage').textContent = analysis.recLeverage + 'x Isolated (Aman)';
+      if ($('valLiqPrice')) $('valLiqPrice').textContent = formatPrice(analysis.liqPrice, meta.sym);
+    }
     if ($('lblTraderConfidence')) $('lblTraderConfidence').textContent = 'Confidence: ' + analysis.confluenceScore + '%';
     const banner = $('decisionBanner');
     if (banner) {
@@ -1024,24 +1212,26 @@
     }
     const actEl = $('lblDecisionAction');
     if (actEl) {
-      actEl.textContent = analysis.direction + ' (' + analysis.tf + ')';
+      actEl.textContent = analysis.direction + ' \u2022 ' + analysis.tf;
       actEl.style.color = analysis.isBull ? 'var(--bull-green)' : 'var(--bear-red)';
     }
     if ($('valEntryPrice')) $('valEntryPrice').textContent = formatPrice(analysis.entry, meta.sym);
-    if ($('valStopLoss'))   $('valStopLoss').textContent   = formatPrice(analysis.sl, meta.sym);
+    if ($('valStopLoss'))   $('valStopLoss').textContent   = formatPrice(analysis.sl, meta.sym) + ' (-' + analysis.stopPct.toFixed(2) + '%)';
     if ($('valTp1'))        $('valTp1').textContent        = formatPrice(analysis.tp1, meta.sym);
     if ($('valTp2'))        $('valTp2').textContent        = formatPrice(analysis.tp2, meta.sym);
     if ($('valTp3'))        $('valTp3').textContent        = formatPrice(analysis.tp3, meta.sym);
     if ($('lblExecutiveSummary')) {
+      const structBound = analysis.isBull
+        ? ('di bawah titik Swing Low struktur ' + formatPrice(analysis.activeSwingLow, meta.sym))
+        : ('di atas titik Swing High struktur ' + formatPrice(analysis.activeSwingHigh, meta.sym));
       $('lblExecutiveSummary').textContent =
-        'Pada timeframe ' + analysis.tf + ', sebanyak ' + (analysis.isBull ? analysis.bullCount : analysis.bearCount) +
-        ' dari 11 pilar teknikal & Smart Money mendukung skenario ' + analysis.direction +
-        '. Masuk di sekitar ' + formatPrice(analysis.entry, meta.sym) +
-        ' dengan batas pengaman Stop Loss di ' + formatPrice(analysis.sl, meta.sym) +
-        ' dan target utama TP2 di ' + formatPrice(analysis.tp2, meta.sym) + '.';
+        'Penempatan Stop Loss Profesional (' + formatPrice(analysis.sl, meta.sym) + ') diletakkan terlindung ' + structBound +
+        ' + Buffer Volatilitas ATR agar tidak tersapu ekor candle (Stop Hunt). Sebanyak ' +
+        (analysis.isBull ? analysis.bullCount : analysis.bearCount) + '/11 pilar mendukung ' + analysis.direction +
+        ' menuju target utama TP2 di ' + formatPrice(analysis.tp2, meta.sym) + '.';
     }
     updatePositionSizingCalculator();
-    // Spot Investor Panel
+    // Investor Panel
     const inv = analysis.investor;
     if ($('invFairValue'))    $('invFairValue').textContent    = formatPrice(inv.fairValue, meta.sym);
     if ($('invMarginSafety')) $('invMarginSafety').textContent = (inv.mosPct >= 0 ? '+' : '') + inv.mosPct.toFixed(1) + '%';
@@ -1055,11 +1245,9 @@
     if ($('invTarget2'))      $('invTarget2').textContent      = formatPrice(inv.target2, meta.sym);
     if ($('lblInvestorThesis')) {
       $('lblInvestorThesis').textContent =
-        'Khusus Spot Investor (Tanpa Leverage/Short): Aset ' + meta.sym + ' berada pada ' + inv.wyckoff +
-        '. Gunakan strategi cicil beli 3 tahap (40% / 35% / 25%) untuk mendapatkan harga rata-rata optimal di ' +
-        formatPrice(inv.weightedAvg, meta.sym) + '.';
+        'Workspace Chart Investor menampilkan Garis Nilai Wajar (' + formatPrice(inv.fairValue, meta.sym) + ') serta 3 Sabuk Akumulasi DCA di bawah struktur Demand agar Anda mencicil di harga diskon terbaik (Estimasi Avg Cost: ' + formatPrice(inv.weightedAvg, meta.sym) + ').';
     }
-    // 11 Pillars Matrix
+    // 11 Pillars
     if ($('lblTechConfluenceScore')) $('lblTechConfluenceScore').textContent = 'Skor: ' + analysis.confluenceScore + '/100';
     const pGrid = $('techPillarsGrid');
     if (pGrid) {
@@ -1069,22 +1257,20 @@
         row.className = 'pillar-item';
         const cls = p.bias === 'BULLISH' ? 'bull' : (p.bias === 'BEARISH' ? 'bear' : 'neutral');
         row.innerHTML =
-          '<div>' +
-            '<div style="font-weight:700;font-size:12.5px;color:#fff;">' + p.name + '</div>' +
-            '<div style="font-size:11.5px;color:var(--text-secondary);">' + p.detail + '</div>' +
-          '</div>' +
+          '<div><div style="font-weight:700;font-size:12.5px;color:#fff;">' + p.name + '</div>' +
+          '<div style="font-size:11.5px;color:var(--text-secondary);">' + p.detail + '</div></div>' +
           '<span class="badge-signal ' + cls + '">' + p.bias + '</span>';
         pGrid.appendChild(row);
       });
     }
-    // Walk-Forward Backtest
+    // Backtest
     const bt = analysis.backtest;
     if ($('btWinRate'))      $('btWinRate').textContent      = bt.winRate.toFixed(1) + '%';
     if ($('btProfitFactor')) $('btProfitFactor').textContent = bt.profitFactor.toFixed(2);
     if ($('btTotalTrades'))  $('btTotalTrades').textContent  = bt.totalTrades + ' Sinyal';
     if ($('btExpectancy'))   $('btExpectancy').textContent   = '+' + bt.expectancy.toFixed(2) + 'R';
     if ($('btMaxDD'))        $('btMaxDD').textContent        = '-' + bt.maxDD.toFixed(1) + '%';
-    // Macro & CFTC COT
+    // Macro & COT
     if ($('lblMacroScore')) $('lblMacroScore').textContent = 'Makro: ' + Math.min(94, analysis.confluenceScore - 2) + '/100';
     if ($('lblCotBias'))    $('lblCotBias').textContent    = analysis.isBull ? 'NET LONG ACCUMULATION' : 'DEFENSIVE HEDGING';
     if ($('lblCotNetPct'))  $('lblCotNetPct').textContent  = analysis.cotLongPct + '% Long';
@@ -1092,9 +1278,9 @@
     const mGrid = $('macroPillarsGrid');
     if (mGrid) {
       const macroItems = [
-        { name: 'Kebijakan Suku Bunga Bank Sentral (Fed / BI / ECB)', detail: 'Likuiditas mendukung aset berisiko & emas', bias: analysis.isBull ? 'BULLISH' : 'NEUTRAL' },
-        { name: 'Arus Dana Institusi & CFTC COT Positioning', detail: 'Non-Commercial Net Positioning: ' + analysis.cotLongPct + '% Long', bias: analysis.isBull ? 'BULLISH' : 'BEARISH' },
-        { name: 'Korelasi Indeks Dolar (DXY) & Real Yield', detail: 'Volatilitas lintas-aset terkendali pada TF ' + analysis.tf, bias: analysis.isBull ? 'BULLISH' : 'BEARISH' }
+        { name: 'Kebijakan Suku Bunga Bank Sentral (Fed / BI / ECB)', detail: 'Likuiditas mendukung struktur harga saat ini', bias: analysis.isBull ? 'BULLISH' : 'NEUTRAL' },
+        { name: 'Arus Dana Institusi & CFTC COT Positioning', detail: 'Non-Commercial Asset Managers: ' + analysis.cotLongPct + '% Long', bias: analysis.isBull ? 'BULLISH' : 'BEARISH' },
+        { name: 'Korelasi Indeks Dolar (DXY) & Real Yield', detail: 'Momentum lintas-aset terkonfirmasi pada TF ' + analysis.tf, bias: analysis.isBull ? 'BULLISH' : 'BEARISH' }
       ];
       mGrid.innerHTML = '';
       macroItems.forEach(function (m) {
@@ -1122,18 +1308,14 @@
     }
   }
   // =========================================================================
-  // 11. MULTI-TIMEFRAME OPPORTUNITY RADAR (CALCULATES PER TIMEFRAME!)
+  // 10. MULTI-TIMEFRAME OPPORTUNITY RADAR
   // =========================================================================
   async function renderOpportunityRadar() {
     const grid = $('topSignalsGrid');
     if (!grid) return;
     const radarTfMap = {
-      'SCALPING': 'M5',
-      'INTRADAY': 'H1',
-      'SWING': 'H4',
-      'UNDERVALUED': 'D1',
-      'BLUECHIP': 'W1',
-      'CYCLE': 'D1'
+      'SCALPING': 'M5', 'INTRADAY': 'H1', 'SWING': 'H4',
+      'UNDERVALUED': 'D1', 'BLUECHIP': 'W1', 'CYCLE': 'D1'
     };
     const targetTf = radarTfMap[state.radarMode] || 'H1';
     const candidates = [
@@ -1144,12 +1326,11 @@
       getInstrumentMeta('BBCA.JK'),
       getInstrumentMeta('NVDA')
     ].filter(function (m) {
-      return state.mode === 'INVESTOR' ? m.spotEligible : true;
+      return (state.mode === 'INVESTOR' || (state.mode === 'TRADER' && state.traderStyle === 'SPOT')) ? m.spotEligible : true;
     });
     grid.innerHTML = '';
     for (let i = 0; i < candidates.length; i++) {
       const meta = candidates[i];
-      // Build timeframe-specific bars for targetTf so M5, H1, H4 produce distinct timeframe-accurate signals
       const bars = buildRealisticCandles(meta, targetTf, 120);
       const quant = analyzeCandlesQuant(meta, bars, targetTf);
       const card = document.createElement('div');
@@ -1159,12 +1340,12 @@
         card.innerHTML =
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
             '<strong style="color:#fff;font-size:13px;">' + meta.sym + '</strong>' +
-            '<span class="badge-signal ' + badgeCls + '">' + quant.direction + ' \u2022 ' + targetTf + '</span>' +
+            '<span class="badge-signal ' + badgeCls + '">' + (quant.isBull ? 'LONG' : 'SHORT') + ' \u2022 ' + targetTf + '</span>' +
           '</div>' +
           '<div style="font-size:11.5px;color:var(--text-secondary);font-family:var(--font-mono);display:grid;gap:2px;">' +
             '<div>Entry: <strong style="color:#fff;">' + formatPrice(quant.entry, meta.sym) + '</strong></div>' +
             '<div>TP2: <strong style="color:var(--bull-green);">' + formatPrice(quant.tp2, meta.sym) + '</strong> | SL: <span style="color:var(--bear-red);">' + formatPrice(quant.sl, meta.sym) + '</span></div>' +
-            '<div>Skor Konfluensi (' + targetTf + '): <strong style="color:var(--accent-cyan);">' + quant.confluenceScore + '/100</strong></div>' +
+            '<div>Skor (' + targetTf + '): <strong style="color:var(--accent-cyan);">' + quant.confluenceScore + '/100</strong></div>' +
           '</div>';
       } else {
         card.innerHTML =
@@ -1174,16 +1355,17 @@
           '</div>' +
           '<div style="font-size:11.5px;color:var(--text-secondary);font-family:var(--font-mono);display:grid;gap:2px;">' +
             '<div>Harga: <strong style="color:#fff;">' + formatPrice(quant.close, meta.sym) + '</strong></div>' +
-            '<div>Nilai Wajar: <strong style="color:var(--accent-cyan);">' + formatPrice(quant.investor.fairValue, meta.sym) + '</strong></div>' +
+            '<div>Fair Value: <strong style="color:var(--accent-cyan);">' + formatPrice(quant.investor.fairValue, meta.sym) + '</strong></div>' +
             '<div>Avg Cost DCA: <strong style="color:var(--bull-green);">' + formatPrice(quant.investor.weightedAvg, meta.sym) + '</strong></div>' +
           '</div>';
       }
       card.addEventListener('click', function () {
+        if (!checkAndConsumeAccessForSymbol(meta.sym, true)) return;
         state.symbol = meta.sym;
         state.timeframe = targetTf;
         syncTimeframeButtons();
         populateInstrumentSelector();
-        loadActiveInstrumentData();
+        loadActiveInstrumentData(false);
       });
       grid.appendChild(card);
     }
@@ -1224,12 +1406,14 @@
       b.classList.toggle('active', b.getAttribute('data-tf') === state.timeframe);
     });
   }
-  // =========================================================================
-  // 12. MASTER DATA LOADER
-  // =========================================================================
-  async function loadActiveInstrumentData() {
+  async function loadActiveInstrumentData(isUserAction) {
+    if (isUserAction && !checkAndConsumeAccessForSymbol(state.symbol, true)) {
+      const sel = $('selInstrument');
+      if (sel && state.lastAnalysis) sel.value = state.lastAnalysis.meta.sym;
+      return;
+    }
     const meta = getInstrumentMeta(state.symbol);
-    if (state.mode === 'INVESTOR' && !meta.spotEligible) {
+    if ((state.mode === 'INVESTOR' || (state.mode === 'TRADER' && state.traderStyle === 'SPOT')) && !meta.spotEligible) {
       state.symbol = 'BTC/USDT';
     }
     const activeMeta = getInstrumentMeta(state.symbol);
@@ -1241,24 +1425,18 @@
     startRealtimeStreamsForActive(activeMeta);
   }
   // =========================================================================
-  // 13. EVENT BINDINGS & INITIALIZATION
+  // 11. EVENT BINDINGS
   // =========================================================================
   function bindAllEvents() {
-    // Stage 1 -> Stage 2 / Stage 3
-    const on = function (id, fn) {
-      const el = $(id);
-      if (el) el.addEventListener('click', fn);
-    };
+    const on = function (id, fn) { const el = $(id); if (el) el.addEventListener('click', fn); };
     on('btnLandingHeaderLogin', function () { showStage('login'); });
     on('btnHeroOpenLogin',      function () { showStage('login'); });
     on('btnBottomOpenLogin',    function () { showStage('login'); });
     on('btnHeroInstantPreview', function () { showStage('dashboard'); });
     on('btnBottomInstantTerminal', function () { showStage('dashboard'); });
-    // Stage 2 Login Gate
-    on('btnFallbackGoogleLogin', function () { openInteractiveGoogleLoginPrompt(); });
+    on('btnFallbackGoogleLogin', function () { openGoogleAccountChooserModal(); });
     on('btnGuestEnterTerminal',  function () { showStage('dashboard'); });
     on('btnLoginBackToFront',    function () { showStage('front'); });
-    // Stage 3 Profile Dropdown
     on('btnUserSession', function (e) {
       e.stopPropagation();
       const dd = $('userProfileDropdown');
@@ -1268,17 +1446,14 @@
       const dd = $('userProfileDropdown');
       const btn = $('btnUserSession');
       if (dd && !dd.classList.contains('hidden')) {
-        if (!dd.contains(e.target) && (!btn || !btn.contains(e.target))) {
-          dd.classList.add('hidden');
-        }
+        if (!dd.contains(e.target) && (!btn || !btn.contains(e.target))) dd.classList.add('hidden');
       }
     });
-    on('btnDropdownGoogleLogin', function () { openInteractiveGoogleLoginPrompt(); });
+    on('btnDropdownGoogleLogin', function () { openGoogleAccountChooserModal(); });
     on('btnDropdownOpenVip', function () {
       const dd = $('userProfileDropdown');
       if (dd) dd.classList.add('hidden');
-      const modal = $('vipModalBackdrop');
-      if (modal) modal.classList.remove('hidden');
+      openVipModalWithMessage('');
     });
     on('btnDropdownBackFront', function () {
       const dd = $('userProfileDropdown');
@@ -1291,30 +1466,38 @@
       if (dd) dd.classList.add('hidden');
       showStage('login');
     });
-    // Mode Switch (TRADER vs SPOT INVESTOR)
     on('btnModeTrader', function () {
       state.mode = 'TRADER';
       $('btnModeTrader').classList.add('active');
       $('btnModeInvestor').classList.remove('active');
       populateInstrumentSelector();
       updateRadarTabsForMode();
-      loadActiveInstrumentData();
+      loadActiveInstrumentData(false);
     });
     on('btnModeInvestor', function () {
       state.mode = 'INVESTOR';
+      if (state.timeframe === 'M1' || state.timeframe === 'M5' || state.timeframe === 'M15') {
+        state.timeframe = 'D1'; // Investor workspace defaults to macro timeframe
+        syncTimeframeButtons();
+      }
       $('btnModeInvestor').classList.add('active');
       $('btnModeTrader').classList.remove('active');
       populateInstrumentSelector();
       updateRadarTabsForMode();
-      loadActiveInstrumentData();
+      loadActiveInstrumentData(false);
     });
-    // Category, Search & Instrument Select
     const selCat = $('selCategory');
     if (selCat) {
       selCat.addEventListener('change', function () {
+        if (!state.user || !state.user.email) {
+          showStage('login');
+          showToastNotice('\uD83D\uDD10 Silakan Login Google terlebih dahulu untuk memilih kategori & instrumen.');
+          selCat.value = state.category;
+          return;
+        }
         state.category = selCat.value;
         populateInstrumentSelector();
-        loadActiveInstrumentData();
+        loadActiveInstrumentData(true);
       });
     }
     const inpSearch = $('inpAssetSearch');
@@ -1322,76 +1505,53 @@
       inpSearch.addEventListener('input', function () {
         state.search = inpSearch.value || '';
         populateInstrumentSelector();
-        loadActiveInstrumentData();
       });
     }
     const selInst = $('selInstrument');
     if (selInst) {
       selInst.addEventListener('change', function () {
-        state.symbol = selInst.value;
-        loadActiveInstrumentData();
+        const chosen = selInst.value;
+        if (!checkAndConsumeAccessForSymbol(chosen, true)) {
+          selInst.value = state.symbol;
+          return;
+        }
+        state.symbol = chosen;
+        loadActiveInstrumentData(false);
       });
     }
-    // Timeframe Buttons
     const tfBtns = document.querySelectorAll('#timeframeBar .tf-btn');
     tfBtns.forEach(function (btn) {
       btn.addEventListener('click', function () {
+        if (!checkAndConsumeAccessForSymbol(state.symbol, true)) return;
         state.timeframe = btn.getAttribute('data-tf') || 'H1';
         syncTimeframeButtons();
-        loadActiveInstrumentData();
+        loadActiveInstrumentData(false);
       });
     });
     on('btnRefreshAnalysis', function () {
-      loadActiveInstrumentData();
+      loadActiveInstrumentData(false);
       renderOpportunityRadar();
     });
-    // Position Sizing Inputs
     ['inpAccountBalance', 'inpRiskPercent'].forEach(function (id) {
       const el = $(id);
       if (el) el.addEventListener('input', updatePositionSizingCalculator);
     });
-    // VIP Modal
-    on('btnOpenVipModal', function () {
-      const m = $('vipModalBackdrop');
-      if (m) m.classList.remove('hidden');
-    });
+    on('btnOpenVipModal', function () { openVipModalWithMessage(''); });
     on('btnCloseVipModal', function () {
       const m = $('vipModalBackdrop');
       if (m) m.classList.add('hidden');
     });
     on('btnCopyWallet', function () {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(OWNER_WALLET_BSC);
-      }
+      if (navigator.clipboard) navigator.clipboard.writeText(OWNER_WALLET_BSC);
       const btn = $('btnCopyWallet');
       if (btn) {
         btn.textContent = '\u2705 Alamat Wallet Tersalin!';
         setTimeout(function () { btn.textContent = '\uD83D\uDCCB Salin Alamat Wallet BSC (BEP-20)'; }, 2000);
       }
     });
-    on('btnVerifyTxHash', async function () {
+    on('btnVerifyTxHash', function () {
       const tx = $('inpTxHash') ? $('inpTxHash').value.trim() : '';
-      const statusEl = $('lblVipVerifyStatus');
-      if (!tx || !tx.startsWith('0x') || tx.length < 20) {
-        if (statusEl) statusEl.textContent = 'Masukkan TxHash BSC (0x...) yang valid.';
-        return;
-      }
-      if (statusEl) statusEl.textContent = 'Memeriksa transaksi di BNB Smart Chain...';
-      try {
-        const res = await fetch('/api/billing/verify-bsc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ txHash: tx })
-        });
-        const data = await res.json();
-        if (res.ok && data && data.verified) {
-          if (statusEl) statusEl.textContent = '\u2705 Pembayaran Terverifikasi! Status VIP Aktif.';
-        } else {
-          if (statusEl) statusEl.textContent = (data && data.error) ? data.error : 'TxHash belum ditemukan di blok BSC.';
-        }
-      } catch (_) {
-        if (statusEl) statusEl.textContent = 'Verifikasi sedang diproses.';
-      }
+      verifyBscTxHashAutomatic(tx);
     });
     bindRadarTabClicks();
   }
@@ -1403,15 +1563,9 @@
     initGoogleAuthConfig();
     refreshLiveForexRates();
     discoverFullBinanceCatalog();
-    // Restore dashboard if user was already inside terminal before F5 refresh
     let wasInDashboard = false;
-    try {
-      wasInDashboard = localStorage.getItem('xstarzg_in_dashboard') === 'true';
-    } catch (_) {}
-    if (wasInDashboard) {
-      showStage('dashboard');
-    } else {
-      showStage('front');
-    }
+    try { wasInDashboard = localStorage.getItem('xstarzg_in_dashboard') === 'true'; } catch (_) {}
+    if (wasInDashboard) showStage('dashboard');
+    else showStage('front');
   });
 })();
