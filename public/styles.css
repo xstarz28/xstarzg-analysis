@@ -914,4 +914,16 @@ button, input, select { font-family: inherit; }
   .front-hero { padding: 34px 16px 24px; }
   .tv-chart-container { height: 340px; }
   .levels-grid { grid-template-columns: 1fr; }
+}/* XSTARZG_LOGIN_FIX_2026_25 */
+.hidden {
+  display: none !important;
+}
+#frontLandingScreen, #loginGateScreen, #appWorkspaceWrapper {
+  pointer-events: auto;
+}
+#googleAuthModal, #paymentModal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100000 !important;
+  pointer-events: auto !important;
 }

@@ -1175,4 +1175,246 @@ document.addEventListener('DOMContentLoaded', async () => {
     await syncBatchBrokerQuotes();
     renderOpportunityRadar();
   }, 6000);
-});
+});// === XSTARZG_UNIVERSAL_AUTH_NAV_FIX_V2026_25 ===
+(function () {
+  function setLayerVisible(el, visible, displayMode) {
+    if (!el) return;
+    if (visible) {
+      el.classList.remove('hidden');
+      el.style.setProperty('display', displayMode || 'block', 'important');
+      el.style.visibility = 'visible';
+      el.style.opacity = '1';
+      el.style.pointerEvents = 'auto';
+    } else {
+      el.classList.add('hidden');
+      el.style.setProperty('display', 'none', 'important');
+      el.style.pointerEvents = 'none';
+    }
+  }
+  window.showScreen = function (screenName) {
+    state.activeScreen = screenName;
+    try { sessionStorage.setItem('xstarzg_screen_v24', screenName); } catch (e) {}
+    const front = document.getElementById('frontLandingScreen');
+    const login = document.getElementById('loginGateScreen');
+    const work = document.getElementById('appWorkspaceWrapper');
+    setLayerVisible(front, screenName === 'front', 'block');
+    setLayerVisible(login, screenName === 'login', 'flex');
+    setLayerVisible(work, screenName === 'workspace', 'block');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (screenName === 'workspace') {
+      setTimeout(() => {
+        try {
+          if (!chartInstance && typeof initChart === 'function') initChart();
+          const container = document.getElementById('tvChartContainer');
+          if (chartInstance && container) {
+            chartInstance.applyOptions({
+              width: container.clientWidth || 800,
+              height: container.clientHeight || 460
+            });
+          }
+          if (!state.candles || state.candles.length === 0) {
+            if (typeof runFullAnalysis === 'function') runFullAnalysis(false);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }, 60);
+    }
+  };
+  function ensureGoogleModalDOM() {
+    let modal = document.getElementById('googleAuthModal');
+    if (!modal || !document.getElementById('googleEmailInput')) {
+      if (modal) modal.remove();
+      modal = document.createElement('div');
+      modal.id = 'googleAuthModal';
+      modal.className = 'hidden';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(3,7,18,0.85);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px;';
+      modal.innerHTML = `
+        <div style="background:#0f172a;border:1px solid rgba(56,189,248,0.35);border-radius:16px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.75);color:#f8fafc;font-family:inherit;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:#ffffff;color:#0f172a;font-weight:800;align-items:center;justify-content:center;font-size:15px;">G</span>
+              <h3 style="margin:0;font-size:16px;font-weight:700;color:#f8fafc;">Masuk dengan Akun Google</h3>
+            </div>
+            <button type="button" id="btnCloseGoogleModal" style="background:transparent;border:none;color:#94a3b8;font-size:20px;cursor:pointer;line-height:1;">&times;</button>
+          </div>
+          <p style="margin:0 0 16px 0;font-size:12.5px;color:#94a3b8;line-height:1.5;">
+            Masukkan alamat email Google Anda untuk mengaktifkan sesi terminal analisis & kuota akses instrumen.
+          </p>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:6px;font-weight:600;">Alamat Email Google</label>
+            <input type="email" id="googleEmailInput" placeholder="nama@gmail.com" autocomplete="email"
+              style="width:100%;box-sizing:border-box;padding:11px 13px;border-radius:10px;border:1px solid #334155;background:#020617;color:#f8fafc;font-size:13.5px;outline:none;" />
+          </div>
+          <div style="margin-bottom:18px;">
+            <label style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:6px;font-weight:600;">Nama Tampilan (Opsional)</label>
+            <input type="text" id="googleNameInput" placeholder="Trader / Investor" autocomplete="name"
+              style="width:100%;box-sizing:border-box;padding:10px 13px;border-radius:10px;border:1px solid #334155;background:#020617;color:#f8fafc;font-size:13px;outline:none;" />
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" id="btnCancelGoogleModal"
+              style="padding:10px 15px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12.5px;font-weight:600;cursor:pointer;">
+              Batal
+            </button>
+            <button type="button" id="btnSubmitGoogleEmail"
+              style="padding:10px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#ffffff;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(14,165,233,0.35);">
+              Lanjutkan & Masuk
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    return modal;
+  }
+  window.openGoogleAuthModal = function () {
+    const modal = ensureGoogleModalDOM();
+    setLayerVisible(modal, true, 'flex');
+    const inp = document.getElementById('googleEmailInput');
+    if (inp) setTimeout(() => inp.focus(), 40);
+  };
+  window.closeGoogleAuthModal = function () {
+    const modal = document.getElementById('googleAuthModal');
+    if (modal) setLayerVisible(modal, false);
+  };
+  window.submitGoogleLoginNow = function () {
+    const emailInput = document.getElementById('googleEmailInput');
+    const nameInput = document.getElementById('googleNameInput');
+    const rawEmail = ((emailInput && emailInput.value) || '').trim().toLowerCase();
+    const rawName = ((nameInput && nameInput.value) || '').trim();
+    if (!rawEmail || !rawEmail.includes('@') || !rawEmail.includes('.')) {
+      alert('Masukkan alamat email Google yang valid (contoh: nama@gmail.com).');
+      if (emailInput) emailInput.focus();
+      return;
+    }
+    const ownerList = typeof OWNER_EMAILS !== 'undefined' ? OWNER_EMAILS : ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com'];
+    const isOwner = ownerList.includes(rawEmail);
+    let tier = isOwner ? 'OWNER' : 'FREE';
+    let vipExp = null;
+    if (!isOwner && state.user && state.user.email === rawEmail && state.user.tier === 'VIP') {
+      if (state.user.vipExpiresAt && new Date(state.user.vipExpiresAt).getTime() > Date.now()) {
+        tier = 'VIP';
+        vipExp = state.user.vipExpiresAt;
+      }
+    }
+    state.user = {
+      email: rawEmail,
+      name: rawName || rawEmail.split('@')[0],
+      tier: tier,
+      vipExpiresAt: vipExp,
+      loginAt: new Date().toISOString()
+    };
+    if (typeof saveSession === 'function') saveSession();
+    if (typeof updateAuthUI === 'function') updateAuthUI();
+    window.closeGoogleAuthModal();
+    window.showScreen('workspace');
+    if (typeof runFullAnalysis === 'function') runFullAnalysis(true);
+  };
+  window.enterGuestWorkspace = function () {
+    if (!state.user) {
+      state.user = { email: '', name: 'Tamu (Pratinjau)', tier: 'GUEST' };
+    }
+    if (typeof updateAuthUI === 'function') updateAuthUI();
+    window.showScreen('workspace');
+    if (typeof runFullAnalysis === 'function') runFullAnalysis(false);
+  };
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('button, a, [role="button"]');
+    if (!btn) return;
+    const id = (btn.id || '').trim();
+    const txt = (btn.textContent || '').trim().toLowerCase();
+    if (id === 'btnSubmitGoogleEmail') {
+      e.preventDefault();
+      e.stopPropagation();
+      window.submitGoogleLoginNow();
+      return;
+    }
+    if (id === 'btnCloseGoogleModal' || id === 'btnCancelGoogleModal') {
+      e.preventDefault();
+      e.stopPropagation();
+      window.closeGoogleAuthModal();
+      return;
+    }
+    const inFront = btn.closest('#frontLandingScreen');
+    if (inFront || id === 'btnHeroLoginGate' || id === 'btnNavLoginGate' || id === 'btnFrontToLogin' || id === 'btnEnterLoginGate') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (txt.includes('pratinjau') || txt.includes('tamu') || txt.includes('preview')) {
+        window.enterGuestWorkspace();
+      } else {
+        window.showScreen('login');
+      }
+      return;
+    }
+    const inLoginGate = btn.closest('#loginGateScreen');
+    if (inLoginGate) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (id === 'btnBackToLanding' || id === 'btnBackToFront' || txt.includes('kembali') || txt.includes('beranda')) {
+        window.showScreen('front');
+        return;
+      }
+      if (id === 'btnInstantPreview' || id === 'btnGuestPreview' || txt.includes('pratinjau') || txt.includes('tamu') || txt.includes('preview')) {
+        window.enterGuestWorkspace();
+        return;
+      }
+      window.openGoogleAuthModal();
+      return;
+    }
+    if (id === 'btnTriggerGooglePopup' || id === 'btnGoogleSignIn' || id === 'btnGoogleLogin') {
+      e.preventDefault();
+      e.stopPropagation();
+      window.openGoogleAuthModal();
+      return;
+    }
+    if (id === 'btnInstantPreview' || id === 'btnGuestPreview') {
+      e.preventDefault();
+      e.stopPropagation();
+      window.enterGuestWorkspace();
+      return;
+    }
+    if (id === 'btnBackToLanding' || id === 'btnBackToFront') {
+      e.preventDefault();
+      e.stopPropagation();
+      window.showScreen('front');
+      return;
+    }
+    if (id === 'btnUserSession') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!state.user || state.user.tier === 'GUEST' || !state.user.email) {
+        window.showScreen('login');
+        return;
+      }
+      const dd = document.getElementById('userProfileDropdown');
+      if (dd) {
+        const isHidden = dd.classList.contains('hidden') || dd.style.display === 'none';
+        setLayerVisible(dd, isHidden, 'block');
+      }
+      return;
+    }
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target && (e.target.id === 'googleEmailInput' || e.target.id === 'googleNameInput')) {
+      e.preventDefault();
+      window.submitGoogleLoginNow();
+    }
+  });
+  function syncInitialScreen() {
+    ensureGoogleModalDOM();
+    let savedScreen = null;
+    try { savedScreen = sessionStorage.getItem('xstarzg_screen_v24'); } catch (e) {}
+    if (savedScreen === 'workspace' || (state.user && state.user.email)) {
+      window.showScreen('workspace');
+    } else if (savedScreen === 'login') {
+      window.showScreen('login');
+    } else {
+      window.showScreen('front');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncInitialScreen);
+  } else {
+    setTimeout(syncInitialScreen, 20);
+  }
+})();
