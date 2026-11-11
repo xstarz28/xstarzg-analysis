@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
   const OWNER_EMAILS = ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com'];
   const OWNER_WALLET_BSC = '0xB2Da154e6619A57A2B839D7845920e55Bc58A12C';
