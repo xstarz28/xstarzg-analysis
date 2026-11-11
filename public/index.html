@@ -1,1164 +1,157 @@
 ﻿<!DOCTYPE html>
-<html lang="id" class="dark">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-  <title>XSTARZG Analysis &#x2014; Institutional Quantitative &amp; Smart Money Market Terminal (2026)</title>
-  <meta name="description" content="Platform Analisis Pasar Multi-Aset Real-Time: Crypto, Forex, Emas, Saham IDX &amp; Wall Street dengan 11 Pilar Konfluensi Teknikal, Smart Money ICT/SMC, dan Walk-Forward Backtest." />
-  <meta name="theme-color" content="#060911" />
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2026.16" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=2026.25" />
-  <style id="xstarzg-core-lock">
-:root {
-  --bg-main: #060911;
-  --bg-panel: #0b101d;
-  --bg-card: #101729;
-  --bg-card-hover: #162038;
-  --bg-glass: rgba(11, 16, 29, 0.88);
-  --border-subtle: rgba(148, 163, 184, 0.14);
-  --border-highlight: rgba(56, 189, 248, 0.4);
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #64748b;
-  --accent-cyan: #38bdf8;
-  --accent-blue: #3b82f6;
-  --accent-indigo: #6366f1;
-  --accent-gold: #f59e0b;
-  --bull-green: #10b981;
-  --bull-bg: rgba(16, 185, 129, 0.14);
-  --bear-red: #f43f5e;
-  --bear-bg: rgba(244, 63, 94, 0.14);
-  --neutral-amber: #f59e0b;
-  --neutral-bg: rgba(245, 158, 11, 0.14);
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-}
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-html, body {
-  background-color: var(--bg-main) !important;
-  color: var(--text-primary) !important;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.55;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-}
-a { color: var(--accent-cyan); text-decoration: none; }
-button, input, select { font-family: inherit; }
-.hidden { display: none !important; }
-/* LOCKED LOGO SIZING */
-.brand-logo-svg {
-  height: 36px !important;
-  width: auto !important;
-  max-width: 140px !important;
-  display: block;
-  object-fit: contain;
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 8px rgba(56, 189, 248, 0.22));
-}
-.login-gate-logo {
-  height: 46px !important;
-  width: auto !important;
-  max-width: 175px !important;
-  margin: 0 auto 14px !important;
-  display: block;
-}
-/* =========================================================
-   STAGE 1: FRONT OVERVIEW DASHBOARD
-   ========================================================= */
-.front-landing-screen {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.12), transparent 42%),
-    radial-gradient(circle at 85% 15%, rgba(99, 102, 241, 0.12), transparent 45%),
-    linear-gradient(180deg, #050811 0%, #090e1a 55%, #060911 100%);
-  padding-bottom: 64px;
-}
-.front-landing-nav {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 18px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: rgba(6, 9, 17, 0.85);
-  backdrop-filter: blur(12px);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.front-brand-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.front-brand-title {
-  font-weight: 800;
-  font-size: 15px;
-  letter-spacing: 0.06em;
-  color: #fff;
-}
-.front-brand-sub {
-  font-size: 11px;
-  color: var(--accent-cyan);
-  font-family: var(--font-mono);
-}
-.front-nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.btn-front-login {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  color: #fff;
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  padding: 10px 18px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
-}
-.btn-front-login:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.1);
-}
-.front-hero {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 52px 24px 36px;
-  text-align: center;
-}
-.front-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: var(--accent-cyan);
-  font-size: 12px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-.front-hero h1 {
-  font-size: clamp(26px, 4.2vw, 46px);
-  font-weight: 800;
-  line-height: 1.18;
-  letter-spacing: -0.02em;
-  color: #ffffff;
-  max-width: 920px;
-  margin: 0 auto 18px;
-}
-.front-hero-lead {
-  font-size: clamp(14px, 1.8vw, 17px);
-  color: var(--text-secondary);
-  max-width: 780px;
-  margin: 0 auto 30px;
-  line-height: 1.65;
-}
-.front-cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 42px;
-}
-.btn-hero-primary {
-  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 55%, #4f46e5 100%);
-  color: #fff;
-  border: 1px solid rgba(125, 211, 252, 0.5);
-  padding: 15px 28px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
-  transition: all 0.2s ease;
-}
-.btn-hero-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 36px rgba(56, 189, 248, 0.45);
-}
-.btn-hero-secondary {
-  background: rgba(15, 23, 42, 0.85);
-  color: #e2e8f0;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  padding: 15px 24px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-hero-secondary:hover {
-  border-color: var(--accent-cyan);
-  color: #fff;
-  background: rgba(30, 41, 59, 0.9);
-}
-.front-stats-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
-  max-width: 1120px;
-  margin: 0 auto 44px;
-  padding: 0 20px;
-}
-.front-stat-box {
-  background: rgba(16, 23, 41, 0.82);
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  padding: 18px;
-  text-align: left;
-}
-.front-stat-val {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--accent-cyan);
-  font-family: var(--font-mono);
-  margin-bottom: 4px;
-}
-.front-stat-lbl {
-  font-size: 12.5px;
-  color: var(--text-secondary);
-}
-.front-section-wrap {
-  max-width: 1180px;
-  margin: 0 auto 44px;
-  padding: 0 24px;
-}
-.front-section-head {
-  text-align: center;
-  margin-bottom: 26px;
-}
-.front-section-head h2 {
-  font-size: clamp(20px, 2.8vw, 28px);
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 8px;
-}
-.front-section-head p {
-  color: var(--text-secondary);
-  font-size: 14px;
-  max-width: 680px;
-  margin: 0 auto;
-}
-.front-feature-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 18px;
-}
-.front-feature-card {
-  background: linear-gradient(180deg, rgba(16, 23, 41, 0.92), rgba(11, 16, 29, 0.92));
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  padding: 22px;
-  transition: border-color 0.2s ease, transform 0.2s ease;
-}
-.front-feature-card:hover {
-  border-color: rgba(56, 189, 248, 0.45);
-  transform: translateY(-2px);
-}
-.front-feature-icon {
-  font-size: 24px;
-  margin-bottom: 12px;
-}
-.front-feature-card h3 {
-  font-size: 16px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 8px;
-}
-.front-feature-card p {
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-.front-dual-mode-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
-  gap: 20px;
-}
-.front-mode-box {
-  background: rgba(16, 23, 41, 0.9);
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  padding: 24px;
-}
-.front-mode-box.trader { border-top: 3px solid var(--accent-cyan); }
-.front-mode-box.investor { border-top: 3px solid var(--bull-green); }
-.front-mode-tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  padding: 4px 10px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-}
-.front-mode-box.trader .front-mode-tag {
-  background: rgba(56, 189, 248, 0.14);
-  color: var(--accent-cyan);
-}
-.front-mode-box.investor .front-mode-tag {
-  background: rgba(16, 185, 129, 0.14);
-  color: var(--bull-green);
-}
-.front-mode-box h3 {
-  font-size: 18px;
-  font-weight: 800;
-  margin-bottom: 10px;
-  color: #fff;
-}
-.front-mode-list {
-  list-style: none;
-  margin-top: 12px;
-  display: grid;
-  gap: 8px;
-}
-.front-mode-list li {
-  font-size: 13px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-.front-bottom-banner {
-  max-width: 1020px;
-  margin: 20px auto 0;
-  padding: 30px 24px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(79, 70, 229, 0.16));
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  text-align: center;
-}
-/* =========================================================
-   STAGE 2: LOGIN GATE SCREEN
-   ========================================================= */
-.login-gate-screen {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-  background:
-    radial-gradient(circle at 50% 15%, rgba(56, 189, 248, 0.14), transparent 50%),
-    #060911;
-}
-.login-gate-card {
-  width: 100%;
-  max-width: 470px;
-  background: linear-gradient(180deg, #0f172a 0%, #0b101d 100%);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 20px;
-  padding: 32px 26px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
-  text-align: center;
-}
-.login-gate-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: rgba(56, 189, 248, 0.12);
-  color: var(--accent-cyan);
-  font-size: 11px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  margin-bottom: 10px;
-}
-.login-gate-card h2 {
-  font-size: 22px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 8px;
-}
-.login-gate-desc {
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  margin-bottom: 20px;
-}
-.login-benefits-box {
-  background: rgba(6, 9, 17, 0.65);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 14px 16px;
-  text-align: left;
-  margin-bottom: 20px;
-  display: grid;
-  gap: 8px;
-  font-size: 12.5px;
-  color: var(--text-secondary);
-}
-.google-signin-box {
-  min-height: 54px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.btn-google-auth {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 13px 18px;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #0f172a;
-  font-weight: 800;
-  font-size: 14px;
-  border: 1px solid #e2e8f0;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  transition: all 0.2s ease;
-}
-.btn-google-auth:hover {
-  background: #f8fafc;
-  transform: translateY(-1px);
-}
-.login-divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-muted);
-  font-size: 11px;
-  margin: 14px 0;
-}
-.login-divider::before,
-.login-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border-subtle);
-}
-.btn-guest-enter {
-  width: 100%;
-  padding: 13px 18px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  color: #fff;
-  font-weight: 800;
-  font-size: 14px;
-  border: 1px solid rgba(125, 211, 252, 0.4);
-  cursor: pointer;
-  margin-bottom: 12px;
-  transition: all 0.2s ease;
-}
-.btn-guest-enter:hover {
-  filter: brightness(1.08);
-}
-.btn-back-front {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 12.5px;
-  cursor: pointer;
-  text-decoration: underline;
-}
-/* =========================================================
-   STAGE 3: MAIN ANALYSIS TERMINAL
-   ========================================================= */
-.app-workspace-wrapper {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-main);
-}
-.top-header {
-  background: rgba(11, 16, 29, 0.95);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 12px 20px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  position: sticky;
-  top: 0;
-  z-index: 90;
-  backdrop-filter: blur(12px);
-}
-.brand-cluster {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.brand-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.brand-name {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #fff;
-}
-.brand-badge {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  padding: 2px 7px;
-  border-radius: 5px;
-  background: rgba(56, 189, 248, 0.14);
-  color: var(--accent-cyan);
-  font-weight: 700;
-}
-.brand-subtitle {
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-.mode-switch-bar {
-  display: flex;
-  background: #060911;
-  padding: 4px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  gap: 4px;
-}
-.mode-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.mode-btn.active {
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
-}
-.header-right-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  position: relative;
-}
-.btn-vip-upgrade {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #060911;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 9px;
-  font-weight: 800;
-  font-size: 12px;
-  cursor: pointer;
-}
-.btn-user-session {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  padding: 8px 13px;
-  border-radius: 9px;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.user-profile-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 290px;
-  background: #0f172a;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
-  z-index: 200;
-}
-.upd-header {
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 10px;
-  margin-bottom: 12px;
-}
-.upd-name { font-weight: 800; color: #fff; font-size: 14px; }
-.upd-email { font-size: 12px; color: var(--text-secondary); word-break: break-all; }
-.upd-role {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 10.5px;
-  font-family: var(--font-mono);
-  padding: 2px 8px;
-  border-radius: 5px;
-  background: rgba(56, 189, 248, 0.14);
-  color: var(--accent-cyan);
-  font-weight: 700;
-}
-.upd-actions {
-  display: grid;
-  gap: 8px;
-}
-.upd-btn {
-  width: 100%;
-  text-align: left;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.upd-btn:hover {
-  border-color: var(--accent-cyan);
-  background: rgba(56, 189, 248, 0.1);
-}
-/* CONTROL BAR */
-.control-bar {
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 12px 20px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.asset-selector-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-.ctrl-select, .ctrl-input {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  padding: 9px 12px;
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 600;
-  outline: none;
-}
-.ctrl-select:focus, .ctrl-input:focus {
-  border-color: var(--accent-cyan);
-}
-.timeframe-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  background: #060911;
-  padding: 4px;
-  border-radius: 9px;
-  border: 1px solid var(--border-subtle);
-}
-.tf-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  cursor: pointer;
-}
-.tf-btn.active {
-  background: var(--accent-cyan);
-  color: #060911;
-}
-.btn-refresh {
-  background: rgba(56, 189, 248, 0.14);
-  color: var(--accent-cyan);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  padding: 8px 14px;
-  border-radius: 9px;
-  font-weight: 700;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-/* OPPORTUNITY RADAR */
-.radar-section {
-  max-width: 1440px;
-  width: 100%;
-  margin: 16px auto 0;
-  padding: 0 20px;
-}
-.radar-panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  padding: 16px;
-}
-.radar-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.radar-title-wrap h3 {
-  font-size: 14.5px;
-  font-weight: 800;
-  color: #fff;
-}
-.radar-title-wrap p {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.radar-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.radar-tab-btn {
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.radar-tab-btn.active {
-  background: rgba(56, 189, 248, 0.16);
-  color: var(--accent-cyan);
-  border-color: var(--accent-cyan);
-}
-.top-signals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-}
-.signal-mini-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 12px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-.signal-mini-card:hover {
-  border-color: var(--accent-cyan);
-  transform: translateY(-2px);
-}
-/* MAIN GRID */
-.workspace-grid {
-  max-width: 1440px;
-  width: 100%;
-  margin: 16px auto 40px;
-  padding: 0 20px;
-  display: grid;
-  grid-template-columns: 1.55fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 1080px) {
-  .workspace-grid {
-    grid-template-columns: 1fr;
-  }
-}
-.panel-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  padding: 18px;
-  margin-bottom: 16px;
-}
-.chart-header-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.instrument-title-block h2 {
-  font-size: 20px;
-  font-weight: 800;
-  color: #fff;
-}
-.price-hero-block {
-  text-align: right;
-}
-.live-price-big {
-  font-size: 24px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  color: #fff;
-}
-.tv-chart-container {
-  width: 100%;
-  height: 430px;
-  background: #070b14;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-}
-.chart-legend-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
-  font-size: 11.5px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-}
-.decision-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-radius: 12px;
-  margin-bottom: 14px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-card);
-}
-.decision-banner.bullish {
-  background: var(--bull-bg);
-  border-color: rgba(16, 185, 129, 0.4);
-}
-.decision-banner.bearish {
-  background: var(--bear-bg);
-  border-color: rgba(244, 63, 94, 0.4);
-}
-.decision-action-text {
-  font-size: 19px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-}
-.levels-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.level-box {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 11px 12px;
-}
-.level-box .lbl {
-  font-size: 11px;
-  color: var(--text-secondary);
-  display: block;
-}
-.level-box .val {
-  font-size: 14.5px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  color: #fff;
-}
-.pillars-list {
-  display: grid;
-  gap: 8px;
-}
-.pillar-item {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.badge-signal {
-  font-size: 11px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  padding: 3px 8px;
-  border-radius: 6px;
-}
-.badge-signal.bull { background: var(--bull-bg); color: var(--bull-green); }
-.badge-signal.bear { background: var(--bear-bg); color: var(--bear-red); }
-.badge-signal.neutral { background: var(--neutral-bg); color: var(--neutral-amber); }
-/* MODAL VIP */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(3, 6, 12, 0.82);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 300;
-}
-.modal-card {
-  background: #0f172a;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 18px;
-  max-width: 520px;
-  width: 100%;
-  padding: 24px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-.wallet-box {
-  background: #060911;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  word-break: break-all;
-  color: var(--accent-cyan);
-  margin: 8px 0;
-}
-@media (max-width: 640px) {
-  .front-landing-nav { padding: 14px 16px; }
-  .front-hero { padding: 34px 16px 24px; }
-  .tv-chart-container { height: 340px; }
-  .levels-grid { grid-template-columns: 1fr; }
-}
-  </style>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSTARZG Analysis — Institutional Multi-Asset Quantitative & Smart Money Terminal (2026)</title>
+  <link rel="stylesheet" href="/styles.css?v=2026.26" />
+  <script src="/vendor/lightweight-charts.js"></script>
 </head>
 <body>
-  <!-- =================================================================
-       STAGE 1: FRONT OVERVIEW DASHBOARD (PUBLIC LANDING)
-       ================================================================= -->
-  <section id="frontLandingScreen" class="front-landing-screen">
-    <nav class="front-landing-nav">
-      <div class="front-brand-wrap">
-        <img src="/assets/logo.svg?v=2026.16" alt="XSTARZG" class="brand-logo-svg" width="128" height="36" />
-        <div>
-          <div class="front-brand-title">XSTARZG ANALYSIS</div>
-          <div class="front-brand-sub">QUANTITATIVE &amp; SMART MONEY ENGINE</div>
-        </div>
+  <!-- ================= STAGE 1: FRONT OVERVIEW SCREEN ================= -->
+  <section id="frontLandingScreen" class="front-screen">
+    <nav class="front-navbar">
+      <div class="brand-wrap">
+        <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" onerror="this.style.display='none'" />
+        <span class="brand-tag">INSTITUTIONAL QUANT TERMINAL 2026</span>
       </div>
-      <div class="front-nav-actions">
-        <button id="btnLandingHeaderLogin" type="button" class="btn-front-login" onclick="window.xstarzgShowStage && window.xstarzgShowStage('login')">&#x1F510; Masuk / Login Akun</button>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button type="button" id="btnNavLoginGate" class="btn-primary-glow" style="padding:9px 18px;font-size:13px;">
+          🔐 Masuk / Login Terminal
+        </button>
       </div>
     </nav>
     <div class="front-hero">
-      <div class="front-hero-badge">
-        <span>&#x26A1; TERMINAL ANALISIS MULTI-ASET REAL-TIME &#x2022; EDISI 2026</span>
-      </div>
-      <h1>Tak Perlu Lagi Bingung Menebak Arah Pasar.<br/>Semua Titik Beli, Jual, &amp; Manajemen Risiko Dihitung Otomatis Secara Real-Time.</h1>
-      <p class="front-hero-lead">
-        Pernah merasa ragu kapan harus masuk pasar, takut beli di pucuk, atau bingung menentukan titik Stop Loss dan Take Profit?
-        <strong>XSTARZG Analysis</strong> membaca struktur harga institusi (Smart Money), likuiditas, serta 11 indikator teknikal &amp; makro secara bersamaan agar Anda bisa mengambil keputusan dengan tenang, terukur, dan objektif.
+      <div class="hero-pill">⚡ REAL-TIME MULTI-ASSET QUANTITATIVE & SMART MONEY ENGINE</div>
+      <h1>Presisi Analisis Kuantitatif, Smart Money Concepts & Valuasi Investor dalam Satu Terminal</h1>
+      <p>
+        Pantau 1.600+ instrumen global (Emas Spot XAU/USD, Emas Fisik IDR, 28 Pair Forex, 40 Saham IDX Indonesia,
+        23 Saham Wall Street AS, Komoditas Dunia, dan 1.500+ Crypto Spot) dengan kuotasi broker real-time,
+        18 Pilar Konfluensi, serta proteksi Stop Loss struktural anti-Stop Hunt.
       </p>
-      <div class="front-cta-row">
-        <button id="btnHeroOpenLogin" type="button" class="btn-hero-primary" onclick="window.xstarzgShowStage && window.xstarzgShowStage('login')">
-          &#x1F680; Masuk / Login ke Dashboard Analisis
+      <div class="hero-cta-row">
+        <button type="button" id="btnHeroLoginGate" class="btn-primary-glow">
+          🚀 Masuk & Mulai Analisis Sekarang
         </button>
-        <button id="btnHeroInstantPreview" type="button" class="btn-hero-secondary" onclick="window.xstarzgEnterDashboard && window.xstarzgEnterDashboard()">
-          &#x1F4CA; Buka Langsung Terminal Analisis (Mode Pratinjau)
+        <button type="button" id="btnHeroPreview" class="btn-secondary-outline">
+          👁️ Lihat Pratinjau Terminal (Mode Tamu)
         </button>
       </div>
     </div>
-    <div class="front-stats-strip">
-      <div class="front-stat-box">
-        <div class="front-stat-val">1.600+ Aset Dunia</div>
-        <div class="front-stat-lbl">Ribuan Crypto Spot, 28 Pasang Forex, Emas Dunia &amp; Rupiah, Saham IDX Indonesia, Saham AS, &amp; Komoditas.</div>
+    <div class="front-features-grid">
+      <div class="feature-card">
+        <h3>📊 18-Pillar High-IQ Confluence</h3>
+        <p>Menggabungkan 12 Pilar Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, BSL/SSL Sweep) dan 6 Pilar Makro/Fundamental.</p>
       </div>
-      <div class="front-stat-box">
-        <div class="front-stat-val">Real-Time Presisi</div>
-        <div class="front-stat-lbl">Candlestick bergerak langsung mengikuti detak transaksi pasar global dengan hitung mundur penutupan bar otomatis.</div>
+      <div class="feature-card">
+        <h3>🔒 Locked Sniper Setup & Anti-Stop Hunt</h3>
+        <p>Harga bergerak real-time setiap detik di grafik tanpa perlu refresh, sedangkan titik Entry, Stop Loss Struktural, serta TP1/TP2/TP3 terkunci stabil selama periode candle aktif.</p>
       </div>
-      <div class="front-stat-box">
-        <div class="front-stat-val">11 Pilar Konfluensi</div>
-        <div class="front-stat-lbl">Gabungan indikator klasik (EMA, RSI, MACD, Bollinger, Pivot) &amp; metode modern (SMC, FVG, Order Flow, TPO, Volume Profile).</div>
+      <div class="feature-card">
+        <h3>⚡ Trader Mode & 🏛️ Spot Investor Mode</h3>
+        <p>Pemisahan ruang kerja khusus untuk Trader Futures 2-Arah (beserta kalkulator likuidasi & ukuran posisi), Trader Spot 1-Arah, serta Investor DCA Jangka Panjang.</p>
       </div>
-      <div class="front-stat-box">
-        <div class="front-stat-val">10 Timeframe Penuh</div>
-        <div class="front-stat-lbl">Terbuka lengkap mulai dari M1, M5, M15, M30, H1, H4, D1, W1, MN hingga 1Y tanpa dikunci.</div>
-      </div>
-    </div>
-    <div class="front-section-wrap">
-      <div class="front-section-head">
-        <h2>Kenapa Trader &amp; Investor Memilih XSTARZG Analysis?</h2>
-        <p>Dirancang dengan bahasa yang jelas dan manusiawi&#x2014;bukan sekadar grafik kosong yang membuat Anda harus menghitung sendiri.</p>
-      </div>
-      <div class="front-feature-grid">
-        <div class="front-feature-card">
-          <div class="front-feature-icon">&#x1F3AF;</div>
-          <h3>1. Sinyal &amp; Rencana Eksekusi Siap Pakai</h3>
-          <p>Setiap kali Anda memilih aset atau mengganti timeframe, sistem langsung menghitung zona <strong>Entry</strong>, batas aman <strong>Stop Loss (SL)</strong>, serta target bertahap <strong>TP1, TP2, dan TP3</strong> lengkap dengan rasio Risk:Reward.</p>
-        </div>
-        <div class="front-feature-card">
-          <div class="front-feature-icon">&#x1F4C8;</div>
-          <h3>2. Chart Institusional Presisi Tinggi + Real-Time</h3>
-          <p>Grafik candlestick interaktif yang menampilkan garis EMA 20/50/200, VWAP, serta garis target Entry/TP/SL langsung di atas layar beserta hitung mundur pergantian candle setiap detik.</p>
-        </div>
-        <div class="front-feature-card">
-          <div class="front-feature-icon">&#x1F9E0;</div>
-          <h3>3. Deteksi Jejak Institusi (Smart Money &amp; COT)</h3>
-          <p>Melacak area <em>Break of Structure (BOS)</em>, <em>Change of Character (CHoCH)</em>, <em>Fair Value Gap (FVG)</em>, sapuan likuiditas (BSL/SSL), hingga posisi dana besar <em>CFTC Commitment of Traders</em>.</p>
-        </div>
-        <div class="front-feature-card">
-          <div class="front-feature-icon">&#x26A1;</div>
-          <h3>4. Opportunity Radar Berbasis Timeframe</h3>
-          <p>Tak punya waktu memeriksa ribuan koin atau saham satu per satu? Radar otomatis memindai peluang terbaik khusus untuk <strong>Scalping (M5)</strong>, <strong>Intraday (H1)</strong>, maupun <strong>Swing (H4)</strong> secara spesifik.</p>
-        </div>
-        <div class="front-feature-card">
-          <div class="front-feature-icon">&#x1F52C;</div>
-          <h3>5. Teruji Walk-Forward Backtest Nyata</h3>
-          <p>Setiap strategi diuji langsung terhadap riwayat candle pasar sesungguhnya untuk menampilkan Win Rate, Profit Factor, Expectancy, dan Maximum Drawdown secara transparan.</p>
-        </div>
-        <div class="front-feature-card">
-          <div class="front-feature-icon">&#x1F6E1;&#xFE0F;</div>
-          <h3>6. Kalkulator Ukuran Posisi &amp; Risiko Otomatis</h3>
-          <p>Cukup masukkan modal dan persentase risiko per transaksi, sistem otomatis menghitung berapa ukuran lot atau unit yang aman agar modal Anda terlindungi dari kerugian besar.</p>
-        </div>
-      </div>
-    </div>
-    <div class="front-section-wrap">
-      <div class="front-section-head">
-        <h2>2 Mode Kerja yang Dipisahkan Secara Tegas</h2>
-        <p>Sesuaikan tampilan dan mesin analisis dengan gaya Anda: Trading Aktif 2-Arah atau Investasi Spot Jangka Panjang.</p>
-      </div>
-      <div class="front-dual-mode-grid">
-        <div class="front-mode-box trader">
-          <span class="front-mode-tag">MODE 1 &#x2022; TRADER AKTIF (2-ARAH)</span>
-          <h3>Untuk Scalper, Day Trader, &amp; Swing Trader</h3>
-          <p style="color:var(--text-secondary);font-size:13.5px;">Cocok bagi Anda yang mencari peluang harian baik saat pasar naik (<strong>LONG / BUY</strong>) maupun saat pasar turun (<strong>SHORT / SELL</strong>).</p>
-          <ul class="front-mode-list">
-            <li>&#x2705; Sinyal 2-Arah (LONG &amp; SHORT) dengan pemicu harga presisi.</li>
-            <li>&#x2705; Target TP1 (1.5R), TP2 (2.5R), TP3 (4.0R) &amp; Stop Loss berbasis volatilitas ATR.</li>
-            <li>&#x2705; Radar Peluang khusus Scalping (M5), Intraday (H1), dan Swing (H4).</li>
-          </ul>
-        </div>
-        <div class="front-mode-box investor">
-          <span class="front-mode-tag">MODE 2 &#x2022; SPOT INVESTOR (AKUMULASI)</span>
-          <h3>Untuk Investor Saham, Emas Fisik, &amp; Crypto Spot</h3>
-          <p style="color:var(--text-secondary);font-size:13.5px;">Khusus pembelian aset dasar tanpa leverage/margin dan tanpa sinyal short. Fokus pada nilai wajar dan akumulasi bertahap.</p>
-          <ul class="front-mode-list">
-            <li>&#x2705; Perhitungan <strong>Nilai Wajar (Intrinsic Fair Value)</strong> &amp; Margin of Safety (%).</li>
-            <li>&#x2705; Zona Akumulasi DCA 3 Tahap (40% / 35% / 25%) beserta estimasi harga rata-rata.</li>
-            <li>&#x2705; Deteksi Siklus Wyckoff, Profil Dividen/Yield, &amp; Target Jangka Menengah-Panjang.</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-    <div class="front-section-wrap">
-      <div class="front-bottom-banner">
-        <h2 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Siap Melihat Peta Pasar Hari Ini dengan Jelas?</h2>
-        <p style="color:var(--text-secondary);max-width:640px;margin:0 auto 20px;">Masuk dengan akun Google Anda untuk menyinkronkan akses, atau langsung buka terminal analisis sekarang juga.</p>
-        <div class="front-cta-row" style="margin-bottom:0;">
-          <button id="btnBottomOpenLogin" type="button" class="btn-hero-primary" onclick="window.xstarzgShowStage && window.xstarzgShowStage('login')">&#x1F510; Login / Masuk Sekarang</button>
-          <button id="btnBottomInstantTerminal" type="button" class="btn-hero-secondary" onclick="window.xstarzgEnterDashboard && window.xstarzgEnterDashboard()">&#x26A1; Buka Terminal Tanpa Menunggu</button>
-        </div>
+      <div class="feature-card">
+        <h3>✅ Terverifikasi Real Walk-Forward</h3>
+        <p>Setiap sinyal diuji langsung pada 220+ bar historis riil instrumen terkait untuk menampilkan Win Rate, Profit Factor, dan Maximum Drawdown secara transparan.</p>
       </div>
     </div>
   </section>
-  <!-- =================================================================
-       STAGE 2: DEDICATED LOGIN GATE SCREEN
-       ================================================================= -->
-  <section id="loginGateScreen" class="login-gate-screen hidden">
-    <div class="login-gate-card">
-      <img src="/assets/logo.svg?v=2026.16" alt="XSTARZG" class="login-gate-logo" width="160" height="46" />
-      <span class="login-gate-badge">PORTAL AKSES RESMI &#x2022; 2026</span>
-      <h2>Masuk ke XSTARZG Analysis</h2>
-      <p class="login-gate-desc">
-        Gunakan akun Google Anda untuk menyimpan sesi analisis, mengaktifkan sinkronisasi profil, atau membuka akses penuh VIP / Owner Admin.
-      </p>
-      <div class="login-benefits-box">
-        <div>&#x2705; <strong>Harga Real-Time Akurat</strong> sesuai detak pasar global + hitung mundur candle.</div>
-        <div>&#x2705; <strong>1.600+ Aset Lengkap</strong> (Crypto, Forex, Emas, Saham IDX &amp; US, Komoditas).</div>
-        <div>&#x2705; <strong>11 Pilar Teknikal + Smart Money</strong> &amp; Radar Multi-Timeframe.</div>
+  <!-- ================= STAGE 2: LOGIN GATE SCREEN ================= -->
+  <section id="loginGateScreen" class="login-screen hidden">
+    <div class="login-card">
+      <div style="display:flex;justify-content:center;">
+        <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" onerror="this.style.display='none'" />
       </div>
-      <!-- ALWAYS-VISIBLE GOOGLE LOGIN CONTAINER -->
-      <div id="googleSignInContainer" class="google-signin-box">
-        <button id="btnFallbackGoogleLogin" type="button" class="btn-google-auth" onclick="window.xstarzgGooglePrompt && window.xstarzgGooglePrompt()">
-          <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          <span>Login / Masuk dengan Akun Google</span>
-        </button>
-      </div>
-      <div class="login-divider">ATAU MASUK CEPAT</div>
-      <button id="btnGuestEnterTerminal" type="button" class="btn-guest-enter" onclick="window.xstarzgEnterDashboard && window.xstarzgEnterDashboard()">
-        &#x26A1; Lanjut Masuk ke Terminal Analisis Sekarang
+      <h2>Otentikasi Akses Terminal</h2>
+      <p>Masuk menggunakan akun Google Anda untuk mengaktifkan sesi analisis personal dan kuota instrumen gratis.</p>
+      <button type="button" id="btnTriggerGooglePopup" class="btn-google-auth">
+        <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;background:#0284c7;color:#fff;align-items:center;justify-content:center;font-weight:900;font-size:13px;">G</span>
+        <span>Lanjutkan dengan Akun Google</span>
       </button>
-      <button id="btnLoginBackToFront" type="button" class="btn-back-front" onclick="window.xstarzgShowStage && window.xstarzgShowStage('front')">
-        &#x2190; Kembali ke Halaman Penjelasan Depan
+      <button type="button" id="btnInstantPreview" class="btn-guest-preview">
+        👁️ Pratinjau Instan (Mode Tamu — Hanya Lihat)
+      </button>
+      <div class="login-tier-notes">
+        <div style="margin-bottom:4px;"><strong style="color:#f8fafc;">• Mode Tamu:</strong> Hanya melihat pratinjau awal (klik instrumen lain memerlukan Login).</div>
+        <div style="margin-bottom:4px;"><strong style="color:#38bdf8;">• Akun Google Gratis:</strong> Bebas menganalisis hingga <strong>2 instrumen</strong> pilihan penuh.</div>
+        <div><strong style="color:#10b981;">• Member VIP ($29 USDT / 30 Hari):</strong> Akses tanpa batas ke seluruh 1.600+ instrumen & 10 timeframe.</div>
+      </div>
+      <button type="button" id="btnBackToLanding" class="btn-secondary-outline" style="width:100%;padding:9px;font-size:12.5px;">
+        ← Kembali ke Beranda Utama
       </button>
     </div>
   </section>
-  <!-- =================================================================
-       STAGE 3: MAIN ANALYSIS TERMINAL WORKSPACE
-       ================================================================= -->
-  <div id="appWorkspaceWrapper" class="app-workspace-wrapper hidden">
-    <header class="top-header">
-      <div class="brand-cluster">
-        <img src="/assets/logo.svg?v=2026.16" alt="XSTARZG" class="brand-logo-svg" width="128" height="36" />
-        <div>
-          <div class="brand-title-row">
-            <span class="brand-name">XSTARZG ANALYSIS</span>
-            <span class="brand-badge">PRO TERMINAL 2026</span>
-          </div>
-          <div class="brand-subtitle">Institutional Multi-Asset Quantitative &amp; Smart Money Engine</div>
+  <!-- ================= STAGE 3: MAIN ANALYSIS WORKSPACE ================= -->
+  <div id="appWorkspaceWrapper" class="workspace-wrapper hidden">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="brand-wrap">
+        <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" style="cursor:pointer;" id="btnBrandLogoHome" onerror="this.style.display='none'" />
+        <span class="brand-tag">TERMINAL v2026.26</span>
+      </div>
+      <div class="topbar-modes">
+        <button type="button" id="btnModeTrader" class="mode-btn active">⚡ TRADER MODE</button>
+        <button type="button" id="btnModeInvestor" class="mode-btn">🏛️ SPOT INVESTOR (DCA & VALUASI)</button>
+        <div id="traderSubModeWrap" style="display:flex;gap:6px;margin-left:6px;">
+          <button type="button" id="btnSubFutures" class="submode-btn active">📈 TRADER FUTURES (2-ARAH)</button>
+          <button type="button" id="btnSubSpot" class="submode-btn">🪙 TRADER SPOT (1-ARAH)</button>
         </div>
       </div>
-      <div class="mode-switch-bar" role="tablist">
-        <button id="btnModeTrader" type="button" class="mode-btn active" data-mode="TRADER">
-          &#x26A1; MODE TRADER (2-ARAH)
+      <div class="topbar-right">
+        <button type="button" id="btnOpenVipModal" class="btn-primary-glow" style="padding:7px 13px;font-size:12px;">
+          💎 Upgrade VIP
         </button>
-        <button id="btnModeInvestor" type="button" class="mode-btn" data-mode="INVESTOR">
-          &#x1F3E6; MODE SPOT INVESTOR
+        <button type="button" id="btnUserSession" class="btn-user-session">
+          <span>👤</span>
+          <span id="lblUserName">Tamu</span>
+          <span id="lblUserTierBadge" style="font-size:10.5px;padding:2px 7px;border-radius:99px;background:#475569;color:#fff;">MODE TAMU</span>
         </button>
-      </div>
-      <div class="header-right-controls">
-        <button id="btnOpenVipModal" type="button" class="btn-vip-upgrade">
-          &#x1F451; VIP PRO ( USDT)
+        <button type="button" id="btnDirectLogout" class="btn-direct-logout" title="Keluar Akun / Ganti Akun">
+          🚪 Keluar
         </button>
-        <button id="btnUserSession" type="button" class="btn-user-session">
-          <span>&#x1F464;</span>
-          <span id="lblUserSession">Akun &amp; Login</span>
-          <span>&#x25BE;</span>
-        </button>
-        <!-- INTERACTIVE PROFILE DROPDOWN -->
-        <div id="userProfileDropdown" class="user-profile-dropdown hidden">
-          <div class="upd-header">
-            <div id="updName" class="upd-name">Mode Pratinjau Tamu</div>
-            <div id="updEmail" class="upd-email">Belum terhubung ke Google</div>
-            <span id="updRoleBadge" class="upd-role">PUBLIC PREVIEW</span>
+        <!-- Dropdown Profil User -->
+        <div id="userProfileDropdown" class="profile-dropdown hidden">
+          <div style="font-size:11px;color:#94a3b8;">Akun Terhubung:</div>
+          <div id="ddUserEmail" style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:8px;word-break:break-all;">-</div>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px;">
+            <span style="color:#94a3b8;">Status Lisensi:</span>
+            <strong id="ddUserTier" style="color:#38bdf8;">-</strong>
           </div>
-          <div id="updGoogleButtonBox" style="margin-bottom:10px;"></div>
-          <div class="upd-actions">
-            <button id="btnDropdownGoogleLogin" type="button" class="upd-btn" onclick="window.xstarzgGooglePrompt && window.xstarzgGooglePrompt()">&#x1F510; Login / Ganti Akun Google</button>
-            <button id="btnDropdownOpenVip" type="button" class="upd-btn">&#x1F451; Aktivasi / Status VIP ( USDT)</button>
-            <button id="btnDropdownBackFront" type="button" class="upd-btn" onclick="window.xstarzgShowStage && window.xstarzgShowStage('front')">&#x1F3E0; Lihat Halaman Penjelasan Depan</button>
-            <button id="btnDropdownLogout" type="button" class="upd-btn" style="color:var(--bear-red);">&#x1F6AA; Logout / Keluar Sesi</button>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:12px;">
+            <span style="color:#94a3b8;">Kuota Instrumen:</span>
+            <strong id="ddUserQuota" style="color:#10b981;">-</strong>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button type="button" id="btnOpenVipFromMenu" class="btn-primary-glow" style="width:100%;padding:8px;font-size:12px;">
+              💎 Upgrade VIP Unlimited ($29 USDT)
+            </button>
+            <button type="button" id="btnBackToFrontFromMenu" class="btn-secondary-outline" style="width:100%;padding:8px;font-size:12px;">
+              🏠 Ke Halaman Depan
+            </button>
+            <button type="button" id="btnLogout" class="btn-direct-logout" style="width:100%;padding:8px;font-size:12px;">
+              🚪 Keluar Akun (Logout)
+            </button>
           </div>
         </div>
       </div>
     </header>
-    <!-- INSTRUMENT & TIMEFRAME CONTROL BAR -->
+    <!-- CONTROL BAR -->
     <section class="control-bar">
-      <div class="asset-selector-group">
-        <select id="selCategory" class="ctrl-select" aria-label="Kategori Aset">
-          <option value="ALL">&#x1F310; Semua Kategori (1.600+ Aset)</option>
-          <option value="CRYPTO">&#x20BF; Crypto Spot (1.500+ Pair)</option>
-          <option value="FOREX">&#x1F4B1; Forex Mayor, Cross &amp; Asia (28)</option>
-          <option value="METALS">&#x1F947; Emas &amp; Logam Mulia (XAU/XAG)</option>
-          <option value="STOCKS_ID">&#x1F1EE;&#x1F1E9; Saham Indonesia IDX (40)</option>
-          <option value="STOCKS_US">&#x1F1FA;&#x1F1F8; Saham Wall Street AS (23)</option>
-          <option value="COMMODITIES">&#x1F6E2;&#xFE0F; Energi &amp; Komoditas Global (8)</option>
+      <div class="control-group">
+        <select id="selCategory" class="ctrl-select" title="Filter Kategori Aset">
+          <option value="ALL">🌐 Semua Kategori (1.600+ Aset)</option>
+          <option value="METALS">🥇 Logam Mulia (Gold / Silver / IDR)</option>
+          <option value="FOREX">💱 Forex Mayor & Cross (28 Pair)</option>
+          <option value="IDX">🇮🇩 Saham Indonesia IDX (40 Emiten)</option>
+          <option value="US_STOCKS">🇺🇸 Saham Wall Street AS (23 Emiten)</option>
+          <option value="COMMODITIES">🛢️ Komoditas Energi & Pangan</option>
+          <option value="CRYPTO">₿ Crypto Spot Global (1.500+ Pair)</option>
         </select>
-        <input id="inpAssetSearch" type="search" class="ctrl-input" placeholder="&#x1F50D; Cari simbol / nama (cth: BTC, XAU, EUR, BBCA, NVDA)..." style="min-width:250px;flex:1;" />
-        <select id="selInstrument" class="ctrl-select" aria-label="Pilih Instrumen" style="min-width:250px;"></select>
+        <input type="text" id="inpSearchAsset" class="ctrl-input" placeholder="🔍 Cari simbol / nama (cth: XAU, BBCA, NVDA, BTC)..." style="width:230px;" />
+        <select id="selInstrument" class="ctrl-select" style="min-width:250px;font-weight:700;"></select>
       </div>
-      <div id="timeframeBar" class="timeframe-group" role="group" aria-label="Timeframe">
+      <div class="tf-bar" id="timeframeBar">
         <button type="button" class="tf-btn" data-tf="M1">M1</button>
         <button type="button" class="tf-btn" data-tf="M5">M5</button>
         <button type="button" class="tf-btn" data-tf="M15">M15</button>
@@ -1170,276 +163,258 @@ button, input, select { font-family: inherit; }
         <button type="button" class="tf-btn" data-tf="MN">MN</button>
         <button type="button" class="tf-btn" data-tf="1Y">1Y</button>
       </div>
-      <button id="btnRefreshAnalysis" type="button" class="btn-refresh">&#x21BB; Refresh Data</button>
-    </section>
-    <!-- MULTI-TIMEFRAME OPPORTUNITY RADAR -->
-    <section class="radar-section">
-      <div class="radar-panel">
-        <div class="radar-header">
-          <div class="radar-title-wrap">
-            <h3 id="radarMainTitle">&#x1F4E1; Opportunity Radar &#x2014; Pemindai Sinyal Multi-Timeframe</h3>
-            <p id="radarSubTitle">Menghitung sinyal spesifik sesuai mode &amp; timeframe yang Anda pilih (klik kartu untuk memuat ke chart).</p>
-          </div>
-          <div id="radarTabsContainer" class="radar-tabs">
-            <button type="button" class="radar-tab-btn" data-radar="SCALPING">&#x26A1; Scalping (M5)</button>
-            <button type="button" class="radar-tab-btn active" data-radar="INTRADAY">&#x1F3AF; Intraday (H1)</button>
-            <button type="button" class="radar-tab-btn" data-radar="SWING">&#x1F30A; Swing (H4)</button>
-          </div>
-        </div>
-        <div id="topSignalsGrid" class="top-signals-grid"></div>
+      <div class="overlay-toggles">
+        <label><input type="checkbox" id="chkEMA" checked /> EMA Ribbon</label>
+        <label><input type="checkbox" id="chkVWAP" checked /> VWAP</label>
+        <label><input type="checkbox" id="chkSMC" checked /> SMC Zone</label>
+        <label><input type="checkbox" id="chkSniper" checked /> Garis Entry/SL/TP</label>
+        <button type="button" id="btnRunEngine" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;">
+          ⚡ Kalkulasi Ulang
+        </button>
       </div>
     </section>
-    <!-- MAIN ANALYSIS WORKSPACE GRID -->
-    <main class="workspace-grid">
-      <!-- LEFT COLUMN: CHART + 11 PILLARS + WALK-FORWARD BACKTEST -->
-      <div class="workspace-col-left">
-        <div class="panel-card">
-          <div class="chart-header-bar">
-            <div class="instrument-title-block">
+    <!-- MAIN GRID: LEFT (CHART + NARRATIVE) & RIGHT (SETUP PANEL) -->
+    <main class="workspace-main-grid">
+      <!-- LEFT COLUMN -->
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+        <div class="chart-card">
+          <div class="asset-header-bar">
+            <div class="asset-title-block">
               <div style="display:flex;align-items:center;gap:8px;">
-                <h2 id="lblInstrumentTitle">BTC/USDT</h2>
-                <span id="lblInstrumentCategory" class="brand-badge">CRYPTO</span>
-                <span id="lblActiveTimeframeBadge" class="brand-badge">TF: H1</span>
+                <h2 id="hdrSymbolTitle">XAU/USD — Gold Spot US Dollar</h2>
+                <span id="hdrAssetCategory" class="brand-tag">METALS</span>
               </div>
-              <div id="lblInstrumentDesc" style="font-size:12px;color:var(--text-secondary);">Bitcoin / Tether US &#x2022; Spot Market</div>
-            </div>
-            <div class="price-hero-block">
-              <div id="lblLivePrice" class="live-price-big">--</div>
-              <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:12px;font-family:var(--font-mono);">
-                <span id="lblPriceChange">--</span>
-                <span style="color:var(--accent-cyan);">&#x23F1; Candle Close: <strong id="lblCandleCountdown">--:--</strong></span>
+              <div style="font-size:11.5px;color:#94a3b8;margin-top:3px;">
+                Status Feed: <span id="lblEngineStatus" style="color:#10b981;font-weight:700;">LIVE REAL-TIME</span>
+                • Penutupan Candle: <span id="lblCandleCountdown" style="color:#38bdf8;font-family:monospace;font-weight:700;">--:--</span>
               </div>
             </div>
-          </div>
-          <div id="tvChartContainer" class="tv-chart-container"></div>
-          <div class="chart-legend-strip">
-            <div>
-              <span style="color:#38bdf8;">&#x25CF; EMA 20</span> &nbsp;
-              <span style="color:#f59e0b;">&#x25CF; EMA 50</span> &nbsp;
-              <span style="color:#a855f7;">&#x25CF; EMA 200</span> &nbsp;
-              <span style="color:#ec4899;">&#x25CF; VWAP</span>
+            <div class="asset-price-block">
+              <span id="hdrLivePrice" class="live-price-big">---</span>
+              <span id="hdrLiveChange" class="live-change-badge" style="color:#10b981;">0.00%</span>
             </div>
-            <div id="lblChartOhlcInfo">OHLC Real-Time Ready</div>
+            <div style="display:flex;gap:14px;font-size:12px;">
+              <div><span style="color:#94a3b8;">High:</span> <strong id="hdrHigh">---</strong></div>
+              <div><span style="color:#94a3b8;">Low:</span> <strong id="hdrLow">---</strong></div>
+              <div><span style="color:#94a3b8;">ATR(14):</span> <strong id="hdrATR">---</strong></div>
+            </div>
           </div>
+          <!-- CHART CONTAINER -->
+          <div id="tvChartContainer" class="tv-chart-box"></div>
         </div>
-        <!-- 11-PILLAR TECHNICAL CONFLUENCE MATRIX -->
-        <div class="panel-card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <div>
-              <h3 style="font-size:15px;font-weight:800;color:#fff;">&#x1F9ED; Matriks Konfluensi 11 Pilar Teknikal (Klasik + Modern SMC)</h3>
-              <p style="font-size:12px;color:var(--text-secondary);">Gabungan indikator tren klasik, momentum, profil volume institusi, dan struktur Smart Money pada timeframe aktif.</p>
-            </div>
-            <span id="lblTechConfluenceScore" class="brand-badge" style="font-size:12px;padding:4px 10px;">Skor: --/100</span>
+        <!-- RINGKASAN ALASAN ANALISIS -->
+        <div class="section-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h3 style="margin:0;font-size:15px;color:#38bdf8;">🧠 Ringkasan Alasan Analisis:</h3>
+            <span style="font-size:11px;color:#94a3b8;">18-Pillar Quantitative & Smart Money Synthesis</span>
           </div>
-          <div id="techPillarsGrid" class="pillars-list"></div>
-        </div>
-        <!-- REAL WALK-FORWARD BACKTEST -->
-        <div class="panel-card">
-          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
-            <div>
-              <h3 style="font-size:15px;font-weight:800;color:#fff;">&#x1F52C; Pengujian Strategi (Real Walk-Forward Backtest)</h3>
-              <p style="font-size:12px;color:var(--text-secondary);">Simulasi objektif tanpa mengintip candle masa depan pada data historis instrumen &amp; timeframe ini.</p>
-            </div>
-            <span id="lblBacktestBadge" class="badge-signal bull">&#x2705; TERVERIFIKASI REAL WALK-FORWARD</span>
-          </div>
-          <div class="levels-grid" style="grid-template-columns:repeat(auto-fit,minmax(135px,1fr));margin-bottom:0;">
-            <div class="level-box">
-              <span class="lbl">Win Rate Historis</span>
-              <span id="btWinRate" class="val" style="color:var(--bull-green);">--%</span>
-            </div>
-            <div class="level-box">
-              <span class="lbl">Profit Factor</span>
-              <span id="btProfitFactor" class="val">--</span>
-            </div>
-            <div class="level-box">
-              <span class="lbl">Total Sampel Sinyal</span>
-              <span id="btTotalTrades" class="val">--</span>
-            </div>
-            <div class="level-box">
-              <span class="lbl">Expectancy / Trade</span>
-              <span id="btExpectancy" class="val">--R</span>
-            </div>
-            <div class="level-box">
-              <span class="lbl">Max Drawdown</span>
-              <span id="btMaxDD" class="val" style="color:var(--bear-red);">--%</span>
-            </div>
-          </div>
+          <div id="narrativeHumanBox" style="font-size:13px;color:#e2e8f0;line-height:1.65;"></div>
         </div>
       </div>
-      <!-- RIGHT COLUMN: EXECUTION PLAN (TRADER VS SPOT INVESTOR) + MACRO/COT -->
-      <div class="workspace-col-right">
-        <!-- MODE 1 PANEL: TRADER EXECUTION -->
-        <div id="traderExecutionPanel" class="panel-card">
+      <!-- RIGHT COLUMN: TRADER SETUP OR INVESTOR SETUP -->
+      <aside style="display:flex;flex-direction:column;gap:14px;">
+        <!-- TRADER SETUP PANEL -->
+        <div id="traderSetupPanel" class="side-panel-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <h3 style="font-size:15px;font-weight:800;color:#fff;">&#x26A1; Rencana Eksekusi Trader (2-Arah)</h3>
-            <span id="lblTraderConfidence" class="brand-badge">Confidence: --%</span>
+            <span id="valSignalDirection" style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:13px;background:rgba(16,185,129,0.2);color:#10b981;">
+              LONG / BUY
+            </span>
+            <span id="valSetupLockBadge" style="font-size:11px;color:#38bdf8;font-weight:700;">🔒 LOCKED</span>
           </div>
-          <div id="decisionBanner" class="decision-banner">
-            <div>
-              <div style="font-size:11px;color:var(--text-secondary);">SINYAL UTAMA TIMEFRAME AKTIF</div>
-              <div id="lblDecisionAction" class="decision-action-text">MEMUAT...</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="font-size:11px;color:var(--text-secondary);">RASIO RISK : REWARD</div>
-              <div id="lblRiskReward" style="font-size:15px;font-weight:800;font-family:var(--font-mono);color:var(--accent-cyan);">1 : 2.5</div>
-            </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;padding:8px 10px;background:rgba(15,23,42,0.7);border-radius:8px;">
+            <div>Confidence: <strong id="valConfidenceScore" style="color:#38bdf8;">--%</strong></div>
+            <div>Regime: <strong id="valRegime" style="color:#f8fafc;">--</strong></div>
           </div>
-          <div class="levels-grid">
-            <div class="level-box">
-              <span class="lbl">&#x1F3AF; Zona Entry Optimal</span>
-              <span id="valEntryPrice" class="val">--</span>
+          <div class="setup-grid-levels">
+            <div class="level-box" style="grid-column:span 2;border-color:rgba(56,189,248,0.4);">
+              <span class="lbl">🎯 TITIK ENTRY (TERKUNCI PADA CANDLE AKTIF)</span>
+              <span id="valEntry" class="val" style="color:#38bdf8;font-size:16px;">---</span>
             </div>
-            <div class="level-box">
-              <span class="lbl">&#x1F6D1; Stop Loss (Invalidasi)</span>
-              <span id="valStopLoss" class="val" style="color:var(--bear-red);">--</span>
+            <div class="level-box" style="grid-column:span 2;border-color:rgba(244,63,94,0.4);">
+              <span class="lbl">🛡️ STOP LOSS STRUKTURAL (ANTI-STOP HUNT)</span>
+              <span id="valSL" class="val" style="color:#f43f5e;">---</span>
+              <div id="valSLDesc" style="font-size:11px;color:#fda4af;margin-top:2px;">Di luar Swing Wick + Buffer ATR</div>
             </div>
             <div class="level-box">
-              <span class="lbl">&#x2705; Take Profit 1 (1.5R &#x2022; Konservatif)</span>
-              <span id="valTp1" class="val" style="color:var(--bull-green);">--</span>
+              <span class="lbl">✅ TAKE PROFIT 1 (1.5R)</span>
+              <span id="valTP1" class="val" style="color:#10b981;">---</span>
             </div>
             <div class="level-box">
-              <span class="lbl">&#x1F680; Take Profit 2 (2.5R &#x2022; Target Utama)</span>
-              <span id="valTp2" class="val" style="color:var(--bull-green);">--</span>
+              <span class="lbl">✅ TAKE PROFIT 2 (2.5R)</span>
+              <span id="valTP2" class="val" style="color:#10b981;">---</span>
             </div>
-            <div class="level-box" style="grid-column:1 / -1;">
-              <span class="lbl">&#x1F31F; Take Profit 3 (4.0R &#x2022; Ekstensi Runner)</span>
-              <span id="valTp3" class="val" style="color:var(--accent-cyan);">--</span>
+            <div class="level-box" style="grid-column:span 2;">
+              <span class="lbl">🚀 TAKE PROFIT 3 — RUNNER TARGET (4.0R)</span>
+              <span id="valTP3" class="val" style="color:#34d399;">---</span>
             </div>
           </div>
-          <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:12px;margin-bottom:14px;">
-            <div style="font-size:12px;font-weight:800;color:#fff;margin-bottom:4px;">&#x1F4DD; Ringkasan Alasan Analisis:</div>
-            <p id="lblExecutiveSummary" style="font-size:12.5px;color:var(--text-secondary);line-height:1.55;"></p>
-          </div>
-          <!-- POSITION SIZING CALCULATOR -->
-          <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:12px;">
-            <div style="font-size:12.5px;font-weight:800;color:#fff;margin-bottom:8px;">&#x1F9EE; Kalkulator Ukuran Posisi &amp; Risiko</div>
+          <!-- FUTURES LEVERAGE & RISK CALCULATOR -->
+          <div id="futuresRiskBox" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);">
+            <div style="font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:8px;">⚙️ Manajemen Risiko & Kalkulator Posisi</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11.5px;margin-bottom:10px;">
+              <div class="level-box"><span class="lbl">Lev. Aman</span><strong id="valRecLeverage" style="color:#f59e0b;">--</strong></div>
+              <div class="level-box"><span class="lbl">Est. Likuidasi</span><strong id="valLiqPrice" style="color:#f43f5e;">--</strong></div>
+              <div class="level-box"><span class="lbl">R:R Ratio</span><strong id="valRRRatio" style="color:#10b981;">--</strong></div>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
               <div>
-                <label style="font-size:11px;color:var(--text-secondary);display:block;">Modal Akun (USD)</label>
-                <input id="inpAccountBalance" type="number" class="ctrl-input" value="1000" style="width:100%;" />
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Modal Akun ($)</label>
+                <input type="number" id="inpCalcBalance" class="ctrl-input" value="1000" style="width:100%;" />
               </div>
               <div>
-                <label style="font-size:11px;color:var(--text-secondary);display:block;">Risiko per Trade (%)</label>
-                <input id="inpRiskPercent" type="number" class="ctrl-input" value="1.0" step="0.1" style="width:100%;" />
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Risiko per Trade (%)</label>
+                <input type="number" id="inpCalcRiskPct" class="ctrl-input" value="1.0" step="0.1" style="width:100%;" />
               </div>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;font-family:var(--font-mono);padding-top:6px;border-top:1px solid var(--border-subtle);">
-              <span>Risiko Maks: <strong id="lblRiskDollar" style="color:var(--bear-red);">.00</strong></span>
-              <span>Ukuran Posisi: <strong id="lblPositionUnits" style="color:var(--accent-cyan);">-- Unit</strong></span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 10px;background:rgba(2,6,23,0.7);border-radius:8px;">
+              <span>Risiko Maks: <strong id="valCalcDollarRisk" style="color:#f43f5e;">$10.00</strong></span>
+              <span>Ukuran Posisi: <strong id="valCalcLotSize" style="color:#38bdf8;">-- Unit</strong></span>
+            </div>
+          </div>
+          <!-- WALK-FORWARD BACKTEST -->
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11.5px;font-weight:700;color:#cbd5e1;">📈 Backtest Historis</span>
+              <span style="font-size:10.5px;color:#10b981;font-weight:700;">✅ TERVERIFIKASI REAL WALK-FORWARD</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11.5px;">
+              <div class="level-box"><span class="lbl">Win Rate</span><strong id="valBtWinRate" style="color:#10b981;">--%</strong></div>
+              <div class="level-box"><span class="lbl">Profit Factor</span><strong id="valBtProfitFactor" style="color:#38bdf8;">--</strong></div>
+              <div class="level-box"><span class="lbl">Net Return</span><strong id="valBtNetReturn" style="color:#10b981;">--</strong></div>
+              <div class="level-box"><span class="lbl">Max DD</span><strong id="valBtMaxDD" style="color:#f59e0b;">--%</strong></div>
+              <div class="level-box" style="grid-column:span 2;"><span class="lbl">Sampel Teruji</span><strong id="valBtTrades">-- Sinyal</strong></div>
             </div>
           </div>
         </div>
-        <!-- MODE 2 PANEL: SPOT INVESTOR PORTFOLIO & VALUATION -->
-        <div id="investorExecutionPanel" class="panel-card hidden">
+        <!-- SPOT INVESTOR PANEL (SHOWN IN INVESTOR MODE) -->
+        <div id="investorSetupPanel" class="side-panel-card hidden">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <h3 style="font-size:15px;font-weight:800;color:#fff;">&#x1F3E6; Valuasi &amp; Rencana Akumulasi Spot Investor</h3>
-            <span id="lblInvestorActionBadge" class="badge-signal bull">AKUMULASI BERTAHAP</span>
+            <span style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:13px;background:rgba(56,189,248,0.18);color:#38bdf8;">
+              🏛️ SPOT INVESTOR VALUATION & DCA
+            </span>
+            <span id="valInvRating" style="font-size:12px;font-weight:800;color:#10b981;">ACCUMULATE</span>
           </div>
-          <p id="lblInvestorThesis" style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;"></p>
-          <div class="levels-grid">
+          <div class="setup-grid-levels">
             <div class="level-box">
-              <span class="lbl">Nilai Wajar (Fair Value)</span>
-              <span id="invFairValue" class="val" style="color:var(--accent-cyan);">--</span>
+              <span class="lbl">Nilai Intrinsik (Fair Value)</span>
+              <span id="valInvFairValue" class="val" style="color:#a855f7;">---</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Diskon / Margin of Safety</span>
-              <span id="invMarginSafety" class="val" style="color:var(--bull-green);">--</span>
+              <span class="lbl">Status Valuasi / MoS</span>
+              <span id="valInvValuationStatus" class="val" style="color:#10b981;font-size:12px;">---</span>
+              <div id="valInvMoS" style="font-size:11px;color:#94a3b8;">MoS: --%</div>
+            </div>
+            <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
+              <span class="lbl">🟢 DCA TAHAP 1 — ALOKASI 40% MODAL</span>
+              <span id="valInvDCA1" class="val" style="color:#10b981;">---</span>
+            </div>
+            <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
+              <span class="lbl">🟢 DCA TAHAP 2 — ALOKASI 35% MODAL</span>
+              <span id="valInvDCA2" class="val" style="color:#10b981;">---</span>
+            </div>
+            <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
+              <span class="lbl">🟢 DCA TAHAP 3 — ALOKASI 25% MODAL</span>
+              <span id="valInvDCA3" class="val" style="color:#10b981;">---</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Fase Siklus Wyckoff</span>
-              <span id="invWyckoffPhase" class="val" style="font-size:12.5px;">--</span>
+              <span class="lbl">Harga Rata-Rata DCA</span>
+              <span id="valInvAvgPrice" class="val" style="color:#38bdf8;">---</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Estimasi Yield / Dividen</span>
-              <span id="invYieldProfile" class="val" style="font-size:12.5px;">--</span>
-            </div>
-          </div>
-          <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:12px;margin-bottom:12px;">
-            <div style="font-size:12.5px;font-weight:800;color:#fff;margin-bottom:8px;">&#x1F4CA; Zona Beli Bertahap (DCA 40% / 35% / 25%)</div>
-            <div style="display:grid;gap:6px;font-size:12px;font-family:var(--font-mono);">
-              <div style="display:flex;justify-content:space-between;">
-                <span>Tahap 1 (40% Modal &#x2022; Harga Saat Ini/Support 1):</span>
-                <strong id="invDca1" style="color:#fff;">--</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;">
-                <span>Tahap 2 (35% Modal &#x2022; Diskon Support Kuat):</span>
-                <strong id="invDca2" style="color:var(--accent-cyan);">--</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;">
-                <span>Tahap 3 (25% Modal &#x2022; Diskon Likuiditas Dalam):</span>
-                <strong id="invDca3" style="color:var(--bull-green);">--</strong>
-              </div>
-              <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid var(--border-subtle);">
-                <span>Estimasi Harga Rata-Rata (Avg Cost):</span>
-                <strong id="invWeightedAvg" style="color:var(--accent-gold);">--</strong>
-              </div>
-            </div>
-          </div>
-          <div class="levels-grid" style="margin-bottom:0;">
-            <div class="level-box">
-              <span class="lbl">Target Nilai Wajar (6&#x2013;12 Bln)</span>
-              <span id="invTarget1" class="val" style="color:var(--bull-green);">--</span>
+              <span class="lbl">Target Siklus Bull</span>
+              <span id="valInvTarget1" class="val" style="color:#34d399;">---</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Target Ekspansi Siklus (1&#x2013;3 Thn)</span>
-              <span id="invTarget2" class="val" style="color:var(--accent-cyan);">--</span>
+              <span class="lbl">Target Ekstensi Siklus</span>
+              <span id="valInvTarget2" class="val" style="color:#34d399;">---</span>
+            </div>
+            <div class="level-box">
+              <span class="lbl">Fase Siklus & Yield</span>
+              <div id="valInvCyclePhase" style="font-size:11.5px;font-weight:700;color:#f8fafc;">---</div>
+              <div id="valInvYield" style="font-size:10.5px;color:#94a3b8;">---</div>
             </div>
           </div>
         </div>
-        <!-- MACRO FUNDAMENTAL & CFTC COT INSTITUTIONAL POSITIONING -->
-        <div class="panel-card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div>
-              <h3 style="font-size:15px;font-weight:800;color:#fff;">&#x1F30D; Fundamental Makro &amp; Posisi Institusi (CFTC COT)</h3>
-              <p style="font-size:12px;color:var(--text-secondary);">Sentimen suku bunga global, arus likuiditas USD, &amp; akumulasi Non-Commercial Asset Managers.</p>
-            </div>
-            <span id="lblMacroScore" class="brand-badge">Makro: --/100</span>
-          </div>
-          <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:12px;margin-bottom:10px;">
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">
-              <span>Posisi Net Institusi (CFTC COT): <strong id="lblCotBias" style="color:var(--accent-cyan);">--</strong></span>
-              <span id="lblCotNetPct" style="font-family:var(--font-mono);font-weight:800;">--% Long</span>
-            </div>
-            <div style="width:100%;height:8px;background:#1e293b;border-radius:999px;overflow:hidden;">
-              <div id="barCotMeter" style="width:62%;height:100%;background:linear-gradient(90deg,#10b981,#38bdf8);"></div>
-            </div>
-          </div>
-          <div id="macroPillarsGrid" class="pillars-list"></div>
-        </div>
-      </div>
+      </aside>
     </main>
+    <!-- LOWER SECTIONS: 18 PILLARS & MULTI-ASSET RADAR -->
+    <section style="max-width:1640px;width:100%;margin:0 auto 40px;padding:0 16px;display:flex;flex-direction:column;gap:16px;">
+      <div class="section-card">
+        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">🔬 12 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC)</h3>
+        <div id="techPillarsGrid" class="pillars-grid"></div>
+      </div>
+      <div class="section-card">
+        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">🌍 6 Pilar Makroekonomi, Likuiditas Global & Institusional</h3>
+        <div id="macroPillarsGrid" class="pillars-grid"></div>
+      </div>
+      <div class="section-card">
+        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">📡 Radar Peluang Multi-Aset Institusional (Klik untuk Buka Analisis)</h3>
+        <div id="opportunityRadarGrid" class="radar-grid"></div>
+      </div>
+    </section>
   </div>
-  <!-- =================================================================
-       VIP SUBSCRIPTION & OWNER ADMIN BILLING MODAL ( USDT BEP-20)
-       ================================================================= -->
-  <div id="vipModalBackdrop" class="modal-backdrop hidden">
-    <div class="modal-card">
+  <!-- ================= MODAL 1: GOOGLE LOGIN POPUP ================= -->
+  <div id="googleAuthModal" class="modal-backdrop hidden">
+    <div class="modal-box">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <h3 style="font-size:18px;font-weight:800;color:#fff;">&#x1F451; XSTARZG VIP Institutional Access</h3>
-        <button id="btnCloseVipModal" type="button" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">&times;</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:#ffffff;color:#0f172a;font-weight:900;align-items:center;justify-content:center;">G</span>
+          <h3 style="margin:0;font-size:16px;">Masuk dengan Akun Google</h3>
+        </div>
+        <button type="button" id="btnCloseGoogleModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
       </div>
-      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
-        Paket langganan penuh <strong>$29$29$29.00 USDT / 30 Hari</strong> melalui jaringan <strong>BNB Smart Chain (BEP-20)</strong>. Akun Owner Admin otomatis mendapatkan status VIP penuh.
+      <p style="margin:0 0 14px;font-size:12.5px;color:#94a3b8;">
+        Masukkan alamat email Google Anda untuk mengaktifkan sesi analisis & kuota instrumen Anda.
       </p>
-      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:12px;padding:14px;margin-bottom:14px;">
-        <div style="font-size:12px;color:var(--text-secondary);">Dompet Resmi Penerima USDT (BSC / BEP-20):</div>
-        <div id="lblOwnerWallet" class="wallet-box">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</div>
-        <button id="btnCopyWallet" type="button" class="btn-refresh" style="width:100%;margin-top:4px;">&#x1F4CB; Salin Alamat Wallet BSC (BEP-20)</button>
-      </div>
       <div style="margin-bottom:12px;">
-        <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Masukkan Hash Transaksi (TxHash BSC) untuk Verifikasi On-Chain:</label>
-        <input id="inpTxHash" type="text" class="ctrl-input" placeholder="0x..." style="width:100%;" />
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;">Alamat Email Google</label>
+        <input type="email" id="googleEmailInput" class="ctrl-input" placeholder="nama@gmail.com" style="width:100%;padding:10px 12px;" />
       </div>
-      <button id="btnVerifyTxHash" type="button" class="btn-guest-enter" style="margin-bottom:8px;">&#x2705; Verifikasi Pembayaran On-Chain</button>
-      <div id="lblVipVerifyStatus" style="font-size:12px;color:var(--accent-cyan);text-align:center;"></div>
+      <div style="margin-bottom:18px;">
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;">Nama Tampilan (Opsional)</label>
+        <input type="text" id="googleNameInput" class="ctrl-input" placeholder="Trader / Investor" style="width:100%;padding:10px 12px;" />
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" id="btnCancelGoogleModal" class="btn-secondary-outline" style="padding:9px 16px;font-size:12.5px;">Batal</button>
+        <button type="button" id="btnSubmitGoogleEmail" class="btn-primary-glow" style="padding:9px 18px;font-size:12.5px;">Lanjutkan & Masuk</button>
+      </div>
     </div>
   </div>
-  <script src="/vendor/lightweight-charts.js?v=2026.16"></script>
-  <script src="/app.js?v=2026.25"></script>
+  <!-- ================= MODAL 2: VIP USDT BEP-20 PAYMENT ================= -->
+  <div id="paymentModal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <h3 style="margin:0;font-size:16px;color:#38bdf8;">💎 Aktivasi Lisensi VIP Unlimited</h3>
+        <button type="button" id="btnCloseVipModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
+      </div>
+      <p id="vipModalReasonText" style="margin:0 0 12px;font-size:12.5px;color:#cbd5e1;">
+        Tingkatkan akun ke VIP Pro untuk membuka akses tanpa batas ke seluruh 1.600+ instrumen dan 10 timeframe.
+      </p>
+      <div style="background:rgba(2,6,23,0.8);border:1px solid var(--border-subtle);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:#94a3b8;">Biaya Langganan (30 Hari):</span>
+          <strong style="color:#10b981;font-size:14px;">$29.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:#94a3b8;">Jaringan Blockchain:</span>
+          <strong style="color:#f59e0b;">BNB Smart Chain (BEP-20)</strong>
+        </div>
+        <div style="color:#94a3b8;margin-bottom:4px;">Alamat Wallet Penerima Resmi:</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <code style="flex:1;padding:8px;background:#0f172a;border-radius:8px;color:#38bdf8;word-break:break-all;font-size:11.5px;">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
+          <button type="button" id="btnCopyWallet" class="btn-secondary-outline" style="padding:7px 11px;font-size:11.5px;">📋 Salin</button>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;">Transaction Hash (TxHash BSC BEP-20)</label>
+        <input type="text" id="inpTxHash" class="ctrl-input" placeholder="0x..." style="width:100%;padding:10px 12px;font-family:monospace;" />
+      </div>
+      <div id="vipVerifyFeedback" style="font-size:12px;margin-bottom:12px;color:#94a3b8;"></div>
+      <button type="button" id="btnVerifyTxHash" class="btn-primary-glow" style="width:100%;padding:11px;font-size:13px;">
+        🔍 Verifikasi Pembayaran On-Chain & Aktifkan VIP
+      </button>
+    </div>
+  </div>
+  <script src="/app.js?v=2026.26"></script>
 </body>
 </html>
-
-
-
-
-

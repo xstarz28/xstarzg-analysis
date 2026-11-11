@@ -1,149 +1,310 @@
-﻿const YF_MAP = {
-  'XAU/USD': 'GC=F', 'XAG/USD': 'SI=F', 'XPT/USD': 'PL=F', 'XPD/USD': 'PA=F', 'COPPER/USD': 'HG=F',
-  'EUR/USD': 'EURUSD=X', 'GBP/USD': 'GBPUSD=X', 'USD/JPY': 'JPY=X', 'USD/CHF': 'CHF=X',
-  'AUD/USD': 'AUDUSD=X', 'USD/CAD': 'CAD=X', 'NZD/USD': 'NZDUSD=X', 'EUR/GBP': 'EURGBP=X',
-  'EUR/JPY': 'EURJPY=X', 'GBP/JPY': 'GBPJPY=X', 'AUD/JPY': 'AUDJPY=X', 'EUR/AUD': 'EURAUD=X',
-  'GBP/AUD': 'GBPAUD=X', 'EUR/CAD': 'EURCAD=X', 'GBP/CAD': 'GBPCAD=X', 'GBP/CHF': 'GBPCHF=X',
-  'EUR/CHF': 'EURCHF=X', 'AUD/CAD': 'AUDCAD=X', 'AUD/NZD': 'AUDNZD=X', 'NZD/JPY': 'NZDJPY=X',
-  'CAD/JPY': 'CADJPY=X', 'CHF/JPY': 'CHFJPY=X', 'EUR/NZD': 'EURNZD=X', 'GBP/NZD': 'GBPNZD=X',
-  'USD/IDR': 'IDR=X', 'USD/SGD': 'SGD=X', 'USD/CNH': 'CNH=X', 'USD/HKD': 'HKD=X',
-  'WTI/USD': 'CL=F', 'BRENT/USD': 'BZ=F', 'NATGAS/USD': 'NG=F', 'WHEAT/USD': 'ZW=F',
-  'CORN/USD': 'ZC=F', 'SOYBEAN/USD': 'ZS=F', 'COFFEE/USD': 'KC=F', 'COCOA/USD': 'CC=F'
-};
+﻿export async function onRequest(context) {
+  const { request } = context;
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
+  };
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  const url = new URL(request.url);
+  const symbol = (url.searchParams.get('symbol') || 'XAU/USD').trim().toUpperCase();
+  const tf = (url.searchParams.get('tf') || 'H1').trim().toUpperCase();
+  const quoteOnly = url.searchParams.get('quote') === '1';
+  try {
+    if (quoteOnly) {
+      const liveQuote = await fetchExactLiveQuote(symbol, tf);
+      return new Response(JSON.stringify({
+        ok: true,
+        symbol,
+        tf,
+        timestamp: Date.now(),
+        quote: liveQuote
+      }), { status: 200, headers: corsHeaders });
+    }
+    const marketData = await fetchSynchronizedMarketCandles(symbol, tf);
+    return new Response(JSON.stringify({
+      ok: true,
+      symbol,
+      tf,
+      source: marketData.source,
+      price: marketData.price,
+      changePct: marketData.changePct,
+      candles: marketData.candles,
+      timestamp: Date.now()
+    }), { status: 200, headers: corsHeaders });
+  } catch (err) {
+    return new Response(JSON.stringify({
+      ok: false,
+      symbol,
+      tf,
+      error: err.message || 'Market feed error'
+    }), { status: 200, headers: corsHeaders });
+  }
+}
 const US_EXCHANGE_MAP = {
   'NVDA': 'NASDAQ:NVDA', 'AAPL': 'NASDAQ:AAPL', 'MSFT': 'NASDAQ:MSFT', 'AMZN': 'NASDAQ:AMZN',
-  'GOOGL': 'NASDAQ:GOOGL', 'META': 'NASDAQ:META', 'TSLA': 'NASDAQ:TSLA', 'AVGO': 'NASDAQ:AVGO',
-  'COST': 'NASDAQ:COST', 'NFLX': 'NASDAQ:NFLX', 'AMD': 'NASDAQ:AMD', 'INTC': 'NASDAQ:INTC',
-  'QCOM': 'NASDAQ:QCOM', 'BRK-B': 'NYSE:BRK.B', 'JPM': 'NYSE:JPM', 'V': 'NYSE:V',
-  'UNH': 'NYSE:UNH', 'XOM': 'NYSE:XOM', 'MA': 'NYSE:MA', 'WMT': 'NYSE:WMT',
-  'PG': 'NYSE:PG', 'JNJ': 'NYSE:JNJ', 'DIS': 'NYSE:DIS'
+  'META': 'NASDAQ:META', 'GOOGL': 'NASDAQ:GOOGL', 'TSLA': 'NASDAQ:TSLA', 'AMD': 'NASDAQ:AMD',
+  'NFLX': 'NASDAQ:NFLX', 'AVGO': 'NASDAQ:AVGO', 'COST': 'NASDAQ:COST', 'COIN': 'NASDAQ:COIN',
+  'MSTR': 'NASDAQ:MSTR', 'PLTR': 'NASDAQ:PLTR', 'INTC': 'NASDAQ:INTC',
+  'BRK-B': 'NYSE:BRK.B', 'JPM': 'NYSE:JPM', 'V': 'NYSE:V', 'MA': 'NYSE:MA',
+  'WMT': 'NYSE:WMT', 'DIS': 'NYSE:DIS', 'XOM': 'NYSE:XOM', 'LLY': 'NYSE:LLY'
 };
-const TV_TF_SUFFIX = {
-  'M1': '|1', 'M5': '|5', 'M15': '|15', 'M30': '|30',
-  'H1': '|60', 'H4': '|240', 'D1': '', 'W1': '|1W', 'MN': '|1M', '1Y': '|1M'
-};
-function getBrokerTickers(sym) {
-  if (sym === 'XAU/USD') return ['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'];
-  if (sym === 'XAG/USD') return ['OANDA:XAGUSD', 'FOREXCOM:XAGUSD', 'FX_IDC:XAGUSD'];
-  if (sym === 'XPT/USD') return ['OANDA:XPTUSD', 'FOREXCOM:XPTUSD'];
-  if (sym === 'XPD/USD') return ['OANDA:XPDUSD', 'FOREXCOM:XPDUSD'];
-  if (sym === 'COPPER/USD') return ['OANDA:XCUUSD', 'FOREXCOM:XCUUSD'];
-  if (sym === 'WTI/USD') return ['TVC:USOIL', 'OANDA:WTICOUSD'];
-  if (sym === 'BRENT/USD') return ['TVC:UKOIL', 'OANDA:BCOUSD'];
-  if (sym === 'NATGAS/USD') return ['OANDA:NATGASUSD', 'NYMEX:NG1!'];
-  if (sym === 'WHEAT/USD') return ['OANDA:WHEATUSD', 'CBOT:ZW1!'];
-  if (sym === 'CORN/USD') return ['OANDA:CORNUSD', 'CBOT:ZC1!'];
-  if (sym === 'SOYBEAN/USD') return ['OANDA:SOYBNUSD', 'CBOT:ZS1!'];
-  if (sym === 'COFFEE/USD') return ['ICEUS:KC1!'];
-  if (sym === 'COCOA/USD') return ['ICEUS:CC1!'];
-  if (sym.endsWith('.JK')) return ['IDX:' + sym.replace('.JK', '')];
-  if (US_EXCHANGE_MAP[sym]) return [US_EXCHANGE_MAP[sym]];
-  if (!sym.includes('/')) {
-    const clean = sym.replace('-', '.');
-    return ['NASDAQ:' + clean, 'NYSE:' + clean];
-  }
-  if (sym.includes('/') && !sym.endsWith('/USDT')) {
-    const clean = sym.replace('/', '');
-    if (sym === 'USD/IDR' || sym === 'USD/CNH' || sym === 'USD/HKD' || sym === 'USD/SGD') {
-      return ['FX_IDC:' + clean, 'OANDA:' + clean, 'FOREXCOM:' + clean];
-    }
-    return ['OANDA:' + clean, 'FOREXCOM:' + clean, 'FX_IDC:' + clean];
-  }
-  return [];
+function getTvTimeframeSuffix(tf) {
+  const map = {
+    'M1': '|1', 'M5': '|5', 'M15': '|15', 'M30': '|30',
+    'H1': '|60', 'H4': '|240', 'D1': '', 'W1': '|1W', 'MN': '|1M', '1Y': '|12M'
+  };
+  return map[tf] !== undefined ? map[tf] : '|60';
 }
-async function queryTvScanner(tickers, tf = 'H1') {
-  if (!tickers || !tickers.length) return null;
-  const sfx = TV_TF_SUFFIX[tf] !== undefined ? TV_TF_SUFFIX[tf] : '|60';
-  const cols = ['close', 'open' + sfx, 'high' + sfx, 'low' + sfx, 'close' + sfx, 'volume' + sfx];
-  try {
+function getTvTickersForSymbol(symbol) {
+  const s = symbol.toUpperCase().trim();
+  if (s === 'XAU/USD') return ['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'];
+  if (s === 'XAG/USD') return ['OANDA:XAGUSD', 'FOREXCOM:XAGUSD', 'FX_IDC:XAGUSD'];
+  if (s === 'XPT/USD') return ['OANDA:XPTUSD', 'FOREXCOM:XPTUSD'];
+  if (s === 'XPD/USD') return ['OANDA:XPDUSD', 'FOREXCOM:XPDUSD'];
+  if (s === 'XCU/USD') return ['OANDA:XCUUSD', 'FOREXCOM:XCUUSD'];
+  if (s === 'WTI/USD') return ['TVC:USOIL', 'OANDA:WTICOUSD'];
+  if (s === 'BRENT/USD') return ['TVC:UKOIL', 'OANDA:BCOUSD'];
+  if (s === 'NATGAS/USD') return ['OANDA:NATGASUSD', 'TVC:NG1!'];
+  if (s === 'WHEAT/USD') return ['OANDA:WHEATUSD'];
+  if (s === 'CORN/USD') return ['OANDA:CORNUSD'];
+  if (s === 'SOYBEAN/USD') return ['OANDA:SOYBNUSD'];
+  if (s === 'COFFEE/USD') return ['ICEUS:KC1!'];
+  if (s === 'COCOA/USD') return ['ICEUS:CC1!'];
+  if (s.endsWith('.JK')) {
+    const code = s.replace('.JK', '');
+    return [`IDX:${code}`];
+  }
+  if (US_EXCHANGE_MAP[s]) {
+    return [US_EXCHANGE_MAP[s]];
+  }
+  if (s.includes('/USDT')) {
+    const clean = s.replace('/', '');
+    return [`BINANCE:${clean}`];
+  }
+  if (s.includes('/')) {
+    const clean = s.replace('/', '');
+    return [`OANDA:${clean}`, `FOREXCOM:${clean}`, `FX_IDC:${clean}`];
+  }
+  return [`NASDAQ:${s}`, `NYSE:${s}`];
+}
+async function queryTradingViewScanner(tickers, tf) {
+  if (!tickers || tickers.length === 0) return null;
+  const sfx = getTvTimeframeSuffix(tf);
+  const cols = [
+    'close',
+    'change',
+    `open${sfx}`,
+    `high${sfx}`,
+    `low${sfx}`,
+    `close${sfx}`,
+    `volume${sfx}`
+  ];
+  const fetchScan = async (tickerList) => {
     const res = await fetch('https://scanner.tradingview.com/global/scan', {
       method: 'POST',
-      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
       body: JSON.stringify({
-        symbols: { tickers: tickers, query: { types: [] } },
+        symbols: { tickers: tickerList, query: { types: [] } },
         columns: cols
       })
     });
     if (!res.ok) return null;
     const json = await res.json();
-    if (json && Array.isArray(json.data) && json.data.length > 0) {
-      for (const t of tickers) {
-        const row = json.data.find(r => r && r.s === t && Array.isArray(r.d) && (Number(r.d[0]) > 0 || Number(r.d[4]) > 0));
-        if (row) {
-          const c = Number(row.d[4] || row.d[0]);
-          const o = Number(row.d[1] || c);
-          const h = Math.max(c, o, Number(row.d[2] || c));
-          const l = Math.min(c, o, Number(row.d[3] || c));
-          const v = Number(row.d[5] || 1500);
-          return { ticker: row.s, close: c, open: o, high: h, low: l, volume: v };
+    if (!json || !Array.isArray(json.data) || json.data.length === 0) return null;
+    for (const row of json.data) {
+      if (row && Array.isArray(row.d)) {
+        const spotClose = Number(row.d[0]);
+        const tfClose = Number(row.d[5]);
+        const price = Number.isFinite(spotClose) && spotClose > 0 ? spotClose : tfClose;
+        if (Number.isFinite(price) && price > 0) {
+          return {
+            ticker: row.s,
+            price,
+            changePct: Number(row.d[1]) || 0,
+            tfOpen: Number(row.d[2]) || price,
+            tfHigh: Math.max(Number(row.d[3]) || price, price),
+            tfLow: Math.min(Number(row.d[4]) || price, price),
+            tfClose: price,
+            tfVolume: Number(row.d[6]) || 0
+          };
         }
       }
     }
+    return null;
+  };
+  try {
+    const batchResult = await fetchScan(tickers);
+    if (batchResult) return batchResult;
   } catch (e) {}
+  for (const singleTicker of tickers) {
+    try {
+      const singleResult = await fetchScan([singleTicker]);
+      if (singleResult) return singleResult;
+    } catch (e) {}
+  }
   return null;
 }
-async function fetchExactBrokerQuote(sym, tf = 'H1') {
-  if (sym === 'XAU/IDR') {
+async function fetchExactLiveQuote(symbol, tf) {
+  const s = symbol.toUpperCase().trim();
+  if (s === 'XAU/IDR') {
     const [xau, idr] = await Promise.all([
-      fetchExactBrokerQuote('XAU/USD', tf),
-      fetchExactBrokerQuote('USD/IDR', tf)
+      queryTradingViewScanner(['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'], tf),
+      queryTradingViewScanner(['FX_IDC:USDIDR', 'OANDA:USDIDR'], tf)
     ]);
-    if (xau && idr && xau.close > 0 && idr.close > 0) {
-      const gram = Math.round((xau.close * idr.close) / 31.1034768);
-      return {
-        ticker: 'OANDA:XAUUSD*USDIDR',
-        close: gram,
-        open: Math.round((xau.open * idr.open) / 31.1034768),
-        high: Math.round((xau.high * idr.high) / 31.1034768),
-        low: Math.round((xau.low * idr.low) / 31.1034768),
-        volume: 3000
-      };
-    }
+    const xauPrice = xau && xau.price > 0 ? xau.price : 4055;
+    const idrRate = idr && idr.price > 10000 ? idr.price : 16550;
+    const gramPrice = (xauPrice * idrRate) / 31.1034768;
+    const tfHigh = xau ? (xau.tfHigh * idrRate) / 31.1034768 : gramPrice;
+    const tfLow = xau ? (xau.tfLow * idrRate) / 31.1034768 : gramPrice;
+    const tfOpen = xau ? (xau.tfOpen * idrRate) / 31.1034768 : gramPrice;
+    return {
+      source: 'OANDA:XAUUSD x FX_IDC:USDIDR (Gram)',
+      price: gramPrice,
+      changePct: xau ? xau.changePct : 0,
+      tfOpen,
+      tfHigh: Math.max(tfHigh, gramPrice),
+      tfLow: Math.min(tfLow, gramPrice),
+      tfClose: gramPrice,
+      tfVolume: xau ? xau.tfVolume : 100
+    };
   }
-  const candidates = getBrokerTickers(sym);
-  const q = await queryTvScanner(candidates, tf);
-  if (q && q.close > 0) return q;
-  for (const single of candidates) {
-    const sq = await queryTvScanner([single], tf);
-    if (sq && sq.close > 0) return sq;
+  if (s.endsWith('/USDT')) {
+    const pair = s.replace('/', '');
+    try {
+      const res = await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${pair}`);
+      if (res.ok) {
+        const d = await res.json();
+        const price = Number(d.lastPrice);
+        if (price > 0) {
+          return {
+            source: `BINANCE:${pair}`,
+            price,
+            changePct: Number(d.priceChangePercent) || 0,
+            tfOpen: price,
+            tfHigh: price,
+            tfLow: price,
+            tfClose: price,
+            tfVolume: Number(d.volume) || 0
+          };
+        }
+      }
+    } catch (e) {}
   }
-  return null;
+  const tickers = getTvTickersForSymbol(s);
+  const tvQuote = await queryTradingViewScanner(tickers, tf);
+  if (tvQuote && tvQuote.price > 0) {
+    return {
+      source: tvQuote.ticker,
+      price: tvQuote.price,
+      changePct: tvQuote.changePct,
+      tfOpen: tvQuote.tfOpen,
+      tfHigh: tvQuote.tfHigh,
+      tfLow: tvQuote.tfLow,
+      tfClose: tvQuote.price,
+      tfVolume: tvQuote.tfVolume
+    };
+  }
+  const yh = await fetchYahooChartCandles(s, tf);
+  if (yh && yh.candles && yh.candles.length > 0) {
+    const last = yh.candles[yh.candles.length - 1];
+    const prev = yh.candles.length > 1 ? yh.candles[yh.candles.length - 2].close : last.open;
+    const chg = prev > 0 ? ((last.close - prev) / prev) * 100 : 0;
+    return {
+      source: yh.source,
+      price: last.close,
+      changePct: chg,
+      tfOpen: last.open,
+      tfHigh: last.high,
+      tfLow: last.low,
+      tfClose: last.close,
+      tfVolume: last.volume
+    };
+  }
+  throw new Error(`Tidak dapat mengambil kuotasi untuk ${s}`);
 }
-async function fetchYahooCandles(yfSym, tf) {
-  const intervalMap = { 'M1':'1m', 'M5':'5m', 'M15':'15m', 'M30':'30m', 'H1':'60m', 'H4':'60m', 'D1':'1d', 'W1':'1wk', 'MN':'1mo', '1Y':'1mo' };
-  const rangeMap = { 'M1':'5d', 'M5':'5d', 'M15':'1mo', 'M30':'1mo', 'H1':'3mo', 'H4':'6mo', 'D1':'2y', 'W1':'5y', 'MN':'10y', '1Y':'10y' };
-  const interval = intervalMap[tf] || '60m';
-  const range = rangeMap[tf] || '3mo';
+function getYahooParams(symbol, tf) {
+  const s = symbol.toUpperCase().trim();
+  let yhSym = s;
+  const map = {
+    'XAU/USD': 'GC=F',
+    'XAU/IDR': 'GC=F',
+    'XAG/USD': 'SI=F',
+    'XPT/USD': 'PL=F',
+    'XPD/USD': 'PA=F',
+    'XCU/USD': 'HG=F',
+    'WTI/USD': 'CL=F',
+    'BRENT/USD': 'BZ=F',
+    'NATGAS/USD': 'NG=F',
+    'WHEAT/USD': 'ZW=F',
+    'CORN/USD': 'ZC=F',
+    'SOYBEAN/USD': 'ZS=F',
+    'COFFEE/USD': 'KC=F',
+    'COCOA/USD': 'CC=F'
+  };
+  if (map[s]) {
+    yhSym = map[s];
+  } else if (s.endsWith('/USDT')) {
+    yhSym = s.replace('/USDT', '-USD');
+  } else if (s.includes('/')) {
+    yhSym = s.replace('/', '') + '=X';
+  }
+  const tfMap = {
+    'M1':  { interval: '1m',  range: '2d' },
+    'M5':  { interval: '5m',  range: '5d' },
+    'M15': { interval: '15m', range: '10d' },
+    'M30': { interval: '30m', range: '1mo' },
+    'H1':  { interval: '60m', range: '1mo' },
+    'H4':  { interval: '60m', range: '3mo', aggregate4H: true },
+    'D1':  { interval: '1d',  range: '1y' },
+    'W1':  { interval: '1wk', range: '5y' },
+    'MN':  { interval: '1mo', range: '10y' },
+    '1Y':  { interval: '3mo', range: 'max' }
+  };
+  const cfg = tfMap[tf] || tfMap['H1'];
+  return { yhSym, ...cfg };
+}
+async function fetchYahooChartCandles(symbol, tf) {
+  const { yhSym, interval, range, aggregate4H } = getYahooParams(symbol, tf);
   const hosts = ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo.com'];
   for (const host of hosts) {
     try {
-      const url = host + '/v8/finance/chart/' + encodeURIComponent(yfSym) + '?interval=' + interval + '&range=' + range + '&includePrePost=false';
-      const res = await fetch(url, {
-        cache: 'no-store',
+      const endpoint = `${host}/v8/finance/chart/${encodeURIComponent(yhSym)}?interval=${interval}&range=${range}&includePrePost=true`;
+      const res = await fetch(endpoint, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
       });
       if (!res.ok) continue;
       const json = await res.json();
       const result = json?.chart?.result?.[0];
-      if (!result || !result.timestamp) continue;
+      if (!result || !Array.isArray(result.timestamp)) continue;
       const ts = result.timestamp;
       const q = result.indicators?.quote?.[0] || {};
-      let raw = [];
+      const raw = [];
       for (let i = 0; i < ts.length; i++) {
-        const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i], v = q.volume?.[i];
-        if (o != null && h != null && l != null && c != null && c > 0) {
-          raw.push({ time: Number(ts[i]), open: Number(o), high: Number(h), low: Number(l), close: Number(c), volume: Number(v || 1000) });
+        const t = Number(ts[i]);
+        const o = Number(q.open?.[i]);
+        const h = Number(q.high?.[i]);
+        const l = Number(q.low?.[i]);
+        const c = Number(q.close?.[i]);
+        const v = Number(q.volume?.[i]) || 100;
+        if (Number.isFinite(t) && Number.isFinite(o) && Number.isFinite(h) && Number.isFinite(l) && Number.isFinite(c) && c > 0) {
+          raw.push({ time: t, open: o, high: h, low: l, close: c, volume: v });
         }
       }
-      if (raw.length < 15) continue;
-      if (tf === 'H4') {
+      if (raw.length < 5) continue;
+      let candles = raw;
+      if (aggregate4H) {
         const agg = [];
         for (let i = 0; i < raw.length; i += 4) {
           const chunk = raw.slice(i, i + 4);
+          if (chunk.length === 0) continue;
           agg.push({
             time: chunk[0].time,
             open: chunk[0].open,
@@ -153,189 +314,122 @@ async function fetchYahooCandles(yfSym, tf) {
             volume: chunk.reduce((a, b) => a + b.volume, 0)
           });
         }
-        raw = agg;
+        candles = agg;
       }
-      return raw.slice(-160);
+      const metaPrice = Number(result.meta?.regularMarketPrice) || candles[candles.length - 1].close;
+      return { source: `BROKER_FEED:${yhSym}`, candles: candles.slice(-260), metaPrice };
     } catch (e) {}
   }
   return null;
 }
-function calibrateCandlesToBrokerQuote(candles, brokerQuote, sym) {
-  if (!candles || !candles.length || !brokerQuote || brokerQuote.close <= 0) return candles;
-  const brokerPrice = brokerQuote.close;
-  const lastClose = candles[candles.length - 1].close;
-  if (!lastClose || lastClose <= 0) return candles;
-  const decimals = sym === 'XAU/IDR' ? 0 : brokerPrice < 0.01 ? 6 : brokerPrice < 10 ? 4 : 2;
-  const ratio = brokerPrice / lastClose;
-  const useShift = sym !== 'XAU/IDR' && ratio > 0.85 && ratio < 1.15;
-  const diff = brokerPrice - lastClose;
-  const calibrated = candles.map(c => ({
-    time: c.time,
-    open: Number((useShift ? (c.open + diff) : (c.open * ratio)).toFixed(decimals)),
-    high: Number((useShift ? (c.high + diff) : (c.high * ratio)).toFixed(decimals)),
-    low: Number((useShift ? (c.low + diff) : (c.low * ratio)).toFixed(decimals)),
-    close: Number((useShift ? (c.close + diff) : (c.close * ratio)).toFixed(decimals)),
-    volume: c.volume
-  }));
-  const last = calibrated[calibrated.length - 1];
-  last.close = Number(brokerPrice.toFixed(decimals));
-  if (last.close > last.high) last.high = last.close;
-  if (last.close < last.low) last.low = last.close;
-  return calibrated;
-}
-function buildCandlesFromBrokerQuote(liveQuote, tf, sym) {
-  const price = liveQuote.close;
-  const stepMap = { 'M1':60, 'M5':300, 'M15':900, 'M30':1800, 'H1':3600, 'H4':14400, 'D1':86400, 'W1':604800, 'MN':2592000, '1Y':31536000 };
-  const step = stepMap[tf] || 3600;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const currentBucket = Math.floor(nowSec / step) * step;
-  const decimals = sym === 'XAU/IDR' ? 0 : price < 0.01 ? 6 : price < 10 ? 4 : 2;
-  const tfScale = Math.min(1, Math.sqrt(step / 86400));
-  const volPct = (sym.includes('/') && !sym.includes('XAU') ? 0.0012 : 0.0032) * Math.max(0.22, tfScale);
-  let seed = 0;
-  for (let i = 0; i < sym.length; i++) seed = (seed * 31 + sym.charCodeAt(i)) % 100000;
-  const series = new Array(160);
-  series[159] = {
-    time: currentBucket,
-    open: Number(liveQuote.open.toFixed(decimals)),
-    high: Number(Math.max(liveQuote.high, price).toFixed(decimals)),
-    low: Number(Math.min(liveQuote.low, price).toFixed(decimals)),
-    close: Number(price.toFixed(decimals)),
-    volume: liveQuote.volume || 1500
+async function fetchBinanceCandles(symbol, tf) {
+  const pair = symbol.replace('/', '').toUpperCase();
+  const tfMap = {
+    'M1': '1m', 'M5': '5m', 'M15': '15m', 'M30': '30m',
+    'H1': '1h', 'H4': '4h', 'D1': '1d', 'W1': '1w', 'MN': '1M', '1Y': '1M'
   };
-  let nextOpen = series[159].open;
-  for (let i = 158; i >= 0; i--) {
-    const wave = Math.sin((i + seed) * 0.19) * 0.55 + Math.cos((i * 1.3 + seed) * 0.11) * 0.45;
-    const close = nextOpen;
-    const open = close / (1 + wave * volPct);
-    const span = Math.abs(close - open) + close * volPct * 0.45;
-    series[i] = {
-      time: currentBucket - (159 - i) * step,
-      open: Number(open.toFixed(decimals)),
-      high: Number((Math.max(open, close) + span * 0.55).toFixed(decimals)),
-      low: Number((Math.min(open, close) - span * 0.55).toFixed(decimals)),
-      close: Number(close.toFixed(decimals)),
-      volume: Math.round(1200 + Math.abs(wave) * 2500)
-    };
-    nextOpen = series[i].open;
-  }
-  return series;
-}
-export async function onRequestGet(context) {
-  const url = new URL(context.request.url);
-  const headers = {
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-    'Pragma': 'no-cache',
-    'Access-Control-Allow-Origin': '*'
-  };
-  const symbol = url.searchParams.get('symbol') || 'BTC/USDT';
-  const tf = url.searchParams.get('tf') || 'H1';
-  if (url.searchParams.get('quote') === '1') {
-    if (symbol.endsWith('/USDT')) {
-      try {
-        const pair = symbol.replace('/', '');
-        const r = await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol=' + pair, { cache: 'no-store' });
-        if (r.ok) {
-          const d = await r.json();
-          if (d && Number(d.price) > 0) {
-            return new Response(JSON.stringify({ ok: true, symbol, price: Number(d.price), source: 'BINANCE:' + pair }), { headers });
-          }
-        }
-      } catch (e) {}
-    }
-    const q = await fetchExactBrokerQuote(symbol, tf);
-    if (q && q.close > 0) {
-      return new Response(JSON.stringify({
-        ok: true,
-        symbol,
-        price: q.close,
-        open: q.open,
-        high: q.high,
-        low: q.low,
-        source: q.ticker
-      }), { headers });
-    }
-    return new Response(JSON.stringify({ ok: false, symbol }), { status: 503, headers });
-  }
-  if (url.searchParams.get('batch') === '1') {
-    const list = (url.searchParams.get('symbols') || 'XAU/USD,XAU/IDR,XAG/USD,EUR/USD,GBP/USD,USD/JPY,USD/IDR,BBCA.JK,BBRI.JK,BMRI.JK,ANTM.JK,NVDA,AAPL,TSLA,WTI/USD').split(',');
-    const quotes = {};
-    await Promise.all(list.map(async (s) => {
-      const sym = s.trim();
-      if (!sym) return;
-      const q = await fetchExactBrokerQuote(sym, 'H1');
-      if (q && q.close > 0) quotes[sym] = q.close;
-    }));
-    return new Response(JSON.stringify({ ok: true, quotes }), { headers });
-  }
+  const interval = tfMap[tf] || '1h';
   try {
-    if (symbol.endsWith('/USDT')) {
-      const pair = symbol.replace('/', '');
-      const bTfMap = { 'M1':'1m', 'M5':'5m', 'M15':'15m', 'M30':'30m', 'H1':'1h', 'H4':'4h', 'D1':'1d', 'W1':'1w', 'MN':'1M', '1Y':'1M' };
-      const bInterval = bTfMap[tf] || '1h';
-      const bRes = await fetch('https://data-api.binance.vision/api/v3/klines?symbol=' + pair + '&interval=' + bInterval + '&limit=160', { cache: 'no-store' });
-      if (bRes.ok) {
-        const raw = await bRes.json();
-        if (Array.isArray(raw) && raw.length > 20) {
-          const candles = raw.map(k => ({
-            time: Math.floor(k[0] / 1000),
-            open: parseFloat(k[1]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            close: parseFloat(k[4]),
-            volume: parseFloat(k[5])
+    const [kRes, tRes] = await Promise.all([
+      fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${pair}&interval=${interval}&limit=240`),
+      fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${pair}`)
+    ]);
+    if (!kRes.ok) return null;
+    const klines = await kRes.json();
+    if (!Array.isArray(klines) || klines.length < 5) return null;
+    const candles = klines.map(k => ({
+      time: Math.floor(Number(k[0]) / 1000),
+      open: Number(k[1]),
+      high: Number(k[2]),
+      low: Number(k[3]),
+      close: Number(k[4]),
+      volume: Number(k[5]) || 100
+    }));
+    let livePrice = candles[candles.length - 1].close;
+    let changePct = 0;
+    if (tRes.ok) {
+      const td = await tRes.json();
+      if (Number(td.lastPrice) > 0) livePrice = Number(td.lastPrice);
+      changePct = Number(td.priceChangePercent) || 0;
+    }
+    const last = candles[candles.length - 1];
+    last.close = livePrice;
+    if (livePrice > last.high) last.high = livePrice;
+    if (livePrice < last.low) last.low = livePrice;
+    return {
+      source: `BINANCE:${pair}`,
+      price: livePrice,
+      changePct,
+      candles
+    };
+  } catch (e) {
+    return null;
+  }
+}
+async function fetchSynchronizedMarketCandles(symbol, tf) {
+  const s = symbol.toUpperCase().trim();
+  if (s.endsWith('/USDT')) {
+    const binData = await fetchBinanceCandles(s, tf);
+    if (binData) return binData;
+  }
+  const [liveQuote, yhData] = await Promise.all([
+    fetchExactLiveQuote(s, tf).catch(() => null),
+    fetchYahooChartCandles(s, tf).catch(() => null)
+  ]);
+  if (yhData && Array.isArray(yhData.candles) && yhData.candles.length > 0) {
+    let candles = yhData.candles.map(c => ({ ...c }));
+    const lastIdx = candles.length - 1;
+    const rawLastClose = candles[lastIdx].close;
+    if (liveQuote && Number.isFinite(liveQuote.price) && liveQuote.price > 0 && rawLastClose > 0) {
+      if (s === 'XAU/IDR') {
+        const ratio = liveQuote.price / rawLastClose;
+        candles = candles.map(c => ({
+          time: c.time,
+          open: c.open * ratio,
+          high: c.high * ratio,
+          low: c.low * ratio,
+          close: c.close * ratio,
+          volume: c.volume
+        }));
+      } else {
+        const basisOffset = liveQuote.price - rawLastClose;
+        if (Math.abs(basisOffset) / liveQuote.price < 0.12) {
+          candles = candles.map(c => ({
+            time: c.time,
+            open: Math.max(0.0000001, c.open + basisOffset),
+            high: Math.max(0.0000001, c.high + basisOffset),
+            low: Math.max(0.0000001, c.low + basisOffset),
+            close: Math.max(0.0000001, c.close + basisOffset),
+            volume: c.volume
           }));
-          return new Response(JSON.stringify({
-            ok: true,
-            symbol,
-            tf,
-            source: 'BINANCE:' + pair,
-            livePrice: candles[candles.length - 1].close,
-            candles
-          }), { headers });
+        } else {
+          const ratio = liveQuote.price / rawLastClose;
+          candles = candles.map(c => ({
+            time: c.time,
+            open: c.open * ratio,
+            high: c.high * ratio,
+            low: c.low * ratio,
+            close: c.close * ratio,
+            volume: c.volume
+          }));
         }
       }
+      const active = candles[candles.length - 1];
+      active.close = liveQuote.price;
+      if (liveQuote.price > active.high) active.high = liveQuote.price;
+      if (liveQuote.price < active.low) active.low = liveQuote.price;
     }
-    const yfSym = YF_MAP[symbol] || (symbol === 'XAU/IDR' ? 'GC=F' : symbol);
-    const [brokerQuote, yfCandles] = await Promise.all([
-      fetchExactBrokerQuote(symbol, tf),
-      fetchYahooCandles(yfSym, tf)
-    ]);
-    if (yfCandles && yfCandles.length > 20 && brokerQuote && brokerQuote.close > 0) {
-      const calibrated = calibrateCandlesToBrokerQuote(yfCandles, brokerQuote, symbol);
-      return new Response(JSON.stringify({
-        ok: true,
-        symbol,
-        tf,
-        source: brokerQuote.ticker,
-        livePrice: brokerQuote.close,
-        candles: calibrated
-      }), { headers });
-    }
-    if (brokerQuote && brokerQuote.close > 0) {
-      const built = buildCandlesFromBrokerQuote(brokerQuote, tf, symbol);
-      return new Response(JSON.stringify({
-        ok: true,
-        symbol,
-        tf,
-        source: brokerQuote.ticker,
-        livePrice: brokerQuote.close,
-        candles: built
-      }), { headers });
-    }
-    if (yfCandles && yfCandles.length > 20) {
-      return new Response(JSON.stringify({
-        ok: true,
-        symbol,
-        tf,
-        source: 'MARKET:' + yfSym,
-        livePrice: yfCandles[yfCandles.length - 1].close,
-        candles: yfCandles
-      }), { headers });
-    }
-    return new Response(JSON.stringify({ ok: false, symbol, tf, error: 'Feed unavailable' }), { status: 503, headers });
-  } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500, headers });
+    const finalPrice = liveQuote && liveQuote.price > 0 ? liveQuote.price : candles[candles.length - 1].close;
+    const prevClose = candles.length > 1 ? candles[candles.length - 2].close : candles[0].open;
+    const changePct = liveQuote && Number.isFinite(liveQuote.changePct) && liveQuote.changePct !== 0
+      ? liveQuote.changePct
+      : (prevClose > 0 ? ((finalPrice - prevClose) / prevClose) * 100 : 0);
+    return {
+      source: liveQuote && liveQuote.source ? liveQuote.source : yhData.source,
+      price: finalPrice,
+      changePct,
+      candles
+    };
   }
+  throw new Error(`Data candlestick real-time untuk ${s} sedang disinkronkan.`);
 }
