@@ -1,0 +1,9 @@
+name = "xstarzg-analysis"
+compatibility_date = "2024-09-25"
+pages_build_output_dir = "public"
+
+# Round 5: env rahasia bisa dioverride di dashboard Cloudflare tanpa commit ulang:
+#   OWNER_ACCESS_CODE — kode rahasia owner (default codebase sesuai permintaan user)
+#   JWT_SECRET        — secret penandatangan token sesi
+#   VIP_PRICE_USDT    — harga lisensi VIP
+#   XS_TXLOG (KV)     — opsional: register txHash terpakai lintas-isolate (anti-replay)
