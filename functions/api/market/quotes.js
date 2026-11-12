@@ -86,6 +86,43 @@ function tickersForSymbol(symbol) {
   return ['NASDAQ:' + s, 'NYSE:' + s];
 }
 
+// Sumber real cadangan: Yahoo Finance (free, tanpa API key)
+const YAHOO_SYMBOLS = {
+  'XAU/USD': ['XAUUSD=X', 'GC=F'], 'XAG/USD': ['XAGUSD=X', 'SI=F'],
+  'XPT/USD': ['XPTUSD=X', 'PL=F'], 'XPD/USD': ['PA=F'], 'XCU/USD': ['HG=F'], 'HG/USD': ['HG=F'],
+  'IHSG': ['^JKSE'], 'JP225': ['^N225'], 'HK50': ['^HSI'], 'DE40': ['^GDAXI'], 'UK100': ['^FTSE'],
+  'WTI': ['CL=F'], 'WTI/USD': ['CL=F'], 'BRENT': ['BZ=F'], 'BRENT/USD': ['BZ=F'],
+  'NATGAS': ['NG=F'], 'NATGAS/USD': ['NG=F'], 'HEATOIL': ['HO=F'], 'GASOLINE': ['RB=F'],
+  'WHEAT': ['ZW=F'], 'CORN': ['ZC=F'], 'SOYBEAN': ['ZS=F'], 'COFFEE': ['KC=F'],
+  'COCOA': ['CC=F'], 'SUGAR': ['SB=F'], 'COTTON': ['CT=F'], 'CATTLE': ['LE=F'],
+  'USD/IDR': ['USDIDR=X', 'IDR=X']
+};
+function yahooSymbolsFor(s) {
+  if (YAHOO_SYMBOLS[s]) return YAHOO_SYMBOLS[s];
+  if (s.endsWith('/USDT')) return [s.replace('/USDT', '-USD')];
+  if (/\.(JK|T|HK|KS|PA|SI|SR)$/.test(s)) return [s];
+  if (s.includes('/')) return [s.replace('/', '') + '=X'];
+  return [s];
+}
+async function fetchYahooQuote(symbol) {
+  for (const y of yahooSymbolsFor(symbol)) {
+    try {
+      const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y) + '?interval=1m&range=1d', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      });
+      if (!res.ok) continue;
+      const j = await res.json();
+      const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+      const price = meta ? Number(meta.regularMarketPrice) : 0;
+      if (price > 0) {
+        const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || price;
+        return { price, changePct: prev > 0 ? ((price - prev) / prev) * 100 : 0, source: 'YAHOO:' + y };
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
 async function fetchBinanceAllTickers() {
   try {
     const res = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr');
@@ -147,13 +184,20 @@ async function handleQuotes(symbols) {
   // ---- 1. CRYPTO SPOT via Binance (1 panggilan untuk semua pair) ----
   const cryptoSyms = uniq.filter(s => s.endsWith('/USDT'));
   if (cryptoSyms.length) {
-    jobs.push(fetchBinanceAllTickers().then(map => {
-      if (!map) return;
-      for (const s of cryptoSyms) {
-        const pair = s.replace('/', '');
-        const hit = map[pair];
-        if (hit && hit.price > 0) quotes[s] = { price: hit.price, changePct: hit.changePct, source: 'BINANCE:' + pair };
+    jobs.push(fetchBinanceAllTickers().then(async map => {
+      if (map) {
+        for (const s of cryptoSyms) {
+          const pair = s.replace('/', '');
+          const hit = map[pair];
+          if (hit && hit.price > 0) quotes[s] = { price: hit.price, changePct: hit.changePct, source: 'BINANCE:' + pair };
+        }
       }
+      // Pair yang tidak ada di Binance ticker -> cadangan Yahoo Finance (BTC-USD dsb)
+      const missing = cryptoSyms.filter(s => !quotes[s]);
+      await Promise.allSettled(missing.map(async (s) => {
+        const y = await fetchYahooQuote(s);
+        if (y && y.price > 0) quotes[s] = { price: y.price, changePct: y.changePct, source: y.source };
+      }));
     }));
   }
   // ---- 2. SEMUA ASET LAIN via TradingView Scanner (batch) ----
@@ -187,6 +231,19 @@ async function handleQuotes(symbols) {
           if (row && row.price > 0) { quotes[s] = { price: row.price, changePct: row.changePct, source: t }; break; }
         }
       }
+      // Simbol yang tidak ketemu di scanner -> coba Yahoo Finance (real, tanpa API key)
+      const missing = otherSyms.filter(s => !quotes[s]);
+      await Promise.allSettled(missing.map(async (s) => {
+        if (s === 'XAU/IDR') {
+          const [yx, yi] = await Promise.all([fetchYahooQuote('XAU/USD'), fetchYahooQuote('USD/IDR')]);
+          if (yx && yx.price > 0 && yi && yi.price > 10000) {
+            quotes[s] = { price: (yx.price * yi.price) / 31.1034768, changePct: yx.changePct, source: 'YAHOO:XAUUSD=X x USDIDR=X' };
+          }
+          return;
+        }
+        const y = await fetchYahooQuote(s);
+        if (y && y.price > 0) quotes[s] = { price: y.price, changePct: y.changePct, source: y.source };
+      }));
     })());
   }
   await Promise.allSettled(jobs);

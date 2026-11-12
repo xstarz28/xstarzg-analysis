@@ -8,7 +8,9 @@
     html, body { background-color: #020617; color: #f8fafc; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .hidden { display: none !important; }
   </style>
-  <link rel="stylesheet" href="/styles.css?v=2026.31" />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="apple-touch-icon" href="/assets/favicon.svg" />
+  <link rel="stylesheet" href="/styles.css?v=2026.32" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -92,7 +94,6 @@
     <header class="topbar">
       <div class="brand-wrap">
         <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" style="cursor:pointer;" id="btnBrandLogoHome" onerror="this.style.display='none'" />
-        <span class="brand-tag">TERMINAL 2026</span>
       </div>
       <div class="topbar-modes">
         <button type="button" id="btnModeTrader" class="mode-btn active">⚡ TRADER MODE</button>
@@ -180,9 +181,10 @@
         <div class="chart-card">
           <div class="asset-header-bar">
             <div class="asset-title-block">
-              <div style="display:flex;align-items:center;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <h2 id="hdrSymbolTitle">XAU/USD — Gold Spot US Dollar</h2>
                 <span id="hdrAssetCategory" class="brand-tag">METALS</span>
+                <span id="hdrModeChip" class="mode-chip futures">FUTURES • 2-ARAH + LEV</span>
               </div>
               <div style="font-size:11.5px;color:#94a3b8;margin-top:3px;">
                 Status Feed: <span id="lblEngineStatus" style="color:#10b981;font-weight:700;">LIVE REAL-TIME • OANDA:XAUUSD</span>
@@ -340,7 +342,15 @@
         <div id="macroPillarsGrid" class="pillars-grid"></div>
       </div>
       <div class="section-card">
-        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">📡 Radar Peluang Multi-Aset Institusional (Klik untuk Buka Analisis)</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">📡 Radar Rekomendasi Aset Multi-Aset Real-Time</h3>
+          <div class="radar-horizon-bar" id="radarHorizonBar">
+            <button type="button" class="hz-btn" data-hz="scalping">⚡ SCALPING <small>M1–M15</small></button>
+            <button type="button" class="hz-btn active" data-hz="intraday">🎯 INTRADAY <small>M15–H1</small></button>
+            <button type="button" class="hz-btn" data-hz="swing">🌊 SWING <small>H4–W1</small></button>
+          </div>
+        </div>
+        <div id="radarHorizonInfo" style="font-size:11px;color:#94a3b8;margin:6px 0 2px;"></div>
         <div id="opportunityRadarGrid" class="radar-grid"></div>
       </div>
     </section>
@@ -407,6 +417,6 @@
       </button>
     </div>
   </div>
-  <script src="/app.js?v=2026.31"></script>
+  <script src="/app.js?v=2026.32"></script>
 </body>
 </html>

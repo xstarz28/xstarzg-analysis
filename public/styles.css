@@ -326,6 +326,41 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
 .radar-card .r-chg { font-family: var(--font-mono); font-size: 11.5px; font-weight: 800; }
 .radar-card .r-live { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: var(--bull-green); }
 
+/* ---------- Mode chip & Signal badges ---------- */
+.mode-chip {
+  display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: 0.8px;
+  padding: 3px 9px; border-radius: 99px; text-transform: uppercase;
+}
+.mode-chip.futures { color: #fbbf24; background: rgba(245, 158, 11, 0.13); border: 1px solid rgba(245, 158, 11, 0.5); }
+.mode-chip.spot { color: #34d399; background: rgba(16, 185, 129, 0.13); border: 1px solid rgba(16, 185, 129, 0.5); }
+.mode-chip.investor { color: #7dd3fc; background: rgba(56, 189, 248, 0.13); border: 1px solid rgba(56, 189, 248, 0.5); }
+.sig-badge {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 7px;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.4px;
+  padding: 4px 10px; border-radius: 8px; width: fit-content;
+}
+.sig-badge.long { color: #10b981; background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.45); }
+.sig-badge.short { color: #f43f5e; background: rgba(244, 63, 94, 0.14); border: 1px solid rgba(244, 63, 94, 0.45); }
+.sig-badge.wait { color: #f59e0b; background: rgba(245, 158, 11, 0.13); border: 1px solid rgba(245, 158, 11, 0.45); }
+.sig-badge.accum { color: #34d399; background: rgba(52, 211, 153, 0.13); border: 1px solid rgba(52, 211, 153, 0.45); }
+.radar-card .r-entry { font-family: var(--font-mono); font-size: 10.5px; color: #94a3b8; margin-top: 4px; }
+.radar-card .r-score { font-family: var(--font-mono); font-size: 10.5px; font-weight: 800; color: #7dd3fc; }
+
+/* ---------- Radar horizon tabs ---------- */
+.radar-horizon-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.hz-btn {
+  background: rgba(15, 23, 42, 0.85); color: var(--text-muted);
+  border: 1px solid var(--border-strong); border-radius: 9px;
+  padding: 7px 12px; font-size: 11px; font-weight: 800; cursor: pointer; letter-spacing: 0.3px;
+  transition: all 0.12s ease;
+}
+.hz-btn small { font-size: 9px; font-weight: 700; opacity: 0.75; margin-left: 2px; }
+.hz-btn:hover { border-color: var(--accent-sky); color: var(--text-primary); }
+.hz-btn.active {
+  background: rgba(56, 189, 248, 0.17); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.65);
+  box-shadow: 0 0 11px rgba(56, 189, 248, 0.22);
+}
+
 /* ---------- Modals ---------- */
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 130;
