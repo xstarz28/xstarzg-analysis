@@ -48,7 +48,7 @@ export async function setLanguage(langCode) {
     return activeDictionary;
   }
   try {
-    const mod = await import(`./locales/${currentLang}.js`);
+    const mod = await import(`./locales/${currentLang}.js?v=2026.37`);
     activeDictionary = mod.default || {};
     dictionaryCache.set(currentLang, activeDictionary);
   } catch (_) {
@@ -83,6 +83,15 @@ export function applyTranslationsToDOM() {
         el.innerHTML = val;
       }
     }
+  });
+  // Round 6: dukungan placeholder & tooltip title (input search, email, kode owner dst.)
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => {
+    const val = t(el.getAttribute('data-i18n-ph'), '');
+    if (val) el.setAttribute('placeholder', val);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const val = t(el.getAttribute('data-i18n-title'), '');
+    if (val) el.setAttribute('title', val);
   });
 }
 export function formatNumber(value, decimals = 2) {

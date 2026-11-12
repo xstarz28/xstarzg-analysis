@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>XSTARZG Analysis — Institutional Multi-Asset Quantitative & Smart Money Terminal (2026)</title>
+  <title data-i18n="meta.title">XSTARZG Analysis — Institutional Multi-Asset Quantitative & Smart Money Terminal (2026)</title>
   <style>
     html, body { background-color: #020617; color: #f8fafc; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .hidden { display: none !important; }
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.35" />
+  <link rel="stylesheet" href="/styles.css?v=2026.37" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -20,47 +20,48 @@
     <nav class="front-navbar">
       <div class="brand-wrap">
         <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" data-logo-fallback="1" />
-        <span class="brand-tag">INSTITUTIONAL QUANT TERMINAL 2026</span>
+        <span class="brand-tag" data-i18n="ui.brandTag">INSTITUTIONAL QUANT TERMINAL 2026</span>
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
-        <button type="button" id="btnNavLoginGate" class="btn-primary-glow" style="padding:9px 18px;font-size:13px;">
+        <select data-lang-select class="lang-select" title="Language / Bahasa / 语言"></select>
+        <button type="button" id="btnNavLoginGate" class="btn-primary-glow" style="padding:9px 18px;font-size:13px;" data-i18n="ui.btnLoginNav">
           🔐 Masuk / Login Terminal
         </button>
       </div>
     </nav>
     <div class="front-hero">
-      <div class="hero-pill">⚡ REAL-TIME MULTI-ASSET QUANTITATIVE & SMART MONEY ENGINE</div>
-      <h1>Presisi Analisis Kuantitatif, Smart Money Concepts & Valuasi Investor dalam Satu Terminal</h1>
+      <div class="hero-pill" data-i18n="ui.heroPill">⚡ REAL-TIME MULTI-ASSET QUANTITATIVE & SMART MONEY ENGINE</div>
+      <h1 data-i18n="ui.heroTitle">Presisi Analisis Kuantitatif, Smart Money Concepts & Valuasi Investor dalam Satu Terminal</h1>
       <p>
-        Pantau <span id="heroTotalInstruments">600+</span> instrumen global (Emas Spot XAU/USD, Emas Fisik IDR, 28 Pair Forex, 30 Saham IDX Indonesia,
-        40 Saham AS &amp; Global, 16 Komoditas Dunia, dan <span id="heroCryptoCount">400+</span> Crypto Spot USDT real-time) dengan kuotasi broker real-time,
-        22 Pilar Konfluensi, serta proteksi Stop Loss struktural anti-Stop Hunt.
+        <span data-i18n="ui.heroP1">Pantau </span><span id="heroTotalInstruments">600+</span><span data-i18n="ui.heroP2"> instrumen global (Emas Spot XAU/USD, Emas Fisik IDR, 28 Pair Forex, 30 Saham IDX Indonesia,
+        40 Saham AS &amp; Global, 16 Komoditas Dunia, dan </span><span id="heroCryptoCount">400+</span><span data-i18n="ui.heroP3"> Crypto Spot USDT real-time) dengan kuotasi broker real-time,
+        22 Pilar Konfluensi, serta proteksi Stop Loss struktural anti-Stop Hunt.</span>
       </p>
       <div class="hero-cta-row">
-        <button type="button" id="btnHeroLoginGate" class="btn-primary-glow">
+        <button type="button" id="btnHeroLoginGate" class="btn-primary-glow" data-i18n="ui.btnStart">
           🚀 Masuk & Mulai Analisis Sekarang
         </button>
-        <button type="button" id="btnHeroPreview" class="btn-secondary-outline">
+        <button type="button" id="btnHeroPreview" class="btn-secondary-outline" data-i18n="ui.btnPreview">
           👁️ Lihat Pratinjau Terminal (Mode Tamu)
         </button>
       </div>
     </div>
     <div class="front-features-grid">
       <div class="feature-card">
-        <h3>📊 22-Pillar High-IQ Confluence</h3>
-        <p>Menggabungkan 16 Pilar Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, BSL/SSL Sweep, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Entry Institusional di VWAP</strong>, dan Efficiency Ratio Kualitas Tren) ditambah 6 Pilar Makro/Fundamental.</p>
+        <h3 data-i18n="ui.feat1Title">📊 22-Pillar High-IQ Confluence</h3>
+        <p data-i18n="ui.feat1Desc">Menggabungkan 16 Pilar Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, BSL/SSL Sweep, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Entry Institusional di VWAP</strong>, dan Efficiency Ratio Kualitas Tren) ditambah 6 Pilar Makro/Fundamental.</p>
       </div>
       <div class="feature-card">
-        <h3>🔒 Locked Sniper Setup & Anti-Stop Hunt</h3>
-        <p>Harga bergerak real-time setiap detik di grafik tanpa perlu refresh, sedangkan titik Entry, Stop Loss Struktural, serta TP1/TP2/TP3 terkunci stabil selama periode candle aktif.</p>
+        <h3 data-i18n="ui.feat2Title">🔒 Locked Sniper Setup & Anti-Stop Hunt</h3>
+        <p data-i18n="ui.feat2Desc">Harga bergerak real-time setiap detik di grafik tanpa perlu refresh, sedangkan titik Entry, Stop Loss Struktural, serta TP1/TP2/TP3 terkunci stabil selama periode candle aktif.</p>
       </div>
       <div class="feature-card">
-        <h3>⚡ Trader Mode & 🏛️ Spot Investor Mode</h3>
-        <p>Pemisahan ruang kerja khusus untuk Trader Futures 2-Arah (beserta kalkulator likuidasi & ukuran posisi), Trader Spot 1-Arah, serta Investor DCA Jangka Panjang.</p>
+        <h3 data-i18n="ui.feat3Title">⚡ Trader Mode & 🏛️ Spot Investor Mode</h3>
+        <p data-i18n="ui.feat3Desc">Pemisahan ruang kerja khusus untuk Trader Futures 2-Arah (beserta kalkulator likuidasi & ukuran posisi), Trader Spot 1-Arah, serta Investor DCA Jangka Panjang.</p>
       </div>
       <div class="feature-card">
-        <h3>✅ Terverifikasi Real Walk-Forward</h3>
-        <p>Setiap sinyal diuji langsung pada 200+ bar historis riil instrumen terkait untuk menampilkan Win Rate, Profit Factor, dan Maximum Drawdown secara transparan.</p>
+        <h3 data-i18n="ui.feat4Title">✅ Terverifikasi Real Walk-Forward</h3>
+        <p data-i18n="ui.feat4Desc">Setiap sinyal diuji langsung pada 200+ bar historis riil instrumen terkait untuk menampilkan Win Rate, Profit Factor, dan Maximum Drawdown secara transparan.</p>
       </div>
     </div>
   </section>
@@ -70,21 +71,22 @@
       <div style="display:flex;justify-content:center;">
         <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" data-logo-fallback="1" />
       </div>
-      <h2>Otentikasi Akses Terminal</h2>
-      <p>Masuk menggunakan akun Google Anda untuk mengaktifkan sesi analisis personal dan kuota instrumen gratis.</p>
+      <select data-lang-select class="lang-select" title="Language / Bahasa / 语言" style="width:100%;margin-bottom:12px;"></select>
+      <h2 data-i18n="ui.gateTitle">Otentikasi Akses Terminal</h2>
+      <p data-i18n="ui.gateDesc">Masuk menggunakan akun Google Anda untuk mengaktifkan sesi analisis personal dan kuota instrumen gratis.</p>
       <button type="button" id="btnTriggerGooglePopup" class="btn-google-auth">
         <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;background:#0284c7;color:#fff;align-items:center;justify-content:center;font-weight:900;font-size:13px;">G</span>
-        <span>Lanjutkan dengan Akun Google</span>
+        <span data-i18n="ui.gateGoogleBtn">Lanjutkan dengan Akun Google</span>
       </button>
-      <button type="button" id="btnInstantPreview" class="btn-guest-preview">
+      <button type="button" id="btnInstantPreview" class="btn-guest-preview" data-i18n="ui.gateGuestBtn">
         👁️ Pratinjau Instan (Mode Tamu — Hanya Lihat)
       </button>
       <div class="login-tier-notes">
-        <div style="margin-bottom:4px;"><strong style="color:#f8fafc;">• Mode Tamu:</strong> Hanya melihat pratinjau awal (klik instrumen lain memerlukan Login).</div>
-        <div style="margin-bottom:4px;"><strong style="color:#38bdf8;">• Akun Google Gratis:</strong> Bebas menganalisis hingga <strong>2 instrumen</strong> pilihan penuh.</div>
-        <div><strong style="color:#10b981;">• Member VIP ($29 USDT / 30 Hari):</strong> Akses tanpa batas ke seluruh 600+ instrumen & 10 timeframe.</div>
+        <div style="margin-bottom:4px;" data-i18n="ui.noteGuest"><strong style="color:#f8fafc;">• Mode Tamu:</strong> Hanya melihat pratinjau awal (klik instrumen lain memerlukan Login).</div>
+        <div style="margin-bottom:4px;" data-i18n="ui.noteFree"><strong style="color:#38bdf8;">• Akun Google Gratis:</strong> Bebas menganalisis hingga <strong>2 instrumen</strong> pilihan penuh.</div>
+        <div data-i18n="ui.noteVip"><strong style="color:#10b981;">• Member VIP ($29 USDT / 30 Hari):</strong> Akses tanpa batas ke seluruh 600+ instrumen & 10 timeframe.</div>
       </div>
-      <button type="button" id="btnBackToLanding" class="btn-secondary-outline" style="width:100%;padding:9px;font-size:12.5px;">
+      <button type="button" id="btnBackToLanding" class="btn-secondary-outline" style="width:100%;padding:9px;font-size:12.5px;" data-i18n="ui.btnBackHome">
         ← Kembali ke Beranda Utama
       </button>
     </div>
@@ -96,15 +98,16 @@
         <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" style="cursor:pointer;" id="btnBrandLogoHome" data-logo-fallback="1" />
       </div>
       <div class="topbar-modes">
-        <button type="button" id="btnModeTrader" class="mode-btn active">⚡ TRADER MODE</button>
-        <button type="button" id="btnModeInvestor" class="mode-btn">🏛️ SPOT INVESTOR (DCA & VALUASI)</button>
+        <button type="button" id="btnModeTrader" class="mode-btn active" data-i18n="ui.modeTrader">⚡ TRADER MODE</button>
+        <button type="button" id="btnModeInvestor" class="mode-btn" data-i18n="ui.modeInvestor">🏛️ SPOT INVESTOR (DCA & VALUASI)</button>
         <div id="traderSubModeWrap" style="display:flex;gap:6px;margin-left:6px;">
-          <button type="button" id="btnSubFutures" class="submode-btn active">📈 TRADER FUTURES (2-ARAH)</button>
-          <button type="button" id="btnSubSpot" class="submode-btn">🪙 TRADER SPOT (1-ARAH)</button>
+          <button type="button" id="btnSubFutures" class="submode-btn active" data-i18n="ui.subFutures">📈 TRADER FUTURES (2-ARAH)</button>
+          <button type="button" id="btnSubSpot" class="submode-btn" data-i18n="ui.subSpot">🪙 TRADER SPOT (1-ARAH)</button>
         </div>
       </div>
       <div class="topbar-right">
-        <button type="button" id="btnOpenVipModal" class="btn-primary-glow" style="padding:7px 13px;font-size:12px;">
+        <select data-lang-select class="lang-select" title="Language / Bahasa / 语言"></select>
+        <button type="button" id="btnOpenVipModal" class="btn-primary-glow" style="padding:7px 13px;font-size:12px;" data-i18n="ui.btnUpgradeVip">
           💎 Upgrade VIP
         </button>
         <button type="button" id="btnUserSession" class="btn-user-session">
@@ -112,28 +115,28 @@
           <span id="lblUserName">Tamu</span>
           <span id="lblUserTierBadge" style="font-size:10.5px;padding:2px 7px;border-radius:99px;background:#475569;color:#fff;">MODE TAMU</span>
         </button>
-        <button type="button" id="btnDirectLogout" class="btn-direct-logout" title="Keluar Akun / Ganti Akun">
+        <button type="button" id="btnDirectLogout" class="btn-direct-logout" title="Keluar Akun / Ganti Akun" data-i18n="ui.btnLogout" data-i18n-title="ui.logoutTitle">
           🚪 Keluar
         </button>
         <div id="userProfileDropdown" class="profile-dropdown hidden">
-          <div style="font-size:11px;color:#94a3b8;">Akun Terhubung:</div>
+          <div style="font-size:11px;color:#94a3b8;" data-i18n="ui.ddAccount">Akun Terhubung:</div>
           <div id="ddUserEmail" style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:8px;word-break:break-all;">-</div>
           <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px;">
-            <span style="color:#94a3b8;">Status Lisensi:</span>
+            <span style="color:#94a3b8;" data-i18n="ui.ddLicense">Status Lisensi:</span>
             <strong id="ddUserTier" style="color:#38bdf8;">-</strong>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:12px;">
-            <span style="color:#94a3b8;">Kuota Instrumen:</span>
+            <span style="color:#94a3b8;" data-i18n="ui.ddQuota">Kuota Instrumen:</span>
             <strong id="ddUserQuota" style="color:#10b981;">-</strong>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
-            <button type="button" id="btnOpenVipFromMenu" class="btn-primary-glow" style="width:100%;padding:8px;font-size:12px;">
+            <button type="button" id="btnOpenVipFromMenu" class="btn-primary-glow" style="width:100%;padding:8px;font-size:12px;" data-i18n="ui.ddUpgrade">
               💎 Upgrade VIP Unlimited ($29 USDT)
             </button>
-            <button type="button" id="btnBackToFrontFromMenu" class="btn-secondary-outline" style="width:100%;padding:8px;font-size:12px;">
+            <button type="button" id="btnBackToFrontFromMenu" class="btn-secondary-outline" style="width:100%;padding:8px;font-size:12px;" data-i18n="ui.ddHome">
               🏠 Ke Halaman Depan
             </button>
-            <button type="button" id="btnLogout" class="btn-direct-logout" style="width:100%;padding:8px;font-size:12px;">
+            <button type="button" id="btnLogout" class="btn-direct-logout" style="width:100%;padding:8px;font-size:12px;" data-i18n="ui.ddLogout">
               🚪 Keluar Akun (Logout)
             </button>
           </div>
@@ -143,15 +146,15 @@
     <section class="control-bar">
       <div class="control-group">
         <select id="selCategory" class="ctrl-select" title="Filter Kategori Aset">
-          <option value="ALL">🌐 Semua Kategori (600+ Aset Aktif)</option>
-          <option value="METALS">🥇 Logam Mulia (10: Gold / Silver / IDR / LME)</option>
-          <option value="FOREX">💱 Forex Mayor & Cross (28 Pair)</option>
-          <option value="IDX">🇮🇩 Saham Indonesia IDX (30 Emiten)</option>
-          <option value="US_STOCKS">🇺🇸 Saham AS &amp; Global (40 Emiten)</option>
-          <option value="COMMODITIES">🛢️ Komoditas Energi & Pangan (16)</option>
-          <option value="CRYPTO">₿ Crypto Spot Global (55 Utama + 400+ Pair USDT Real-Time)</option>
+          <option value="ALL" data-i18n="ui.catAll">🌐 Semua Kategori (600+ Aset Aktif)</option>
+          <option value="METALS" data-i18n="ui.catMetals">🥇 Logam Mulia (10: Gold / Silver / IDR / LME)</option>
+          <option value="FOREX" data-i18n="ui.catForex">💱 Forex Mayor & Cross (28 Pair)</option>
+          <option value="IDX" data-i18n="ui.catIdx">🇮🇩 Saham Indonesia IDX (30 Emiten)</option>
+          <option value="US_STOCKS" data-i18n="ui.catUs">🇺🇸 Saham AS &amp; Global (40 Emiten)</option>
+          <option value="COMMODITIES" data-i18n="ui.catCommo">🛢️ Komoditas Energi & Pangan (16)</option>
+          <option value="CRYPTO" data-i18n="ui.catCrypto">₿ Crypto Spot Global (55 Utama + 400+ Pair USDT Real-Time)</option>
         </select>
-        <input type="text" id="inpSearchAsset" class="ctrl-input" placeholder="🔍 Cari simbol / nama (cth: XAU, BBCA, NVDA, BTC)..." style="width:230px;" />
+        <input type="text" id="inpSearchAsset" class="ctrl-input" placeholder="🔍 Cari simbol / nama (cth: XAU, BBCA, NVDA, BTC)..." data-i18n-ph="ui.searchPh" style="width:230px;" />
         <select id="selInstrument" class="ctrl-select" style="min-width:250px;font-weight:700;"></select>
       </div>
       <div class="tf-bar" id="timeframeBar">
@@ -170,8 +173,8 @@
         <label><input type="checkbox" id="chkEMA" checked /> EMA Ribbon</label>
         <label><input type="checkbox" id="chkVWAP" checked /> VWAP</label>
         <label><input type="checkbox" id="chkSMC" checked /> SMC Zone</label>
-        <label><input type="checkbox" id="chkSniper" checked /> Garis Entry/SL/TP</label>
-        <button type="button" id="btnRunEngine" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;">
+        <label><input type="checkbox" id="chkSniper" checked /> <span data-i18n="ui.ovLines">Garis Entry/SL/TP</span></label>
+        <button type="button" id="btnRunEngine" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;" data-i18n="ui.btnRecalc">
           ⚡ Kalkulasi Ulang
         </button>
       </div>
@@ -187,8 +190,8 @@
                 <span id="hdrModeChip" class="mode-chip futures">FUTURES • 2-ARAH + LEV</span>
               </div>
               <div style="font-size:11.5px;color:#94a3b8;margin-top:3px;">
-                Status Feed: <span id="lblEngineStatus" style="color:#10b981;font-weight:700;">LIVE REAL-TIME • OANDA:XAUUSD</span>
-                • Penutupan Candle: <span id="lblCandleCountdown" style="color:#38bdf8;font-family:monospace;font-weight:700;">--:--</span>
+                <span data-i18n="ui.feedStatus">Status Feed:</span> <span id="lblEngineStatus" style="color:#10b981;font-weight:700;">LIVE REAL-TIME • OANDA:XAUUSD</span>
+                • <span data-i18n="ui.candleClose">Penutupan Candle:</span> <span id="lblCandleCountdown" style="color:#38bdf8;font-family:monospace;font-weight:700;">--:--</span>
               </div>
             </div>
             <div class="asset-price-block">
@@ -205,8 +208,8 @@
         </div>
         <div class="section-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <h3 style="margin:0;font-size:15px;color:#38bdf8;">🧠 Ringkasan Alasan Analisis:</h3>
-            <span style="font-size:11px;color:#94a3b8;">22-Pillar Quantitative & Smart Money Synthesis</span>
+            <h3 style="margin:0;font-size:15px;color:#38bdf8;" data-i18n="ui.narrTitle">🧠 Ringkasan Alasan Analisis:</h3>
+            <span style="font-size:11px;color:#94a3b8;" data-i18n="ui.narrSub">22-Pillar Quantitative & Smart Money Synthesis</span>
           </div>
           <div id="narrativeHumanBox" style="font-size:13px;color:#e2e8f0;line-height:1.65;"></div>
         </div>
@@ -217,114 +220,114 @@
             <span id="valSignalDirection" style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:13px;background:rgba(16,185,129,0.2);color:#10b981;">
               LONG / BUY SETUP
             </span>
-            <span id="valSetupLockBadge" style="font-size:11px;color:#38bdf8;font-weight:700;">🔒 LOCKED</span>
+            <span id="valSetupLockBadge" style="font-size:11px;color:#38bdf8;font-weight:700;" data-i18n="ui.lockBadge">🔒 LOCKED</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;padding:8px 10px;background:rgba(15,23,42,0.7);border-radius:8px;">
-            <div>Confidence: <strong id="valConfidenceScore" style="color:#38bdf8;">91%</strong></div>
-            <div>Regime: <strong id="valRegime" style="color:#f8fafc;">BULLISH MARKUP</strong></div>
+            <div><span data-i18n="ui.confidence">Confidence:</span> <strong id="valConfidenceScore" style="color:#38bdf8;">91%</strong></div>
+            <div><span data-i18n="ui.regime">Regime:</span> <strong id="valRegime" style="color:#f8fafc;">BULLISH MARKUP</strong></div>
           </div>
           <div class="setup-grid-levels">
             <div class="level-box" style="grid-column:span 2;border-color:rgba(56,189,248,0.4);">
-              <span class="lbl">🎯 TITIK ENTRY (TERKUNCI PADA CANDLE AKTIF)</span>
+              <span class="lbl" data-i18n="ui.lblEntry">🎯 TITIK ENTRY (TERKUNCI PADA CANDLE AKTIF)</span>
               <span id="valEntry" class="val" style="color:#38bdf8;font-size:16px;">4,055.00</span>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(244,63,94,0.4);">
-              <span class="lbl">🛡️ STOP LOSS STRUKTURAL (ANTI-STOP HUNT)</span>
+              <span class="lbl" data-i18n="ui.lblSL">🛡️ STOP LOSS STRUKTURAL (ANTI-STOP HUNT)</span>
               <span id="valSL" class="val" style="color:#f43f5e;">4,036.50</span>
               <div id="valSLDesc" style="font-size:11px;color:#fda4af;margin-top:2px;">Di luar Swing Wick + Buffer ATR</div>
             </div>
             <div class="level-box">
-              <span class="lbl">✅ TAKE PROFIT 1 (1.5R)</span>
+              <span class="lbl" data-i18n="ui.lblTP1">✅ TAKE PROFIT 1 (1.5R)</span>
               <span id="valTP1" class="val" style="color:#10b981;">4,082.75</span>
             </div>
             <div class="level-box">
-              <span class="lbl">✅ TAKE PROFIT 2 (2.5R)</span>
+              <span class="lbl" data-i18n="ui.lblTP2">✅ TAKE PROFIT 2 (2.5R)</span>
               <span id="valTP2" class="val" style="color:#10b981;">4,101.25</span>
             </div>
             <div class="level-box" style="grid-column:span 2;">
-              <span class="lbl">🚀 TAKE PROFIT 3 — RUNNER TARGET (4.0R)</span>
+              <span class="lbl" data-i18n="ui.lblTP3">🚀 TAKE PROFIT 3 — RUNNER TARGET (4.0R)</span>
               <span id="valTP3" class="val" style="color:#34d399;">4,129.00</span>
             </div>
           </div>
           <div id="futuresRiskBox" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);">
-            <div style="font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:8px;">⚙️ Manajemen Risiko & Kalkulator Posisi</div>
+            <div style="font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:8px;" data-i18n="ui.riskTitle">⚙️ Manajemen Risiko & Kalkulator Posisi</div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11.5px;margin-bottom:10px;">
-              <div class="level-box"><span class="lbl">Lev. Aman</span><strong id="valRecLeverage" style="color:#f59e0b;">15x</strong></div>
-              <div class="level-box"><span class="lbl">Est. Likuidasi</span><strong id="valLiqPrice" style="color:#f43f5e;">3,811.70</strong></div>
+              <div class="level-box"><span class="lbl" data-i18n="ui.levSafe">Lev. Aman</span><strong id="valRecLeverage" style="color:#f59e0b;">15x</strong></div>
+              <div class="level-box"><span class="lbl" data-i18n="ui.estLiq">Est. Likuidasi</span><strong id="valLiqPrice" style="color:#f43f5e;">3,811.70</strong></div>
               <div class="level-box"><span class="lbl">R:R Ratio</span><strong id="valRRRatio" style="color:#10b981;">1 : 2.50</strong></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
               <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Modal Akun ($)</label>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;" data-i18n="ui.accBalance">Modal Akun ($)</label>
                 <input type="number" id="inpCalcBalance" class="ctrl-input" value="1000" style="width:100%;" />
               </div>
               <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Risiko per Trade (%)</label>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;" data-i18n="ui.riskPerTrade">Risiko per Trade (%)</label>
                 <input type="number" id="inpCalcRiskPct" class="ctrl-input" value="1.0" step="0.1" style="width:100%;" />
               </div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 10px;background:rgba(2,6,23,0.7);border-radius:8px;">
-              <span>Risiko Maks: <strong id="valCalcDollarRisk" style="color:#f43f5e;">$10.00</strong></span>
-              <span>Ukuran Posisi: <strong id="valCalcLotSize" style="color:#38bdf8;">0.541 Unit</strong></span>
+              <span><span data-i18n="ui.maxRisk">Risiko Maks:</span> <strong id="valCalcDollarRisk" style="color:#f43f5e;">$10.00</strong></span>
+              <span><span data-i18n="ui.posSize">Ukuran Posisi:</span> <strong id="valCalcLotSize" style="color:#38bdf8;">0.541 Unit</strong></span>
             </div>
           </div>
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-size:11.5px;font-weight:700;color:#cbd5e1;">📈 Backtest Historis</span>
-              <span style="font-size:10.5px;color:#10b981;font-weight:700;">✅ TERVERIFIKASI REAL WALK-FORWARD</span>
+              <span style="font-size:11.5px;font-weight:700;color:#cbd5e1;" data-i18n="ui.btTitle">📈 Backtest Historis</span>
+              <span style="font-size:10.5px;color:#10b981;font-weight:700;" data-i18n="ui.btVerified">✅ TERVERIFIKASI REAL WALK-FORWARD</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11.5px;">
               <div class="level-box"><span class="lbl">Win Rate</span><strong id="valBtWinRate" style="color:#10b981;">78.4%</strong></div>
               <div class="level-box"><span class="lbl">Profit Factor</span><strong id="valBtProfitFactor" style="color:#38bdf8;">2.65</strong></div>
               <div class="level-box"><span class="lbl">Net Return</span><strong id="valBtNetReturn" style="color:#10b981;">+34.2%</strong></div>
               <div class="level-box"><span class="lbl">Max DD</span><strong id="valBtMaxDD" style="color:#f59e0b;">-5.4%</strong></div>
-              <div class="level-box" style="grid-column:span 2;"><span class="lbl">Sampel Teruji</span><strong id="valBtTrades">52 Sinyal Historis</strong></div>
+              <div class="level-box" style="grid-column:span 2;"><span class="lbl" data-i18n="ui.btSample">Sampel Teruji</span><strong id="valBtTrades">52 Sinyal Historis</strong></div>
             </div>
           </div>
         </div>
         <div id="investorSetupPanel" class="side-panel-card hidden">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <span style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:13px;background:rgba(56,189,248,0.18);color:#38bdf8;">
+            <span style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:13px;background:rgba(56,189,248,0.18);color:#38bdf8;" data-i18n="ui.invPanelBadge">
               🏛️ SPOT INVESTOR VALUATION & DCA
             </span>
             <span id="valInvRating" style="font-size:12px;font-weight:800;color:#10b981;">ACCUMULATE</span>
           </div>
           <div class="setup-grid-levels">
             <div class="level-box">
-              <span class="lbl">Nilai Intrinsik (Fair Value)</span>
+              <span class="lbl" data-i18n="ui.invFair">Nilai Intrinsik (Fair Value)</span>
               <span id="valInvFairValue" class="val" style="color:#a855f7;">4,040.00</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Status Valuasi / MoS</span>
+              <span class="lbl" data-i18n="ui.invMos">Status Valuasi / MoS</span>
               <span id="valInvValuationStatus" class="val" style="color:#10b981;font-size:12px;">FAIR VALUE</span>
               <div id="valInvMoS" style="font-size:11px;color:#94a3b8;">MoS: +1.2%</div>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
-              <span class="lbl">🟢 DCA TAHAP 1 — ALOKASI 40% MODAL</span>
+              <span class="lbl" data-i18n="ui.invDca1">🟢 DCA TAHAP 1 — ALOKASI 40% MODAL</span>
               <span id="valInvDCA1" class="val" style="color:#10b981;">3,994.00</span>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
-              <span class="lbl">🟢 DCA TAHAP 2 — ALOKASI 35% MODAL</span>
+              <span class="lbl" data-i18n="ui.invDca2">🟢 DCA TAHAP 2 — ALOKASI 35% MODAL</span>
               <span id="valInvDCA2" class="val" style="color:#10b981;">3,832.00</span>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
-              <span class="lbl">🟢 DCA TAHAP 3 — ALOKASI 25% MODAL</span>
+              <span class="lbl" data-i18n="ui.invDca3">🟢 DCA TAHAP 3 — ALOKASI 25% MODAL</span>
               <span id="valInvDCA3" class="val" style="color:#10b981;">3,629.00</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Harga Rata-Rata DCA</span>
+              <span class="lbl" data-i18n="ui.invAvg">Harga Rata-Rata DCA</span>
               <span id="valInvAvgPrice" class="val" style="color:#38bdf8;">3,846.00</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Target Siklus Bull</span>
+              <span class="lbl" data-i18n="ui.invT1">Target Siklus Bull</span>
               <span id="valInvTarget1" class="val" style="color:#34d399;">4,550.00</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Target Ekstensi Siklus</span>
+              <span class="lbl" data-i18n="ui.invT2">Target Ekstensi Siklus</span>
               <span id="valInvTarget2" class="val" style="color:#34d399;">4,980.00</span>
             </div>
             <div class="level-box">
-              <span class="lbl">Fase Siklus & Yield</span>
+              <span class="lbl" data-i18n="ui.invPhase">Fase Siklus & Yield</span>
               <div id="valInvCyclePhase" style="font-size:11.5px;font-weight:700;color:#f8fafc;">Akumulasi Ekspansi</div>
               <div id="valInvYield" style="font-size:10.5px;color:#94a3b8;">Aset Lindung Nilai Global</div>
             </div>
@@ -334,20 +337,20 @@
     </main>
     <section style="max-width:1640px;width:100%;margin:0 auto 40px;padding:0 16px;display:flex;flex-direction:column;gap:16px;">
       <div class="section-card">
-        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">🔬 16 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC + ORB/Theta/VWAP-Entry)</h3>
+        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.secTech">🔬 16 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC + ORB/Theta/VWAP-Entry)</h3>
         <div id="techPillarsGrid" class="pillars-grid"></div>
       </div>
       <div class="section-card">
-        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">🌍 6 Pilar Makroekonomi, Likuiditas Global & Institusional</h3>
+        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.secMacro">🌍 6 Pilar Makroekonomi, Likuiditas Global & Institusional</h3>
         <div id="macroPillarsGrid" class="pillars-grid"></div>
       </div>
       <div class="section-card" id="traderRadarSection">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">📡 Radar Rekomendasi Aset Multi-Aset Real-Time</h3>
+          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.radarTitle">📡 Radar Rekomendasi Aset Multi-Aset Real-Time</h3>
           <div class="radar-horizon-bar" id="radarHorizonBar">
-            <button type="button" class="hz-btn" data-hz="scalping">⚡ SCALPING <small>M1–M15</small></button>
-            <button type="button" class="hz-btn active" data-hz="intraday">🎯 INTRADAY <small>M15–H1</small></button>
-            <button type="button" class="hz-btn" data-hz="swing">🌊 SWING <small>H4–W1</small></button>
+            <button type="button" class="hz-btn" data-hz="scalping"><span data-i18n="ui.hzScalp">⚡ SCALPING</span> <small>M1–M15</small></button>
+            <button type="button" class="hz-btn active" data-hz="intraday"><span data-i18n="ui.hzIntraday">🎯 INTRADAY</span> <small>M15–H1</small></button>
+            <button type="button" class="hz-btn" data-hz="swing"><span data-i18n="ui.hzSwing">🌊 SWING</span> <small>H4–W1</small></button>
           </div>
         </div>
         <div id="radarHorizonInfo" style="font-size:11px;color:#94a3b8;margin:6px 0 2px;"></div>
@@ -356,10 +359,10 @@
       <!-- Rekomendasi khusus INVESTOR (dipisah total dari radar trader) -->
       <div class="section-card hidden" id="investorRadarSection">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">🏛️ Rekomendasi Portofolio Investor — Akumulasi Jangka Panjang (D1/W1)</h3>
-          <span style="font-size:10.5px;padding:4px 10px;border-radius:99px;background:rgba(56,189,248,0.14);color:#7dd3fc;border:1px solid rgba(56,189,248,0.3);">KURIKULUM BELI-NYATA • TANPA SINYAL TRADING 2-ARAH</span>
+          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.invSecTitle">🏛️ Rekomendasi Portofolio Investor — Akumulasi Jangka Panjang (D1/W1)</h3>
+          <span style="font-size:10.5px;padding:4px 10px;border-radius:99px;background:rgba(56,189,248,0.14);color:#7dd3fc;border:1px solid rgba(56,189,248,0.3);" data-i18n="ui.invSecBadge">KURIKULUM BELI-NYATA • TANPA SINYAL TRADING 2-ARAH</span>
         </div>
-        <div class="inv-note">Kurasi aset berkualitas untuk akumulasi bertahap (DCA) 12–36 bulan: dinilai dari valuasi (MoS vs nilai wajar), zona cicil, kesehatan tren makro &amp; kualitas emiten/aset. Tidak ada sinyal LONG/SHORT di sini — murni keputusan investasi.</div>
+        <div class="inv-note" data-i18n="ui.invSecNote">Kurasi aset berkualitas untuk akumulasi bertahap (DCA) 12–36 bulan: dinilai dari valuasi (MoS vs nilai wajar), zona cicil, kesehatan tren makro &amp; kualitas emiten/aset. Tidak ada sinyal LONG/SHORT di sini — murni keputusan investasi.</div>
         <div id="investorPicksGrid" class="radar-grid"></div>
       </div>
     </section>
@@ -370,37 +373,37 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:#ffffff;color:#0f172a;font-weight:900;align-items:center;justify-content:center;">G</span>
-          <h3 style="margin:0;font-size:16px;">Masuk dengan Akun Google</h3>
+          <h3 style="margin:0;font-size:16px;" data-i18n="ui.gTitle">Masuk dengan Akun Google</h3>
         </div>
         <button type="button" id="btnCloseGoogleModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
       </div>
-      <p style="margin:0 0 14px;font-size:12.5px;color:#94a3b8;">
+      <p style="margin:0 0 14px;font-size:12.5px;color:#94a3b8;" data-i18n="ui.gDesc">
         Masukkan alamat email Google Anda untuk mengaktifkan sesi analisis & kuota instrumen Anda.
       </p>
       <div style="margin-bottom:12px;">
-        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;">Alamat Email Google</label>
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;" data-i18n="ui.gEmailLbl">Alamat Email Google</label>
         <input type="email" id="googleEmailInput" class="ctrl-input" placeholder="nama@gmail.com" style="width:100%;padding:10px 12px;" />
       </div>
       <div style="margin-bottom:18px;">
-        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;">Nama Tampilan (Opsional)</label>
-        <input type="text" id="googleNameInput" class="ctrl-input" placeholder="Trader / Investor" style="width:100%;padding:10px 12px;" />
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;" data-i18n="ui.gNameLbl">Nama Tampilan (Opsional)</label>
+        <input type="text" id="googleNameInput" class="ctrl-input" placeholder="Trader / Investor" data-i18n-ph="ui.gNamePh" style="width:100%;padding:10px 12px;" />
       </div>
       <div style="display:flex;justify-content:flex-end;gap:10px;">
-        <button type="button" id="btnCancelGoogleModal" class="btn-secondary-outline" style="padding:9px 16px;font-size:12.5px;">Batal</button>
-        <button type="button" id="btnSubmitGoogleEmail" class="btn-primary-glow" style="padding:9px 18px;font-size:12.5px;">Lanjutkan & Masuk</button>
+        <button type="button" id="btnCancelGoogleModal" class="btn-secondary-outline" style="padding:9px 16px;font-size:12.5px;" data-i18n="ui.gCancel">Batal</button>
+        <button type="button" id="btnSubmitGoogleEmail" class="btn-primary-glow" style="padding:9px 18px;font-size:12.5px;" data-i18n="ui.gSubmit">Lanjutkan & Masuk</button>
       </div>
       <div id="googleAuthError" style="font-size:12px;color:#f43f5e;margin-top:10px;min-height:14px;"></div>
       <!-- Jalur khusus OWNER: email + kode rahasia divalidasi penuh di SERVER (tidak ada di JS publik) -->
       <div style="margin-top:14px;border-top:1px solid rgba(51,65,85,0.6);padding-top:12px;">
-        <button type="button" id="btnToggleOwnerLogin" style="background:none;border:none;color:#64748b;font-size:11.5px;cursor:pointer;text-decoration:underline;">
+        <button type="button" id="btnToggleOwnerLogin" style="background:none;border:none;color:#64748b;font-size:11.5px;cursor:pointer;text-decoration:underline;" data-i18n="ui.ownerToggle">
           🔐 Jalur khusus Pemilik (Owner) — masuk dengan Kode Akses Rahasia
         </button>
         <div id="ownerLoginBlock" class="hidden" style="margin-top:10px;background:rgba(2,6,23,0.7);border:1px solid rgba(245,158,11,0.35);border-radius:10px;padding:12px;">
-          <div style="font-size:12px;color:#f59e0b;font-weight:700;margin-bottom:8px;">🔐 Otentikasi Pemilik (Terverifikasi Server)</div>
-          <input type="email" id="ownerEmailInput" class="ctrl-input" placeholder="Email pemilik terdaftar" autocomplete="off" style="width:100%;padding:9px 11px;margin-bottom:8px;" />
-          <input type="password" id="ownerCodeInput" class="ctrl-input" placeholder="Kode Akses Rahasia" autocomplete="off" style="width:100%;padding:9px 11px;margin-bottom:10px;" />
+          <div style="font-size:12px;color:#f59e0b;font-weight:700;margin-bottom:8px;" data-i18n="ui.ownerTitle">🔐 Otentikasi Pemilik (Terverifikasi Server)</div>
+          <input type="email" id="ownerEmailInput" class="ctrl-input" placeholder="Email pemilik terdaftar" autocomplete="off" data-i18n-ph="ui.ownerEmailPh" style="width:100%;padding:9px 11px;margin-bottom:8px;" />
+          <input type="password" id="ownerCodeInput" class="ctrl-input" placeholder="Kode Akses Rahasia" autocomplete="off" data-i18n-ph="ui.ownerCodePh" style="width:100%;padding:9px 11px;margin-bottom:10px;" />
           <div id="ownerLoginError" style="font-size:11.5px;color:#f43f5e;min-height:14px;margin-bottom:8px;"></div>
-          <button type="button" id="btnSubmitOwnerLogin" class="btn-primary-glow" style="width:100%;padding:10px;font-size:12.5px;">Verifikasi ke Server & Masuk sebagai Owner</button>
+          <button type="button" id="btnSubmitOwnerLogin" class="btn-primary-glow" style="width:100%;padding:10px;font-size:12.5px;" data-i18n="ui.ownerSubmit">Verifikasi ke Server & Masuk sebagai Owner</button>
         </div>
       </div>
     </div>
@@ -409,38 +412,39 @@
   <div id="paymentModal" class="modal-backdrop hidden">
     <div class="modal-box">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <h3 style="margin:0;font-size:16px;color:#38bdf8;">💎 Aktivasi Lisensi VIP Unlimited</h3>
+        <h3 style="margin:0;font-size:16px;color:#38bdf8;" data-i18n="ui.payTitle">💎 Aktivasi Lisensi VIP Unlimited</h3>
         <button type="button" id="btnCloseVipModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
       </div>
-      <p id="vipModalReasonText" style="margin:0 0 12px;font-size:12.5px;color:#cbd5e1;">
+      <p id="vipModalReasonText" style="margin:0 0 12px;font-size:12.5px;color:#cbd5e1;" data-i18n="ui.payReasonDefault">
         Tingkatkan akun ke VIP Pro untuk membuka akses tanpa batas ke seluruh 600+ instrumen dan 10 timeframe.
       </p>
       <div style="background:rgba(2,6,23,0.8);border:1px solid var(--border-subtle);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span style="color:#94a3b8;">Biaya Langganan (30 Hari):</span>
+          <span style="color:#94a3b8;" data-i18n="ui.payFee">Biaya Langganan (30 Hari):</span>
           <strong style="color:#10b981;font-size:14px;">$29.00 USDT</strong>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-          <span style="color:#94a3b8;">Jaringan Blockchain:</span>
+          <span style="color:#94a3b8;" data-i18n="ui.payNetwork">Jaringan Blockchain:</span>
           <strong style="color:#f59e0b;">BNB Smart Chain (BEP-20)</strong>
         </div>
-        <div style="color:#94a3b8;margin-bottom:4px;">Alamat Wallet Penerima Resmi:</div>
+        <div style="color:#94a3b8;margin-bottom:4px;" data-i18n="ui.payWalletLbl">Alamat Wallet Penerima Resmi:</div>
         <div style="display:flex;gap:8px;align-items:center;">
           <code style="flex:1;padding:8px;background:#0f172a;border-radius:8px;color:#38bdf8;word-break:break-all;font-size:11.5px;">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
-          <button type="button" id="btnCopyWallet" class="btn-secondary-outline" style="padding:7px 11px;font-size:11.5px;">📋 Salin</button>
+          <button type="button" id="btnCopyWallet" class="btn-secondary-outline" style="padding:7px 11px;font-size:11.5px;" data-i18n="ui.payCopy">📋 Salin</button>
         </div>
       </div>
       <div style="margin-bottom:12px;">
-        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;">Transaction Hash (TxHash BSC BEP-20)</label>
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:5px;font-weight:600;" data-i18n="ui.payTxLbl">Transaction Hash (TxHash BSC BEP-20)</label>
         <input type="text" id="inpTxHash" class="ctrl-input" placeholder="0x..." style="width:100%;padding:10px 12px;font-family:monospace;" />
       </div>
       <div id="vipVerifyFeedback" style="font-size:12px;margin-bottom:12px;color:#94a3b8;"></div>
-      <button type="button" id="btnVerifyTxHash" class="btn-primary-glow" style="width:100%;padding:11px;font-size:13px;">
+      <button type="button" id="btnVerifyTxHash" class="btn-primary-glow" style="width:100%;padding:11px;font-size:13px;" data-i18n="ui.payVerifyBtn">
         🔍 Verifikasi Pembayaran On-Chain & Aktifkan VIP
       </button>
     </div>
   </div>
-  <script type="module" src="/js/engine-boot.js?v=2026.35"></script>
-  <script src="/app.js?v=2026.35"></script>
+  <script type="module" src="/js/engine-boot.js?v=2026.37"></script>
+  <script src="/app.js?v=2026.37"></script>
+  <script type="module" src="/i18n/boot.js?v=2026.37"></script>
 </body>
 </html>
