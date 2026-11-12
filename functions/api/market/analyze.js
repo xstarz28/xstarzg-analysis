@@ -1,4 +1,4 @@
-﻿export async function onRequest(context) {
+export async function onRequest(context) {
   const { request } = context;
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -51,42 +51,107 @@
   }
 }
 const DEFAULT_PRICES = {
+  // Metals (termasuk logam industri LME)
   'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 34.20, 'XPT/USD': 1045.00, 'XPD/USD': 1090.00, 'XCU/USD': 4.55,
+  'HG/USD': 4.58, 'NI/USD': 15680, 'SN/USD': 31450, 'AL/USD': 2640, 'LI/USD': 10850,
+  // Forex majors, minors & Asia
   'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
-  'NZD/USD': 0.5980, 'USD/IDR': 16550, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880,
-  'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
-  'TSLA': 262.00, 'BTC/USDT': 89500.00, 'ETH/USDT': 3120.00, 'SOL/USDT': 194.50, 'BNB/USDT': 645.00
+  'NZD/USD': 0.5980, 'USD/IDR': 16550, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50, 'EUR/GBP': 0.8368,
+  'AUD/JPY': 100.25, 'CAD/JPY': 109.60, 'CHF/JPY': 176.10, 'NZD/JPY': 91.10, 'EUR/AUD': 1.6478,
+  'GBP/AUD': 1.9688, 'EUR/CAD': 1.5063, 'GBP/CAD': 1.7999, 'EUR/CHF': 0.9380, 'GBP/CHF': 1.1210,
+  'AUD/CAD': 0.9142, 'AUD/NZD': 1.0987, 'USD/SGD': 1.3380, 'USD/CNH': 7.2380, 'USD/THB': 34.20,
+  'USD/MXN': 20.42, 'USD/ZAR': 17.95,
+  // Komoditas energi & pangan
+  'WTI': 71.20, 'BRENT': 75.10, 'NATGAS': 3.75, 'HEATOIL': 2.38, 'GASOLINE': 2.12,
+  'CPO': 4520, 'COAL': 124.50, 'WHEAT': 592.0, 'CORN': 496.0, 'SOYBEAN': 1048.0,
+  'COFFEE': 385.0, 'COCOA': 9850.0, 'SUGAR': 19.85, 'COTTON': 68.40, 'CATTLE': 196.50, 'LUMBER': 585.0,
+  // Saham Indonesia IDX
+  'IHSG': 6825, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880, 'BRIS.JK': 2940,
+  'TLKM.JK': 2760, 'ASII.JK': 4950, 'AMMN.JK': 7450, 'BREN.JK': 6950, 'TPIA.JK': 7200,
+  'GOTO.JK': 81, 'ADRO.JK': 2360, 'PTBA.JK': 2750, 'ITMG.JK': 25800, 'ANTM.JK': 1620,
+  'MDKA.JK': 1820, 'INCO.JK': 3420, 'PGAS.JK': 1660, 'MEDC.JK': 1135, 'AKRA.JK': 1245,
+  'UNTR.JK': 25100, 'ICBP.JK': 11450, 'INDF.JK': 7650, 'UNVR.JK': 1580, 'KLBF.JK': 1265,
+  'CPIN.JK': 4680, 'SMGR.JK': 2890, 'BSDE.JK': 945, 'BUKA.JK': 128,
+  // Saham AS & Global
+  'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00, 'TSLA': 262.00, 'AMZN': 228.40, 'GOOGL': 186.20,
+  'META': 698.50, 'AMD': 114.20, 'AVGO': 232.00, 'NFLX': 1015.00, 'BRK.B': 476.00, 'JPM': 272.50,
+  'V': 348.00, 'LLY': 865.00, 'XOM': 110.50, 'PLTR': 112.40, 'COIN': 274.00, 'MSTR': 332.00,
+  'SPY': 604.50, 'QQQ': 528.20, 'DIA': 442.80, 'IWM': 224.60,
+  'JP225': 38950, '7203.T': 2845, '6758.T': 3480, '9984.T': 9620, 'HK50': 21850, 'BABA': 118.50,
+  '0700.HK': 468.00, '1211.HK': 342.00, 'TSM': 204.50, '005930.KS': 56800, 'DE40': 22150,
+  'UK100': 8740, 'ASML': 738.00, 'MC.PA': 692.00, 'NVO': 84.50, 'D05.SI': 44.80,
+  'SE': 126.40, '2222.SR': 27.85,
+  // Crypto majors
+  'BTC/USDT': 89500.00, 'ETH/USDT': 3120.00, 'SOL/USDT': 194.50, 'BNB/USDT': 645.00,
+  'XRP/USDT': 2.55, 'ADA/USDT': 0.82, 'DOGE/USDT': 0.26, 'AVAX/USDT': 26.40, 'LINK/USDT': 18.90,
+  'TON/USDT': 3.85, 'SUI/USDT': 3.42, 'DOT/USDT': 5.20, 'PEPE/USDT': 0.0000105, 'SHIB/USDT': 0.0000162
 };
 const US_EXCHANGE_MAP = {
+  'SPY': 'AMEX:SPY', 'QQQ': 'NASDAQ:QQQ', 'DIA': 'AMEX:DIA', 'IWM': 'AMEX:IWM',
   'NVDA': 'NASDAQ:NVDA', 'AAPL': 'NASDAQ:AAPL', 'MSFT': 'NASDAQ:MSFT', 'AMZN': 'NASDAQ:AMZN',
   'META': 'NASDAQ:META', 'GOOGL': 'NASDAQ:GOOGL', 'TSLA': 'NASDAQ:TSLA', 'AMD': 'NASDAQ:AMD',
   'NFLX': 'NASDAQ:NFLX', 'AVGO': 'NASDAQ:AVGO', 'COST': 'NASDAQ:COST', 'COIN': 'NASDAQ:COIN',
-  'MSTR': 'NASDAQ:MSTR', 'PLTR': 'NASDAQ:PLTR', 'INTC': 'NASDAQ:INTC',
-  'BRK-B': 'NYSE:BRK.B', 'JPM': 'NYSE:JPM', 'V': 'NYSE:V', 'MA': 'NYSE:MA',
-  'WMT': 'NYSE:WMT', 'DIS': 'NYSE:DIS', 'XOM': 'NYSE:XOM', 'LLY': 'NYSE:LLY'
+  'MSTR': 'NASDAQ:MSTR', 'PLTR': 'NASDAQ:PLTR', 'INTC': 'NASDAQ:INTC', 'ASML': 'NASDAQ:ASML',
+  'BRK-B': 'NYSE:BRK.B', 'BRK.B': 'NYSE:BRK.B', 'JPM': 'NYSE:JPM', 'V': 'NYSE:V', 'MA': 'NYSE:MA',
+  'WMT': 'NYSE:WMT', 'DIS': 'NYSE:DIS', 'XOM': 'NYSE:XOM', 'LLY': 'NYSE:LLY',
+  'BABA': 'NYSE:BABA', 'TSM': 'NYSE:TSM', 'NVO': 'NYSE:NVO', 'SE': 'NYSE:SE'
+};
+// Pemetaan khusus simbol terminal -> ticker broker TradingView scanner,
+// menjamin SELURUH kelas aset (metals, komoditas, indeks, saham global)
+// mendapatkan harga REAL-TIME, bukan data sintetis.
+const SPECIAL_TV_TICKERS = {
+  'XAU/USD': ['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'],
+  'XAG/USD': ['OANDA:XAGUSD', 'FOREXCOM:XAGUSD', 'FX_IDC:XAGUSD'],
+  'XPT/USD': ['OANDA:XPTUSD', 'FOREXCOM:XPTUSD'],
+  'XPD/USD': ['OANDA:XPDUSD', 'FOREXCOM:XPDUSD'],
+  'XCU/USD': ['OANDA:XCUUSD', 'COMEX:HG1!'],
+  'HG/USD': ['COMEX:HG1!', 'OANDA:XCUUSD'],
+  'NI/USD': ['TVC:NICKEL'],
+  'SN/USD': ['TVC:TIN'],
+  'AL/USD': ['TVC:ALUMINIUM'],
+  'LI/USD': ['TVC:LITHIUM'],
+  'WTI': ['TVC:USOIL', 'OANDA:WTICOUSD', 'NYMEX:CL1!'],
+  'WTI/USD': ['TVC:USOIL', 'OANDA:WTICOUSD', 'NYMEX:CL1!'],
+  'BRENT': ['TVC:UKOIL', 'OANDA:BCOUSD', 'NYMEX:BZ1!'],
+  'BRENT/USD': ['TVC:UKOIL', 'OANDA:BCOUSD', 'NYMEX:BZ1!'],
+  'NATGAS': ['NYMEX:NG1!', 'OANDA:NATGASUSD'],
+  'NATGAS/USD': ['NYMEX:NG1!', 'OANDA:NATGASUSD'],
+  'HEATOIL': ['NYMEX:HO1!'],
+  'GASOLINE': ['NYMEX:RB1!'],
+  'WHEAT': ['CBOT:ZW1!', 'OANDA:WHEATUSD'],
+  'WHEAT/USD': ['OANDA:WHEATUSD', 'CBOT:ZW1!'],
+  'CORN': ['CBOT:ZC1!', 'OANDA:CORNUSD'],
+  'CORN/USD': ['OANDA:CORNUSD', 'CBOT:ZC1!'],
+  'SOYBEAN': ['CBOT:ZS1!', 'OANDA:SOYBNUSD'],
+  'SOYBEAN/USD': ['OANDA:SOYBNUSD', 'CBOT:ZS1!'],
+  'COFFEE': ['ICEUS:KC1!'],
+  'COCOA': ['ICEUS:CC1!'],
+  'SUGAR': ['ICEUS:SB1!'],
+  'COTTON': ['ICEUS:CT1!'],
+  'CATTLE': ['CME:LE1!'],
+  'LUMBER': ['CME:LBR1!'],
+  'CPO': ['MYX:FCPO1!'],
+  'COAL': ['TVC:COAL'],
+  'IHSG': ['IDX:COMPOSITE'],
+  'JP225': ['TVC:NI225'],
+  'HK50': ['TVC:HSI'],
+  'DE40': ['TVC:DAX'],
+  'UK100': ['TVC:UKX'],
+  '7203.T': ['TSE:7203'], '6758.T': ['TSE:6758'], '9984.T': ['TSE:9984'],
+  '0700.HK': ['HKEX:700'], '1211.HK': ['HKEX:1211'],
+  '005930.KS': ['KRX:005930'], 'MC.PA': ['EURONEXT:MC'],
+  'D05.SI': ['SGX:D05'], '2222.SR': ['TADAWUL:2222']
 };
 function getTvTimeframeSuffix(tf) {
   const map = {
     'M1': '|1', 'M5': '|5', 'M15': '|15', 'M30': '|30',
-    'H1': '|60', 'H4': '|240', 'D1': '', 'W1': '|1W', 'MN': '|1M', '1Y': '|12M'
+    'H1': '|60', 'H4': '|240', 'D1': '', 'W1': '|1W', 'MN': '|1M', '1Y': '|1M'
   };
   return map[tf] !== undefined ? map[tf] : '|60';
 }
 function getTvTickersForSymbol(symbol) {
   const s = symbol.toUpperCase().trim();
-  if (s === 'XAU/USD') return ['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'];
-  if (s === 'XAG/USD') return ['OANDA:XAGUSD', 'FOREXCOM:XAGUSD', 'FX_IDC:XAGUSD'];
-  if (s === 'XPT/USD') return ['OANDA:XPTUSD', 'FOREXCOM:XPTUSD'];
-  if (s === 'XPD/USD') return ['OANDA:XPDUSD', 'FOREXCOM:XPDUSD'];
-  if (s === 'XCU/USD') return ['OANDA:XCUUSD', 'FOREXCOM:XCUUSD'];
-  if (s === 'WTI/USD') return ['TVC:USOIL', 'OANDA:WTICOUSD'];
-  if (s === 'BRENT/USD') return ['TVC:UKOIL', 'OANDA:BCOUSD'];
-  if (s === 'NATGAS/USD') return ['OANDA:NATGASUSD', 'TVC:NG1!'];
-  if (s === 'WHEAT/USD') return ['OANDA:WHEATUSD'];
-  if (s === 'CORN/USD') return ['OANDA:CORNUSD'];
-  if (s === 'SOYBEAN/USD') return ['OANDA:SOYBNUSD'];
-  if (s === 'COFFEE/USD') return ['ICEUS:KC1!'];
-  if (s === 'COCOA/USD') return ['ICEUS:CC1!'];
+  if (SPECIAL_TV_TICKERS[s]) return SPECIAL_TV_TICKERS[s];
   if (s.endsWith('.JK')) return [`IDX:${s.replace('.JK', '')}`];
   if (US_EXCHANGE_MAP[s]) return [US_EXCHANGE_MAP[s]];
   if (s.includes('/USDT')) return [`BINANCE:${s.replace('/', '')}`];
