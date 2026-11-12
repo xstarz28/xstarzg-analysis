@@ -51,9 +51,9 @@ export async function onRequest(context) {
   }
 }
 const DEFAULT_PRICES = {
-  // Metals (termasuk logam industri LME)
-  'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 34.20, 'XPT/USD': 1045.00, 'XPD/USD': 1090.00, 'XCU/USD': 4.55,
-  'HG/USD': 4.58, 'NI/USD': 15680, 'SN/USD': 31450, 'AL/USD': 2640, 'LI/USD': 10850,
+  // Metals (termasuk logam industri LME) — dikalibrasi ke pasar 2026 (mis. XAG spot ~$50)
+  'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 50.00, 'XPT/USD': 1580.00, 'XPD/USD': 1050.00, 'XCU/USD': 5.10,
+  'HG/USD': 5.10, 'NI/USD': 15680, 'SN/USD': 31450, 'AL/USD': 2640, 'LI/USD': 10850,
   // Forex majors, minors & Asia
   'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
   'NZD/USD': 0.5980, 'USD/IDR': 16550, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50, 'EUR/GBP': 0.8368,
@@ -82,7 +82,7 @@ const DEFAULT_PRICES = {
   'UK100': 8740, 'ASML': 738.00, 'MC.PA': 692.00, 'NVO': 84.50, 'D05.SI': 44.80,
   'SE': 126.40, '2222.SR': 27.85,
   // Crypto majors
-  'BTC/USDT': 89500.00, 'ETH/USDT': 3120.00, 'SOL/USDT': 194.50, 'BNB/USDT': 645.00,
+  'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
   'XRP/USDT': 2.55, 'ADA/USDT': 0.82, 'DOGE/USDT': 0.26, 'AVAX/USDT': 26.40, 'LINK/USDT': 18.90,
   'TON/USDT': 3.85, 'SUI/USDT': 3.42, 'DOT/USDT': 5.20, 'PEPE/USDT': 0.0000105, 'SHIB/USDT': 0.0000162
 };
@@ -142,6 +142,51 @@ const SPECIAL_TV_TICKERS = {
   '005930.KS': ['KRX:005930'], 'MC.PA': ['EURONEXT:MC'],
   'D05.SI': ['SGX:D05'], '2222.SR': ['TADAWUL:2222']
 };
+// Sumber real-time cadangan: Yahoo Finance chart meta (free, tanpa API key).
+// Dipakai saat TradingView scanner gagal/sepi — menutup gap harga instrumen
+// (mis. perak/XAG yang sempat hanya memakai harga jangkar lama).
+const YAHOO_SYMBOLS = {
+  'XAU/USD': ['XAUUSD=X', 'GC=F'],
+  'XAG/USD': ['XAGUSD=X', 'SI=F'],
+  'XPT/USD': ['XPTUSD=X', 'PL=F'],
+  'XPD/USD': ['PA=F'],
+  'XCU/USD': ['HG=F'],
+  'HG/USD': ['HG=F'],
+  'IHSG': ['^JKSE'],
+  'JP225': ['^N225'], 'HK50': ['^HSI'], 'DE40': ['^GDAXI'], 'UK100': ['^FTSE'],
+  'WTI': ['CL=F'], 'WTI/USD': ['CL=F'], 'BRENT': ['BZ=F'], 'BRENT/USD': ['BZ=F'],
+  'NATGAS': ['NG=F'], 'NATGAS/USD': ['NG=F'], 'HEATOIL': ['HO=F'], 'GASOLINE': ['RB=F'],
+  'WHEAT': ['ZW=F'], 'WHEAT/USD': ['ZW=F'], 'CORN': ['ZC=F'], 'CORN/USD': ['ZC=F'],
+  'SOYBEAN': ['ZS=F'], 'SOYBEAN/USD': ['ZS=F'], 'COFFEE': ['KC=F'], 'COFFEE/USD': ['KC=F'],
+  'COCOA': ['CC=F'], 'COCOA/USD': ['CC=F'], 'SUGAR': ['SB=F'], 'COTTON': ['CT=F'], 'CATTLE': ['LE=F'],
+  'USD/IDR': ['USDIDR=X', 'IDR=X']
+};
+function yahooSymbolsFor(s) {
+  if (YAHOO_SYMBOLS[s]) return YAHOO_SYMBOLS[s];
+  if (s.endsWith('/USDT')) return [s.replace('/USDT', '-USD')];
+  if (/\.(JK|T|HK|KS|PA|SI|SR)$/.test(s)) return [s];
+  if (s.includes('/')) return [s.replace('/', '') + '=X'];
+  return [s];
+}
+async function fetchYahooQuote(symbol) {
+  const list = yahooSymbolsFor(symbol);
+  for (const y of list) {
+    try {
+      const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y) + '?interval=1m&range=1d', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      });
+      if (!res.ok) continue;
+      const j = await res.json();
+      const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+      const price = meta ? Number(meta.regularMarketPrice) : 0;
+      if (price > 0) {
+        const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || price;
+        return { price, changePct: prev > 0 ? ((price - prev) / prev) * 100 : 0, source: 'YAHOO:' + y };
+      }
+    } catch (e) {}
+  }
+  return null;
+}
 function getTvTimeframeSuffix(tf) {
   const map = {
     'M1': '|1', 'M5': '|5', 'M15': '|15', 'M30': '|30',
@@ -219,15 +264,27 @@ async function queryTradingViewScanner(tickers, tf) {
 async function fetchExactLiveQuote(symbol, tf) {
   const s = symbol.toUpperCase().trim();
   if (s === 'XAU/IDR') {
-    const [xau, idr] = await Promise.all([
+    let [xau, idr] = await Promise.all([
       queryTradingViewScanner(['OANDA:XAUUSD', 'FOREXCOM:XAUUSD', 'FX_IDC:XAUUSD'], tf),
       queryTradingViewScanner(['FX_IDC:USDIDR', 'OANDA:USDIDR'], tf)
     ]);
-    const xauPrice = xau && xau.price > 0 ? xau.price : 4055;
-    const idrRate = idr && idr.price > 10000 ? idr.price : 16550;
+    let xauPrice = xau && xau.price > 0 ? xau.price : null;
+    let idrRate = idr && idr.price > 10000 ? idr.price : null;
+    let srcTag = 'OANDA:XAUUSD x FX_IDC:USDIDR';
+    // Kaki komposit yang gagal dari scanner dicoba via Yahoo Finance
+    if (!xauPrice || !idrRate) {
+      const [yx, yi] = await Promise.all([fetchYahooQuote('XAU/USD'), fetchYahooQuote('USD/IDR')]);
+      if (!xauPrice && yx && yx.price > 0) { xauPrice = yx.price; if (!xau) xau = { changePct: yx.changePct, price: yx.price }; }
+      if (!idrRate && yi && yi.price > 10000) idrRate = yi.price;
+      srcTag = 'YAHOO:XAUUSD=X x USDIDR=X';
+    }
+    const isEst = !xauPrice || !idrRate;
+    if (!xauPrice) xauPrice = DEFAULT_PRICES['XAU/USD'] || 4055;
+    if (!idrRate) idrRate = DEFAULT_PRICES['USD/IDR'] || 16550;
+    if (isEst) srcTag = 'ESTIMATED_FALLBACK';
     const gramPrice = (xauPrice * idrRate) / 31.1034768;
     return {
-      source: 'OANDA:XAUUSD x FX_IDC:USDIDR',
+      source: srcTag,
       price: gramPrice,
       changePct: xau ? xau.changePct : 0.25,
       tfOpen: xau ? (xau.tfOpen * idrRate) / 31.1034768 : gramPrice,
@@ -282,9 +339,26 @@ async function fetchExactLiveQuote(symbol, tf) {
       atr: tvQuote.atr
     };
   }
+  // Sumber real cadangan kedua: Yahoo Finance (menutup gap saat scanner TV gagal/sepi)
+  const yQuote = await fetchYahooQuote(s);
+  if (yQuote && yQuote.price > 0) {
+    return {
+      source: yQuote.source,
+      price: yQuote.price,
+      changePct: yQuote.changePct,
+      tfOpen: yQuote.price,
+      tfHigh: yQuote.price,
+      tfLow: yQuote.price,
+      tfClose: yQuote.price,
+      tfVolume: 100,
+      ema20: yQuote.price,
+      ema50: yQuote.price,
+      atr: yQuote.price * 0.0035
+    };
+  }
   const defP = DEFAULT_PRICES[s] || 100;
   return {
-    source: tickers[0] || s,
+    source: 'ESTIMATED_FALLBACK',
     price: defP,
     changePct: 0.25,
     tfOpen: defP * 0.998,
@@ -385,7 +459,7 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
   last.high = Math.max(last.open, last.close, Number(liveQuote?.tfHigh) || endPrice);
   last.low = Math.min(last.open, last.close, Number(liveQuote?.tfLow) || endPrice);
   return {
-    source: liveQuote?.source || 'LIVE_BROKER',
+    source: liveQuote?.source || 'ESTIMATED_FALLBACK',
     price: endPrice,
     changePct: Number(liveQuote?.changePct) || 0.25,
     candles

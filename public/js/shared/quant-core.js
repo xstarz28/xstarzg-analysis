@@ -79,8 +79,9 @@ export const DEFAULT_INSTRUMENTS = [
   mkForex('USD/MXN', 'US Dollar / Mexican Peso', 20.35), mkForex('USD/ZAR', 'US Dollar / South African Rand', 18.40),
   // METALS (10 Precious & Industrial Metals)
   mkMetal('XAU/USD', 'Gold Spot / Emas Dunia (USD)', 2915.0), mkMetal('XAU/IDR', 'Emas Spot / Gram (IDR Proxy)', 1528000),
-  mkMetal('XAG/USD', 'Silver Spot / Perak (USD)', 32.65), mkMetal('XPT/USD', 'Platinum Spot (USD)', 988.0),
-  mkMetal('XPD/USD', 'Palladium Spot (USD)', 975.0), mkMetal('HG/USD', 'Copper LME / Tembaga (USD/lb)', 4.58),
+  // Harga jangkar logam dikalibrasi ulang ke pasar 2026 (XAG spot ~$50, XPT ~$1.580, tembaga ~$5.10/lb)
+  mkMetal('XAG/USD', 'Silver Spot / Perak (USD)', 50.00), mkMetal('XPT/USD', 'Platinum Spot (USD)', 1580.0),
+  mkMetal('XPD/USD', 'Palladium Spot (USD)', 1050.0), mkMetal('HG/USD', 'Copper LME / Tembaga (USD/lb)', 5.10),
   mkMetal('NI/USD', 'Nickel LME / Nikel (USD/Ton)', 15680), mkMetal('SN/USD', 'Tin LME / Timah (USD/Ton)', 31450),
   mkMetal('AL/USD', 'Aluminum LME (USD/Ton)', 2640), mkMetal('LI/USD', 'Lithium Carbonate (USD/Ton)', 10850),
   // COMMODITIES & CFTC FUTURES (16 Energy, Nusantara & Agriculture)

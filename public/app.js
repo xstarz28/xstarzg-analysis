@@ -26,6 +26,7 @@ var state = {
   tf: 'H1', timeframe: 'H1',
   mode: 'trader',            // 'trader' | 'investor'
   subMode: 'futures',        // 'futures' | 'spot'
+  radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
   candles: [],
   lastAnalysis: null,
   livePrice: 0,
@@ -48,10 +49,43 @@ var OWNER_EMAILS_CLIENT = ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com
 var VIP_WALLET = '0xB2Da154e6619A57A2B839D7845920e55Bc58A12C';
 var USDT_BSC_CONTRACT = '0x55d398326f99059fF775485246999027B3197955';
 var VIP_PRICE = 29;
-var RADAR_SYMBOLS = [
-  'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XAU/USD', 'XAG/USD', 'EUR/USD', 'GBP/USD', 'USD/JPY',
-  'USD/IDR', 'WTI', 'XAU/IDR', 'BBCA.JK', 'BBRI.JK', 'BMRI.JK', 'NVDA', 'AAPL', 'TSLA', 'SPY'
-];
+/* Radar rekomendasi per-horizon — setiap kelompok memindai kandidat dengan
+   timeframe kelompoknya sendiri (Scalping M1-M15, Intraday M15-H1, Swing H4-W1),
+   dan setiap kartu menampilkan arah rekomendasi (BUY/SELL utk trader, AKUMULASI/DCA utk investor). */
+var RADAR_CONFIG = {
+  scalping: {
+    label: '⚡ SCALPING', tfRange: 'M1–M15',
+    infoTrader: 'Eksekusi cepat: momentum, VWAP & orderflow M1–M15. Risiko tinggi — ukuran posisi kecil.',
+    infoInvestor: 'Horizon scalping bukan untuk akumulasi — investor disarankan memakai tab SWING.',
+    list: [
+      { sym: 'BTC/USDT', tf: 'M5' }, { sym: 'ETH/USDT', tf: 'M5' }, { sym: 'SOL/USDT', tf: 'M5' },
+      { sym: 'XAU/USD', tf: 'M15' }, { sym: 'EUR/USD', tf: 'M5' }, { sym: 'GBP/JPY', tf: 'M15' },
+      { sym: 'USD/JPY', tf: 'M15' }, { sym: 'NVDA', tf: 'M15' }
+    ]
+  },
+  intraday: {
+    label: '🎯 INTRADAY', tfRange: 'M15–H1',
+    infoTrader: 'Target harian: SMC, FVG, session breakout & VPVR pada M15–H1.',
+    infoInvestor: 'Rekomendasi pembelian nyata harian — cek kembali valuasi sebelum akumulasi.',
+    list: [
+      { sym: 'BTC/USDT', tf: 'M30' }, { sym: 'ETH/USDT', tf: 'M30' }, { sym: 'XAU/USD', tf: 'H1' },
+      { sym: 'XAU/IDR', tf: 'H1' }, { sym: 'EUR/USD', tf: 'H1' }, { sym: 'USD/IDR', tf: 'M30' },
+      { sym: 'WTI', tf: 'H1' }, { sym: 'BBCA.JK', tf: 'H1' }, { sym: 'BMRI.JK', tf: 'H1' }, { sym: 'NVDA', tf: 'H1' }
+    ]
+  },
+  swing: {
+    label: '🌊 SWING', tfRange: 'H4–W1',
+    infoTrader: 'Multi-hari: supply/demand, struktur tren & CFTC COT pada H4–W1.',
+    infoInvestor: 'Akumulasi spot jangka menengah-panjang: beli nyata bertahap (DCA) di zona demand.',
+    list: [
+      { sym: 'BTC/USDT', tf: 'H4' }, { sym: 'ETH/USDT', tf: 'H4' }, { sym: 'XAU/USD', tf: 'D1' },
+      { sym: 'XAU/IDR', tf: 'D1' }, { sym: 'EUR/USD', tf: 'H4' }, { sym: 'WTI', tf: 'D1' },
+      { sym: 'CPO', tf: 'H4' }, { sym: 'BBCA.JK', tf: 'D1' }, { sym: 'BBRI.JK', tf: 'D1' },
+      { sym: 'IHSG', tf: 'D1' }, { sym: 'NVDA', tf: 'D1' }, { sym: 'SPY', tf: 'D1' }
+    ]
+  }
+};
+var radarCache = {};
 var FALLBACK_CATALOG = [
   { symbol: 'XAU/USD', name: 'Gold Spot / Emas Dunia (USD)', assetClass: 'metals', region: 'GLOBAL' },
   { symbol: 'XAU/IDR', name: 'Emas Spot / Gram (IDR Proxy)', assetClass: 'metals', region: 'ID' },
@@ -435,7 +469,7 @@ function drawChartLevels(analysis) {
   clearDrawnPriceLines();
   var showSMC = $id('chkSMC') ? $id('chkSMC').checked : true;
   var showSniper = $id('chkSniper') ? $id('chkSniper').checked : true;
-  var L = analysis.levels;
+  var L = effectiveLevels(analysis);
   var add = function (price, color, title, style) {
     var p = num(price);
     if (!p || p <= 0) return;
@@ -460,6 +494,11 @@ function drawChartLevels(analysis) {
       add(L.dcaZone3, '#10b981', 'DCA 3', 2);
       add(L.invTarget1, '#38bdf8', 'TARGET', 0);
     } else {
+      // Futures 2-arah: tampilkan garis estimasi likuidasi; Spot 1-arah: tanpa garis likuidasi
+      var rp = riskParams(analysis);
+      if (state.subMode === 'futures' && num(rp.liq) > 0) {
+        add(rp.liq, 'rgba(168,85,247,0.9)', 'EST. LIQ ' + rp.lev + 'x', 3);
+      }
       add(L.entry, '#38bdf8', 'ENTRY', 0);
       add(L.sl, '#f43f5e', 'STOP LOSS', 2);
       add(L.tp1, '#10b981', 'TP1', 2);
@@ -532,6 +571,31 @@ function renderNarrative(a) {
     reasons +
     '<div style="margin-top:4px;font-size:11.5px;color:#94a3b8;">Harga live, Entry/SL/TP & pilar di atas dihitung dari candle broker real-time. Setup terkunci selama periode candle ' + (a.timeframe || state.tf) + ' aktif dan diperbarui otomatis setiap candle baru terbentuk.</div>';
 }
+/* Parameter risiko futures (leverage aman & estimasi harga likuidasi) */
+function riskParams(a) {
+  var atrPct = Math.max(0.05, num(a && a.indicators ? a.indicators.atrPct : 0) || 0.5);
+  var lev = atrPct < 0.4 ? 25 : atrPct < 0.9 ? 20 : atrPct < 1.8 ? 15 : atrPct < 3.2 ? 10 : 5;
+  var dir = a && a.direction;
+  var entry = num(a && a.levels ? a.levels.entry : 0);
+  var liq = entry > 0 ? (dir === 'SHORT' ? entry * (1 + 0.92 / lev) : entry * (1 - 0.92 / lev)) : 0;
+  return { lev: lev, liq: liq };
+}
+/* Level yang ditampilkan & digariskan.
+   Trader SPOT dipaksa 1-arah (proteksi LONG saja — tanpa setup SHORT),
+   Futures memakai level 2-arah sesuai analisis, Investor memakai zona DCA. */
+function effectiveLevels(a) {
+  var L = (a && a.levels) || {};
+  if (state.mode === 'trader' && state.subMode === 'spot') {
+    var e = num(a.lastPrice) || num(L.entry);
+    var atr = num(a.indicators ? a.indicators.atr : 0) || e * 0.012;
+    var risk = atr * 1.65;
+    return Object.assign({}, L, {
+      entry: e, sl: e - risk,
+      tp1: e + risk * 1.5, tp2: e + risk * 2.5, tp3: e + risk * 4.0
+    });
+  }
+  return L;
+}
 function renderPanels(a) {
   var isInvestor = state.mode === 'investor';
   var traderPanel = $id('traderSetupPanel');
@@ -573,7 +637,7 @@ function renderPanels(a) {
   if (dirBox) {
     var txt, col;
     if (isSpot) {
-      txt = dir === 'LONG' ? 'SPOT BUY / ACCUMULATE' : '◆ TUNGGU (SPOT 1-ARAH)';
+      txt = dir === 'LONG' ? 'SPOT BUY / AKUMULASI (1-ARAH)' : '◆ TUNGGU SETUP BELI (SPOT 1-ARAH)';
       col = dir === 'LONG' ? '#10b981' : '#f59e0b';
     } else {
       txt = dir === 'LONG' ? 'LONG / BUY SETUP' : dir === 'SHORT' ? 'SHORT / SELL SETUP' : '◆ WAIT / NO-TRADE ZONE';
@@ -586,18 +650,16 @@ function renderPanels(a) {
   setTxt('valSetupLockBadge', '🔒 LOCKED ' + (a.timeframe || state.tf));
   setTxt('valConfidenceScore', (a.confluenceScore || a.confidence || 50) + '%');
   setTxt('valRegime', a.regime || '-');
-  var L = a.levels;
+  var L = effectiveLevels(a);
   setTxt('valEntry', formatPrice(L.entry, a.symbol));
   setTxt('valSL', formatPrice(L.sl, a.symbol));
-  setTxt('valSLDesc', 'Di luar swing wick + buffer ATR ' + num(a.indicators.atrPct).toFixed(2) + '%');
+  setTxt('valSLDesc', isSpot ? 'Proteksi LONG spot di luar swing wick + buffer ATR ' + num(a.indicators.atrPct).toFixed(2) + '%' : 'Di luar swing wick + buffer ATR ' + num(a.indicators.atrPct).toFixed(2) + '%');
   setTxt('valTP1', formatPrice(L.tp1, a.symbol));
   setTxt('valTP2', formatPrice(L.tp2, a.symbol));
   setTxt('valTP3', formatPrice(L.tp3, a.symbol));
-  var atrPct = Math.max(0.05, num(a.indicators.atrPct, 0.5));
-  var lev = atrPct < 0.4 ? 25 : atrPct < 0.9 ? 20 : atrPct < 1.8 ? 15 : atrPct < 3.2 ? 10 : 5;
-  setTxt('valRecLeverage', lev + 'x');
-  var liq = L.entry > 0 ? (dir === 'SHORT' ? L.entry * (1 + 0.92 / lev) : L.entry * (1 - 0.92 / lev)) : 0;
-  setTxt('valLiqPrice', formatPrice(liq, a.symbol));
+  var rp = riskParams(a);
+  setTxt('valRecLeverage', rp.lev + 'x');
+  setTxt('valLiqPrice', formatPrice(rp.liq, a.symbol));
   setTxt('valRRRatio', '1 : ' + num(L.rrRatio, 2.5).toFixed(2));
   // Backtest
   var bt = a.backtest || {};
@@ -618,12 +680,31 @@ function renderPanels(a) {
   if (futBox) futBox.classList.toggle('hidden', isSpot);
   updateRiskSizing();
 }
+function feedIsEstimate(src) {
+  return /ESTIMATE|SYNTHETIC|LOCAL|CALIBRATED|DEFAULT/i.test(String(src || ''));
+}
+function updateModeChip() {
+  var chip = $id('hdrModeChip');
+  if (!chip) return;
+  var cls = 'futures', txt = 'FUTURES • 2-ARAH + LEV';
+  if (state.mode === 'investor') { cls = 'investor'; txt = 'INVESTOR • SPOT DCA'; }
+  else if (state.subMode === 'spot') { cls = 'spot'; txt = 'SPOT • 1-ARAH (TANPA LEV)'; }
+  chip.className = 'mode-chip ' + cls;
+  chip.textContent = txt;
+}
 function renderHeader(a) {
   setTxt('hdrSymbolTitle', a.symbol + ' — ' + (a.name || ''));
   setTxt('hdrAssetCategory', catLabelOf(getMeta(a.symbol)));
+  updateModeChip();
   var src = state.feedSource || 'LIVE';
   var el = $id('lblEngineStatus');
-  if (el) el.innerHTML = '<span class="pulse-dot"></span>LIVE REAL-TIME • ' + src + ' • ' + (a.timeframe || state.tf);
+  if (el) {
+    if (feedIsEstimate(src)) {
+      el.innerHTML = '<span class="pulse-dot" style="background:#f59e0b;"></span><span style="color:#f59e0b;">ESTIMASI — menyambung ulang feed broker live…</span> • ' + (a.timeframe || state.tf);
+    } else {
+      el.innerHTML = '<span class="pulse-dot"></span>LIVE REAL-TIME • ' + src + ' • ' + (a.timeframe || state.tf);
+    }
+  }
   var price = num(state.livePrice) > 0 ? state.livePrice : a.lastPrice;
   setTxt('hdrLivePrice', formatPrice(price, a.symbol));
   var chg = num(state.liveChangePct, a.changePct);
@@ -758,74 +839,153 @@ function connectRealtimeStream() {
   try {
     var el = $id('lblEngineStatus');
     var isCrypto = (state.symbol || '').indexOf('/USDT') > -1;
-    if (el) el.innerHTML = '<span class="pulse-dot"></span>LIVE REAL-TIME • ' +
-      (isCrypto ? 'BINANCE WS + EDGE QUOTE' : 'EDGE BROKER QUOTE (TradingView Scanner)') + ' • ' + state.tf;
+    if (el) {
+      if (state.feedSource && feedIsEstimate(state.feedSource)) {
+        el.innerHTML = '<span class="pulse-dot" style="background:#f59e0b;"></span><span style="color:#f59e0b;">ESTIMASI — menyambung ulang feed broker live…</span> • ' + state.tf;
+      } else if (state.feedSource && state.feedSource !== '-') {
+        el.innerHTML = '<span class="pulse-dot"></span>LIVE REAL-TIME • ' + state.feedSource + ' • ' + state.tf;
+      } else {
+        el.innerHTML = '<span class="pulse-dot"></span>LIVE REAL-TIME • ' +
+          (isCrypto ? 'BINANCE WS + EDGE QUOTE' : 'EDGE BROKER QUOTE (TradingView + Yahoo Finance)') + ' • ' + state.tf;
+      }
+    }
   } catch (e) {}
 }
 
-/* ==================== 7. RADAR PELUANG MULTI-ASET (BATCH QUOTES) ==================== */
-function fetchBatchQuotes(symbols) {
-  return new Promise(function (resolve) {
-    var ctrl = new AbortController();
-    var timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 12000);
-    fetch('/api/market/quotes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbols: symbols }),
-      cache: 'no-store', signal: ctrl.signal
-    }).then(function (r) {
-      clearTimeout(timer);
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    }).then(function (d) {
-      if (d && d.ok && d.quotes) resolve(d.quotes);
-      else resolve({});
-    }).catch(function () {
-      clearTimeout(timer);
-      resolve({});
+/* ==================== 7. RADAR REKOMENDASI MULTI-ASET PER-HORIZON ====================
+   Scalping (M1-M15) / Intraday (M15-H1) / Swing (H4-W1).
+   Setiap kartu = analisis quant penuh pada candle real-time aset tsb:
+   trader -> ▲ LONG / ▼ SHORT (futures) atau TUNGGU (spot 1-arah),
+   investor -> AKUMULASI / DCA / TUNGGU DISKON (framing beli-nyata). */
+function fetchRadarCandidate(item) {
+  return fetchRealMarketCandles(item.sym, item.tf).then(function (d) {
+    var a = computeQuantEngine(d.candles, item.sym, item.tf, false);
+    if (!a) throw new Error('no-analysis');
+    return {
+      sym: item.sym, tf: item.tf, analysis: a,
+      price: num(d.price) > 0 ? num(d.price) : a.lastPrice,
+      changePct: Number.isFinite(Number(d.changePct)) ? Number(d.changePct) : num(a.changePct),
+      source: d.source || 'BROKER FEED'
+    };
+  });
+}
+function radarBadgeFor(a) {
+  var sc = num(a && a.confluenceScore, 50);
+  if (state.mode === 'investor') {
+    if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: '● AKUMULASI KUAT' };
+    if (a.direction === 'LONG') return { cls: 'accum', txt: '● DICICIL / DCA' };
+    if (a.direction === 'SHORT') return { cls: 'wait', txt: '◆ TUNGGU DISKON' };
+    return { cls: 'wait', txt: '◆ HOLD / PANTAU' };
+  }
+  var isSpot = state.subMode === 'spot';
+  if (a.direction === 'LONG') return { cls: 'long', txt: '▲ LONG / BUY' };
+  if (a.direction === 'SHORT') return isSpot ? { cls: 'wait', txt: '◆ TUNGGU (SPOT)' } : { cls: 'short', txt: '▼ SHORT / SELL' };
+  return { cls: 'wait', txt: '◆ NETRAL' };
+}
+function paintRadarItems(cfg, items) {
+  var grid = $id('opportunityRadarGrid');
+  if (!grid) return;
+  if (!items || !items.length) {
+    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Feed radar belum tersedia — coba lagi sebentar.</span></div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var a = it.analysis;
+    var meta = getMeta(it.sym);
+    var badge = radarBadgeFor(a);
+    var chg = num(it.changePct, num(a.changePct));
+    var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
+    var sc = num(a.confluenceScore, 50);
+    var entryRef = state.mode === 'investor' ? (a.levels && a.levels.dcaZone1 ? a.levels.dcaZone1 : a.lastPrice) : (a.levels ? a.levels.entry : a.lastPrice);
+    var isActive = it.sym === state.symbol && it.tf === state.tf;
+    html += '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '" data-tf="' + it.tf + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
+        '<span class="r-sym">' + it.sym + ' <small style="color:#64748b;font-weight:700;">' + it.tf + '</small></span>' +
+        '<span class="r-live">' + (feedIsEstimate(it.source) ? '○ EST' : '● LIVE') + '</span>' +
+      '</div>' +
+      '<span class="r-name">' + (meta.name || it.sym) + '</span>' +
+      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
+        '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
+        '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
+      '</div>' +
+      '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' +
+      '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
+        '<span class="r-entry">' + (state.mode === 'investor' ? 'Zona DCA 1: ' : 'Entry: ') + formatPrice(entryRef, it.sym) + '</span>' +
+        '<span class="r-score">SKOR ' + sc + '</span>' +
+      '</div>' +
+    '</div>';
+  }
+  grid.innerHTML = html;
+  Array.prototype.forEach.call(grid.querySelectorAll('.radar-card[data-sym]'), function (card) {
+    card.addEventListener('click', function () {
+      gotoInstrument(card.getAttribute('data-sym'), card.getAttribute('data-tf'));
     });
   });
 }
-function renderOpportunityRadar() {
+function syncHorizonTabs() {
+  var bar = $id('radarHorizonBar');
+  if (!bar) return;
+  Array.prototype.forEach.call(bar.querySelectorAll('.hz-btn'), function (b) {
+    b.classList.toggle('active', b.getAttribute('data-hz') === state.radarHorizon);
+  });
+}
+function renderOpportunityRadar(force) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
+  if (!state.radarHorizon) state.radarHorizon = 'intraday';
+  if (state.mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
+  var hz = state.radarHorizon;
+  var cfg = RADAR_CONFIG[hz] || RADAR_CONFIG.intraday;
+  syncHorizonTabs();
+  var infoEl = $id('radarHorizonInfo');
+  if (infoEl) infoEl.textContent = (state.mode === 'investor' ? (cfg.infoInvestor || '') : (cfg.infoTrader || ''));
+  var cacheKey = hz;
+  var cached = radarCache[cacheKey];
+  if (!force && cached && (Date.now() - cached.ts) < 90000) {
+    paintRadarItems(cfg, cached.items);
+    return;
+  }
   var mySeq = ++radarRunSeq;
-  grid.innerHTML = '<div class="radar-card" style="cursor:default;"><span class="r-name">Memindai kuotasi broker real-time lintas aset…</span></div>';
-  fetchBatchQuotes(RADAR_SYMBOLS).then(function (quotes) {
+  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Memindai ' + cfg.list.length + ' aset dengan candle broker real-time (kelompok ' + cfg.tfRange + ')…</span></div>';
+  Promise.allSettled(cfg.list.map(fetchRadarCandidate)).then(function (results) {
     if (mySeq !== radarRunSeq) return;
-    var html = '';
-    for (var i = 0; i < RADAR_SYMBOLS.length; i++) {
-      var sym = RADAR_SYMBOLS[i];
-      var meta = getMeta(sym);
-      var q = quotes && quotes[sym] ? quotes[sym] : null;
-      var price = q && num(q.price) > 0 ? num(q.price) : null;
-      var chg = q && Number.isFinite(Number(q.changePct)) ? Number(q.changePct) : null;
-      var priceTxt = price ? formatPrice(price, sym) : '--';
-      var chgTxt = chg !== null ? pctFmt(chg) : '—';
-      var chgCol = chg !== null ? (chg >= 0 ? '#10b981' : '#f43f5e') : '#64748b';
-      var srcTxt = q && q.source ? q.source : 'BROKER FEED';
-      var isActive = sym === state.symbol;
-      html += '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + sym + '">' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
-          '<span class="r-sym">' + sym + '</span>' +
-          '<span class="r-live">' + (price ? '● LIVE' : '○ IDLE') + '</span>' +
-        '</div>' +
-        '<span class="r-name">' + (meta.name || sym) + '</span>' +
-        '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
-          '<span class="r-price">' + priceTxt + '</span>' +
-          '<span class="r-chg" style="color:' + chgCol + ';">' + chgTxt + '</span>' +
-        '</div>' +
-        '<div style="font-size:9px;color:#475569;margin-top:3px;letter-spacing:0.4px;">' + srcTxt + '</div>' +
-      '</div>';
+    var items = [];
+    for (var i = 0; i < results.length; i++) {
+      if (results[i].status === 'fulfilled' && results[i].value) items.push(results[i].value);
     }
-    grid.innerHTML = html;
-    Array.prototype.forEach.call(grid.querySelectorAll('.radar-card[data-sym]'), function (card) {
-      card.addEventListener('click', function () {
-        var sym = card.getAttribute('data-sym');
-        if (sym) selectSymbol(sym);
-      });
+    // Urutkan: sinyal directional terkuat (skor paling jauh dari 50) di atas
+    items.sort(function (x, y) {
+      return Math.abs(num(y.analysis.confluenceScore, 50) - 50) - Math.abs(num(x.analysis.confluenceScore, 50) - 50);
     });
-  });
+    radarCache[cacheKey] = { ts: Date.now(), items: items };
+    paintRadarItems(cfg, items);
+  }).catch(function () {});
+}
+function gotoInstrument(sym, tf) {
+  if (!sym) return;
+  if (!ensureQuotaFor(sym)) {
+    renderInstrumentCatalog();
+    return;
+  }
+  state.symbol = sym;
+  if (tf && TF_SECONDS[tf]) {
+    state.tf = tf;
+    state.timeframe = tf;
+    var tfBar = $id('timeframeBar');
+    if (tfBar) {
+      Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) {
+        b.classList.toggle('active', b.getAttribute('data-tf') === tf);
+      });
+    }
+  }
+  state.candles = [];
+  state.lastAnalysis = null;
+  renderInstrumentCatalog();
+  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
+  connectRealtimeStream();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
 
 /* ==================== 8. RISK & POSITION CALCULATOR ==================== */
@@ -835,7 +995,8 @@ function updateRiskSizing() {
   var bal = num($id('inpCalcBalance') ? $id('inpCalcBalance').value : 1000, 1000);
   var riskPct = num($id('inpCalcRiskPct') ? $id('inpCalcRiskPct').value : 1, 1);
   var riskUsd = bal * (riskPct / 100);
-  var stopDist = Math.abs(num(a.levels.entry) - num(a.levels.sl));
+  var L = effectiveLevels(a);
+  var stopDist = Math.abs(num(L.entry) - num(L.sl));
   var units = stopDist > 0 ? riskUsd / stopDist : 0;
   setTxt('valCalcDollarRisk', '$' + riskUsd.toFixed(2));
   setTxt('valCalcLotSize', (units >= 100 ? units.toFixed(1) : units.toFixed(4)) + ' Unit');
@@ -893,6 +1054,8 @@ function persistUnlocked(list) {
 }
 function ensureQuotaFor(symbol) {
   var u = state.user;
+  // Instrumen showcase default selalu terbuka untuk semua pengunjung
+  if (symbol === 'XAU/USD') return true;
   var limit = quotaLimit();
   if (limit === Infinity) return true;
   var unlocked = unlockedSymbols();
@@ -1135,6 +1298,19 @@ function bindUiEvents() {
       });
     });
   }
+  /* ---- Tab horizon radar (Scalping / Intraday / Swing) ---- */
+  var hzBar = $id('radarHorizonBar');
+  if (hzBar) {
+    Array.prototype.forEach.call(hzBar.querySelectorAll('.hz-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        var hz = btn.getAttribute('data-hz');
+        if (!hz || hz === state.radarHorizon) return;
+        state.radarHorizon = hz;
+        syncHorizonTabs();
+        renderOpportunityRadar(true);
+      });
+    });
+  }
   /* ---- Overlay toggles & recalc ---- */
   ['chkEMA', 'chkVWAP', 'chkSMC', 'chkSniper'].forEach(function (id) {
     var el = $id(id);
@@ -1158,6 +1334,11 @@ function setMode(mode) {
   if (i) i.classList.toggle('active', mode === 'investor');
   var sub = $id('traderSubModeWrap');
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
+  // Investor: rekomendasi diframe sebagai keputusan beli-nyata; scalping bukan untuk investor
+  if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
+  syncHorizonTabs();
+  renderOpportunityRadar(false);
+  updateModeChip();
   if (typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
 }
 function setSubMode(sub) {
@@ -1165,7 +1346,14 @@ function setSubMode(sub) {
   var f = $id('btnSubFutures'), s = $id('btnSubSpot');
   if (f) f.classList.toggle('active', sub === 'futures');
   if (s) s.classList.toggle('active', sub === 'spot');
-  if (state.lastAnalysis) renderPanels(state.lastAnalysis);
+  updateModeChip();
+  if (state.lastAnalysis) {
+    renderPanels(state.lastAnalysis);
+    renderHeader(state.lastAnalysis);
+    drawChartLevels(state.lastAnalysis);
+  }
+  // Repaint badge radar (SHORT futures -> TUNGGU di spot 1-arah)
+  renderOpportunityRadar(false);
 }
 function selectSymbol(sym) {
   if (!sym) return;
@@ -1275,11 +1463,12 @@ if (document.readyState === 'loading') {
 // === XSTARZG_INSTANT_RENDER_GUARANTEE_V2026_30 ===
 (function () {
   const SEED_PRICES = {
-    'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 34.20, 'XPT/USD': 1045.00, 'XPD/USD': 1090.00, 'XCU/USD': 4.55,
+    // Harga jangkar dikalibrasi ke pasar 2026 — hanya dipakai 0-2 detik sebelum kuotasi live tiba
+    'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 50.00, 'XPT/USD': 1580.00, 'XPD/USD': 1050.00, 'XCU/USD': 5.10, 'HG/USD': 5.10,
     'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
     'NZD/USD': 0.5980, 'USD/IDR': 16550, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880,
     'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
-    'TSLA': 262.00, 'BTC/USDT': 89500.00, 'ETH/USDT': 3120.00, 'SOL/USDT': 194.50, 'BNB/USDT': 645.00
+    'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00
   };
   function generateSeedCandles(symbol, tf) {
     const sym = (symbol || 'XAU/USD').toUpperCase();
