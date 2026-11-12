@@ -425,3 +425,7 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
   .pillars-grid, .radar-grid { grid-template-columns: 1fr; }
   .setup-grid-levels .level-box[style*="span 2"] { grid-column: span 2; }
 }
+/* ---- Pemilih bahasa (round 6) ---- */
+.lang-select { background: rgba(15, 23, 42, 0.92); border: 1px solid var(--border-subtle, #334155); color: #e2e8f0; border-radius: 10px; padding: 7px 10px; font-size: 12px; font-weight: 600; cursor: pointer; max-width: 190px; }
+.lang-select:focus { outline: none; border-color: #38bdf8; }
+[dir="rtl"] .lang-select { direction: rtl; }

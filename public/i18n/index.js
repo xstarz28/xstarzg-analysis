@@ -84,6 +84,15 @@ export function applyTranslationsToDOM() {
       }
     }
   });
+  // Round 6: dukungan placeholder & tooltip title (input search, email, kode owner dst.)
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => {
+    const val = t(el.getAttribute('data-i18n-ph'), '');
+    if (val) el.setAttribute('placeholder', val);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const val = t(el.getAttribute('data-i18n-title'), '');
+    if (val) el.setAttribute('title', val);
+  });
 }
 export function formatNumber(value, decimals = 2) {
   const num = Number(value);

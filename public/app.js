@@ -21,6 +21,17 @@
 /* ==================== 0. UTILITAS & STATE GLOBAL ==================== */
 var QC = null;      // /js/shared/quant-core.js   (dimuat via dynamic import)
 var SE = null;      // /js/shared/signal-engine.js (dimuat via dynamic import)
+// === i18n (round 6): mesin /i18n/boot.js mengisi window.XSI18N. T() selalu punya
+// fallback = teks Indonesia (default situs), jadi aplikasi tetap utuh tanpa i18n.
+function T(key, fallback) {
+  try {
+    if (window.XSI18N && typeof window.XSI18N.t === 'function') {
+      var v = window.XSI18N.t(key, '');
+      if (v && v !== key) return v;
+    }
+  } catch (e) {}
+  return fallback;
+}
 var state = {
   symbol: 'XAU/USD',
   tf: 'H1', timeframe: 'H1',
@@ -662,10 +673,11 @@ function renderPanels(a) {
     var fair = num(lv.poc, a.lastPrice) * 0.55 + num(lv.vwap, a.lastPrice) * 0.45;
     if (fair <= 0) fair = a.lastPrice;
     var diffPct = ((a.lastPrice - fair) / fair) * 100;
-    var status = diffPct < -3 ? 'UNDERVALUE (DISKON)' : diffPct > 3 ? 'OVERVALUE (PREMIUM)' : 'FAIR VALUE';
-    var rating = a.direction === 'LONG' ? (a.confluenceScore >= 65 ? 'STRONG ACCUMULATE' : 'ACCUMULATE') : a.direction === 'SHORT' ? 'WAIT / REDUCE' : 'HOLD / WATCH';
+    var status = diffPct < -3 ? T('ui.vUnder', 'UNDERVALUE (DISKON)') : diffPct > 3 ? T('ui.vOver', 'OVERVALUE (PREMIUM)') : T('ui.vFair', 'FAIR VALUE');
+    var rating = a.direction === 'LONG' ? (a.confluenceScore >= 65 ? T('ui.rStrongAccum', 'STRONG ACCUMULATE') : T('ui.rAccum', 'ACCUMULATE')) : a.direction === 'SHORT' ? T('ui.rWaitReduce', 'WAIT / REDUCE') : T('ui.rHoldWatch', 'HOLD / WATCH');
     setTxt('valInvRating', rating);
-    $id('valInvRating') && ($id('valInvRating').style.color = rating.indexOf('ACCUMULATE') > -1 ? '#10b981' : rating.indexOf('WAIT') > -1 ? '#f59e0b' : '#38bdf8');
+    // Warna berbasis arah analisis (bukan substring teks) agar kebal terjemahan multi-bahasa
+    $id('valInvRating') && ($id('valInvRating').style.color = a.direction === 'LONG' ? '#10b981' : a.direction === 'SHORT' ? '#f59e0b' : '#38bdf8');
     setTxt('valInvFairValue', formatPrice(fair, a.symbol));
     setTxt('valInvValuationStatus', status);
     $id('valInvValuationStatus') && ($id('valInvValuationStatus').style.color = diffPct < -3 ? '#10b981' : diffPct > 3 ? '#f43f5e' : '#f8fafc');
@@ -741,9 +753,9 @@ function feedIsEstimate(src) {
 function updateModeChip() {
   var chip = $id('hdrModeChip');
   if (!chip) return;
-  var cls = 'futures', txt = 'FUTURES • 2-ARAH + LEV';
-  if (state.mode === 'investor') { cls = 'investor'; txt = 'INVESTOR • SPOT DCA'; }
-  else if (state.subMode === 'spot') { cls = 'spot'; txt = 'SPOT • 1-ARAH (TANPA LEV)'; }
+  var cls = 'futures', txt = T('ui.chipFutures', 'FUTURES • 2-ARAH + LEV');
+  if (state.mode === 'investor') { cls = 'investor'; txt = T('ui.chipInvestor', 'INVESTOR • SPOT DCA'); }
+  else if (state.subMode === 'spot') { cls = 'spot'; txt = T('ui.chipSpot', 'SPOT • 1-ARAH (TANPA LEV)'); }
   chip.className = 'mode-chip ' + cls;
   chip.textContent = txt;
 }
@@ -927,21 +939,21 @@ function fetchRadarCandidate(item) {
 function radarBadgeFor(a) {
   var sc = num(a && a.confluenceScore, 50);
   if (state.mode === 'investor') {
-    if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: '● AKUMULASI KUAT' };
-    if (a.direction === 'LONG') return { cls: 'accum', txt: '● DICICIL / DCA' };
-    if (a.direction === 'SHORT') return { cls: 'wait', txt: '◆ TUNGGU DISKON' };
-    return { cls: 'wait', txt: '◆ HOLD / PANTAU' };
+    if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: T('ui.ibStrong', '● AKUMULASI KUAT') };
+    if (a.direction === 'LONG') return { cls: 'accum', txt: T('ui.ibDca', '● DICICIL / DCA') };
+    if (a.direction === 'SHORT') return { cls: 'wait', txt: T('ui.ibWait', '◆ TUNGGU DISKON') };
+    return { cls: 'wait', txt: T('ui.ibHold', '◆ HOLD / PANTAU') };
   }
   var isSpot = state.subMode === 'spot';
-  if (a.direction === 'LONG') return { cls: 'long', txt: '▲ LONG / BUY' };
-  if (a.direction === 'SHORT') return isSpot ? { cls: 'wait', txt: '◆ TUNGGU (SPOT)' } : { cls: 'short', txt: '▼ SHORT / SELL' };
-  return { cls: 'wait', txt: '◆ NETRAL' };
+  if (a.direction === 'LONG') return { cls: 'long', txt: T('ui.tbLong', '▲ LONG / BUY') };
+  if (a.direction === 'SHORT') return isSpot ? { cls: 'wait', txt: T('ui.tbWaitSpot', '◆ TUNGGU (SPOT)') } : { cls: 'short', txt: T('ui.tbShort', '▼ SHORT / SELL') };
+  return { cls: 'wait', txt: T('ui.tbNeutral', '◆ NETRAL') };
 }
 function paintRadarItems(cfg, items) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
   if (!items || !items.length) {
-    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Feed radar belum tersedia — coba lagi sebentar.</span></div>';
+    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarFeedEmpty', 'Feed radar belum tersedia — coba lagi sebentar.') + '</span></div>';
     return;
   }
   var html = '';
@@ -967,8 +979,8 @@ function paintRadarItems(cfg, items) {
       '</div>' +
       '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' +
       '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
-        '<span class="r-entry">' + (state.mode === 'investor' ? 'Zona DCA 1: ' : 'Entry: ') + formatPrice(entryRef, it.sym) + '</span>' +
-        '<span class="r-score">SKOR ' + sc + '</span>' +
+        '<span class="r-entry">' + (state.mode === 'investor' ? T('ui.cDcaShort', 'Zona DCA 1: ') : T('ui.cEntry', 'Entry: ')) + formatPrice(entryRef, it.sym) + '</span>' +
+        '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
       '</div>' +
     '</div>';
   }
@@ -1009,16 +1021,16 @@ var investorPickRunSeq = 0;
 var investorPickCache = { ts: 0, items: [] };
 function investorRatingFor(a) {
   var sc = num(a && a.confluenceScore, 50);
-  if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: '● AKUMULASI KUAT' };
-  if (a.direction === 'LONG') return { cls: 'accum', txt: '● DICICIL / DCA BERTAHAP' };
-  if (a.direction === 'SHORT') return { cls: 'wait', txt: '◆ TUNGGU DISKON LAGI' };
-  return { cls: 'wait', txt: '◈ HOLD / PANTAU' };
+  if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: T('ui.ibStrong', '● AKUMULASI KUAT') };
+  if (a.direction === 'LONG') return { cls: 'accum', txt: T('ui.ibDcaStep', '● DICICIL / DCA BERTAHAP') };
+  if (a.direction === 'SHORT') return { cls: 'wait', txt: T('ui.ibWaitMore', '◆ TUNGGU DISKON LAGI') };
+  return { cls: 'wait', txt: T('ui.ibHold', '◈ HOLD / PANTAU') };
 }
 function drawInvestorPickCards(items) {
   var grid = $id('investorPicksGrid');
   if (!grid) return;
   if (!items || !items.length) {
-    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Kurasi portofolio belum termuat — coba beberapa saat lagi…</span></div>';
+    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.invEmpty', 'Kurasi portofolio belum termuat — coba beberapa saat lagi…') + '</span></div>';
     return;
   }
   var html = '';
@@ -1032,7 +1044,7 @@ function drawInvestorPickCards(items) {
     var fair = num(lv.poc, a.lastPrice) * 0.55 + num(lv.vwap, a.lastPrice) * 0.45;
     if (fair <= 0) fair = a.lastPrice;
     var mosPct = ((a.lastPrice - fair) / fair) * 100; // negatif = harga di bawah nilai wajar (diskon)
-    var mosTxt = mosPct <= 0 ? 'DISKON ' + Math.abs(mosPct).toFixed(1) + '%' : 'PREMIUM ' + Math.abs(mosPct).toFixed(1) + '%';
+    var mosTxt = mosPct <= 0 ? T('ui.cDisc', 'DISKON') + ' ' + Math.abs(mosPct).toFixed(1) + '%' : T('ui.cPrem', 'PREMIUM') + ' ' + Math.abs(mosPct).toFixed(1) + '%';
     var chg = num(it.changePct, num(a.changePct));
     var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
     var sc = num(a.confluenceScore, 50);
@@ -1049,12 +1061,12 @@ function drawInvestorPickCards(items) {
       '</div>' +
       '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' +
       '<div class="inv-rows">' +
-        '<div><span>Nilai Wajar</span><b>' + formatPrice(fair, it.sym) + '</b></div>' +
-        '<div><span>Zona Cicil (DCA 1)</span><b>' + formatPrice(num(lv.dcaZone1, it.price * 0.99), it.sym) + '</b></div>' +
-        '<div><span>Target Siklus 12–36 bln</span><b style="color:#34d399;">' + formatPrice(num(lv.invTarget1, it.price * 1.12), it.sym) + '</b></div>' +
-        '<div><span>Margin of Safety</span><b style="color:' + (mosPct <= 0 ? '#10b981' : '#f59e0b') + ';">' + mosTxt + '</b></div>' +
+        '<div><span>' + T('ui.cFair', 'Nilai Wajar') + '</span><b>' + formatPrice(fair, it.sym) + '</b></div>' +
+        '<div><span>' + T('ui.cDca', 'Zona Cicil (DCA 1)') + '</span><b>' + formatPrice(num(lv.dcaZone1, it.price * 0.99), it.sym) + '</b></div>' +
+        '<div><span>' + T('ui.cTarget', 'Target Siklus 12–36 bln') + '</span><b style="color:#34d399;">' + formatPrice(num(lv.invTarget1, it.price * 1.12), it.sym) + '</b></div>' +
+        '<div><span>' + T('ui.cMos', 'Margin of Safety') + '</span><b style="color:' + (mosPct <= 0 ? '#10b981' : '#f59e0b') + ';">' + mosTxt + '</b></div>' +
       '</div>' +
-      '<div class="r-score" style="margin-top:5px;">SKOR KONFLUENSI ' + sc + '/100</div>' +
+      '<div class="r-score" style="margin-top:5px;">' + T('ui.cScore', 'SKOR KONFLUENSI') + ' ' + sc + '/100</div>' +
     '</div>';
   }
   grid.innerHTML = html;
@@ -1070,7 +1082,7 @@ function renderInvestorPicks(force) {
     return;
   }
   var mySeq = ++investorPickRunSeq;
-  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Mengkurasi ' + INVESTOR_PICKS.length + ' aset portofolio dengan data broker real-time (D1/W1)…</span></div>';
+  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.invScanning', 'Mengkurasi {n} aset portofolio dengan data broker real-time (D1/W1)…').replace('{n}', INVESTOR_PICKS.length) + '</span></div>';
   Promise.allSettled(INVESTOR_PICKS.map(function (p) {
     return fetchRadarCandidate({ sym: p.sym, tf: 'D1' }).then(function (r) { if (r) r.cat = p.cat; return r; });
   })).then(function (results) {
@@ -1092,7 +1104,8 @@ function renderOpportunityRadar(force) {
   var cfg = RADAR_CONFIG[hz] || RADAR_CONFIG.intraday;
   syncHorizonTabs();
   var infoEl = $id('radarHorizonInfo');
-  if (infoEl) infoEl.textContent = (state.mode === 'investor' ? (cfg.infoInvestor || '') : (cfg.infoTrader || ''));
+  var hzCap = hz.charAt(0).toUpperCase() + hz.slice(1);
+  if (infoEl) infoEl.textContent = (state.mode === 'investor' ? T('ui.radarInfoI' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoInvestor || '') : T('ui.radarInfoT' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoTrader || ''));
   var cacheKey = hz;
   var cached = radarCache[cacheKey];
   if (!force && cached && (Date.now() - cached.ts) < 90000) {
@@ -1100,7 +1113,7 @@ function renderOpportunityRadar(force) {
     return;
   }
   var mySeq = ++radarRunSeq;
-  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Memindai ' + cfg.list.length + ' aset dengan candle broker real-time (kelompok ' + cfg.tfRange + ')…</span></div>';
+  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', cfg.list.length).replace('{range}', cfg.tfRange) + '</span></div>';
   Promise.allSettled(cfg.list.map(fetchRadarCandidate)).then(function (results) {
     if (mySeq !== radarRunSeq) return;
     var items = [];
@@ -1255,14 +1268,14 @@ function quotaLimit() {
   return 0; // GUEST: hanya melihat instrumen default, ganti instrumen wajib login
 }
 function tierBadge(u) {
-  if (!u || u.tier === 'GUEST') return 'MODE TAMU';
+  if (!u || u.tier === 'GUEST') return T('ui.tierGuestBadge', 'MODE TAMU');
   if (u.tier === 'OWNER_VIP') return '👑 OWNER VIP';
   if (u.tier === 'VIP') return '💎 VIP MEMBER';
   return '✅ FREE GOOGLE';
 }
 function updateUserUi() {
   var u = state.user;
-  setTxt('lblUserName', u ? (u.name || u.email.split('@')[0]) : 'Tamu');
+  setTxt('lblUserName', u ? (u.name || u.email.split('@')[0]) : T('ui.guestName', 'Tamu'));
   var badge = $id('lblUserTierBadge');
   if (badge) {
     badge.textContent = tierBadge(u);
@@ -1272,7 +1285,7 @@ function updateUserUi() {
   setTxt('ddUserTier', tierBadge(u));
   var unlocked = unlockedSymbols();
   var limit = quotaLimit();
-  setTxt('ddUserQuota', limit === Infinity ? unlocked.length + ' / ∞ Unlimited' : unlocked.length + ' / ' + limit + ' Instrumen');
+  setTxt('ddUserQuota', limit === Infinity ? unlocked.length + ' / ∞ Unlimited' : unlocked.length + ' / ' + limit + ' ' + T('ui.quotaUnit', 'Instrumen'));
 }
 function unlockedSymbols() {
   if (!state.user || !state.user.email) return [];
@@ -1304,7 +1317,7 @@ function ensureQuotaFor(symbol) {
     if (gm) gm.classList.remove('hidden');
   } else {
     var reason = $id('vipModalReasonText');
-    if (reason) reason.textContent = 'Kuota ' + limit + ' instrumen akun FREE Anda sudah penuh (' + unlocked.join(', ') + '). Upgrade VIP $29 USDT untuk membuka seluruh 600+ instrumen tanpa batas.';
+    if (reason) reason.textContent = T('ui.quotaFull', 'Kuota {limit} instrumen akun FREE Anda sudah penuh ({list}). Upgrade VIP $29 USDT untuk membuka seluruh 600+ instrumen tanpa batas.').replace('{limit}', limit).replace('{list}', unlocked.join(', '));
     var pm = $id('paymentModal');
     if (pm) pm.classList.remove('hidden');
   }
@@ -1457,7 +1470,7 @@ function bindUiEvents() {
     var email = (emailEl && emailEl.value || '').trim().toLowerCase();
     if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
       if (emailEl) { emailEl.style.borderColor = '#f43f5e'; emailEl.focus(); }
-      setTxt('googleAuthError', 'Masukkan alamat Google yang valid (cth: nama@gmail.com)');
+      setTxt('googleAuthError', T('ui.gErrInvalid', 'Masukkan alamat Google yang valid (cth: nama@gmail.com)'));
       return;
     }
     if (emailEl) emailEl.style.borderColor = '#334155';
@@ -1487,9 +1500,9 @@ function bindUiEvents() {
     var emailEl = $id('ownerEmailInput'), codeEl = $id('ownerCodeInput'), btn = $id('btnSubmitOwnerLogin');
     var email = (emailEl && emailEl.value || '').trim().toLowerCase();
     var code = (codeEl && codeEl.value || '').trim();
-    if (!email || !code) { setTxt('ownerLoginError', 'Isi email pemilik dan kode akses rahasia.'); return; }
+    if (!email || !code) { setTxt('ownerLoginError', T('ui.ownerNeedFields', 'Isi email pemilik dan kode akses rahasia.')); return; }
     setTxt('ownerLoginError', '');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Memverifikasi ke server…'; }
+    if (btn) { btn.disabled = true; btn.textContent = T('ui.ownerVerifying', '⏳ Memverifikasi ke server…'); }
     fetch('/api/auth/owner', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email, code: code })
@@ -1508,8 +1521,8 @@ function bindUiEvents() {
         updateUserUi();
         enterWorkspace();
       })
-      .catch(function () { setTxt('ownerLoginError', 'Koneksi ke server otentikasi gagal. Coba lagi.'); })
-      .finally(function () { if (btn) { btn.disabled = false; btn.textContent = 'Verifikasi ke Server & Masuk sebagai Owner'; } });
+      .catch(function () { setTxt('ownerLoginError', T('ui.ownerConnFail', 'Koneksi ke server otentikasi gagal. Coba lagi.')); })
+      .finally(function () { if (btn) { btn.disabled = false; btn.textContent = T('ui.ownerSubmit', 'Verifikasi ke Server & Masuk sebagai Owner'); } });
   });
   /* ---- Topbar: mode & profil ---- */
   bind('btnModeTrader', function () { setMode('trader'); });
@@ -1695,6 +1708,23 @@ function bootCore() {
       img.addEventListener('error', function () { img.style.display = 'none'; });
     });
   } catch (e) {}
+  // i18n (round 6): saat bahasa diganti, render ulang semua bagian dinamis agar teks
+  // mengikuti bahasa terpilih (katalog, radar, kartu investor, chip mode, panel user).
+  window.addEventListener('xs-lang-changed', function () {
+    try {
+      if (window.XSI18N && typeof window.XSI18N.applyTranslationsToDOM === 'function') window.XSI18N.applyTranslationsToDOM();
+      updateLandingCounts();
+      renderInstrumentCatalog();
+      updateUserUi();
+      updateModeChip();
+      syncHorizonTabs();
+      // force=false: gunakan cache radar/kurasi bila ada (tidak memicu fetch ulang)
+      if (state.mode === 'investor') renderInvestorPicks(false);
+      else renderOpportunityRadar(false);
+      // Narasi analisis terakhir tetap — jalankan ulang analisis agar panel sisi ikut bahasa baru
+      if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
+    } catch (e) {}
+  });
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bootCore);
