@@ -10,7 +10,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.32" />
+  <link rel="stylesheet" href="/styles.css?v=2026.33" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -34,7 +34,7 @@
       <p>
         Pantau 1.600+ instrumen global (Emas Spot XAU/USD, Emas Fisik IDR, 28 Pair Forex, 40 Saham IDX Indonesia,
         23 Saham Wall Street AS, Komoditas Dunia, dan 1.500+ Crypto Spot) dengan kuotasi broker real-time,
-        18 Pilar Konfluensi, serta proteksi Stop Loss struktural anti-Stop Hunt.
+        22 Pilar Konfluensi (termasuk ORB Breakout, Theta Index & ENTRY VWAP), serta proteksi Stop Loss struktural anti-Stop Hunt.
       </p>
       <div class="hero-cta-row">
         <button type="button" id="btnHeroLoginGate" class="btn-primary-glow">
@@ -47,8 +47,8 @@
     </div>
     <div class="front-features-grid">
       <div class="feature-card">
-        <h3>📊 18-Pillar High-IQ Confluence</h3>
-        <p>Menggabungkan 12 Pilar Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, BSL/SSL Sweep) dan 6 Pilar Makro/Fundamental.</p>
+        <h3>📊 22-Pillar High-IQ Confluence</h3>
+        <p>Menggabungkan 16 Pilar Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, BSL/SSL Sweep, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Entry Institusional di VWAP</strong>, dan Efficiency Ratio Kualitas Tren) ditambah 6 Pilar Makro/Fundamental.</p>
       </div>
       <div class="feature-card">
         <h3>🔒 Locked Sniper Setup & Anti-Stop Hunt</h3>
@@ -206,7 +206,7 @@
         <div class="section-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <h3 style="margin:0;font-size:15px;color:#38bdf8;">🧠 Ringkasan Alasan Analisis:</h3>
-            <span style="font-size:11px;color:#94a3b8;">18-Pillar Quantitative & Smart Money Synthesis</span>
+            <span style="font-size:11px;color:#94a3b8;">22-Pillar Quantitative & Smart Money Synthesis</span>
           </div>
           <div id="narrativeHumanBox" style="font-size:13px;color:#e2e8f0;line-height:1.65;"></div>
         </div>
@@ -334,7 +334,7 @@
     </main>
     <section style="max-width:1640px;width:100%;margin:0 auto 40px;padding:0 16px;display:flex;flex-direction:column;gap:16px;">
       <div class="section-card">
-        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">🔬 12 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC)</h3>
+        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;">🔬 16 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC + ORB/Theta/VWAP-Entry)</h3>
         <div id="techPillarsGrid" class="pillars-grid"></div>
       </div>
       <div class="section-card">
@@ -417,6 +417,6 @@
       </button>
     </div>
   </div>
-  <script src="/app.js?v=2026.32"></script>
+  <script src="/app.js?v=2026.33"></script>
 </body>
 </html>
