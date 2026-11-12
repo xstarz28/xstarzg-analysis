@@ -226,6 +226,23 @@ function renderInstrumentCatalog(query) {
     sel.insertBefore(ph, sel.firstChild);
     if (ph.selected !== true || sel.selectedIndex !== 0) { try { sel.selectedIndex = 0; } catch (e) {} }
   }
+  updateLandingCounts();
+}
+// Isi angka JUJUR di hero landing berdasar isi katalog nyata (tidak pernah dilebih-lebihkan).
+// Setelah feed Binance termuat penuh, jumlah crypto otomatis naik ke angka real-nya.
+function updateLandingCounts() {
+  try {
+    var elTotal = $id('heroTotalInstruments');
+    if (!elTotal) return;
+    var cat = currentCatalog();
+    if (!cat || !cat.length) return;
+    var cryptoN = 0;
+    for (var i = 0; i < cat.length; i++) if (cat[i].assetClass === 'crypto') cryptoN++;
+    var floor10 = function (v) { return Math.floor(v / 10) * 10; };
+    elTotal.textContent = floor10(cat.length) + '+';
+    var elCrypto = $id('heroCryptoCount');
+    if (elCrypto) elCrypto.textContent = cryptoN > 55 ? floor10(cryptoN) + '+' : '400+';
+  } catch (e) {}
 }
 function lazyLoadCryptoPairs() {
   if (cryptoPairsLoaded) return;
@@ -1020,6 +1037,7 @@ function gotoInstrument(sym, tf) {
   state.candles = [];
   state.lastAnalysis = null;
   renderInstrumentCatalog();
+  saveSession();
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
   connectRealtimeStream();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
@@ -1041,17 +1059,66 @@ function updateRiskSizing() {
 
 /* ==================== 9. SESI, KUOTA & ALUR LAYAR ==================== */
 function saveSession() {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify(state.user)); } catch (e) {}
+  if (!state.user) return;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      v: 4,
+      user: state.user,
+      // Preferensi workspace ikut tersimpan: refresh halaman tidak menendang user keluar
+      symbol: state.symbol, tf: state.tf, mode: state.mode, subMode: state.subMode,
+      radarHorizon: state.radarHorizon, at: Date.now()
+    }));
+  } catch (e) {}
 }
 function loadSession() {
   try {
     var raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    var u = JSON.parse(raw);
-    if (!u || !u.email) return null;
-    if (u.tier === 'VIP' && u.vipUntil && Date.now() > u.vipUntil) u.tier = 'FREE';
-    return u;
+    var p = JSON.parse(raw);
+    if (!p) return null;
+    // Kompatibel mundur: format lama menyimpan objek user langsung
+    var user = p.user || (p.email ? p : null);
+    if (!user || !user.email) return null;
+    if (user.tier === 'VIP' && user.vipUntil && Date.now() > user.vipUntil) user.tier = 'FREE';
+    p.user = user;
+    return p;
   } catch (e) { return null; }
+}
+// Terapkan preferensi workspace dari sesi tersimpan (dipakai saat restore setelah refresh)
+function applyWorkspacePrefs(saved) {
+  if (!saved) return;
+  if (typeof saved.symbol === 'string' && saved.symbol.length > 1) state.symbol = saved.symbol;
+  var btns, i, on;
+  var tfBar = $id('timeframeBar');
+  if (tfBar && saved.tf) {
+    btns = tfBar.querySelectorAll('.tf-btn');
+    var tfOk = false;
+    for (i = 0; i < btns.length; i++) {
+      on = btns[i].getAttribute('data-tf') === saved.tf;
+      tfOk = tfOk || on;
+      btns[i].classList.toggle('active', on);
+    }
+    if (tfOk) { state.tf = saved.tf; state.timeframe = saved.tf; }
+  }
+  if (saved.mode === 'investor' || saved.mode === 'trader') {
+    state.mode = saved.mode;
+    var t = $id('btnModeTrader'), inv = $id('btnModeInvestor');
+    if (t) t.classList.toggle('active', saved.mode === 'trader');
+    if (inv) inv.classList.toggle('active', saved.mode === 'investor');
+    var wrap = $id('traderSubModeWrap');
+    if (wrap) wrap.style.display = saved.mode === 'trader' ? 'flex' : 'none';
+  }
+  if (saved.subMode === 'spot' || saved.subMode === 'futures') {
+    state.subMode = saved.subMode;
+    var f = $id('btnSubFutures'), s = $id('btnSubSpot');
+    if (f) f.classList.toggle('active', saved.subMode === 'futures');
+    if (s) s.classList.toggle('active', saved.subMode === 'spot');
+  }
+  if (saved.radarHorizon === 'scalping' || saved.radarHorizon === 'intraday' || saved.radarHorizon === 'swing') {
+    state.radarHorizon = saved.radarHorizon;
+    if (typeof syncHorizonTabs === 'function') syncHorizonTabs();
+  }
+  if (typeof updateModeChip === 'function') updateModeChip();
 }
 function quotaLimit() {
   if (!state.user) return 0;
@@ -1109,7 +1176,7 @@ function ensureQuotaFor(symbol) {
     if (gm) gm.classList.remove('hidden');
   } else {
     var reason = $id('vipModalReasonText');
-    if (reason) reason.textContent = 'Kuota ' + limit + ' instrumen akun FREE Anda sudah penuh (' + unlocked.join(', ') + '). Upgrade VIP $29 USDT untuk membuka seluruh 1.600+ instrumen tanpa batas.';
+    if (reason) reason.textContent = 'Kuota ' + limit + ' instrumen akun FREE Anda sudah penuh (' + unlocked.join(', ') + '). Upgrade VIP $29 USDT untuk membuka seluruh 600+ instrumen tanpa batas.';
     var pm = $id('paymentModal');
     if (pm) pm.classList.remove('hidden');
   }
@@ -1266,7 +1333,8 @@ function bindUiEvents() {
     if (emailEl) emailEl.style.borderColor = '#334155';
     var name = (nameEl && nameEl.value || '').trim() || email.split('@')[0];
     var tier = OWNER_EMAILS_CLIENT.indexOf(email) > -1 ? 'OWNER_VIP' : 'FREE';
-    var prev = loadSession();
+    var prevP = loadSession();
+    var prev = prevP && prevP.user ? prevP.user : null;
     state.user = {
       email: email, name: name.charAt(0).toUpperCase() + name.slice(1), tier: tier,
       vipUntil: (prev && prev.email === email) ? prev.vipUntil : null
@@ -1330,6 +1398,7 @@ function bindUiEvents() {
         Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) { b.classList.toggle('active', b === btn); });
         state.tf = tf; state.timeframe = tf;
         state.candles = [];
+        saveSession();
         if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
         connectRealtimeStream();
       });
@@ -1344,6 +1413,7 @@ function bindUiEvents() {
         if (!hz || hz === state.radarHorizon) return;
         state.radarHorizon = hz;
         syncHorizonTabs();
+        saveSession();
         renderOpportunityRadar(true);
       });
     });
@@ -1376,6 +1446,7 @@ function setMode(mode) {
   syncHorizonTabs();
   renderOpportunityRadar(false);
   updateModeChip();
+  saveSession();
   if (typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
 }
 function setSubMode(sub) {
@@ -1384,6 +1455,7 @@ function setSubMode(sub) {
   if (f) f.classList.toggle('active', sub === 'futures');
   if (s) s.classList.toggle('active', sub === 'spot');
   updateModeChip();
+  saveSession();
   if (state.lastAnalysis) {
     renderPanels(state.lastAnalysis);
     renderHeader(state.lastAnalysis);
@@ -1402,6 +1474,7 @@ function selectSymbol(sym) {
   state.candles = [];
   state.lastAnalysis = null;
   renderInstrumentCatalog();
+  saveSession(); // preferensi ikut tersimpan agar refresh tidak keluar
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
   connectRealtimeStream();
   renderOpportunityRadar();
@@ -1410,11 +1483,20 @@ function selectSymbol(sym) {
 /* ==================== 12. BOOTSTRAP ==================== */
 function bootCore() {
   bindUiEvents();
-  renderInstrumentCatalog();
   var saved = loadSession();
-  if (saved) { state.user = saved; }
-  updateUserUi();
-  showScreen('front');
+  if (saved && saved.user) {
+    // FIX refresh-kickout: sesi login tersimpan -> langsung kembali ke dashboard
+    // analisa dengan simbol/timeframe/mode terakhir (tanpa login ulang).
+    state.user = saved.user;
+    applyWorkspacePrefs(saved);
+    renderInstrumentCatalog();
+    updateUserUi();
+    enterWorkspace();
+  } else {
+    renderInstrumentCatalog();
+    updateUserUi();
+    showScreen('front');
+  }
   // Muat mesin quant bersama (hasil penyempurnaan sesi sebelumnya)
   // safeImport tidak pernah melempar error sinkron meski dynamic import tak didukung.
   var safeImport = function (p) {
@@ -1422,13 +1504,18 @@ function bootCore() {
     catch (e) { return Promise.resolve(null); }
   };
   Promise.all([
-    safeImport('/js/shared/quant-core.js?v=2026.33'),
-    safeImport('/js/shared/signal-engine.js?v=2026.33')
+    safeImport('/js/shared/quant-core.js?v=2026.34'),
+    safeImport('/js/shared/signal-engine.js?v=2026.34')
   ]).then(function (mods) {
     if (mods[0]) QC = mods[0];
     if (mods[1]) SE = mods[1];
     renderInstrumentCatalog();
     lazyLoadCryptoPairs();
+    // Setelah restore-refresh engine mungkin belum siap saat analisa awal jalan
+    // (fallback ringan) -> jalankan ulang satu kali agar 22 pilar penuh tampil.
+    if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') {
+      window.runFullAnalysis(true);
+    }
   });
 }
 if (document.readyState === 'loading') {

@@ -10,7 +10,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.33" />
+  <link rel="stylesheet" href="/styles.css?v=2026.34" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -32,9 +32,9 @@
       <div class="hero-pill">⚡ REAL-TIME MULTI-ASSET QUANTITATIVE & SMART MONEY ENGINE</div>
       <h1>Presisi Analisis Kuantitatif, Smart Money Concepts & Valuasi Investor dalam Satu Terminal</h1>
       <p>
-        Pantau 1.600+ instrumen global (Emas Spot XAU/USD, Emas Fisik IDR, 28 Pair Forex, 40 Saham IDX Indonesia,
-        23 Saham Wall Street AS, Komoditas Dunia, dan 1.500+ Crypto Spot) dengan kuotasi broker real-time,
-        22 Pilar Konfluensi (termasuk ORB Breakout, Theta Index & ENTRY VWAP), serta proteksi Stop Loss struktural anti-Stop Hunt.
+        Pantau <span id="heroTotalInstruments">600+</span> instrumen global (Emas Spot XAU/USD, Emas Fisik IDR, 28 Pair Forex, 30 Saham IDX Indonesia,
+        40 Saham AS &amp; Global, 16 Komoditas Dunia, dan <span id="heroCryptoCount">400+</span> Crypto Spot USDT real-time) dengan kuotasi broker real-time,
+        22 Pilar Konfluensi, serta proteksi Stop Loss struktural anti-Stop Hunt.
       </p>
       <div class="hero-cta-row">
         <button type="button" id="btnHeroLoginGate" class="btn-primary-glow">
@@ -82,7 +82,7 @@
       <div class="login-tier-notes">
         <div style="margin-bottom:4px;"><strong style="color:#f8fafc;">• Mode Tamu:</strong> Hanya melihat pratinjau awal (klik instrumen lain memerlukan Login).</div>
         <div style="margin-bottom:4px;"><strong style="color:#38bdf8;">• Akun Google Gratis:</strong> Bebas menganalisis hingga <strong>2 instrumen</strong> pilihan penuh.</div>
-        <div><strong style="color:#10b981;">• Member VIP ($29 USDT / 30 Hari):</strong> Akses tanpa batas ke seluruh 1.600+ instrumen & 10 timeframe.</div>
+        <div><strong style="color:#10b981;">• Member VIP ($29 USDT / 30 Hari):</strong> Akses tanpa batas ke seluruh 600+ instrumen & 10 timeframe.</div>
       </div>
       <button type="button" id="btnBackToLanding" class="btn-secondary-outline" style="width:100%;padding:9px;font-size:12.5px;">
         ← Kembali ke Beranda Utama
@@ -143,13 +143,13 @@
     <section class="control-bar">
       <div class="control-group">
         <select id="selCategory" class="ctrl-select" title="Filter Kategori Aset">
-          <option value="ALL">🌐 Semua Kategori (1.600+ Aset)</option>
-          <option value="METALS">🥇 Logam Mulia (Gold / Silver / IDR)</option>
+          <option value="ALL">🌐 Semua Kategori (600+ Aset Aktif)</option>
+          <option value="METALS">🥇 Logam Mulia (10: Gold / Silver / IDR / LME)</option>
           <option value="FOREX">💱 Forex Mayor & Cross (28 Pair)</option>
-          <option value="IDX">🇮🇩 Saham Indonesia IDX (40 Emiten)</option>
-          <option value="US_STOCKS">🇺🇸 Saham Wall Street AS (23 Emiten)</option>
-          <option value="COMMODITIES">🛢️ Komoditas Energi & Pangan</option>
-          <option value="CRYPTO">₿ Crypto Spot Global (1.500+ Pair)</option>
+          <option value="IDX">🇮🇩 Saham Indonesia IDX (30 Emiten)</option>
+          <option value="US_STOCKS">🇺🇸 Saham AS &amp; Global (40 Emiten)</option>
+          <option value="COMMODITIES">🛢️ Komoditas Energi & Pangan (16)</option>
+          <option value="CRYPTO">₿ Crypto Spot Global (55 Utama + 400+ Pair USDT Real-Time)</option>
         </select>
         <input type="text" id="inpSearchAsset" class="ctrl-input" placeholder="🔍 Cari simbol / nama (cth: XAU, BBCA, NVDA, BTC)..." style="width:230px;" />
         <select id="selInstrument" class="ctrl-select" style="min-width:250px;font-weight:700;"></select>
@@ -390,7 +390,7 @@
         <button type="button" id="btnCloseVipModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
       </div>
       <p id="vipModalReasonText" style="margin:0 0 12px;font-size:12.5px;color:#cbd5e1;">
-        Tingkatkan akun ke VIP Pro untuk membuka akses tanpa batas ke seluruh 1.600+ instrumen dan 10 timeframe.
+        Tingkatkan akun ke VIP Pro untuk membuka akses tanpa batas ke seluruh 600+ instrumen dan 10 timeframe.
       </p>
       <div style="background:rgba(2,6,23,0.8);border:1px solid var(--border-subtle);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
@@ -417,6 +417,6 @@
       </button>
     </div>
   </div>
-  <script src="/app.js?v=2026.33"></script>
+  <script src="/app.js?v=2026.34"></script>
 </body>
 </html>
