@@ -355,6 +355,13 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
   transition: all 0.12s ease;
 }
 .hz-btn small { font-size: 9px; font-weight: 700; opacity: 0.75; margin-left: 2px; }
+/* ---- Rekomendasi khusus investor (round 5) ---- */
+.inv-note { font-size: 11.5px; color: #94a3b8; line-height: 1.55; margin: 4px 0 10px; max-width: 980px; }
+.inv-cat { display: inline-block; margin-left: 5px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.4px; color: #a78bfa; background: rgba(139, 92, 246, 0.13); border: 1px solid rgba(139, 92, 246, 0.35); padding: 1.5px 6px; border-radius: 99px; vertical-align: middle; }
+.inv-rows { margin-top: 6px; display: flex; flex-direction: column; gap: 3.5px; }
+.inv-rows > div { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: #94a3b8; }
+.inv-rows b { color: #f8fafc; font-weight: 700; }
+.inv-pick-card { cursor: pointer; }
 .hz-btn:hover { border-color: var(--accent-sky); color: var(--text-primary); }
 .hz-btn.active {
   background: rgba(56, 189, 248, 0.17); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.65);

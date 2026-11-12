@@ -45,7 +45,8 @@ var radarRunSeq = 0;
 var cryptoPairsLoaded = false;
 var TF_SECONDS = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800, MN: 2592000, '1Y': 7776000 };
 var SESSION_KEY = 'xstarzg_user_v3';
-var OWNER_EMAILS_CLIENT = ['sevenfoldarmy2822@gmail.com', 'gilfanputra@gmail.com'];
+// CATATAN KEAMANAN (round 5): daftar email owner & kode akses TIDAK lagi disimpan
+// di berkas publik ini. Jalur owner divalidasi penuh di server via /api/auth/owner.
 var VIP_WALLET = '0xB2Da154e6619A57A2B839D7845920e55Bc58A12C';
 var USDT_BSC_CONTRACT = '0x55d398326f99059fF775485246999027B3197955';
 var VIP_PRICE = 29;
@@ -985,11 +986,108 @@ function syncHorizonTabs() {
     b.classList.toggle('active', b.getAttribute('data-hz') === state.radarHorizon);
   });
 }
+
+/* ============ REKOMENDASI KHUSUS INVESTOR (bukan radar trader) ============ */
+// Kurasi aset berkualitas untuk akumulasi jangka panjang (12–36 bulan), dinilai
+// dari valuasi (MoS vs nilai wajar), zona cicil DCA, dan kesehatan tren makro.
+var INVESTOR_PICKS = [
+  { sym: 'XAU/USD', cat: 'SAFE-HAVEN • LOGAM MULIA' },
+  { sym: 'XAG/USD', cat: 'LOGAM • ENERGI HIJAU' },
+  { sym: 'BTC/USDT', cat: 'BLUECHIP CRYPTO • ETF SPOT' },
+  { sym: 'ETH/USDT', cat: 'BLUECHIP CRYPTO • SMART CONTRACT' },
+  { sym: 'IHSG', cat: 'INDEKS NASIONAL' },
+  { sym: 'BBCA.JK', cat: 'BLUECHIP • PERBANKAN' },
+  { sym: 'BBRI.JK', cat: 'BLUECHIP • DIVIDEN' },
+  { sym: 'BMRI.JK', cat: 'BLUECHIP • PERBANKAN' },
+  { sym: 'TLKM.JK', cat: 'DEFENSIF • TELEKOMUNIKASI' },
+  { sym: 'ASII.JK', cat: 'BLUECHIP • KONGLOMERASI' },
+  { sym: 'NVDA', cat: 'GROWTH • AI & CHIP' },
+  { sym: 'AAPL', cat: 'GROWTH • MEGA-CAP AS' },
+  { sym: 'MSFT', cat: 'GROWTH • MEGA-CAP AS' }
+];
+var investorPickRunSeq = 0;
+var investorPickCache = { ts: 0, items: [] };
+function investorRatingFor(a) {
+  var sc = num(a && a.confluenceScore, 50);
+  if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: '● AKUMULASI KUAT' };
+  if (a.direction === 'LONG') return { cls: 'accum', txt: '● DICICIL / DCA BERTAHAP' };
+  if (a.direction === 'SHORT') return { cls: 'wait', txt: '◆ TUNGGU DISKON LAGI' };
+  return { cls: 'wait', txt: '◈ HOLD / PANTAU' };
+}
+function drawInvestorPickCards(items) {
+  var grid = $id('investorPicksGrid');
+  if (!grid) return;
+  if (!items || !items.length) {
+    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Kurasi portofolio belum termuat — coba beberapa saat lagi…</span></div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var a = it.analysis;
+    var meta = getMeta(it.sym);
+    var badge = investorRatingFor(a);
+    var lv = a.levels || {};
+    // Nilai wajar ala panel investor: 55% POC volume + 45% VWAP sesi
+    var fair = num(lv.poc, a.lastPrice) * 0.55 + num(lv.vwap, a.lastPrice) * 0.45;
+    if (fair <= 0) fair = a.lastPrice;
+    var mosPct = ((a.lastPrice - fair) / fair) * 100; // negatif = harga di bawah nilai wajar (diskon)
+    var mosTxt = mosPct <= 0 ? 'DISKON ' + Math.abs(mosPct).toFixed(1) + '%' : 'PREMIUM ' + Math.abs(mosPct).toFixed(1) + '%';
+    var chg = num(it.changePct, num(a.changePct));
+    var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
+    var sc = num(a.confluenceScore, 50);
+    var isActive = it.sym === state.symbol;
+    html += '<div class="radar-card inv-pick-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
+        '<span class="r-sym">' + it.sym + '</span>' +
+        '<span class="r-live">' + (feedIsEstimate(it.source) ? '○ EST' : '● LIVE') + '</span>' +
+      '</div>' +
+      '<span class="r-name">' + (meta.name || it.sym) + ' <span class="inv-cat">' + it.cat + '</span></span>' +
+      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
+        '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
+        '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
+      '</div>' +
+      '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' +
+      '<div class="inv-rows">' +
+        '<div><span>Nilai Wajar</span><b>' + formatPrice(fair, it.sym) + '</b></div>' +
+        '<div><span>Zona Cicil (DCA 1)</span><b>' + formatPrice(num(lv.dcaZone1, it.price * 0.99), it.sym) + '</b></div>' +
+        '<div><span>Target Siklus 12–36 bln</span><b style="color:#34d399;">' + formatPrice(num(lv.invTarget1, it.price * 1.12), it.sym) + '</b></div>' +
+        '<div><span>Margin of Safety</span><b style="color:' + (mosPct <= 0 ? '#10b981' : '#f59e0b') + ';">' + mosTxt + '</b></div>' +
+      '</div>' +
+      '<div class="r-score" style="margin-top:5px;">SKOR KONFLUENSI ' + sc + '/100</div>' +
+    '</div>';
+  }
+  grid.innerHTML = html;
+  Array.prototype.forEach.call(grid.querySelectorAll('.inv-pick-card'), function (card) {
+    card.addEventListener('click', function () { gotoInstrument(card.getAttribute('data-sym'), 'D1'); });
+  });
+}
+function renderInvestorPicks(force) {
+  var grid = $id('investorPicksGrid');
+  if (!grid) return;
+  if (!force && investorPickCache.ts && (Date.now() - investorPickCache.ts) < 300000 && investorPickCache.items.length) {
+    drawInvestorPickCards(investorPickCache.items);
+    return;
+  }
+  var mySeq = ++investorPickRunSeq;
+  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Mengkurasi ' + INVESTOR_PICKS.length + ' aset portofolio dengan data broker real-time (D1/W1)…</span></div>';
+  Promise.allSettled(INVESTOR_PICKS.map(function (p) {
+    return fetchRadarCandidate({ sym: p.sym, tf: 'D1' }).then(function (r) { if (r) r.cat = p.cat; return r; });
+  })).then(function (results) {
+    if (mySeq !== investorPickRunSeq) return;
+    var items = [];
+    for (var i = 0; i < results.length; i++) if (results[i].status === 'fulfilled' && results[i].value) items.push(results[i].value);
+    // Kurasi diurutkan dari kandidat akumulasi terkuat (skor konfluensi makro tertinggi)
+    items.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
+    investorPickCache = { ts: Date.now(), items: items };
+    drawInvestorPickCards(items);
+  }).catch(function () {});
+}
 function renderOpportunityRadar(force) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
   if (!state.radarHorizon) state.radarHorizon = 'intraday';
-  if (state.mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
+  if (state.mode === 'investor') state.radarHorizon = (state.radarHorizon === 'scalping') ? 'swing' : state.radarHorizon;
   var hz = state.radarHorizon;
   var cfg = RADAR_CONFIG[hz] || RADAR_CONFIG.intraday;
   syncHorizonTabs();
@@ -1120,6 +1218,36 @@ function applyWorkspacePrefs(saved) {
   }
   if (typeof updateModeChip === 'function') updateModeChip();
 }
+// Sinkronkan section rekomendasi: radar trader vs kurasi portofolio investor.
+function syncModeSections() {
+  var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection');
+  var isInv = state.mode === 'investor';
+  if (traderSec) traderSec.classList.toggle('hidden', isInv);
+  if (invSec) invSec.classList.toggle('hidden', !isInv);
+}
+// Turunkan tier sesi owner yang tidak bisa dibuktikan ke server (defense-in-depth).
+function downgradeOwnerSession() {
+  if (!state.user || state.user.tier !== 'OWNER_VIP') return;
+  state.user.tier = 'FREE';
+  try { delete state.user.ownerToken; } catch (e) {}
+  saveSession();
+  updateUserUi();
+}
+// Re-validasi sesi OWNER_VIP hasil restore refresh ke server. Toleran jika jaringan
+// gagal (server belum bangun dsb.) — hanya downgrade saat server menjawab tegas TIDAK.
+function verifyOwnerSession() {
+  try {
+    if (!state.user || state.user.tier !== 'OWNER_VIP') return;
+    if (typeof fetch !== 'function') return;
+    if (!state.user.ownerToken) { downgradeOwnerSession(); return; }
+    fetch('/api/auth/owner-verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: state.user.email, token: state.user.ownerToken })
+    }).then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.ok === false) downgradeOwnerSession(); })
+      .catch(function () { /* jaringan error -> toleran, sesi dipertahankan */ });
+  } catch (e) {}
+}
 function quotaLimit() {
   if (!state.user) return 0;
   if (state.user.tier === 'VIP' || state.user.tier === 'OWNER_VIP') return Infinity;
@@ -1199,7 +1327,9 @@ function enterWorkspace() {
     try { window.dispatchEvent(new Event('resize')); } catch (e) {}
     if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
     connectRealtimeStream();
-    renderOpportunityRadar();
+    // Hemat kuotasi: section yang sedang tersembunyi tidak perlu mem-fetch feed
+    if (state.mode === 'investor') renderInvestorPicks();
+    else renderOpportunityRadar();
   }, 60);
 }
 
@@ -1332,7 +1462,9 @@ function bindUiEvents() {
     }
     if (emailEl) emailEl.style.borderColor = '#334155';
     var name = (nameEl && nameEl.value || '').trim() || email.split('@')[0];
-    var tier = OWNER_EMAILS_CLIENT.indexOf(email) > -1 ? 'OWNER_VIP' : 'FREE';
+    // Semua jalur login Google publik = FREE. Tier OWNER_VIP hanya dari server:
+    // jalur Owner terpisah (email + kode rahasia) divalidasi /api/auth/owner.
+    var tier = 'FREE';
     var prevP = loadSession();
     var prev = prevP && prevP.user ? prevP.user : null;
     state.user = {
@@ -1345,6 +1477,39 @@ function bindUiEvents() {
     saveSession();
     closeGoogle();
     enterWorkspace();
+  });
+  /* ---- Jalur khusus OWNER: email + kode rahasia, divalidasi penuh di server ---- */
+  bind('btnToggleOwnerLogin', function () {
+    var blk = $id('ownerLoginBlock');
+    if (blk) blk.classList.toggle('hidden');
+  });
+  bind('btnSubmitOwnerLogin', function () {
+    var emailEl = $id('ownerEmailInput'), codeEl = $id('ownerCodeInput'), btn = $id('btnSubmitOwnerLogin');
+    var email = (emailEl && emailEl.value || '').trim().toLowerCase();
+    var code = (codeEl && codeEl.value || '').trim();
+    if (!email || !code) { setTxt('ownerLoginError', 'Isi email pemilik dan kode akses rahasia.'); return; }
+    setTxt('ownerLoginError', '');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Memverifikasi ke server…'; }
+    fetch('/api/auth/owner', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, code: code })
+    }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+      .then(function (res) {
+        var d = res.d || {};
+        if (!d.ok) {
+          setTxt('ownerLoginError', d.error || 'Kredensial tidak valid.');
+          if (codeEl) { codeEl.value = ''; codeEl.focus(); }
+          return;
+        }
+        // Server mengonfirmasi identitas owner (kode rahasia benar) -> tier OWNER_VIP + token JWT
+        state.user = { email: d.user.email, name: d.user.name || 'Owner', tier: 'OWNER_VIP', ownerToken: d.token };
+        saveSession();
+        closeGoogle();
+        updateUserUi();
+        enterWorkspace();
+      })
+      .catch(function () { setTxt('ownerLoginError', 'Koneksi ke server otentikasi gagal. Coba lagi.'); })
+      .finally(function () { if (btn) { btn.disabled = false; btn.textContent = 'Verifikasi ke Server & Masuk sebagai Owner'; } });
   });
   /* ---- Topbar: mode & profil ---- */
   bind('btnModeTrader', function () { setMode('trader'); });
@@ -1444,7 +1609,9 @@ function setMode(mode) {
   // Investor: rekomendasi diframe sebagai keputusan beli-nyata; scalping bukan untuk investor
   if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
   syncHorizonTabs();
-  renderOpportunityRadar(false);
+  syncModeSections();
+  if (mode === 'investor') renderInvestorPicks(false);
+  else renderOpportunityRadar(false);
   updateModeChip();
   saveSession();
   if (typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
@@ -1491,6 +1658,8 @@ function bootCore() {
     applyWorkspacePrefs(saved);
     renderInstrumentCatalog();
     updateUserUi();
+    verifyOwnerSession();
+    syncModeSections();
     enterWorkspace();
   } else {
     renderInstrumentCatalog();
@@ -1498,17 +1667,14 @@ function bootCore() {
     showScreen('front');
   }
   // Muat mesin quant bersama (hasil penyempurnaan sesi sebelumnya)
-  // safeImport tidak pernah melempar error sinkron meski dynamic import tak didukung.
-  var safeImport = function (p) {
-    try { return (new Function('p', 'return import(p)'))(p).catch(function () { return null; }); }
-    catch (e) { return Promise.resolve(null); }
-  };
-  Promise.all([
-    safeImport('/js/shared/quant-core.js?v=2026.34'),
-    safeImport('/js/shared/signal-engine.js?v=2026.34')
-  ]).then(function (mods) {
-    if (mods[0]) QC = mods[0];
-    if (mods[1]) SE = mods[1];
+  // Engine kuantitatif dimuat lewat berkas modul eksternal /js/engine-boot.js
+  // (CSP ketat tanpa 'unsafe-eval'): modul menaruh hasil di window.__XS_QC/__XS_SE
+  // lalu memicu event 'xs-engine-booted'.
+  var applyEngines = function () {
+    var qc = window.__XS_QC || null, se = window.__XS_SE || null;
+    if (!qc && !se) return;
+    if (qc) QC = qc;
+    if (se) SE = se;
     renderInstrumentCatalog();
     lazyLoadCryptoPairs();
     // Setelah restore-refresh engine mungkin belum siap saat analisa awal jalan
@@ -1516,7 +1682,19 @@ function bootCore() {
     if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') {
       window.runFullAnalysis(true);
     }
-  });
+  };
+  if (window.__XS_QC || window.__XS_SE) { applyEngines(); }
+  else {
+    window.addEventListener('xs-engine-booted', applyEngines, { once: true });
+    // Pengaman: jika event terlambat, coba baca ulang setelah 3 dtk.
+    setTimeout(function () { if (!QC && !SE && (window.__XS_QC || window.__XS_SE)) applyEngines(); }, 3000);
+  }
+  // Fallback logo ramah-CSP (menggantikan atribut onerror inline yang diblokir CSP)
+  try {
+    Array.prototype.forEach.call(document.querySelectorAll('img[data-logo-fallback]'), function (img) {
+      img.addEventListener('error', function () { img.style.display = 'none'; });
+    });
+  } catch (e) {}
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bootCore);
