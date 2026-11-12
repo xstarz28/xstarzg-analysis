@@ -177,6 +177,7 @@ function renderInstrumentCatalog(query) {
   }
   sel.innerHTML = '';
   var MAX_PER_GROUP = 450;
+  var symbolPresent = false; // catat apakah simbol aktif ikut ter-render (data-driven, anti blank <select>)
   for (var g = 0; g < groups.length; g++) {
     var grp = groups[g];
     if (!grp.items.length) continue;
@@ -192,7 +193,9 @@ function renderInstrumentCatalog(query) {
     if (active) {
       var optA = document.createElement('option');
       optA.value = active.symbol; optA.textContent = active.symbol + ' — ' + (active.name || '');
+      optA.selected = true;
       og.appendChild(optA); rendered[active.symbol] = true;
+      symbolPresent = true;
     }
     for (i = 0; i < limit; i++) {
       inst = grp.items[i];
@@ -200,12 +203,29 @@ function renderInstrumentCatalog(query) {
       var opt = document.createElement('option');
       opt.value = inst.symbol;
       opt.textContent = inst.symbol + ' — ' + (inst.name || '');
-      if (inst.symbol === state.symbol) opt.selected = true;
+      if (inst.symbol === state.symbol) { opt.selected = true; symbolPresent = true; }
       og.appendChild(opt);
     }
     sel.appendChild(og);
   }
   try { sel.value = state.symbol; } catch (e) {}
+  // FIX bug kolom pemilihan: saat simbol aktif ter-filter keluar (mis. simbol di LOGAM
+  // lalu kategori diganti CRYPTO) <select> tampil KOSONG tanpa tulisan. Tampilkan
+  // placeholder informatif (disabled) agar kolom ke-3 selalu memperlihatkan teks,
+  // dan setiap klik instrumen tetap memicu event change secara normal.
+  // Keputusan berbasis data (symbolPresent) -> konsisten di semua browser.
+  if (sel.options.length === 0) {
+    var ph0 = document.createElement('option');
+    ph0.value = ''; ph0.disabled = true; ph0.selected = true;
+    ph0.textContent = '🔍 Tidak ada instrumen cocok — ubah kata kunci pencarian';
+    sel.appendChild(ph0);
+  } else if (!symbolPresent) {
+    var ph = document.createElement('option');
+    ph.value = ''; ph.disabled = true; ph.selected = true;
+    ph.textContent = '⬇ ' + sel.options.length + ' instrumen siap dipilih — klik untuk menganalisis';
+    sel.insertBefore(ph, sel.firstChild);
+    if (ph.selected !== true || sel.selectedIndex !== 0) { try { sel.selectedIndex = 0; } catch (e) {} }
+  }
 }
 function lazyLoadCryptoPairs() {
   if (cryptoPairsLoaded) return;
@@ -327,9 +347,14 @@ function computeQuickAnalysis(candles, symbol, tf) {
       bbUpper: price + 2 * atr, bbLower: price - 2 * atr, bbWidth: (4 * atr / price) * 100,
       smcStatus: bull ? 'HIGHER HIGH / HIGHER LOW (Bullish Orderflow)' : bear ? 'LOWER HIGH / LOWER LOW (Bearish Orderflow)' : 'INTERNAL RANGE EQUILIBRIUM',
       liquiditySweep: 'NONE (Normal Liquidity Flow)', fvgNote: 'FVG Seimbang (Terisi)',
-      demandZoneText: formatPrice(swingLow), supplyZoneText: formatPrice(swingHigh)
+      demandZoneText: formatPrice(swingLow), supplyZoneText: formatPrice(swingHigh),
+      // Default netral pilar ORBIT IQ saat engine penuh belum termuat
+      orbLabel: 'Opening Range 60m Sesi UTC', orbState: 'N/A — engine penuh belum termuat', orbHigh: 0, orbLow: 0,
+      thetaIndex: 50, thetaNote: 'Mode ringan — menunggu engine kuantitatif penuh',
+      vwapEntryText: 'Mode ringan — pantau pullback/reclaim VWAP', vwapDevAtr: 0, vwapEntryQuality: 50,
+      erValue: 0.5, erNote: 'Mode ringan — menunggu engine kuantitatif penuh', quantEdgeScore: 50
     },
-    subScores: { trend: score, structure: score, momentum: Math.round(rsi), cotBias: 52 },
+    subScores: { trend: score, structure: score, momentum: Math.round(rsi), quantEdge: 50, cotBias: 52 },
     fundamentalCot: {
       institutionalBias: bull ? 'NET LONG BIAS' : bear ? 'NET SHORT BIAS' : 'NEUTRAL / MIXED',
       specLongPct: bull ? 58 : bear ? 42 : 50, specShortPct: bull ? 42 : bear ? 58 : 50,
@@ -545,7 +570,19 @@ function renderPillars(a) {
       pillarHtml('9. Supply & Demand Zone', 'D: ' + (ind.demandZoneText || formatPrice(lv.swingLow)), 'S: ' + (ind.supplyZoneText || formatPrice(lv.swingHigh)), 'neutral') +
       pillarHtml('10. Pivot Support / Resistance', 'S1 ' + formatPrice(lv.s1) + ' • R1 ' + formatPrice(lv.r1), 'Pivot klasik: ' + formatPrice(lv.pivot), bull(p >= lv.pivot)) +
       pillarHtml('11. RSI(14) & MACD Histogram', 'RSI ' + num(ind.rsi, 50).toFixed(1) + ' • MACD ' + (num(ind.macdHist) >= 0 ? '+' : '') + num(ind.macdHist).toPrecision(3), num(ind.rsi) > 70 ? 'Overbought — rawan koreksi' : num(ind.rsi) < 30 ? 'Oversold — rawan pantulan' : 'Momentum sehat', num(ind.macdHist) >= 0 ? 'bull' : 'bear') +
-      pillarHtml('12. Bollinger Bands & ATR', 'BBW ' + num(ind.bbWidth).toFixed(2) + '% • ATR ' + num(ind.atrPct).toFixed(2) + '%', num(ind.bbWidth) < 1.25 ? 'Squeeze — siap breakout volatilitas' : 'Ekspansi volatilitas normal', 'neutral');
+      pillarHtml('12. Bollinger Bands & ATR', 'BBW ' + num(ind.bbWidth).toFixed(2) + '% • ATR ' + num(ind.atrPct).toFixed(2) + '%', num(ind.bbWidth) < 1.25 ? 'Squeeze — siap breakout volatilitas' : 'Ekspansi volatilitas normal', 'neutral') +
+      pillarHtml('13. ORB Breakout (Opening Range)', ind.orbHigh && ind.orbLow ? formatPrice(ind.orbLow) + ' – ' + formatPrice(ind.orbHigh) : (ind.orbLabel || 'ORB'),
+        ind.orbState || '-',
+        (ind.orbState || '').indexOf('ATAS ▲') > -1 ? 'bull' : (ind.orbState || '').indexOf('BAWAH ▼') > -1 ? 'bear' : 'neutral') +
+      pillarHtml('14. Theta Index (Decay Momentum)', 'θ ' + num(ind.thetaIndex, 50) + '/100',
+        ind.thetaNote || '-',
+        num(ind.thetaIndex, 50) >= 62 ? 'bull' : num(ind.thetaIndex, 50) <= 38 ? 'bear' : 'neutral') +
+      pillarHtml('15. Entry Institusional di VWAP', 'Kualitas ' + num(ind.vwapEntryQuality, 50) + '/100',
+        ind.vwapEntryText || '-',
+        (ind.vwapEntryText || '').indexOf('▲') > -1 ? 'bull' : (ind.vwapEntryText || '').indexOf('▼') > -1 ? 'bear' : 'neutral') +
+      pillarHtml('16. Efficiency Ratio (Kualitas Tren)', (num(ind.erValue, 0.5) * 100).toFixed(0) + '%',
+        ind.erNote || '-',
+        num(ind.erValue, 0.5) >= 0.55 ? (a.direction === 'SHORT' ? 'bear' : 'bull') : 'neutral');
   }
   var macro = $id('macroPillarsGrid');
   if (macro) {
@@ -1385,8 +1422,8 @@ function bootCore() {
     catch (e) { return Promise.resolve(null); }
   };
   Promise.all([
-    safeImport('/js/shared/quant-core.js'),
-    safeImport('/js/shared/signal-engine.js')
+    safeImport('/js/shared/quant-core.js?v=2026.33'),
+    safeImport('/js/shared/signal-engine.js?v=2026.33')
   ]).then(function (mods) {
     if (mods[0]) QC = mods[0];
     if (mods[1]) SE = mods[1];

@@ -167,7 +167,109 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   if (bbWidth < 1.25) { volRegimeScore = 58; regimeLabel = 'BOLLINGER SQUEEZE (Siap Breakout)'; }
   else if (atrPct > 3.8) { volRegimeScore = 50; regimeLabel = 'HIGH VOLATILITY (Lebarkan Stop)'; }
   else if (trendScore > 65 || trendScore < 35) { volRegimeScore = 82; regimeLabel = 'INSTITUTIONAL TREND FLOW'; }
-  const rawDirectional = (trendScore * 0.34) + (structureScore * 0.32) + (momentumScore * 0.24) + (volRegimeScore * 0.10);
+  // ================= PILAR BARU (ORBIT IQ 2026) =================
+  // Pilar 13: ORB — Opening Range Breakout. Rentang pembukaan 60 menit pertama sesi
+  // (UTC day untuk TF intraday; weekly-opening-range untuk D1). Breakout dengan
+  // konfirmasi jarak >= 0.1 ATR dianggap kelanjutan institusional sesi.
+  const TF_MINUTES = { M1: 1, M5: 5, M15: 15, M30: 30, M45: 45, H1: 60, H2: 120, H4: 240, H6: 360, H8: 480, H12: 720, D1: 1440, W1: 10080, MN: 43200 };
+  const tfMin = TF_MINUTES[timeframe] || 60;
+  let orb = {
+    state: 'N/A — ORB aktif di TF M1–D1 (intraday/swing)', high: 0, low: 0,
+    bias: 0, label: tfMin === 1440 ? 'Weekly Opening Range' : 'Opening Range 60m Sesi UTC'
+  };
+  if (tfMin <= 1440) {
+    const sessLen = tfMin === 1440 ? 604800 : 86400;
+    const sessStart = Math.floor(lastCandle.time / sessLen) * sessLen;
+    const sessBars = [];
+    for (let i = lastIdx; i >= 0; i--) {
+      if (candles[i].time >= sessStart) sessBars.unshift(candles[i]); else break;
+    }
+    const orBarsN = tfMin === 1440 ? 1 : Math.max(1, Math.min(sessBars.length, Math.round(60 / tfMin)));
+    if (sessBars.length > orBarsN && orBarsN >= 1) {
+      let orHigh = 0, orLow = Infinity;
+      for (let i = 0; i < orBarsN; i++) {
+        if (sessBars[i].high > orHigh) orHigh = sessBars[i].high;
+        if (sessBars[i].low < orLow) orLow = sessBars[i].low;
+      }
+      const margin = atr * 0.1;
+      if (lastPrice > orHigh + margin) {
+        orb = { state: 'BREAKOUT ATAS ▲ (lanjutan institusional di atas rentang pembukaan)', high: orHigh, low: orLow, bias: 1, label: orb.label };
+      } else if (lastPrice < orLow - margin) {
+        orb = { state: 'BREAKOUT BAWAH ▼ (distribusi di bawah rentang pembukaan)', high: orHigh, low: orLow, bias: -1, label: orb.label };
+      } else {
+        orb = { state: 'DALAM RANGE (kompresi — tunggu resolusi breakout)', high: orHigh, low: orLow, bias: 0, label: orb.label };
+      }
+    } else {
+      orb.state = 'MEMBENTUK RANGE PEMBUKAAN (sesi baru berjalan)';
+    }
+  }
+  // Pilar 14: Theta Index — indeks peluruhan (decay) momentum. Membandingkan momentum
+  // harga jendela terbaru vs jendela sebelumnya, dinormalisasi ATR: menangkap
+  // akselerasi tren lebih dini dan memperingatkan momentum yang kehabisan tenaga.
+  let thetaIndex = 50, thetaNote = 'Data momentum belum cukup', thetaBias = 0;
+  if (closes.length > 40) {
+    const mk = 5;
+    let mNow = 0, mPrev = 0, nNow = 0, nPrev = 0;
+    for (let i = Math.max(mk, lastIdx - 9); i <= lastIdx; i++) { mNow += closes[i] - closes[i - mk]; nNow++; }
+    for (let i = Math.max(mk, lastIdx - 24); i <= lastIdx - 10; i++) { mPrev += closes[i] - closes[i - mk]; nPrev++; }
+    if (nNow && nPrev) {
+      mNow /= nNow; mPrev /= nPrev;
+      const thetaNorm = (mNow - mPrev) / Math.max(atr * 5, lastPrice * 1e-8);
+      thetaIndex = Math.max(2, Math.min(98, Math.round(50 + thetaNorm * 25)));
+      const upTrend = ema20 > ema50;
+      if (thetaIndex >= 62) { thetaNote = upTrend ? 'Akselerasi bullish — momentum menguat' : 'Momentum rebound dari tekanan jual'; thetaBias = upTrend ? 1 : 0.5; }
+      else if (thetaIndex <= 38) { thetaNote = upTrend ? 'MOMENTUM MELURUH — rawan koreksi / ambil profit' : 'Akselerasi bearish — tekanan jual menguat'; thetaBias = upTrend ? -1 : -0.5; }
+      else { thetaNote = 'Momentum seimbang / berkelanjutan'; thetaBias = 0; }
+    }
+  }
+  // Pilar 15: VWAP Entry Hunter — kualitas entry di VWAP institusional. Pada tren naik,
+  // pullback ke area VWAP (±0.35 ATR) = zona entry berkualitas; deviasi >2 ATR = risiko
+  // mengejar harga (chase). Cermin untuk tren turun (SHORT re-entry di VWAP).
+  const vwapDevAtr = atr > 0 ? (lastPrice - vwap) / atr : 0;
+  let vwapEntry = { text: 'Netral — harga berseimbang di VWAP sesi', quality: 50, bias: 0 };
+  if (trendScore >= 62) {
+    if (vwapDevAtr >= -0.35 && vwapDevAtr <= 0.35) {
+      vwapEntry = { text: 'ZONA ENTRY VWAP AKTIF ▲ — pullback institusional valid (kualitas tinggi)', quality: 86, bias: 1 };
+    } else if (vwapDevAtr > 2.0) {
+      vwapEntry = { text: 'DEVIASI EKSTREM >2σ di atas VWAP — jangan kejar harga, tunggu pullback', quality: 34, bias: -0.5 };
+    } else if (vwapDevAtr < -0.35) {
+      vwapEntry = { text: 'Di bawah VWAP pada tren naik — tunggu reclaim VWAP sebagai trigger', quality: 48, bias: 0 };
+    } else {
+      vwapEntry = { text: 'Uptrend sehat — pantau pullback VWAP (deviasi ' + vwapDevAtr.toFixed(1) + ' ATR)', quality: 62, bias: 0.5 };
+    }
+  } else if (trendScore <= 38) {
+    if (vwapDevAtr >= -0.35 && vwapDevAtr <= 0.35) {
+      vwapEntry = { text: 'ZONA ENTRY VWAP AKTIF ▼ — re-entry SHORT institusional di VWAP', quality: 84, bias: -1 };
+    } else if (vwapDevAtr < -2.0) {
+      vwapEntry = { text: 'DEVIASI EKSTREM >2σ di bawah VWAP — rawan short-covering bounce', quality: 36, bias: 0.5 };
+    } else {
+      vwapEntry = { text: 'Downtrend — pantau rejeksi VWAP sebagai trigger SHORT', quality: 60, bias: -0.5 };
+    }
+  } else {
+    if (Math.abs(vwapDevAtr) <= 0.35) vwapEntry = { text: 'Harga menempel VWAP (magnet) — range/play mean-reversion kecil', quality: 55, bias: 0 };
+    else vwapEntry = { text: 'Range ekspansif dari VWAP (' + vwapDevAtr.toFixed(1) + ' ATR) — konfirmasi arah dulu', quality: 50, bias: 0 };
+  }
+  // Pilar 16: Efficiency Ratio (Kaufman) — kualitas/kemurnian tren modern:
+  // perbandingan perpindahan netto vs total perjalanan harga 30 bar.
+  let erValue = 0.5, erNote = 'Data belum cukup', erBias = 0;
+  if (closes.length > 32) {
+    const w = 30;
+    const netMove = Math.abs(closes[lastIdx] - closes[lastIdx - w]);
+    let path = 0;
+    for (let i = lastIdx - w + 1; i <= lastIdx; i++) path += Math.abs(closes[i] - closes[i - 1]);
+    erValue = path > 0 ? netMove / path : 0;
+    if (erValue >= 0.55) { erNote = 'Tren BERSIH (noise minim) — sinyal follow-through kuat'; erBias = (ema20 > ema50) ? 1 : -1; }
+    else if (erValue >= 0.3) { erNote = 'Tren normal — struktur cukup bersih'; erBias = 0; }
+    else { erNote = 'PASAR CHOPPY (noise tinggi) — kurangi agresi, kecilkan size'; erBias = -0.5; }
+  }
+  // Skor pilar baru digabung dengan bobot direnormalisasi (trend/struktur tetap dominan)
+  let quantEdgeScore = 50;
+  quantEdgeScore += orb.bias * 16;
+  quantEdgeScore += thetaBias * 12;
+  quantEdgeScore += vwapEntry.bias * 12;
+  quantEdgeScore += erBias * 8;
+  quantEdgeScore = Math.max(8, Math.min(96, Math.round(quantEdgeScore)));
+  const rawDirectional = (trendScore * 0.30) + (structureScore * 0.28) + (momentumScore * 0.19) + (volRegimeScore * 0.09) + (quantEdgeScore * 0.14);
   const confluenceScore = Math.round(Math.max(12, Math.min(98, rawDirectional)));
   let direction = 'NEUTRAL';
   if (confluenceScore >= 56) direction = 'LONG';
@@ -211,6 +313,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     `[VWAP, VPVR & TPO] Harga terhadap VWAP (${formatSmartPrice(vwap)}), VPVR POC (${formatSmartPrice(vp.poc)}), dan TPO POC (${formatSmartPrice(vp.tpoPoc)}).`,
     `[FVG & Supply/Demand] ${fvgNote} | Zona Demand: ${formatSmartPrice(modern.demandZone.low)} | Zona Supply: ${formatSmartPrice(modern.supplyZone.high)}.`,
     `[MA Stack & Bollinger] EMA20 (${formatSmartPrice(ema20)}) / EMA50 (${formatSmartPrice(ema50)}) / MA200 (${formatSmartPrice(ma200)}) | RSI(14): ${rsi.toFixed(1)}.`,
+    `[ORB • Theta • VWAP Entry] ORB: ${orb.state}${orb.high ? ' (' + formatSmartPrice(orb.low) + ' – ' + formatSmartPrice(orb.high) + ')' : ''} | Theta Index: ${thetaIndex}/100 (${thetaNote}) | Entry VWAP: ${vwapEntry.text} | Efficiency Ratio: ${(erValue * 100).toFixed(0)}%.`,
     `[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`
   ];
   return {
@@ -234,6 +337,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       trend: Math.round(trendScore),
       structure: Math.round(structureScore),
       momentum: Math.round(momentumScore),
+      quantEdge: quantEdgeScore,
       cotBias: fundamentalCot.specLongPct
     },
     levels: {
@@ -254,7 +358,12 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       liquiditySweep: modern.liquiditySweep,
       fvgNote,
       demandZoneText: `${formatSmartPrice(modern.demandZone.low)} - ${formatSmartPrice(modern.demandZone.high)}`,
-      supplyZoneText: `${formatSmartPrice(modern.supplyZone.low)} - ${formatSmartPrice(modern.supplyZone.high)}`
+      supplyZoneText: `${formatSmartPrice(modern.supplyZone.low)} - ${formatSmartPrice(modern.supplyZone.high)}`,
+      // Pilar baru ORBIT IQ 2026
+      orbLabel: orb.label, orbState: orb.state, orbHigh: orb.high, orbLow: orb.low,
+      thetaIndex, thetaNote,
+      vwapEntryText: vwapEntry.text, vwapDevAtr, vwapEntryQuality: vwapEntry.quality,
+      erValue, erNote, quantEdgeScore
     },
     fundamentalCot,
     backtest,
