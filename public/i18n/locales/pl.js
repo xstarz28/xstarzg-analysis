@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Słupki",
     "ctLine": "📈 Linia",
     "ctArea": "🏔️ Obszar",
+    "eVetoSqueeze": "Ścisk Bollingera bez potwierdzonego wolumenem wybicia — nie wchodź przed rozstrzygnięciem",
+    "fmCycle": "7. Pozycja w cyklu cenowym (zmierzona)",
+    "fmCycleHi": "na szczycie cyklu — ryzyko płynności wyjścia",
+    "fmCycleLo": "na dnie cyklu — ryzyko odbicia",
+    "fmPersist": "8. Trwałość momentum (50 świec)",
+    "fmVolPct": "9. Percentyl zmienności ATR",
+    "fmVolPctVal": "Bieżący ATR na {p} percentylu z 120 obserwacji",
+    "fmVolExt": "odstająca zmienność — SL łatwo wybija szum",
+    "fmSession": "10. Jakość sesji i zgodność HTF",
+    "fmHtfOk": "HTF zgodny z kierunkiem sygnału",
+    "fmHtfNo": "HTF przeciwny — wymagana szczególna ostrożność",
     "eGateScanning": "Skanowanie 9 ram czasowych w tle, aby poprowadzić Cię do najlepszego sygnału…",
   }
 };

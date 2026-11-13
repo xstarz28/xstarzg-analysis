@@ -2,8 +2,8 @@
 // Dipisah dari app.js agar Content-Security-Policy ketat bisa aktif tanpa 'unsafe-eval'
 // (sebelumnya app.js memakai trik `new Function('return import(p)')` yang diblokir CSP).
 Promise.all([
-  import('/js/shared/quant-core.js?v=2026.45'),
-  import('/js/shared/signal-engine.js?v=2026.45')
+  import('/js/shared/quant-core.js?v=2026.46'),
+  import('/js/shared/signal-engine.js?v=2026.46')
 ]).then(function (mods) {
   window.__XS_QC = mods[0] || null;
   window.__XS_SE = mods[1] || null;

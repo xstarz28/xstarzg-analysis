@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 바",
     "ctLine": "📈 라인",
     "ctArea": "🏔️ 영역",
+    "eVetoSqueeze": "볼린저 스퀴즈 미확정(거래량 돌파 없음) — 해소 전 진입 금지",
+    "fmCycle": "7. 가격 사이클 위치(실측)",
+    "fmCycleHi": "사이클 고점 — 출구 유동성 위험",
+    "fmCycleLo": "사이클 저점 — 반등 위험",
+    "fmPersist": "8. 모멘텀 지속성(50 캔들)",
+    "fmVolPct": "9. ATR 변동성 백분위",
+    "fmVolPctVal": "현재 ATR은 120개 관측치의 {p}% 백분위",
+    "fmVolExt": "변동성 이상치 — 노이즈에 SL이 쉽게 걸림",
+    "fmSession": "10. 세션 품질 및 HTF 정렬",
+    "fmHtfOk": "HTF가 신호 방향과 정렬됨",
+    "fmHtfNo": "HTF 역방향 — 각별한 주의 필요",
     "eGateScanning": "백그라운드에서 9개 타임프레임을 스캔해 최적 신호로 안내 중…",
   }
 };

@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Bar",
     "ctLine": "📈 Garis",
     "ctArea": "🏔️ Area",
+    "eVetoSqueeze": "Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antre sebelum resolusi",
+    "fmCycle": "7. Posisi Siklus Harga (Terukur)",
+    "fmCycleHi": "di puncak — rawan jadi exit liquidity",
+    "fmCycleLo": "di dasar siklus — rawan pantulan",
+    "fmPersist": "8. Persistensi Momentum (50 candle)",
+    "fmVolPct": "9. Persentil Volatilitas ATR",
+    "fmVolPctVal": "ATR saat ini berada di persentil {p}% dari 120 pengamatan",
+    "fmVolExt": "volatilitas outlier — SL mudah tersambar noise",
+    "fmSession": "10. Kualitas Sesi & Keselarasan HTF",
+    "fmHtfOk": "HTF selaras dengan arah sinyal",
+    "fmHtfNo": "HTF melawan — wajib ekstra hati-hati",
     "eGateScanning": "Memindai 9 timeframe di belakang layar untuk mengarahkan ke sinyal terbaik…",
   }
 };

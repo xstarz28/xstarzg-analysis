@@ -162,6 +162,7 @@ function buildEngineTextMap() {
     ['Belum ada urutan Liquidity Sweep -> CHoCH/BOS', 'eVetoSeq'],
     ['Struktur choppy (Efficiency Ratio rendah)', 'eVetoChop'],
     ['Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)', 'eVetoSpotOnly'],
+    ['Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antri sebelum resolusi', 'eVetoSqueeze'],
     ['Menunggu konfirmasi', 'eWaitConf'],
     // String mode-ringan (engine sintetis app.js saat modul kuant penuh belum termuat)
     ['N/A — engine penuh belum termuat', 'eLiteOrb'],
@@ -1012,16 +1013,24 @@ function renderPillars(a) {
   var macro = $id('macroPillarsGrid');
   if (macro) {
     var fc = a.fundamentalCot || {};
+    var mq = a.macroQuant || { posCyclePct: 50, drawdownPct: 0, upClosesPct: 50, atrPercentile: 50, sessionQuality: '-', htfAligned: true };
     var longPct = num(fc.specLongPct, 50);
     macro.innerHTML =
       pillarHtml(T('ui.ePmCot', '1. CFTC COT — Posisi Institusi'), 'Long ' + longPct + '% / Short ' + (100 - longPct) + '%', (localizeEngineString(fc.cotReportLabel || 'CFTC COT')) + ' • ' + (localizeEngineString(fc.institutionalBias || '-')), longPct >= 55 ? 'bull' : longPct <= 45 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.ePmCb', '2. Bank Sentral & Suku Bunga'), localizeEngineString(fc.macroRegime || '-'), localizeEngineString(fc.centralBankStance || '-'), 'neutral') +
+      // (fundamental terukur)
       pillarHtml(T('ui.ePmDxy', '3. Korelasi Dolar AS (DXY)'), localizeEngineString(fc.dxyCorrelation || '-'), null, 'neutral') +
       pillarHtml(T('ui.ePmVal', '4. Valuasi Intrinsik'), localizeEngineString(fc.valuationMetrics || '-'), null, 'neutral') +
       pillarHtml(T('ui.ePmOf', '5. Orderflow & Commercial Hedger'), localizeEngineString(fc.orderflowMetric || '-'), fc.commHedgerBias ? localizeEngineString(fc.commHedgerBias) : null, 'neutral') +
-      pillarHtml(T('ui.ePmCat', '6. Katalis Terdekat'), localizeEngineString(fc.upcomingCatalyst || '-'), fc.macroDriver ? localizeEngineString(fc.macroDriver) : null, 'neutral');
+      pillarHtml(T('ui.ePmCat', '6. Katalis Terdekat'), localizeEngineString(fc.upcomingCatalyst || '-'), fc.macroDriver ? localizeEngineString(fc.macroDriver) : null, 'neutral') +
+      // Fundamental TERUKUR dari data candle nyata (bukan kutipan statis)
+      pillarHtml(T('ui.fmCycle', '7. Posisi Siklus Harga (Terukur)'), (mq.posCyclePct) + '% dari range siklus • DD ' + mq.drawdownPct + '% dari puncak', mq.posCyclePct > 88 ? T('ui.fmCycleHi', 'di puncak — rawan jadi exit liquidity') : mq.posCyclePct < 12 ? T('ui.fmCycleLo', 'di dasar siklus — rawan pantulan') : null, mq.posCyclePct > 88 || mq.posCyclePct < 12 ? 'bear' : 'neutral') +
+      pillarHtml(T('ui.fmPersist', '8. Persistensi Momentum (50 candle)'), mq.upClosesPct + '% candle ditutup naik', null, mq.upClosesPct >= 55 ? 'bull' : mq.upClosesPct <= 42 ? 'bear' : 'neutral') +
+      pillarHtml(T('ui.fmVolPct', '9. Persentil Volatilitas ATR'), T('ui.fmVolPctVal', 'ATR saat ini berada di persentil {p}% dari 120 pengamatan').replace('{p}', mq.atrPercentile), mq.atrPercentile > 92 ? T('ui.fmVolExt', 'volatilitas outlier — SL mudah tersambar noise') : null, mq.atrPercentile > 92 ? 'bear' : 'neutral') +
+      pillarHtml(T('ui.fmSession', '10. Kualitas Sesi & Keselarasan HTF'), (mq.sessionQuality || '-') + ' • ' + (mq.htfAligned ? T('ui.fmHtfOk', 'HTF selaras dengan arah sinyal') : T('ui.fmHtfNo', 'HTF melawan — wajib ekstra hati-hati')), null, mq.htfAligned ? 'bull' : 'bear');
   }
 }
+
 function renderNarrative(a) {
   var box = $id('narrativeHumanBox');
   if (!box) return;

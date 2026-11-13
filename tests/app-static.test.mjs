@@ -14,12 +14,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.45 (styles)', /styles\.css\?v=2026\.45/.test(html));
-chk('index.html memakai v=2026.45 (app.js)', /app\.js\?v=2026\.45/.test(html));
-chk('index.html memakai v=2026.45 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.45">/.test(html));
-chk('index.html memakai v=2026.45 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.45">/.test(html));
-chk('engine-boot import shared v=2026.45 (2x)', /quant-core\.js\?v=2026\.45/.test(boot) && /signal-engine\.js\?v=2026\.45/.test(boot));
-chk('i18n index import locale v=2026.45', /locales\/\$\{currentLang\}\.js\?v=2026\.45/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.46/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.46/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.46">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.46">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.46/.test(boot) && /signal-engine\.js\?v=2026\.46/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.46/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -54,7 +54,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (412)', uniform && count === 412);
+chk('20 locale punya keyset ui seragam (423)', uniform && count === 423);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -77,6 +77,9 @@ chk('invalidasi lock butuh penerimaan harga (anti chop)', eng.includes('againstL
 chk('radar lebih segar: TTL 15 mnt + batch 40/slot 3 mnt', app.includes('15 * 60000') && app.includes('rotatingSlice(catalogSortedStable(), 40, 3)'));
 chk('analisis workspace menulis-balik ke pool rekomendasi', app.includes('writeBackRadarPools(analysis)') && app.includes('WORKSPACE LIVE'));
 chk('pindah mode memaksa rescan rekomendasi', app.includes('renderInvestorPicks(true)') && app.includes('renderOpportunityRadar(true)'));
+chk('gate konfirmasi volume & squeeze breakout', eng.includes('volImpulse') && eng.includes('squeezeBlockedDir') && eng.includes('SQUEEZE_UNCONFIRMED'));
+chk('tier memakai performa terkini (recentWinRate)', eng.includes('recentWinRate') && eng.includes('>= 70'));
+chk('fundamental terukur (macroQuant) ada di output & UI', eng.includes('macroQuant') && app.includes('fmCycle') && app.includes('fmVolPct'));
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

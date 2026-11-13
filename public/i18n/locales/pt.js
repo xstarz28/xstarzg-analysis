@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Barras",
     "ctLine": "📈 Linha",
     "ctArea": "🏔️ Área",
+    "eVetoSqueeze": "Squeeze de Bollinger sem rompimento confirmado por volume — não antecipar antes da resolução",
+    "fmCycle": "7. Posição no ciclo de preço (medida)",
+    "fmCycleHi": "no topo do ciclo — risco de liquidez de saída",
+    "fmCycleLo": "no fundo do ciclo — risco de repique",
+    "fmPersist": "8. Persistência do momentum (50 velas)",
+    "fmVolPct": "9. Percentil de volatilidade ATR",
+    "fmVolPctVal": "O ATR atual está no percentil {p}% de 120 observações",
+    "fmVolExt": "volatilidade atípica — o SL fica vulnerável ao ruído",
+    "fmSession": "10. Qualidade da sessão e alinhamento HTF",
+    "fmHtfOk": "HTF alinhado com a direção do sinal",
+    "fmHtfNo": "HTF contra — cautela extra obrigatória",
     "eGateScanning": "Escaneando 9 temporalidades em segundo plano para direcioná-lo ao melhor sinal…",
   }
 };

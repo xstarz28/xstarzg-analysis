@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Bar",
     "ctLine": "📈 Çizgi",
     "ctArea": "🏔️ Alan",
+    "eVetoSqueeze": "Bollinger Squeeze hacimli kırılımla teyitsiz — çözülmeden girmeyin",
+    "fmCycle": "7. Fiyat döngüsü konumu (ölçüldü)",
+    "fmCycleHi": "döngü tepesinde — çıkış likiditesi riski",
+    "fmCycleLo": "döngü dibinde — tepki riski",
+    "fmPersist": "8. Momentum sürekliliği (50 mum)",
+    "fmVolPct": "9. ATR Volatilite Yüzdeliği",
+    "fmVolPctVal": "Mevcut ATR, 120 gözlemin %{p} yüzdeliğinde",
+    "fmVolExt": "volatilite aykırı değeri — SL gürültüye kolay yakalanır",
+    "fmSession": "10. Seans Kalitesi ve HTF Uyumu",
+    "fmHtfOk": "HTF sinyal yönüyle uyumlu",
+    "fmHtfNo": "HTF karşı — ekstra dikkat şart",
     "eGateScanning": "En iyi sinyale yönlendirmek için 9 zaman dilimi arka planda taranıyor…",
   }
 };

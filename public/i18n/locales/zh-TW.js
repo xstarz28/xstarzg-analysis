@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 竹線圖",
     "ctLine": "📈 折線",
     "ctArea": "🏔️ 面積圖",
+    "eVetoSqueeze": "布林擠壓尚未放量突破確認 — 突破前不要排隊進場",
+    "fmCycle": "7. 價格週期位置（實測）",
+    "fmCycleHi": "位於週期頂部——退出流動性風險",
+    "fmCycleLo": "位於週期底部——反彈風險",
+    "fmPersist": "8. 動能持續性（50根K線）",
+    "fmVolPct": "9. ATR波動率百分位",
+    "fmVolPctVal": "當前ATR位於120次觀測的{p}%百分位",
+    "fmVolExt": "波動率異常值——止損容易被噪音掃掉",
+    "fmSession": "10. 時段品質與HTF一致性",
+    "fmHtfOk": "HTF與訊號方向一致",
+    "fmHtfNo": "HTF逆向——需格外謹慎",
     "eGateScanning": "正在背景掃描 9 個時間框架，為您導向最佳訊號…",
   }
 };
