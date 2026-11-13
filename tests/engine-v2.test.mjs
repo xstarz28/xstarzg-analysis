@@ -203,5 +203,17 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   } else { chk('spotOnly menolak sinyal SHORT (no case found, pass)', true); chk('gateLine SPOT_ONLY (no case, pass)', true); }
 }
 
+/* ---------- 14. Lock determinisme: skor keyakinan ikut paket terkunci ---------- */
+{
+  const a = SE.runFullAnalysis({ symbol: 'OPG/USDT', timeframe: 'H1', candles: gen('OPG/USDT','H1'), mode: 'trader', horizon: 'all' });
+  chk('analisis OPG valid untuk uji lock', !a.error);
+  const lock = { status: 'ACTIVE', direction: 'LONG', tf: 'H1', score: 88, winRate: 81.2,
+    entry: 10.5, sl: 9.9, tp1: 11.2, tp2: 11.9, tp3: 13.0, rrRatio: 2.2, anchorClosedTime: 0 };
+  SE.applyLockedSignal(a, lock);
+  chk('lock mengikat skor keyakinan (conviction & confluence >= skor lock)', a.convictionScore >= 88 && a.confluenceScore >= 88);
+  chk('lock mengikat level eksekusi', a.lockedSignal === true && a.levels.entry === 10.5 && a.levels.sl === 9.9 && a.levels.tp2 === 11.9);
+  chk('lock memaksa status eligible', a.signalEligible === true && a.direction === 'LONG');
+}
+
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
