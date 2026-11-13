@@ -154,13 +154,14 @@ function buildEngineTextMap() {
     // Label veto & gate Institutional Brain v2 (penjahit arah sinyal ≥84/78%)
     ['Harga OVEREXTENDED >1.2x ATR dari EMA20/VWAP (jangan kejar kereta)', 'eVetoOverext'],
     ['Menabrak dinding likuiditas — ruang gerak < 1.5x ATR', 'eVetoWall'],
-    ['Momentum jenuh (RSI di luar zona 34-66)', 'eVetoExh'],
+    ['Momentum jenuh ekstrem (RSI >74 / <26) — rawan reversal', 'eVetoExh'],
     ['Divergensi momentum MACD vs struktur swing', 'eVetoDiv'],
     ['Melawan bias struktur timeframe di atasnya', 'eVetoHtf'],
-    ['Skor konfluensi di bawah 84', 'eVetoScore'],
-    ['Winrate historis di bawah 78%', 'eVetoWr'],
+    ['Skor konfluensi di bawah ambang minimum sinyal', 'eVetoScore'],
+    ['Winrate historis di bawah ambang minimum', 'eVetoWr'],
     ['Belum ada urutan Liquidity Sweep -> CHoCH/BOS', 'eVetoSeq'],
     ['Struktur choppy (Efficiency Ratio rendah)', 'eVetoChop'],
+    ['Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)', 'eVetoSpotOnly'],
     ['Menunggu konfirmasi', 'eWaitConf'],
     // String mode-ringan (engine sintetis app.js saat modul kuant penuh belum termuat)
     ['N/A — engine penuh belum termuat', 'eLiteOrb'],
@@ -200,6 +201,9 @@ function localizeEngineString(s) {
   // --- Baris Institutional Gate v2 (lulus/ditolak; fragmen veto dilokalkan rekursif) ---
   if ((m = s.match(/^\[Institutional Gate\] LULUS ✅ — Skor (\d+) ≥ 84 & Winrate ([\d.]+)% ≥ 78% \| Urutan Sweep→MSS terkonfirmasi \| 4 Veto bersih \| Entry presisi zona mitigasi\.$/))) {
     return fillTpl(T('ui.eGatePass', s), { s: m[1], w: m[2] });
+  }
+  if ((m = s.match(/^\[Institutional Gate\] LULUS ✅ \(PRO\) — Skor (\d+) ≥ 62 \| Urutan Sweep→MSS terkonfirmasi \| Veto bersih \| Entry presisi zona mitigasi\.$/))) {
+    return fillTpl(T('ui.eGatePassPro', s), { s: m[1] });
   }
   if ((m = s.match(/^\[Institutional Gate\] DITOLAK ✖ — (.*) — tidak ada Entry yang dipaksakan di TF ini\.$/))) {
     var vetoParts = m[1].split(' • ');
@@ -560,7 +564,8 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope) {
     if (SE && SE.runFullAnalysis && Array.isArray(candles) && candles.length >= 30) {
       var a = SE.runFullAnalysis({
         symbol: symbol, timeframe: tf || 'H1',
-        mode: state.mode || 'trader', horizon: 'all', candles: candles
+        mode: state.mode || 'trader', horizon: 'all',
+        spotOnly: state.subMode === 'spot', candles: candles
       });
       if (a && !a.error) {
         /* === PERSISTENT SIGNAL LOCK (aturan #3: anti-berubah saat refresh) ===
@@ -957,9 +962,10 @@ function gateBlockHtml(a) {
   var b = state.bestTfBoard;
   if (b && b.groups) {
     var cell = function (g) {
-      if (!g) return '—';
-      if (!g.tf) return '—';
-      return g.tf + (g.eligible ? ' ✅ (' + num(g.winRate).toFixed(0) + '%)' : ' ✖');
+      if (!g || !g.tf) return '—';
+      if (g.tier === 'ELITE') return g.tf + ' ★ ELITE ' + num(g.winRate).toFixed(0) + '%';
+      if (g.tier === 'PRO') return g.tf + ' ✅ PRO ' + num(g.winRate).toFixed(0) + '%';
+      return g.tf + ' ✖';
     };
     out += '<div style="margin-top:6px;font-size:11.5px;font-weight:700;color:#e2e8f0;">' +
       fillTpl(T('ui.eGateBest', 'Sinyal Terbaik Saat Ini → Scalping: {sc} | Intraday: {id} | Swing: {sw}'), {
@@ -1099,7 +1105,7 @@ function renderPanels(a) {
   else if (a.signalEligible) lockBadge = fillTpl(a.signalTier === 'ELITE' ? T('ui.eEliteSetup', '✅ ELITE SETUP {tf}') : T('ui.eProSetup', '✅ PRO SETUP {tf}'), { tf: (a.timeframe || state.tf) });
   else lockBadge = fillTpl(T('ui.eNoTradeTf', '🚫 NO-TRADE ZONE {tf}'), { tf: (a.timeframe || state.tf) });
   setTxt('valSetupLockBadge', lockBadge);
-  setTxt('valConfidenceScore', (a.confluenceScore || a.confidence || 50) + '%');
+  setTxt('valConfidenceScore', num(a.convictionScore, a.confluenceScore || a.confidence || 50) + '%');
   setTxt('valRegime', localizeEngineString(a.regime || '-'));
   var L = effectiveLevels(a);
   setTxt('valEntry', formatPrice(L.entry, a.symbol));
@@ -1127,8 +1133,19 @@ function renderPanels(a) {
     setTxt('valBtMaxDD', '-' + num(bt.maxDrawdownR).toFixed(1) + 'R');
     setTxt('valBtTrades', fillTpl(T('ui.eBtSignals', '{n} Sinyal Historis'), { n: bt.sampleSize || 0 }) + (bt.weakEvidence ? T('ui.eBtWeak', ' • Sampel Terbatas') : ''));
   }
+  // Saham = pasar spot (tanpa leverage/likuidasi ala derivatif); crypto spot jg spot.
+  // Kotak futures hanya relevan untuk instrumen margin: crypto futures & CFD
+  // (forex/metal/komoditas) — bukan saham, bukan spot.
+  var marginProduct = !isSpot && a.assetClass !== 'stocks';
   var futBox = $id('futuresRiskBox');
-  if (futBox) futBox.classList.toggle('hidden', isSpot);
+  if (futBox) futBox.classList.toggle('hidden', !marginProduct);
+  if (!marginProduct) { setTxt('valRecLeverage', '1x (SPOT)'); setTxt('valLiqPrice', '--'); }
+  // Toggle SPOT/FUTURES hanya untuk crypto — aset lain punya konvensi pasar sendiri
+  // (saham=spot 1-arah, forex/logam/komoditas=margin 2-arah), tidak disamakan dg crypto.
+  var btnF = $id('btnSubFutures'), btnS = $id('btnSubSpot');
+  var showSub = a.assetClass === 'crypto';
+  if (btnF) btnF.style.display = showSub ? '' : 'none';
+  if (btnS) btnS.style.display = showSub ? '' : 'none';
   updateRiskSizing();
 }
 function feedIsEstimate(src) {
@@ -1157,7 +1174,7 @@ function updateModeChip() {
   if (!chip) return;
   var cls = 'futures', txt = T('ui.chipFutures', 'FUTURES • 2-ARAH + LEV');
   if (state.mode === 'investor') { cls = 'investor'; txt = T('ui.chipInvestor', 'INVESTOR • SPOT DCA'); }
-  else if (state.subMode === 'spot') { cls = 'spot'; txt = T('ui.chipSpot', 'SPOT • 1-ARAH (TANPA LEV)'); }
+  else if (state.subMode === 'spot' || (getMeta(state.symbol).assetClass === 'stocks')) { cls = 'spot'; txt = T('ui.chipSpot', 'SPOT • 1-ARAH (TANPA LEV)'); }
   chip.className = 'mode-chip ' + cls;
   chip.textContent = txt;
 }
@@ -1368,7 +1385,7 @@ function paintRadarItems(cfg, items) {
     var badge = radarBadgeFor(a);
     var chg = num(it.changePct, num(a.changePct));
     var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
-    var sc = num(a.confluenceScore, 50);
+    var sc = num(a.convictionScore, a.confluenceScore);
     var entryRef = state.mode === 'investor' ? (a.levels && a.levels.dcaZone1 ? a.levels.dcaZone1 : a.lastPrice) : (a.levels ? a.levels.entry : a.lastPrice);
     var isActive = it.sym === state.symbol && it.tf === state.tf;
     html += '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '" data-tf="' + it.tf + '">' +
@@ -1519,8 +1536,8 @@ function renderInvestorPicks(force) {
     for (var k in investorScanPool) if (now2 - investorScanPool[k].ts < 600000) merged.push(investorScanPool[k].item);
     // Hanya aset yang bias makronya memang akumulatif (LONG D1/W1) yang direkomendasikan
     // untuk diinvestasikan — diurut dari skor konfluensi makro terkuat.
-    var longs = merged.filter(function (it) { return it.analysis.direction === 'LONG'; });
-    longs.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
+    var longs = merged.filter(function (it) { return it.analysis.direction === 'LONG' && num(it.analysis.convictionScore, 0) >= 55; });
+    longs.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
     var shown = longs.slice(0, 12);
     if (!shown.length) { // fallback: kandidat terbaik yang sedang terpantau
       merged.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
@@ -1548,9 +1565,13 @@ function renderOpportunityRadar(force) {
   var fresh = [];
   var now = Date.now();
   for (var k in pool) if (now - pool[k].ts < 8 * 60000) fresh.push(pool[k].item);
-  fresh.sort(function (x, y) { return Math.abs(num(y.analysis.confluenceScore, 50) - 50) - Math.abs(num(x.analysis.confluenceScore, 50) - 50); });
-  if (!force && fresh.length >= 12) { paintRadarItems(cfg, fresh.slice(0, 12)); return; }
-  if (fresh.length) paintRadarItems(cfg, fresh.slice(0, 12));
+  fresh.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
+  // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
+  // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
+  var freshStrong = fresh.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55; });
+  var freshShow = freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4);
+  if (!force && fresh.length >= 12) { paintRadarItems(cfg, freshShow); return; }
+  if (fresh.length) paintRadarItems(cfg, freshShow);
   var batch = rotatingSlice(catalogSortedStable(), 30, 5);
   var mySeq = ++radarRunSeq;
   if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', batch.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
@@ -1565,8 +1586,9 @@ function renderOpportunityRadar(force) {
     var merged = [];
     var now2 = Date.now();
     for (var k2 in pool) if (now2 - pool[k2].ts < 8 * 60000) merged.push(pool[k2].item);
-    merged.sort(function (x, y) { return Math.abs(num(y.analysis.confluenceScore, 50) - 50) - Math.abs(num(x.analysis.confluenceScore, 50) - 50); });
-    paintRadarItems(cfg, merged.slice(0, 12));
+    merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
+    var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55; });
+    paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4));
   }).catch(function () {});
 }
 function gotoInstrument(sym, tf) {
@@ -2090,6 +2112,8 @@ function setSubMode(sub) {
   updateModeChip();
   syncTfBarForMode();
   saveSession();
+  state.bestTfBoard = null;
+  if (typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
   if (state.lastAnalysis) {
     renderPanels(state.lastAnalysis);
     renderHeader(state.lastAnalysis);

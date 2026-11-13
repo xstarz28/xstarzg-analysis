@@ -14,12 +14,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.40 (styles)', /styles\.css\?v=2026\.40/.test(html));
-chk('index.html memakai v=2026.40 (app.js)', /app\.js\?v=2026\.40/.test(html));
-chk('index.html memakai v=2026.40 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.40">/.test(html));
-chk('index.html memakai v=2026.40 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.40">/.test(html));
-chk('engine-boot import shared v=2026.40 (2x)', /quant-core\.js\?v=2026\.40/.test(boot) && /signal-engine\.js\?v=2026\.40/.test(boot));
-chk('i18n index import locale v=2026.40', /locales\/\$\{currentLang\}\.js\?v=2026\.40/.test(i18nIndex));
+chk('index.html memakai v=2026.41 (styles)', /styles\.css\?v=2026\.41/.test(html));
+chk('index.html memakai v=2026.41 (app.js)', /app\.js\?v=2026\.41/.test(html));
+chk('index.html memakai v=2026.41 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.41">/.test(html));
+chk('index.html memakai v=2026.41 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.41">/.test(html));
+chk('engine-boot import shared v=2026.41 (2x)', /quant-core\.js\?v=2026\.41/.test(boot) && /signal-engine\.js\?v=2026\.41/.test(boot));
+chk('i18n index import locale v=2026.41', /locales\/\$\{currentLang\}\.js\?v=2026\.41/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -46,7 +46,7 @@ chk('badge NO-TRADE tersedia', app.includes('eNoTradeTf'));
 // Wiring i18n baris Institutional Gate (lulus/ditolak) + map 9 label veto
 chk('regex gate LULUS/DITOLAK di localizeEngineString', app.includes('Institutional Gate\\] LULUS') && app.includes('Institutional Gate\\] DITOLAK'));
 chk('9 label veto dipetakan di ENGINE_TEXT_MAP', ['eVetoOverext','eVetoWall','eVetoExh','eVetoDiv','eVetoHtf','eVetoScore','eVetoWr','eVetoSeq','eVetoChop'].every(k => app.includes("'" + k + "'")));
-chk('kunci narasi gate + tier dipakai', ['eGateLockOk','eGateForbidden','eGateBest','eGateBestHint','eGateScanning','eEliteSetup','eProSetup','signalTier'].every(k => app.includes(k)));
+chk('kunci narasi gate + tier dipakai', ['eGateLockOk','eGateForbidden','eGateBest','eGateBestHint','eGateScanning','eEliteSetup','eProSetup','eGatePassPro','eVetoSpotOnly','signalTier'].every(k => app.includes(k)));
 
 // --- Kesehatan i18n: 20 locale seragam ---
 const langs = ['id', 'en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'ar', 'ru', 'es', 'pt', 'fr', 'de', 'hi', 'tr', 'vi', 'th', 'ms', 'nl', 'it', 'pl'];
@@ -54,11 +54,17 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (406)', uniform && count === 406);
+chk('20 locale punya keyset ui seragam (408)', uniform && count === 408);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
 chk('engine expose tier & skor analis', eng.includes('PRO_MIN_SCORE') && eng.includes('signalTier') && eng.includes('analystScore') && eng.includes('detectLiquidityPools'));
+chk('engine punya skor keyakinan netral-arah + spotOnly', eng.includes('convictionScore') && eng.includes('spotOnlyEffect') && eng.includes('SPOT_ONLY'));
+chk('backtest melacak statistik per-arah (longWR/shortWR)', eng.includes('longWR') && eng.includes('shortWR'));
+chk('papan TF tier-aware (★ ELITE / ✅ PRO)', app.includes("' ★ ELITE '") && app.includes("' ✅ PRO '"));
+chk('radar menyaring keyakinan >= 55', app.includes('convictionScore, 0) >= 55'));
+chk('kotak futures tidak untuk saham/spot', app.includes("a.assetClass !== 'stocks'") && app.includes('marginProduct'));
+chk('toggle spot/futures hanya crypto', app.includes("showSub = a.assetClass === 'crypto'"));
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

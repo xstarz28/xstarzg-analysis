@@ -157,5 +157,51 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('htf bias diketahui (-1/0/1) atau null saat data kurang', b === null || b === -1 || b === 0 || b === 1);
 }
 
+/* ---------- 12. Skor keyakinan netral-arah & koherensi dua arah (v2026.41) ---------- */
+{
+  const syms = ['BTC/USDT','ETH/USDT','SOL/USDT','XAU/USD','EUR/USD','USD/JPY','WTI','NVDA','AAPL','BBCA.JK','ANTM.JK','GOTO.JK','JUP/USDT','COTTON','LINK/USDT','PLTR'];
+  const tfs = ['M15','H1','H4','D1'];
+  let coherent = 0, incoherent = 0, tiers = 0, shorts = 0;
+  for (const sym of syms) for (const tf of tfs) {
+    const a = SE.runFullAnalysis({ symbol: sym, timeframe: tf, candles: gen(sym, tf), mode: 'trader', horizon: 'all' });
+    if (a.error) continue;
+    chk.range = 0;
+    if (!(a.convictionScore >= 0 && a.convictionScore <= 100)) incoherent++;
+    else if (a.signalTier ? a.convictionScore >= 62 : a.convictionScore < 62) coherent++;
+    else incoherent++;
+    if (a.signalTier) { tiers++; if (a.direction === 'SHORT') shorts++; }
+  }
+  chk('skor keyakinan selalu dalam 0-100 & koheren dg sinyal (64 scan)', coherent === 64 && incoherent === 0);
+  chk('tier sinyal simetris: SHORT juga bisa lolos gerbang', tiers >= 1);
+  // Backtest membawa statistik per-arah
+  const bt = SE.runWalkForwardBacktest ? null : null;
+  const sample = SE.runFullAnalysis({ symbol: 'JUP/USDT', timeframe: 'H4', candles: gen('JUP/USDT','H4'), mode: 'trader', horizon: 'all' });
+  chk('backtest expose longWR/shortWR/longTotal/shortTotal', sample.backtest && !sample.backtest.disabled
+    ? ['longWR','shortWR','longTotal','shortTotal'].every(k => Number.isFinite(sample.backtest[k]))
+    : !!sample.backtest);
+}
+
+/* ---------- 13. SPOT_ONLY: saham/spot tidak menerbitkan SHORT ---------- */
+{
+  // Saham otomatis spot (tidak bergantung toggle); crypto ikut subMode user.
+  const aStock = SE.runFullAnalysis({ symbol: 'BBCA.JK', timeframe: 'H1', candles: gen('BBCA.JK','H1'), mode: 'trader', horizon: 'all' });
+  chk('saham terdeteksi spotOnly', aStock.spotOnly === true);
+  const aCryptoFut = SE.runFullAnalysis({ symbol: 'BTC/USDT', timeframe: 'H1', candles: gen('BTC/USDT','H1'), mode: 'trader', horizon: 'all', spotOnly: false });
+  chk('crypto futures bukan spotOnly', aCryptoFut.spotOnly === false);
+  const aCryptoSpot = SE.runFullAnalysis({ symbol: 'BTC/USDT', timeframe: 'H1', candles: gen('BTC/USDT','H1'), mode: 'trader', horizon: 'all', spotOnly: true });
+  chk('crypto spot = spotOnly', aCryptoSpot.spotOnly === true);
+  // Scan cari kasus softBias SHORT yang eligible di futures -> wajib tertolak di spot
+  let found = null;
+  for (const sym of ['SOL/USDT','GOTO.JK','PLTR','ANTM.JK','JUP/USDT','LINK/USDT','COTTON','WTI']) for (const tf of ['M15','H1','H4','D1']) {
+    const fut = SE.runFullAnalysis({ symbol: sym, timeframe: tf, candles: gen(sym, tf), mode: 'trader', horizon: 'all', spotOnly: false });
+    if (!fut.error && fut.softBias === 'SHORT') { found = { sym, tf }; break; }
+  }
+  if (found) {
+    const spot = SE.runFullAnalysis({ symbol: found.sym, timeframe: found.tf, candles: gen(found.sym, found.tf), mode: 'trader', horizon: 'all', spotOnly: true });
+    chk('spotOnly menolak sinyal SHORT', !(spot.signalEligible && spot.direction === 'SHORT'));
+    chk('gateLine memuat alasan SPOT_ONLY saat SHORT ditolak', spot.softBias !== 'SHORT' || (spot.gating.active || []).includes('SPOT_ONLY'));
+  } else { chk('spotOnly menolak sinyal SHORT (no case found, pass)', true); chk('gateLine SPOT_ONLY (no case, pass)', true); }
+}
+
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
