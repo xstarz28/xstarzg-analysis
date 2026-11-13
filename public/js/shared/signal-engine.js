@@ -592,11 +592,15 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     : modern.bearFvg
     ? `Bearish FVG di ${formatSmartPrice(modern.bearFvg.bottom)}-${formatSmartPrice(modern.bearFvg.top)}`
     : 'FVG Seimbang (Terisi)';
-  const gateLine = eligible
-    ? `[Institutional Gate] LULUS ✅ — Skor ${confluenceScore} ≥ ${STRICT_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${STRICT_MIN_WINRATE}% | Urutan Sweep→MSS terkonfirmasi | 4 Veto bersih | Entry presisi zona mitigasi.`
-    : `[Institutional Gate] DITOLAK ✖ — ${gateReasons.map(g => VETO_LABELS[g] || g).join(' • ') || 'Menunggu konfirmasi'} — tidak ada Entry yang dipaksakan di TF ini.`;
+  // Baris gate ditampilkan hanya untuk mode TRADER (mode investor memakai framing
+  // valuasi DCA — bukan gerbang eksekusi, agar tidak membingungkan akumulator).
+  const gateLine = mode === 'trader'
+    ? (eligible
+      ? `[Institutional Gate] LULUS ✅ — Skor ${confluenceScore} ≥ ${STRICT_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${STRICT_MIN_WINRATE}% | Urutan Sweep→MSS terkonfirmasi | 4 Veto bersih | Entry presisi zona mitigasi.`
+      : `[Institutional Gate] DITOLAK ✖ — ${gateReasons.map(g => VETO_LABELS[g] || g).join(' • ') || 'Menunggu konfirmasi'} — tidak ada Entry yang dipaksakan di TF ini.`)
+    : null;
   const reasons = [
-    gateLine,
+    ...(gateLine ? [gateLine] : []),
     `[SMC & Struktur ${timeframe}] ${modern.smcStatus} | ${modern.liquiditySweep}.`,
     `[VWAP, VPVR & TPO] Harga terhadap VWAP (${formatSmartPrice(vwap)}), VPVR POC (${formatSmartPrice(vp.poc)}), dan TPO POC (${formatSmartPrice(vp.tpoPoc)}).`,
     `[FVG & Supply/Demand] ${fvgNote} | Zona Demand: ${formatSmartPrice(modern.demandZone.low)} | Zona Supply: ${formatSmartPrice(modern.supplyZone.high)}.`,

@@ -151,6 +151,17 @@ function buildEngineTextMap() {
     ['Opening Range 60m Sesi UTC', 'eOrbLabelUtc'],
     ['Weekly Opening Range', 'eOrbLabelWeekly'],
     ['Harga menempel VWAP (magnet) — range/play mean-reversion kecil', 'eVwMagnet'],
+    // Label veto & gate Institutional Brain v2 (penjahit arah sinyal ≥84/78%)
+    ['Harga OVEREXTENDED >1.2x ATR dari EMA20/VWAP (jangan kejar kereta)', 'eVetoOverext'],
+    ['Menabrak dinding likuiditas — ruang gerak < 1.5x ATR', 'eVetoWall'],
+    ['Momentum jenuh (RSI di luar zona 34-66)', 'eVetoExh'],
+    ['Divergensi momentum MACD vs struktur swing', 'eVetoDiv'],
+    ['Melawan bias struktur timeframe di atasnya', 'eVetoHtf'],
+    ['Skor konfluensi di bawah 84', 'eVetoScore'],
+    ['Winrate historis di bawah 78%', 'eVetoWr'],
+    ['Belum ada urutan Liquidity Sweep -> CHoCH/BOS', 'eVetoSeq'],
+    ['Struktur choppy (Efficiency Ratio rendah)', 'eVetoChop'],
+    ['Menunggu konfirmasi', 'eWaitConf'],
     // String mode-ringan (engine sintetis app.js saat modul kuant penuh belum termuat)
     ['N/A — engine penuh belum termuat', 'eLiteOrb'],
     ['Mode ringan — menunggu engine kuantitatif penuh', 'eLiteWait'],
@@ -186,6 +197,16 @@ function localizeEngineString(s) {
     if (ENGINE_TEXT_MAP[i][0] === s) return T('ui.' + ENGINE_TEXT_MAP[i][1], s);
   }
   var m;
+  // --- Baris Institutional Gate v2 (lulus/ditolak; fragmen veto dilokalkan rekursif) ---
+  if ((m = s.match(/^\[Institutional Gate\] LULUS ✅ — Skor (\d+) ≥ 84 & Winrate ([\d.]+)% ≥ 78% \| Urutan Sweep→MSS terkonfirmasi \| 4 Veto bersih \| Entry presisi zona mitigasi\.$/))) {
+    return fillTpl(T('ui.eGatePass', s), { s: m[1], w: m[2] });
+  }
+  if ((m = s.match(/^\[Institutional Gate\] DITOLAK ✖ — (.*) — tidak ada Entry yang dipaksakan di TF ini\.$/))) {
+    var vetoParts = m[1].split(' • ');
+    var vetoLoc = [];
+    for (var vp = 0; vp < vetoParts.length; vp++) vetoLoc.push(localizeEngineString(vetoParts[vp]));
+    return fillTpl(T('ui.eGateDenied', s), { r: vetoLoc.join(' • ') });
+  }
   // --- Enam templat narasi reasons (fragmen di dalamnya dilokalkan rekursif) ---
   if ((m = s.match(/^\[SMC & Struktur ([^\]]+)\] (.*) \| (.*)\.$/))) {
     return fillTpl(T('ui.eRsSmc', s), { tf: m[1], smc: localizeEngineString(m[2]), sweep: localizeEngineString(m[3]) });

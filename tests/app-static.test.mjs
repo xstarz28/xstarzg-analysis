@@ -13,12 +13,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.38 (styles)', /styles\.css\?v=2026\.38/.test(html));
-chk('index.html memakai v=2026.38 (app.js)', /app\.js\?v=2026\.38/.test(html));
-chk('index.html memakai v=2026.38 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.38">/.test(html));
-chk('index.html memakai v=2026.38 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.38">/.test(html));
-chk('engine-boot import shared v=2026.38 (2x)', /quant-core\.js\?v=2026\.38/.test(boot) && /signal-engine\.js\?v=2026\.38/.test(boot));
-chk('i18n index import locale v=2026.38', /locales\/\$\{currentLang\}\.js\?v=2026\.38/.test(i18nIndex));
+chk('index.html memakai v=2026.39 (styles)', /styles\.css\?v=2026\.39/.test(html));
+chk('index.html memakai v=2026.39 (app.js)', /app\.js\?v=2026\.39/.test(html));
+chk('index.html memakai v=2026.39 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.39">/.test(html));
+chk('index.html memakai v=2026.39 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.39">/.test(html));
+chk('engine-boot import shared v=2026.39 (2x)', /quant-core\.js\?v=2026\.39/.test(boot) && /signal-engine\.js\?v=2026\.39/.test(boot));
+chk('i18n index import locale v=2026.39', /locales\/\$\{currentLang\}\.js\?v=2026\.39/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -42,6 +42,10 @@ chk('9 TF dipindai', app.includes("'M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', '
 chk('scan dijadwalkan setelah analisis', app.includes('scheduleBestTfScan();'));
 chk('papan TF terbaik dirender ke narasi', app.includes('state.bestTfBoard'));
 chk('badge NO-TRADE tersedia', app.includes('eNoTradeTf'));
+// Wiring i18n baris Institutional Gate (lulus/ditolak) + map 9 label veto
+chk('regex gate LULUS/DITOLAK di localizeEngineString', app.includes('Institutional Gate\\] LULUS') && app.includes('Institutional Gate\\] DITOLAK'));
+chk('9 label veto dipetakan di ENGINE_TEXT_MAP', ['eVetoOverext','eVetoWall','eVetoExh','eVetoDiv','eVetoHtf','eVetoScore','eVetoWr','eVetoSeq','eVetoChop'].every(k => app.includes("'" + k + "'")));
+chk('kunci narasi gate baru dipakai', ['eGateLockOk','eGateForbidden','eGateBest','eGateBestHint','eGateScanning','eEliteSetup'].every(k => app.includes(k)));
 
 // --- Kesehatan i18n: 20 locale seragam ---
 const langs = ['id', 'en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'ar', 'ru', 'es', 'pt', 'fr', 'de', 'hi', 'tr', 'vi', 'th', 'ms', 'nl', 'it', 'pl'];
@@ -49,7 +53,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (386)', uniform && count === 386);
+chk('20 locale punya keyset ui seragam (405)', uniform && count === 405);
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
