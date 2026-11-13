@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "Belum ada urutan Liquidity Sweep -> CHoCH/BOS",
     "eVetoChop": "Struktur choppy (Efficiency Ratio rendah)",
     "eWaitConf": "Menunggu konfirmasi",
+    "eProSetup": "✅ SETUP PRO {tf}",
     "eEliteSetup": "✅ ELITE SETUP {tf}",
     "eNoTradeTf": "🚫 NO-TRADE ZONE {tf}",
     "eGateLockOk": "🔒 Setup TERKUNCI di TF {tf} — {dir} • skor {s} • winrate {w}%. Angka Entry/SL/TP permanen hingga TP tersentuh, SL tembus, atau struktur penutup membatalkan Order Block.",

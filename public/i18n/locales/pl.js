@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "Brak sekwencji Zamiatanie Płynności -> CHoCH/BOS",
     "eVetoChop": "Rozłączna struktura (niski Współczynnik Efektywności)",
     "eWaitConf": "Oczekiwanie na potwierdzenie",
+    "eProSetup": "✅ KONFIGURACJA PRO {tf}",
     "eEliteSetup": "✅ ELITARNY SETUP {tf}",
     "eNoTradeTf": "🚫 STREFA ZAKAZU TRANSAKCJI {tf}",
     "eGateLockOk": "🔒 Setup ZABLOKOWANY na TF {tf} — {dir} • wynik {s} • winrate {w}%. Wartości Entry/SL/TP pozostają stałe do momentu dotknięcia TP, przebicia SL lub unieważnienia Order Block przez strukturę zamknięcia.",

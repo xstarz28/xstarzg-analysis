@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "流動性スイープ -> CHoCH/BOS のシーケンス未成立",
     "eVetoChop": "チョッピー構造（効率比が低い）",
     "eWaitConf": "確認待ち",
+    "eProSetup": "✅ プロセットアップ {tf}",
     "eEliteSetup": "✅ エリートセットアップ {tf}",
     "eNoTradeTf": "🚫 ノートレードゾーン {tf}",
     "eGateLockOk": "🔒 セットアップを TF {tf} でロック — {dir} • スコア {s} • 勝率 {w}%。TP到達・SL突破・終値構造がオーダーブロックを無効化するまで Entry/SL/TP は不変です。",

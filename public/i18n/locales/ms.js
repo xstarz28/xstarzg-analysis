@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "Belum ada urutan Sapuan Kecairan -> CHoCH/BOS",
     "eVetoChop": "Struktur rata (Nisbah Kecekapan rendah)",
     "eWaitConf": "Menunggu pengesahan",
+    "eProSetup": "✅ SETUP PRO {tf}",
     "eEliteSetup": "✅ SETUP ELIT {tf}",
     "eNoTradeTf": "🚫 ZON LARANGAN DAGANGAN {tf}",
     "eGateLockOk": "🔒 Setup TERKUNCI pada TF {tf} — {dir} • skor {s} • winrate {w}%. Angka Entry/SL/TP kekal tetap sehingga TP disentuh, SL ditembus atau struktur penutup membatalkan Order Block.",

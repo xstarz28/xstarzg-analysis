@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "Henüz Likidite Sweep -> CHoCH/BOS dizisi yok",
     "eVetoChop": "Dalgalı yapı (düşük Verimlilik Oranı)",
     "eWaitConf": "Onay bekleniyor",
+    "eProSetup": "✅ PRO KURULUM {tf}",
     "eEliteSetup": "✅ ELİT KURULUM {tf}",
     "eNoTradeTf": "🚫 İŞLEM YAPILMAZ BÖLGE {tf}",
     "eGateLockOk": "🔒 Kurulum TF {tf} üzerinde KİLİTLİ — {dir} • skor {s} • winrate {w}%. TP görülene, SL kırılana veya kapanış yapısı Order Block’u geçersiz kılana kadar Entry/SL/TP sabittir.",

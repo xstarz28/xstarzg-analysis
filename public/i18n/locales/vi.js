@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "Chưa có chuỗi Quét Thanh Khoản -> CHoCH/BOS",
     "eVetoChop": "Cấu trúc nhiễu (Tỷ lệ Hiệu quả thấp)",
     "eWaitConf": "Đang chờ xác nhận",
+    "eProSetup": "✅ THIẾT LẬP PRO {tf}",
     "eEliteSetup": "✅ SETUP TINH ANH {tf}",
     "eNoTradeTf": "🚫 KHU VỰC CẤM GIAO DỊCH {tf}",
     "eGateLockOk": "🔒 Setup ĐÃ KHÓA trên TF {tf} — {dir} • điểm {s} • winrate {w}%. Entry/SL/TP giữ nguyên tới khi chạm TP, thủng SL hoặc cấu trúc đóng cửa vô hiệu Order Block.",
