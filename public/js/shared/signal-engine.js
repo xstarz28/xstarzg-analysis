@@ -98,7 +98,7 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
   };
 }
 /* ================================================================================
-   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.38)
+   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.39)
    Upgrade otak pengambilan keputusan setara trader institusional 20+ tahun:
 
    A. HARD VETO SYSTEM (4 filter fatal pembatal sinyal otomatis)
