@@ -1,11 +1,4 @@
-name = "xstarzganalysis"
-# Project Pages GRATIS: xstarzganalysis.pages.dev
-# Catatan: nama project lama "xstarzg-analysis" tidak bisa di-rename, maka dibuat
-# project baru bernama "xstarzganalysis" (lihat docs/DEPLOY-DOMAIN.md).
-# Deploy via CLI (otomatis membuat project jika belum ada):
-#   npx wrangler pages deploy public
-# Integrasi Git di dashboard (auto-deploy saat push ke main) di-set per-project
-# di dashboard Cloudflare, bukan dari file ini.
+name = "xstarzg-analysis"
 compatibility_date = "2024-09-25"
 pages_build_output_dir = "public"
 
@@ -13,5 +6,4 @@ pages_build_output_dir = "public"
 #   OWNER_ACCESS_CODE — kode rahasia owner (default codebase sesuai permintaan user)
 #   JWT_SECRET        — secret penandatangan token sesi
 #   VIP_PRICE_USDT    — harga lisensi VIP
-#   GOOGLE_CLIENT_ID  — login Google (tambahkan origin baru di Google Cloud Console)
 #   XS_TXLOG (KV)     — opsional: register txHash terpakai lintas-isolate (anti-replay)

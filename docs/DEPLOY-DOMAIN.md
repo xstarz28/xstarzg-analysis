@@ -47,9 +47,10 @@ Google Cloud Console → **APIs & Services → Credentials** → OAuth 2.0 Clien
 (biarkan origin lama tetap ada selama project lama masih dipakai).
 
 ### Setelah semua beres
-- `wrangler.toml` di repo **sudah menunjuk** nama project baru (`xstarzganalysis`) —
-  deploy via CLI (`npx wrangler pages deploy public`) otomatis menargetnya, bahkan
-  otomatis **membuat** project-nya bila belum ada.
+- Beri tahu developer agar `wrangler.toml` (`name = "xstarzg-analysis"`) diubah ke
+  `xstarzganalysis` supaya deploy via CLI menarget project baru.
+  **Sebelum itu, `wrangler.toml` dibiarkan apa adanya** — situs & domain lama
+  (`xstarzg-analysis.pages.dev`) tidak berubah sama sekali.
 - Project lama `xstarzg-analysis` bisa di-**Delete** (atau dibiarkan; URL lama tetap hidup
   tapi tidak ada redirect otomatis — cukup berhenti membagikannya).
 
