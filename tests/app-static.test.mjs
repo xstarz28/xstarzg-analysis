@@ -14,12 +14,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.41 (styles)', /styles\.css\?v=2026\.41/.test(html));
-chk('index.html memakai v=2026.41 (app.js)', /app\.js\?v=2026\.41/.test(html));
-chk('index.html memakai v=2026.41 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.41">/.test(html));
-chk('index.html memakai v=2026.41 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.41">/.test(html));
-chk('engine-boot import shared v=2026.41 (2x)', /quant-core\.js\?v=2026\.41/.test(boot) && /signal-engine\.js\?v=2026\.41/.test(boot));
-chk('i18n index import locale v=2026.41', /locales\/\$\{currentLang\}\.js\?v=2026\.41/.test(i18nIndex));
+chk('index.html memakai v=2026.42 (styles)', /styles\.css\?v=2026\.42/.test(html));
+chk('index.html memakai v=2026.42 (app.js)', /app\.js\?v=2026\.42/.test(html));
+chk('index.html memakai v=2026.42 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.42">/.test(html));
+chk('index.html memakai v=2026.42 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.42">/.test(html));
+chk('engine-boot import shared v=2026.42 (2x)', /quant-core\.js\?v=2026\.42/.test(boot) && /signal-engine\.js\?v=2026\.42/.test(boot));
+chk('i18n index import locale v=2026.42', /locales\/\$\{currentLang\}\.js\?v=2026\.42/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -65,6 +65,8 @@ chk('papan TF tier-aware (★ ELITE / ✅ PRO)', app.includes("' ★ ELITE '") &
 chk('radar menyaring keyakinan >= 55', app.includes('convictionScore, 0) >= 55'));
 chk('kotak futures tidak untuk saham/spot', app.includes("a.assetClass !== 'stocks'") && app.includes('marginProduct'));
 chk('toggle spot/futures hanya crypto', app.includes("showSub = a.assetClass === 'crypto'"));
+chk('lock mengikat skor keyakinan (fix skor berubah saat refresh)', eng.includes('a.convictionScore = Math.max(a.convictionScore || 0, lock.score || 0)'));
+chk('radar & kurasi investor auto-refresh mandiri', app.includes('startRadarAutoPilot') && app.includes('__radarAutoTimer') && app.includes('renderOpportunityRadar(force)') && app.includes('renderInvestorPicks(force)'));
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

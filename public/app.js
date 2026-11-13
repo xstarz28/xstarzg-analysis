@@ -2140,6 +2140,23 @@ function selectSymbol(sym) {
 }
 
 /* ==================== 12. BOOTSTRAP ==================== */
+/* AUTO-PILOT radar & kurasi investor: memindai ulang katalog secara mandiri setiap
+   slot rotasi (5 menit) sehingga instrumen berpotensi baru muncul sendiri tanpa
+   refresh manual. Repaint murah tiap 60 dtk; scan batch penuh tiap 5 menit;
+   jeda otomatis saat tab tidak terlihat. */
+var radarAutoLastForce = 0;
+function startRadarAutoPilot() {
+  if (window.__radarAutoTimer) return;
+  window.__radarAutoTimer = setInterval(function () {
+    try {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      var force = (Date.now() - radarAutoLastForce) >= 5 * 60000;
+      if (force) radarAutoLastForce = Date.now();
+      if (state.mode === 'investor') renderInvestorPicks(force);
+      else renderOpportunityRadar(force);
+    } catch (e) {}
+  }, 60000);
+}
 function bootCore() {
   bindUiEvents();
   var saved = loadSession();
@@ -2169,6 +2186,7 @@ function bootCore() {
     if (se) SE = se;
     renderInstrumentCatalog();
     lazyLoadCryptoPairs();
+    startRadarAutoPilot(); // auto-refresh mandiri radar/kurasi setelah engine siap
     // Setelah restore-refresh engine mungkin belum siap saat analisa awal jalan
     // (fallback ringan) -> jalankan ulang satu kali agar 22 pilar penuh tampil.
     if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') {

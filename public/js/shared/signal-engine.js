@@ -98,7 +98,7 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
   };
 }
 /* ================================================================================
-   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.41)
+   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.42)
    Upgrade otak pengambilan keputusan setara trader institusional 20+ tahun:
 
    A. HARD VETO SYSTEM (4 filter fatal pembatal sinyal otomatis)
@@ -305,7 +305,7 @@ export function evaluateHardVetoes(ctx) {
   const { price, rsi, div, vah, val, bullOb, bearOb, htfBias, eqHigh, eqLow, prevSessHigh, prevSessLow, oldHigh, oldLow, atr } = ctx;
   const long = [], short = [];
   const a = Math.max(atr, price * 1e-8);
-  // Catatan desain (v2026.41): "kejar kereta" (overextended) bukan lagi hard-veto —
+  // Catatan desain (v2026.42): "kejar kereta" (overextended) bukan lagi hard-veto —
   // entry kita SELALU limit di zona mitigasi (retest), jadi anti-chase terjamin by design;
   // overextension kini menjadi penalti skor, menjaga XSTARZG tetap mampu memberi sinyal.
   // Veto 2: LIQUIDITY WALL — hanya kolam likuiditas MAYOR (VAH/EQH/sesi lama/old high/OB),
@@ -898,6 +898,10 @@ export function applyLockedSignal(a, lock) {
   a.lockScore = lock.score;
   a.lockWinRate = lock.winRate;
   a.confluenceScore = Math.max(a.confluenceScore || 0, lock.score || 0);
+  // Skor keyakinan yang tampil WAJIB mengikuti skor terkunci — sinyal terkunci
+  // membawa Entry/SL/TP dan skornya sebagai satu paket deterministik (tidak boleh
+  // panel menampilkan skor fresh yang lebih rendah sementara angka entry tetap ada).
+  a.convictionScore = Math.max(a.convictionScore || 0, lock.score || 0);
   a.levels = Object.assign({}, a.levels, {
     entry: lock.entry, sl: lock.sl,
     tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
