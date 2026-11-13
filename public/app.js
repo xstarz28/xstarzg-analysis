@@ -233,6 +233,7 @@ var state = {
   mode: 'trader',            // 'trader' | 'investor'
   subMode: 'futures',        // 'futures' | 'spot'
   radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
+  bestTfBoard: null,         // papan hasil scan multi-TF (engine), diisi async
   candles: [],
   lastAnalysis: null,
   livePrice: 0,
@@ -483,8 +484,36 @@ function lazyLoadCryptoPairs() {
   } catch (e) {}
 }
 
+/* ==================== 1.9 PERSISTENT SIGNAL LOCK STORAGE ====================
+   Kunci sinyal elite (Entry/SL/TP1-3/TF/direction) di localStorage per
+   (simbol | mode | subMode). Sinyal terkunci hanya dilepas saat TP tersentuh,
+   SL ditembus, atau struktur candle closed berbalik (lihat validateSignalLock di
+   engine). Refresh (F5), pindah menu, dan klik kalkulator TIDAK menggeser angka. */
+var SIGNAL_LOCK_KEY = 'xstarzg_siglock_v2';
+function signalLockStore() {
+  try { var p = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY) || '{}'); return (p && typeof p === 'object') ? p : {}; }
+  catch (e) { return {}; }
+}
+function signalLockId(symbol) {
+  return (symbol || '').toUpperCase() + '|' + (state.mode || 'trader') + '|' + (state.mode === 'investor' ? 'spot' : (state.subMode || 'futures'));
+}
+function getSignalLock(symbol) {
+  var l = signalLockStore()[signalLockId(symbol)];
+  return (l && l.status === 'ACTIVE') ? l : null;
+}
+function saveSignalLock(symbol, lock) {
+  try {
+    var all = signalLockStore();
+    var id = signalLockId(symbol);
+    if (lock) all[id] = lock; else delete all[id];
+    var ks = Object.keys(all);
+    while (ks.length > 40) { var k0 = ks.shift(); delete all[k0]; }
+    localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+  } catch (e) {}
+}
+
 /* ==================== 2. MESIN ANALISIS QUANT (computeQuantEngine) ==================== */
-function computeQuantEngine(candles, symbol, tf, forceRecalc) {
+function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope) {
   try {
     if (SE && SE.runFullAnalysis && Array.isArray(candles) && candles.length >= 30) {
       var a = SE.runFullAnalysis({
@@ -492,8 +521,29 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc) {
         mode: state.mode || 'trader', horizon: 'all', candles: candles
       });
       if (a && !a.error) {
-        a.entry = a.levels.entry; a.sl = a.levels.sl;
-        a.tp1 = a.levels.tp1; a.tp2 = a.levels.tp2; a.tp3 = a.levels.tp3;
+        /* === PERSISTENT SIGNAL LOCK (aturan #3: anti-berubah saat refresh) ===
+           SKOPE 'create' = analisis utama workspace (boleh menerbitkan kunci baru),
+           'apply' = radar/kurasi/scan (hanya menerapkan kunci yang sudah ada). */
+        var scope = (lockScope === 'create' || lockScope === 'apply') ? lockScope : 'create';
+        try {
+          if (typeof SE.validateSignalLock === 'function') {
+            var lock = getSignalLock(symbol);
+            if (lock && lock.tf === (a.timeframe || tf)) {
+              var closedBars = SE.trimClosedCandles(candles, a.tfSeconds || 3600);
+              var verdict = SE.validateSignalLock(lock, closedBars, a);
+              if (verdict && verdict.status === 'ACTIVE') {
+                SE.applyLockedSignal(a, lock);
+              } else {
+                a.lockCleared = verdict || { status: 'GONE' };
+                saveSignalLock(symbol, null);
+              }
+            }
+            if (!a.lockedSignal && scope === 'create' && a.signalEligible) {
+              var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
+              if (nl) { saveSignalLock(symbol, nl); SE.applyLockedSignal(a, nl); }
+            }
+          }
+        } catch (e) {}
         a.confidence = a.confluenceScore;
         return a;
       }
@@ -533,18 +583,25 @@ function computeQuickAnalysis(candles, symbol, tf) {
   var swingLow = Math.min.apply(null, wins.map(function (c) { return c.low; }).concat([price]));
   var bull = price >= ema20 && ema20 >= ema50;
   var bear = price < ema20 && ema20 < ema50;
-  var direction = bull ? 'LONG' : bear ? (state.mode === 'investor' ? 'NEUTRAL' : 'SHORT') : 'NEUTRAL';
+  var softDir = bull ? 'LONG' : bear ? 'SHORT' : 'NEUTRAL';
   var score = bull ? 68 : bear ? 32 : 50;
   if (price > ma200) score += 7; else score -= 7;
   if (rsi > 52 && rsi < 72) score += 5; else if (rsi < 48 && rsi > 28) score -= 5;
   score = Math.max(12, Math.min(96, Math.round(score)));
+  // Gerbang ketat (mode ringan): sama dengan engine penuh — sinyal trader hanya
+  // jika skor >= 84. Winrate historis tidak tersedia di mode ringan -> dianggap
+  // tergantung menunggu engine penuh.
+  var liteEligible = softDir !== 'NEUTRAL' && score >= 84;
+  var direction = state.mode === 'investor'
+    ? (softDir === 'SHORT' ? 'NEUTRAL' : softDir)
+    : (liteEligible ? softDir : 'NEUTRAL');
   var riskDist = atr * 1.65;
-  var isShort = direction === 'SHORT';
-  var entry = price;
-  var sl = isShort ? entry + riskDist : entry - riskDist;
-  var tp1 = isShort ? entry - riskDist * 1.5 : entry + riskDist * 1.5;
-  var tp2 = isShort ? entry - riskDist * 2.5 : entry + riskDist * 2.5;
-  var tp3 = isShort ? entry - riskDist * 4.0 : entry + riskDist * 4.0;
+  var isShort = softDir === 'SHORT';
+  var entry = (liteEligible || state.mode === 'investor') ? price : null;
+  var sl = entry === null ? null : (isShort ? entry + riskDist : entry - riskDist);
+  var tp1 = entry === null ? null : (isShort ? entry - riskDist * 1.5 : entry + riskDist * 1.5);
+  var tp2 = entry === null ? null : (isShort ? entry - riskDist * 2.5 : entry + riskDist * 2.5);
+  var tp3 = entry === null ? null : (isShort ? entry - riskDist * 4.0 : entry + riskDist * 4.0);
   var meta = getMeta(symbol);
   var prevClose = n > 1 ? closes[n - 2] : price;
   var vwapVal = (ema20 + ema50) / 2;
@@ -554,11 +611,14 @@ function computeQuickAnalysis(candles, symbol, tf) {
     lastPrice: price, changePct: prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0,
     direction: direction, investorStatus: direction === 'LONG' ? 'GRADUAL DCA ACCUMULATION' : 'HOLD / WAIT VALUE',
     confluenceScore: score, confidence: score,
+    softBias: softDir, signalEligible: state.mode === 'investor' ? direction !== 'NEUTRAL' : liteEligible,
+    entryType: liteEligible ? 'MARKET' : null, lockedSignal: false,
+    gating: { minScore: 84, minWinRate: 78, score: score, winRate: 0, vetoLong: [], vetoShort: [], active: liteEligible ? [] : ['LOW_SCORE'], htfBias: 0 },
     regime: bull ? 'BULLISH ORDERFLOW' : bear ? 'BEARISH ORDERFLOW' : 'NORMAL EXPANSION',
     structureTag: bull ? 'HIGHER HIGH / HIGHER LOW' : bear ? 'LOWER HIGH / LOWER LOW' : 'INTERNAL RANGE EQUILIBRIUM',
     entry: entry, sl: sl, tp1: tp1, tp2: tp2, tp3: tp3,
     levels: {
-      entry: entry, sl: sl, tp1: tp1, tp2: tp2, tp3: tp3, rrRatio: 2.5,
+      entry: entry, sl: sl, tp1: tp1, tp2: tp2, tp3: tp3, rrRatio: entry === null ? null : 2.5,
       poc: price, vah: swingHigh, val: swingLow, tpoPoc: price, vwap: vwapVal,
       swingHigh: swingHigh, swingLow: swingLow,
       pivot: (swingHigh + swingLow + price) / 3, r1: swingHigh, r2: swingHigh, s1: swingLow, s2: swingLow,
@@ -831,7 +891,91 @@ function renderNarrative(a) {
   box.innerHTML =
     '<div style="margin-bottom:8px;font-weight:800;color:' + dirCol + ';">' + headTxt + '</div>' +
     reasons +
+    gateBlockHtml(a) +
     '<div style="margin-top:4px;font-size:11.5px;color:#94a3b8;">' + fillTpl(T('ui.eNarrFoot', 'Harga live, Entry/SL/TP & pilar di atas dihitung dari candle broker real-time. Setup terkunci selama periode candle {tf} aktif dan diperbarui otomatis setiap candle baru terbentuk.'), { tf: (a.timeframe || state.tf) }) + '</div>';
+}
+/* Blok gerbang institusional (aturan #1 D & #2) + papan TF terbaik hasil scan.
+   Memakai elemen narasi yang sudah ada — tanpa mengubah layout/halaman. */
+function gateBlockHtml(a) {
+  if (!a || a.error) return '';
+  if (state.mode !== 'trader') return '';
+  var out = '';
+  if (a.lockedSignal || a.signalEligible) {
+    var dTxt = a.direction === 'LONG' ? T('ui.tbLong', '▲ LONG / BUY') : T('ui.tbShort', '▼ SHORT / SELL');
+    out += '<div style="margin-top:7px;padding:7px 9px;border-radius:7px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);font-size:11.5px;color:#a7f3d0;">' +
+      fillTpl(T('ui.eGateLockOk', '🔒 Setup TERKUNCI di TF {tf} — {dir} • skor {s} • winrate {w}%. Angka Entry/SL/TP permanen hingga TP tersentuh, SL tembus, atau struktur penutup membatalkan Order Block.'), {
+        tf: (a.lockTf || a.timeframe || state.tf), dir: dTxt,
+        s: (a.lockScore || a.confluenceScore || 0), w: num(a.lockWinRate || (a.backtest ? a.backtest.winRate : 0)).toFixed(1)
+      }) + '</div>';
+  } else {
+    out += '<div style="margin-top:7px;padding:7px 9px;border-radius:7px;background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.32);font-size:11.5px;color:#fca5a5;">' +
+      fillTpl(T('ui.eGateForbidden', '⛔ TIMEFRAME {tf} DILARANG ENTRY (rawan loss) — gerbang institusional menolak; tidak ada angka Entry/SL/TP yang dipaksakan di TF ini.'), { tf: (a.timeframe || state.tf) }) +
+      '</div>';
+  }
+  var b = state.bestTfBoard;
+  if (b && b.groups) {
+    var cell = function (g) {
+      if (!g) return '—';
+      if (!g.tf) return '—';
+      return g.tf + (g.eligible ? ' ✅ (' + num(g.winRate).toFixed(0) + '%)' : ' ✖');
+    };
+    out += '<div style="margin-top:6px;font-size:11.5px;font-weight:700;color:#e2e8f0;">' +
+      fillTpl(T('ui.eGateBest', 'Sinyal Terbaik Saat Ini → Scalping: {sc} | Intraday: {id} | Swing: {sw}'), {
+        sc: cell(b.groups.scalping), id: cell(b.groups.intraday), sw: cell(b.groups.swing)
+      }) + '</div>' +
+      '<div style="font-size:10.8px;color:#94a3b8;">' + T('ui.eGateBestHint', 'Buka timeframe berlogo ✅ di atas untuk sinyal berprobabilitas tinggi (skor ≥ 84 & winrate ≥ 78%).') + '</div>';
+  } else if (!a.signalEligible && !a.lockedSignal) {
+    out += '<div style="font-size:10.8px;color:#94a3b8;margin-top:4px;">' + T('ui.eGateScanning', 'Memindai 9 timeframe di belakang layar untuk mengarahkan ke sinyal terbaik…') + '</div>';
+  }
+  return out;
+}
+
+/* ==================== 2B. SCAN MULTI-TIMEFRAME (aturan #2) ====================
+   Memindai 9 TF di belakang layar, memilih 1 TF terbaik per kelompok gaya
+   trading (Scalping M1/M5/M15, Intraday M30/H1/H4, Swing D1/W1/MN), lalu
+   menyajikan papan rekomendasi. Cache 5 menit per (simbol|mode) di-invalidate
+   saat candle closed baru terbentuk (anchor berubah). */
+var bestTfScanSeq = 0;
+var bestTfScanCache = {};
+function scheduleBestTfScan() {
+  try {
+    if (!SE || !SE.pickBestTimeframes) return;
+    if (state.mode === 'investor') { state.bestTfBoard = null; return; }
+    if (!state.lastAnalysis || state.lastAnalysis.error) return;
+    var sym = state.symbol;
+    var key = sym + '|' + (state.mode || 'trader') + '|' + (state.subMode || 'futures');
+    var anchor = num(state.lastAnalysis.anchorClosedTime, 0);
+    var cached = bestTfScanCache[key];
+    if (cached && cached.anchor === anchor && (Date.now() - cached.ts) < 300000) {
+      state.bestTfBoard = cached.board;
+      renderNarrative(state.lastAnalysis);
+      return;
+    }
+    var curTf = state.tf;
+    var ALL_TFS = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'];
+    var byTf = {};
+    byTf[curTf] = state.lastAnalysis;
+    var mySeq = ++bestTfScanSeq;
+    var jobs = [];
+    for (var i = 0; i < ALL_TFS.length; i++) {
+      (function (tf) {
+        if (tf === curTf) return;
+        jobs.push(fetchRealMarketCandles(sym, tf).then(function (d) {
+          return { tf: tf, a: computeQuantEngine(d.candles, sym, tf, false, 'apply') };
+        }));
+      })(ALL_TFS[i]);
+    }
+    Promise.allSettled(jobs).then(function (rs) {
+      if (mySeq !== bestTfScanSeq || state.symbol !== sym) return;
+      for (var j = 0; j < rs.length; j++) {
+        if (rs[j].status === 'fulfilled' && rs[j].value && rs[j].value.a && !rs[j].value.a.error) byTf[rs[j].value.tf] = rs[j].value.a;
+      }
+      var board = SE.pickBestTimeframes(byTf);
+      state.bestTfBoard = board;
+      bestTfScanCache[key] = { ts: Date.now(), anchor: anchor, board: board };
+      if (state.lastAnalysis && !state.lastAnalysis.error) renderNarrative(state.lastAnalysis);
+    }).catch(function () {});
+  } catch (e) {}
 }
 /* Parameter risiko futures (leverage aman & estimasi harga likuidasi) */
 function riskParams(a) {
@@ -847,14 +991,12 @@ function riskParams(a) {
    Futures memakai level 2-arah sesuai analisis, Investor memakai zona DCA. */
 function effectiveLevels(a) {
   var L = (a && a.levels) || {};
+  // Trader SPOT 1-arah: tampilkan level HANYA jika ada sinyal_LONG yang lolos
+  // gerbang ketat (entry sudah sangat terkunci di engine). Tidak ada entry liar
+  // dari harga live; tanpa sinyal valid -> panel menampilkan '--' (anti-overtrade).
   if (state.mode === 'trader' && state.subMode === 'spot') {
-    var e = num(a.lastPrice) || num(L.entry);
-    var atr = num(a.indicators ? a.indicators.atr : 0) || e * 0.012;
-    var risk = atr * 1.65;
-    return Object.assign({}, L, {
-      entry: e, sl: e - risk,
-      tp1: e + risk * 1.5, tp2: e + risk * 2.5, tp3: e + risk * 4.0
-    });
+    if (!a.signalEligible || a.direction !== 'LONG') return L;
+    return L;
   }
   return L;
 }
@@ -910,7 +1052,11 @@ function renderPanels(a) {
     dirBox.style.color = col;
     dirBox.style.background = col === '#10b981' ? 'rgba(16,185,129,0.18)' : col === '#f43f5e' ? 'rgba(244,63,94,0.18)' : 'rgba(245,158,11,0.16)';
   }
-  setTxt('valSetupLockBadge', fillTpl(T('ui.eLocked', '🔒 LOCKED {tf}'), { tf: (a.timeframe || state.tf) }));
+  var lockBadge;
+  if (a.lockedSignal) lockBadge = fillTpl(T('ui.eLocked', '🔒 LOCKED {tf}'), { tf: (a.lockTf || a.timeframe || state.tf) });
+  else if (a.signalEligible) lockBadge = fillTpl(T('ui.eEliteSetup', '✅ ELITE SETUP {tf}'), { tf: (a.timeframe || state.tf) });
+  else lockBadge = fillTpl(T('ui.eNoTradeTf', '🚫 NO-TRADE ZONE {tf}'), { tf: (a.timeframe || state.tf) });
+  setTxt('valSetupLockBadge', lockBadge);
   setTxt('valConfidenceScore', (a.confluenceScore || a.confidence || 50) + '%');
   setTxt('valRegime', localizeEngineString(a.regime || '-'));
   var L = effectiveLevels(a);
@@ -923,7 +1069,7 @@ function renderPanels(a) {
   var rp = riskParams(a);
   setTxt('valRecLeverage', rp.lev + 'x');
   setTxt('valLiqPrice', formatPrice(rp.liq, a.symbol));
-  setTxt('valRRRatio', '1 : ' + num(L.rrRatio, 2.5).toFixed(2));
+  setTxt('valRRRatio', L.rrRatio ? ('1 : ' + num(L.rrRatio).toFixed(2)) : '--');
   // Backtest
   var bt = a.backtest || {};
   if (bt.disabled) {
@@ -1122,7 +1268,7 @@ function connectRealtimeStream() {
    investor -> AKUMULASI / DCA / TUNGGU DISKON (framing beli-nyata). */
 function fetchRadarCandidate(item) {
   return fetchRealMarketCandles(item.sym, item.tf).then(function (d) {
-    var a = computeQuantEngine(d.candles, item.sym, item.tf, false);
+    var a = computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply');
     if (!a) throw new Error('no-analysis');
     return {
       sym: item.sym, tf: item.tf, analysis: a,
@@ -1361,6 +1507,7 @@ function gotoInstrument(sym, tf) {
   }
   state.candles = [];
   state.lastAnalysis = null;
+  state.bestTfBoard = null;
   renderInstrumentCatalog();
   saveSession();
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
@@ -1376,8 +1523,15 @@ function updateRiskSizing() {
   var riskPct = num($id('inpCalcRiskPct') ? $id('inpCalcRiskPct').value : 1, 1);
   var riskUsd = bal * (riskPct / 100);
   var L = effectiveLevels(a);
-  var stopDist = Math.abs(num(L.entry) - num(L.sl));
-  var units = stopDist > 0 ? riskUsd / stopDist : 0;
+  var stopDist = (L && L.entry && L.sl) ? Math.abs(num(L.entry) - num(L.sl)) : 0;
+  if (!(stopDist > 0)) {
+    // Tidak ada sinyal aktif (gerbang ketat menolak) -> kalkulator DILARANG
+    // menghitung lot dari harga liar dan TIDAK memicu kalkulasi ulang sinyal.
+    setTxt('valCalcDollarRisk', '--');
+    setTxt('valCalcLotSize', '--');
+    return;
+  }
+  var units = riskUsd / stopDist;
   setTxt('valCalcDollarRisk', '$' + riskUsd.toFixed(2));
   setTxt('valCalcLotSize', (units >= 100 ? units.toFixed(1) : units.toFixed(4)) + T('ui.eLotUnits', ' Unit'));
 }
@@ -1790,6 +1944,7 @@ function bindUiEvents() {
         Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) { b.classList.toggle('active', b === btn); });
         state.tf = tf; state.timeframe = tf;
         state.candles = [];
+        state.bestTfBoard = null;
         saveSession();
         if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
         connectRealtimeStream();
@@ -1867,6 +2022,7 @@ function selectSymbol(sym) {
   state.symbol = sym;
   state.candles = [];
   state.lastAnalysis = null;
+  state.bestTfBoard = null;
   renderInstrumentCatalog();
   saveSession(); // preferensi ikut tersimpan agar refresh tidak keluar
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
@@ -2102,6 +2258,7 @@ if (document.readyState === 'loading') {
     });
     if (analysis) {
       const drawLine = (p, col, lbl) => {
+        if (p == null || !Number.isFinite(Number(p))) return;
         const y = yOf(p);
         if (y < 10 || y > h - 10) return;
         ctx.strokeStyle = col;
@@ -2148,6 +2305,7 @@ if (document.readyState === 'loading') {
       }
       connectRealtimeStream();
       renderOpportunityRadar();
+      scheduleBestTfScan();
     } catch (err) {
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
@@ -2156,6 +2314,7 @@ if (document.readyState === 'loading') {
       renderAllVisuals(fallbackAnalysis, true);
       drawCanvasFallbackChart(state.candles, fallbackAnalysis);
       renderOpportunityRadar();
+      scheduleBestTfScan();
     }
   };
   // Pre-warm radar & initial analysis on load
