@@ -98,7 +98,7 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
   };
 }
 /* ================================================================================
-   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.44)
+   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.45)
    Upgrade otak pengambilan keputusan setara trader institusional 20+ tahun:
 
    A. HARD VETO SYSTEM (4 filter fatal pembatal sinyal otomatis)
@@ -305,7 +305,7 @@ export function evaluateHardVetoes(ctx) {
   const { price, rsi, div, vah, val, bullOb, bearOb, htfBias, eqHigh, eqLow, prevSessHigh, prevSessLow, oldHigh, oldLow, atr } = ctx;
   const long = [], short = [];
   const a = Math.max(atr, price * 1e-8);
-  // Catatan desain (v2026.44): "kejar kereta" (overextended) bukan lagi hard-veto —
+  // Catatan desain (v2026.45): "kejar kereta" (overextended) bukan lagi hard-veto —
   // entry kita SELALU limit di zona mitigasi (retest), jadi anti-chase terjamin by design;
   // overextension kini menjadi penalti skor, menjaga XSTARZG tetap mampu memberi sinyal.
   // Veto 2: LIQUIDITY WALL — hanya kolam likuiditas MAYOR (VAH/EQH/sesi lama/old high/OB),
@@ -876,13 +876,22 @@ export function validateSignalLock(lock, closedCandles, fresh) {
         if (c.low <= lock.tp1) return { status: 'TP_HIT', reason: 'TP tersentuh — setup selesai', at: c.time };
       }
     }
-    // Pembatalan struktur: struktur penutup candle berbalik melawan arah kunci
+    // Pembatalan struktur: flip label SMC saja TIDAK cukup untuk membunuh setup yang
+    // sudah direkomendasikan (TF scalping memang sering chop-flip). Invalidasi baru sah
+    // bila struktur berbalik DAN harga DITERIMA melawan trade >= 50% risiko dari entry
+    // pada penutupan candle. SL/TP hit (wick) tetap melepas lock secara jujur.
     if (newBars > 0 && fresh && fresh.indicators) {
       const st = String(fresh.indicators.smcStatus || '');
       const bearishFlip = st.indexOf('BEARISH') === 0;
       const bullishFlip = st.indexOf('BULLISH') === 0;
-      if (isLong && bearishFlip) return { status: 'STRUCTURE_INVALID', reason: 'Struktur penutup berbalik bearish — Order Block batal' };
-      if (!isLong && bullishFlip) return { status: 'STRUCTURE_INVALID', reason: 'Struktur penutup berbalik bullish — Order Block batal' };
+      const lastClosed = closedCandles[closedCandles.length - 1];
+      const cls = lastClosed ? Number(lastClosed.close) : NaN;
+      const risk = Math.max(Math.abs(Number(lock.entry) - Number(lock.sl)), 1e-12);
+      const againstLong = isLong && Number.isFinite(cls) && cls <= Number(lock.entry) - 0.5 * risk;
+      const againstShort = !isLong && Number.isFinite(cls) && cls >= Number(lock.entry) + 0.5 * risk;
+      if ((isLong && bearishFlip && againstLong) || (!isLong && bullishFlip && againstShort)) {
+        return { status: 'STRUCTURE_INVALID', reason: 'Struktur berbalik + harga diterima melawan trade (>=50% risiko) — Order Block batal' };
+      }
     }
     return { status: 'ACTIVE' };
   } catch (e) {

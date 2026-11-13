@@ -123,9 +123,12 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   // SL hit
   v = SE.validateSignalLock(lock, [{ time: 1200, open: 100, high: 101, low: 97.2, close: 97.4, volume: 1 }], null);
   chk('SL ditembus -> invalidated (unlock)', v.status === 'SL_HIT');
-  // Struktur berbalik saat ada candle baru -> unlock
+  // Struktur berbalik DAN harga diterima melawan >=50% risiko (close 98.3 <= 98.75) -> unlock
+  v = SE.validateSignalLock(lock, [{ time: 1300, open: 100, high: 100.6, low: 98.2, close: 98.3, volume: 1 }], { indicators: { smcStatus: 'BEARISH BOS (Break of Structure ▼)' } });
+  chk('flip struktur + penerimaan harga melawan -> unlock', v.status === 'STRUCTURE_INVALID');
+  // Flip label saja TANPA penerimaan harga -> lock tetap ACTIVE (anti chop)
   v = SE.validateSignalLock(lock, [{ time: 1300, open: 100, high: 101, low: 99, close: 99.5, volume: 1 }], { indicators: { smcStatus: 'BEARISH BOS (Break of Structure ▼)' } });
-  chk('struktur penutup berbalik -> unlock', v.status === 'STRUCTURE_INVALID');
+  chk('flip struktur tanpa penerimaan harga -> lock tetap ACTIVE', v.status === 'ACTIVE');
   // applyLockedSignal mengoverride level tampilan
   const fresh = SE.runFullAnalysis({ symbol: 'BTC/USDT', timeframe: 'H1', candles: gen('BTC/USDT', 'H1'), mode: 'trader', horizon: 'all' });
   if (!fresh.error) {
@@ -219,6 +222,21 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('lock mengikat skor keyakinan (conviction & confluence >= skor lock)', a.convictionScore >= 88 && a.confluenceScore >= 88);
   chk('lock mengikat level eksekusi', a.lockedSignal === true && a.levels.entry === 10.5 && a.levels.sl === 9.9 && a.levels.tp2 === 11.9);
   chk('lock memaksa status eligible', a.signalEligible === true && a.direction === 'LONG');
+}
+
+/* ---------- 15. Invalidasi lock: flip label saja TIDAK cukup ---------- */
+{
+  const mk = (t, c, lo) => ({ time: t, open: c, high: c * 1.002, low: lo || c * 0.998, close: c, volume: 100 });
+  const lockL = { status: 'ACTIVE', direction: 'LONG', tf: 'M5', score: 77, winRate: 60, entry: 100, sl: 98, tp1: 103.3, tp2: 104.4, tp3: 106, anchorClosedTime: 1000 };
+  let v = SE.validateSignalLock(lockL, [mk(2000, 99.6), mk(3000, 99.2)], { indicators: { smcStatus: 'BEARISH CHoCH (Change of Character ▼)' } });
+  chk('flip struktur TANPA penerimaan harga tidak melepas lock (anti chop M5)', v.status === 'ACTIVE');
+  v = SE.validateSignalLock(lockL, [mk(2000, 99.6), mk(3000, 98.6)], { indicators: { smcStatus: 'BEARISH CHoCH (Change of Character ▼)' } });
+  chk('flip + close melawan >=50% risiko melepas lock', v.status === 'STRUCTURE_INVALID');
+  v = SE.validateSignalLock(lockL, [mk(2000, 99.1, 97.9)], { indicators: { smcStatus: 'HIGHER HIGH / HIGHER LOW (Bullish Orderflow)' } });
+  chk('wick menembus SL tetap melepas lock (jujur)', v.status === 'SL_HIT');
+  const lockS = { status: 'ACTIVE', direction: 'SHORT', tf: 'M5', score: 71, entry: 100, sl: 102, tp1: 96.7, tp2: 95.6, anchorClosedTime: 1000 };
+  v = SE.validateSignalLock(lockS, [mk(2000, 100.6), mk(3000, 100.9)], { indicators: { smcStatus: 'BULLISH BOS (Break of Structure ▲)' } });
+  chk('SHORT: flip tanpa penerimaan tidak melepas lock', v.status === 'ACTIVE');
 }
 
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
