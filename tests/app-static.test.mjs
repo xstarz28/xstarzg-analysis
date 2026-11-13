@@ -80,6 +80,9 @@ chk('pindah mode memaksa rescan rekomendasi', app.includes('renderInvestorPicks(
 chk('gate konfirmasi volume & squeeze breakout', eng.includes('volImpulse') && eng.includes('squeezeBlockedDir') && eng.includes('SQUEEZE_UNCONFIRMED'));
 chk('tier memakai performa terkini (recentWinRate)', eng.includes('recentWinRate') && eng.includes('>= 70'));
 chk('fundamental terukur (macroQuant) ada di output & UI', eng.includes('macroQuant') && app.includes('fmCycle') && app.includes('fmVolPct'));
-
+chk('anti-desync: heartbeat canvas fallback terhubung ke tick live', app.includes('scheduleLiveCanvasRepaint()') && app.includes('window.drawCanvasFallbackChart = drawCanvasFallbackChart'));
+chk('websocket crypto self-heal (onclose reconnect)', app.includes('ws.onclose') && app.includes('setTimeout(startBinanceStream, 3000)'));
+chk('harga tampilan ikut walau candle belum siap', app.includes("setTxt('hdrLivePrice', formatPrice(price, state.symbol))"));
+chk('cadangan anti-stall Binance ticker untuk crypto', app.includes("ticker/price?symbol=' + sym2.replace"));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

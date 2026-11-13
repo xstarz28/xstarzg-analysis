@@ -1344,10 +1344,26 @@ function writeBackRadarPools(analysis) {
 }
 
 /* ==================== 6. REAL-TIME PRICE ENGINE (SEMUA INSTRUMEN) ==================== */
+/* Throttle redraw chart cadangan (canvas fallback saat CDN LightweightCharts
+   diblokir ISP): candle ikut bergerak per-tick, bukan cuma saat analisis ulang. */
+var liveCanvasRepaintTimer = null;
+function scheduleLiveCanvasRepaint() {
+  if (typeof LightweightCharts !== 'undefined') return; // chart utama aktif -> sudah sinkron
+  if (typeof window.drawCanvasFallbackChart !== 'function') return;
+  if (liveCanvasRepaintTimer) return;
+  liveCanvasRepaintTimer = setTimeout(function () {
+    liveCanvasRepaintTimer = null;
+    try { window.drawCanvasFallbackChart(state.candles, state.lastAnalysis); } catch (e) {}
+  }, 700);
+}
 function applyLiveTick(price, changePct, silent) {
   price = num(price);
   if (!price || price <= 0) return;
-  if (!state.candles || !state.candles.length) { state.livePrice = price; return; }
+  if (!state.candles || !state.candles.length) {
+    state.livePrice = price;
+    setTxt('hdrLivePrice', formatPrice(price, state.symbol)); // tampilan harga tidak boleh tertinggal
+    return;
+  }
   var step = TF_SECONDS[state.tf] || 3600;
   var nowSec = Math.floor(Date.now() / 1000);
   var bucket = Math.floor(nowSec / step) * step;
@@ -1386,6 +1402,7 @@ function applyLiveTick(price, changePct, silent) {
   }
   setTxt('hdrHigh', formatPrice(bar.high, state.symbol));
   setTxt('hdrLow', formatPrice(bar.low, state.symbol));
+  scheduleLiveCanvasRepaint(); // candle canvas fallback ikut seirama tiap tick
 }
 function startBinanceStream() {
   stopBinanceStream();
@@ -1407,6 +1424,11 @@ function startBinanceStream() {
       } catch (e) {}
     };
     ws.onerror = function () { /* polling ticker server (patch v2026.27) tetap aktif sebagai cadangan */ };
+    ws.onclose = function () {
+      // Self-heal: stream putus (diblokir ISP/koneksi jelek) -> coba sambung ulang
+      // selama simbol masih sama; polling 1.5 dtk tetap mengisi selama celah.
+      if (state.symbol === mySym && binanceWs === ws) setTimeout(startBinanceStream, 3000);
+    };
     binanceWs = ws;
   } catch (e) {}
 }
@@ -2436,7 +2458,21 @@ if (document.readyState === 'loading') {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // Anti-stall: edge quote gagal/lemot -> crypto coba langsung Binance ticker ringan
+      // supaya harga tampilan & candle tidak pernah tertinggal dari pasar.
+      try {
+        const sym2 = state.symbol;
+        if ((sym2 || '').indexOf('/USDT') > -1) {
+          const r2 = await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol=' + sym2.replace('/', ''), { cache: 'no-store' });
+          if (r2.ok) {
+            const j2 = await r2.json();
+            const lp = Number(j2 && j2.price);
+            if (lp > 0 && state.symbol === sym2 && typeof applyLiveTick === 'function') applyLiveTick(lp, undefined, true);
+          }
+        }
+      } catch (e2) {}
+    }
     rtBusy = false;
   }, 1500);
 })();
@@ -2554,6 +2590,8 @@ if (document.readyState === 'loading') {
       drawLine(analysis.tp2, '#10b981', 'TP2');
     }
   }
+  // Expose untuk heartbeat live-tick (anti-desync chart vs harga saat CDN diblokir)
+  window.drawCanvasFallbackChart = drawCanvasFallbackChart;
   // Override runFullAnalysis agar 100% langsung menggambar data & chart dalam 0 detik lalu menyinkronkan harga live
   window.runFullAnalysis = async function (forceRecalc = false) {
     try {
