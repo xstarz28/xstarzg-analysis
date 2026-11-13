@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Bars",
     "ctLine": "📈 Lijn",
     "ctArea": "🏔️ Gebied",
+    "eVetoSqueeze": "Bollinger-squeeze zonder volumebevestigde uitbraak — niet instappen vóór resolutie",
+    "fmCycle": "7. Gemeten prijscycluspositie",
+    "fmCycleHi": "op cycluspiek — exit-liquiditeitsrisico",
+    "fmCycleLo": "op cyclusdiepte — stuiterrisico",
+    "fmPersist": "8. Momentum-persistentie (50 candles)",
+    "fmVolPct": "9. ATR-volatiliteitspercentiel",
+    "fmVolPctVal": "Huidige ATR zit op het {p}%-percentiel van 120 waarnemingen",
+    "fmVolExt": "volatiliteitsafwijking — SL wordt snel door ruis geraakt",
+    "fmSession": "10. Sessiekwaliteit & HTF-afstemming",
+    "fmHtfOk": "HTF in lijn met signaalrichting",
+    "fmHtfNo": "HTF tegen — extra voorzichtigheid vereist",
     "eGateScanning": "Er worden 9 timeframes op de achtergrond gescand om je naar het beste signaal te leiden…",
   }
 };

@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 バー",
     "ctLine": "📈 ライン",
     "ctArea": "🏔️ エリア",
+    "eVetoSqueeze": "ボリンジャースクイズ未確定（出来高伴うブレイクなし）— 解決前に入らない",
+    "fmCycle": "7. 価格サイクル位置（実測）",
+    "fmCycleHi": "サイクル天井 — 出口流動性リスク",
+    "fmCycleLo": "サイクル底 — 反発リスク",
+    "fmPersist": "8. モメンタム持続性（50本）",
+    "fmVolPct": "9. ATRボラティリティ百分位",
+    "fmVolPctVal": "現在のATRは120観測値の{p}%パーセンタイル",
+    "fmVolExt": "ボラティリティ外れ値 — ノイズでSLが狩られやすい",
+    "fmSession": "10. セッション品質とHTF整合",
+    "fmHtfOk": "HTFがシグナル方向と整合",
+    "fmHtfNo": "HTFが逆方向 — 細心の注意が必要",
     "eGateScanning": "バックグラウンドで 9 つの時間枠をスキャンし、最良シグナルへご案内中…",
   }
 };

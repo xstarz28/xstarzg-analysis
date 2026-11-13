@@ -239,5 +239,20 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('SHORT: flip tanpa penerimaan tidak melepas lock', v.status === 'ACTIVE');
 }
 
+/* ---------- 16. Expert-upgrade: recent-form, fundamental terukur, volume/squeeze ---------- */
+{
+  const a = SE.runFullAnalysis({ symbol: 'ATOM/USDT', timeframe: 'M5', candles: gen('ATOM/USDT','M5'), mode: 'trader', horizon: 'all' });
+  chk('macroQuant terukur ada & sah', a.macroQuant && Number.isFinite(a.macroQuant.posCyclePct) && Number.isFinite(a.macroQuant.atrPercentile) && typeof a.macroQuant.sessionQuality === 'string');
+  chk('backtest membawa statistik terkini (recentWinRate/recentExpectancyR)', !a.backtest.disabled ? Number.isFinite(a.backtest.recentWinRate) && Number.isFinite(a.backtest.recentExpectancyR) : true);
+  chk('baris Fundamental Terukur muncul di reasons', (a.reasons || []).some(r => r.indexOf('[Fundamental Terukur]') === 0));
+  // ELITE wajib recent form kuat
+  let anyEliteWeak = false;
+  for (const sym of ['BTC/USDT','SOL/USDT','NVDA','EUR/USD','JUP/USDT','LINK/USDT']) for (const tf of ['M15','H1','H4']) {
+    const b = SE.runFullAnalysis({ symbol: sym, timeframe: tf, candles: gen(sym, tf), mode: 'trader', horizon: 'all' });
+    if (!b.error && b.signalTier === 'ELITE' && (b.backtest.recentWinRate || 0) < 70) anyEliteWeak = true;
+  }
+  chk('ELITE tanpa recent WR >=70 tidak mungkin terbit', !anyEliteWeak);
+}
+
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

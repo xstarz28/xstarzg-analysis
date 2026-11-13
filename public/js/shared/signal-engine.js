@@ -98,7 +98,7 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
   };
 }
 /* ================================================================================
-   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.45)
+   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.46)
    Upgrade otak pengambilan keputusan setara trader institusional 20+ tahun:
 
    A. HARD VETO SYSTEM (4 filter fatal pembatal sinyal otomatis)
@@ -305,7 +305,7 @@ export function evaluateHardVetoes(ctx) {
   const { price, rsi, div, vah, val, bullOb, bearOb, htfBias, eqHigh, eqLow, prevSessHigh, prevSessLow, oldHigh, oldLow, atr } = ctx;
   const long = [], short = [];
   const a = Math.max(atr, price * 1e-8);
-  // Catatan desain (v2026.45): "kejar kereta" (overextended) bukan lagi hard-veto —
+  // Catatan desain (v2026.46): "kejar kereta" (overextended) bukan lagi hard-veto —
   // entry kita SELALU limit di zona mitigasi (retest), jadi anti-chase terjamin by design;
   // overextension kini menjadi penalti skor, menjaga XSTARZG tetap mampu memberi sinyal.
   // Veto 2: LIQUIDITY WALL — hanya kolam likuiditas MAYOR (VAH/EQH/sesi lama/old high/OB),
@@ -392,7 +392,8 @@ export const VETO_LABELS = {
   LOW_WINRATE: 'Winrate historis di bawah ambang minimum',
   NO_SEQ: 'Belum ada urutan Liquidity Sweep -> CHoCH/BOS',
   CHOPPY: 'Struktur choppy (Efficiency Ratio rendah)',
-  SPOT_ONLY: 'Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)'
+  SPOT_ONLY: 'Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)',
+  SQUEEZE_UNCONFIRMED: 'Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antri sebelum resolusi'
 };
 
 export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', horizon = 'intraday', spotOnly = null, candles = [] }) {
@@ -611,6 +612,45 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const overextDn = ((ema20 - lastPrice) > OVEREXT_ATR * atr) || ((vwap - lastPrice) > OVEREXT_ATR * atr);
   if (rawAdj >= 50 && overextUp) rawAdj -= 8;
   else if (rawAdj < 50 && overextDn) rawAdj -= 8;
+  // ================= FUNDAMENTAL TERUKUR (diukur dari data candle nyata) =================
+  // Menggantikan narasi makro statis dengan metrik yang BENAR-BENAR terukur: posisi
+  // siklus, drawdown dari puncak, persistensi momentum, persentil volatilitas,
+  // kualitas sesi likuiditas, dan keselarasan HTF — semua memodulasi skor (maks ±6).
+  let spanHi = -Infinity, spanLo = Infinity;
+  for (let i = 0; i < closed.length; i++) { if (closed[i].high > spanHi) spanHi = closed[i].high; if (closed[i].low < spanLo) spanLo = closed[i].low; }
+  const posCycle = spanHi > spanLo ? (lastPrice - spanLo) / (spanHi - spanLo) : 0.5;
+  const drawdownPct = spanHi > 0 ? ((spanHi - lastPrice) / spanHi) * 100 : 0;
+  let upCnt = 0; const span50 = Math.min(50, closes.length);
+  for (let i = closes.length - span50 + 1; i < closes.length; i++) if (closes[i] > closes[i - 1]) upCnt++;
+  const upRatioPct = span50 > 1 ? (upCnt / (span50 - 1)) * 100 : 50;
+  const atrSeriesTail = atrArr.slice(-120).filter(v => Number.isFinite(v));
+  const atrNow = atrSeriesTail.length ? atrSeriesTail[atrSeriesTail.length - 1] : atr;
+  const atrRank = atrSeriesTail.length ? atrSeriesTail.filter(v => v <= atrNow).length / atrSeriesTail.length : 0.5;
+  const hrUtc = lastCandle && lastCandle.time ? new Date(lastCandle.time * 1000).getUTCHours() : 12;
+  const liquidSession = hrUtc >= 7 && hrUtc <= 21;
+  const sessionQuality = tfSec <= 3600 ? (liquidSession ? 'SESI LIKUID (London/NY)' : 'SESI TIPIS (dead zone)') : 'SESI MAKRO (24/7)';
+  const htfAligned = (htfBias > 0 && rawDirectional >= 50) || (htfBias < 0 && rawDirectional < 50);
+  let macroAdj = 0;
+  if (rawDirectional >= 50) {
+    macroAdj += posCycle < 0.30 ? 2 : posCycle > 0.88 ? -2.5 : 0; // LONG di puncak siklus = rawan jadi exit liquidity
+    macroAdj += upRatioPct >= 55 ? 1.4 : upRatioPct <= 42 ? -1.6 : 0;
+  } else {
+    macroAdj += posCycle > 0.70 ? 2 : posCycle < 0.12 ? -2.5 : 0; // SHORT tepat di dasar = rawan pantulan
+    macroAdj += upRatioPct <= 45 ? 1.4 : upRatioPct >= 58 ? -1.6 : 0;
+  }
+  if (atrRank > 0.92) macroAdj -= 2; // volatilitas outlier — SL mudah tersambar noise
+  if (!htfAligned) macroAdj -= 1.8;
+  if (tfSec <= 3600 && !liquidSession) macroAdj -= 1.2;
+  macroAdj = Math.max(-6, Math.min(6, macroAdj));
+  rawAdj += macroAdj;
+  const macroQuant = {
+    posCyclePct: Math.round(posCycle * 100),
+    drawdownPct: Number(drawdownPct.toFixed(1)),
+    upClosesPct: Math.round(upRatioPct),
+    atrPercentile: Math.round(atrRank * 100),
+    sessionQuality, htfAligned,
+    macroAdj: Number(macroAdj.toFixed(1))
+  };
   // Bukti walk-forward ikut MENILAI sebelum skor ditutup (koherensi WR <-> confidence):
   // statistik historis per-arah menarik skor menjauhi 50 searah keunggulan historis;
   // bukti lemah menariknya kembali ke netral. Sampel terbatas diredam 40%.
@@ -646,8 +686,21 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     oldHigh: liqPools.oldHigh, oldLow: liqPools.oldLow
   };
   const vetoes = evaluateHardVetoes(htfCtx);
-  const seqOkLong = modern.smcBias > 0 && (modern.sweepBias > 0 || modern.smcStatus.indexOf('BULLISH') === 0);
-  const seqOkShort = modern.smcBias < 0 && (modern.sweepBias < 0 || modern.smcStatus.indexOf('BEARISH') === 0);
+  // Konfirmasi VOLUME institusional (aturan sweep->BOS WAJIB disertai kaki impulsif):
+  // volume maksimal 3 candle terakhir harus >= 1.25x rata-rata 20 candle. Feed tanpa
+  // data volume diperlakukan netral (tidak menghukum).
+  const vols20 = closed.slice(-21).map(c => Number(c.volume) || 0);
+  const volAvg20 = vols20.length > 1 ? vols20.slice(0, -1).reduce((a, b) => a + b, 0) / (vols20.length - 1) : 0;
+  const volRecent = Math.max(Number(closed[lastIdx].volume) || 0, Number(closed[lastIdx - 1] && closed[lastIdx - 1].volume) || 0, Number(closed[lastIdx - 2] && closed[lastIdx - 2].volume) || 0);
+  const volImpulse = volAvg20 > 0 ? volRecent >= 1.25 * volAvg20 : true;
+  // SQUEEZE wajib RESOLUSI: "siap breakout" bukan izin entry. LONG baru sah bila harga
+  // sudah ditutup di atas Bollinger atas dengan momentum; SHORT sebaliknya.
+  const squeezeOn = bbWidth < 1.25;
+  const squeezeBreakLong = !squeezeOn || (lastPrice > bbUpper && macdHist > 0);
+  const squeezeBreakShort = !squeezeOn || (lastPrice < bbLower && macdHist < 0);
+  const squeezeBlockedDir = softBias === 'LONG' ? !squeezeBreakLong : softBias === 'SHORT' ? !squeezeBreakShort : false;
+  const seqOkLong = modern.smcBias > 0 && (modern.sweepBias > 0 || modern.smcStatus.indexOf('BULLISH') === 0) && volImpulse;
+  const seqOkShort = modern.smcBias < 0 && (modern.sweepBias < 0 || modern.smcStatus.indexOf('BEARISH') === 0) && volImpulse;
   const dirVetoes = softBias === 'LONG' ? vetoes.long : softBias === 'SHORT' ? vetoes.short : [];
   const vetoFree = dirVetoes.length === 0;
   const seqOk = softBias === 'LONG' ? seqOkLong : softBias === 'SHORT' ? seqOkShort : false;
@@ -661,11 +714,14 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // wajib: nol hard-veto + urutan Sweep->MSS + struktur bersih (anti-jebakan tetap mutlak).
   const expectancyOk = backtest.disabled ? false : (backtest.expectancyR > 0);
   const evidenceEnough = !backtest.disabled && (backtest.sampleSize || 0) >= 25;
+  // Performa TERKINI (15 setup historis terakhir) — masa lalu jauh tidak cukup:
+  // ELITE wajib recent WR >=70; PRO (bukti cukup) recent WR >=45 sebagai lantai.
+  const recentWR = backtest.disabled ? 0 : (backtest.recentWinRate || 0);
   let signalTier = null;
   if (mode === 'trader' && softBias !== 'NEUTRAL' && vetoFree && seqOk && erOk && !backtest.disabled
-      && !(spotOnlyEffect && softBias === 'SHORT')) {
-    if (qualityScore >= STRICT_MIN_SCORE && winRate >= STRICT_MIN_WINRATE && evidenceEnough && expectancyOk) signalTier = 'ELITE';
-    else if (qualityScore >= PRO_MIN_SCORE && (!evidenceEnough || (winRate >= PRO_MIN_WINRATE && expectancyOk))) signalTier = 'PRO';
+      && !squeezeBlockedDir && !(spotOnlyEffect && softBias === 'SHORT')) {
+    if (qualityScore >= STRICT_MIN_SCORE && winRate >= STRICT_MIN_WINRATE && evidenceEnough && expectancyOk && recentWR >= 70) signalTier = 'ELITE';
+    else if (qualityScore >= PRO_MIN_SCORE && (!evidenceEnough || (winRate >= PRO_MIN_WINRATE && expectancyOk && recentWR >= 45))) signalTier = 'PRO';
   }
   const eligible = signalTier !== null;
   let gateReasons = [];
@@ -673,8 +729,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   else if (!vetoFree) { for (const v of dirVetoes) gateReasons.push(v); }
   if (spotOnlyEffect && mode === 'trader' && softBias === 'SHORT') gateReasons.push('SPOT_ONLY');
   if (softBias !== 'NEUTRAL' && qualityScore >= PRO_MIN_SCORE) {
-    if (backtest.disabled || (evidenceEnough && (winRate < PRO_MIN_WINRATE || !expectancyOk))) gateReasons.push('LOW_WINRATE');
+    if (backtest.disabled || (evidenceEnough && (winRate < PRO_MIN_WINRATE || !expectancyOk || recentWR < 45))) gateReasons.push('LOW_WINRATE');
     if (!seqOk) gateReasons.push('NO_SEQ');
+    if (squeezeBlockedDir) gateReasons.push('SQUEEZE_UNCONFIRMED');
     if (!erOk) gateReasons.push('CHOPPY');
   }
   // Skor yang DIPUBLIKASIKAN selalu koheren dengan peluang: tanpa sinyal -> skor
@@ -751,7 +808,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     `[FVG & Supply/Demand] ${fvgNote} | Zona Demand: ${formatSmartPrice(modern.demandZone.low)} | Zona Supply: ${formatSmartPrice(modern.supplyZone.high)}.`,
     `[MA Stack & Bollinger] EMA20 (${formatSmartPrice(ema20)}) / EMA50 (${formatSmartPrice(ema50)}) / MA200 (${formatSmartPrice(ma200)}) | RSI(14): ${rsi.toFixed(1)}.`,
     `[ORB • Theta • VWAP Entry] ORB: ${orb.state}${orb.high ? ' (' + formatSmartPrice(orb.low) + ' – ' + formatSmartPrice(orb.high) + ')' : ''} | Theta Index: ${thetaIndex}/100 (${thetaNote}) | Entry VWAP: ${vwapEntry.text} | Efficiency Ratio: ${(erValue * 100).toFixed(0)}%.`,
-    `[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`
+    `[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`,
+    `[Fundamental Terukur] Siklus ${macroQuant.posCyclePct}% range | Drawdown ${macroQuant.drawdownPct}% dari puncak | Momentum naik ${macroQuant.upClosesPct}% | Persentil ATR ${macroQuant.atrPercentile}% | ${macroQuant.sessionQuality} | HTF ${macroQuant.htfAligned ? 'SELARAS' : 'TIDAK SELARAS'} | Adj ${macroQuant.macroAdj > 0 ? '+' : ''}${macroQuant.macroAdj}.`
   ];
   return {
     symbol: meta.symbol,
@@ -824,6 +882,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       erValue, erNote, quantEdgeScore
     },
     fundamentalCot,
+    macroQuant,
     backtest,
     reasons,
     series: {
@@ -980,6 +1039,7 @@ export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto
   let wins = 0, losses = 0, grossWinR = 0, grossLossR = 0, eqR = 0, peakR = 0, maxDdR = 0;
   let longWins = 0, longLosses = 0, shortWins = 0, shortLosses = 0;
   const feeR = isCrypto ? 0.09 : 0.08;
+  const rseq = []; // urutan R tiap trade -> statistik performa terkini
   // Walk-forward MEMODELKAN setup sniper yang diterbitkan: TP1 di 1.1R (tutup 50%,
   // stop geser ke Break-Even), TP2 di 2.2R, SL di balik wick (risk 1.35 ATR).
   // Ini menjaga winRate historis sejalan dengan peluang nyata setup yang keluar.
@@ -1029,6 +1089,7 @@ export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto
     }
     if (outcomeR > 0.01) { wins++; grossWinR += outcomeR; if (dir === 1) longWins++; else shortWins++; }
     else { losses++; grossLossR += Math.abs(outcomeR); if (dir === 1) longLosses++; else shortLosses++; }
+    rseq.push(outcomeR);
     eqR += outcomeR;
     if (eqR > peakR) peakR = eqR;
     const dd = peakR - eqR;
@@ -1040,6 +1101,10 @@ export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto
   const expectancyR = total > 0 ? (grossWinR - grossLossR) / total : 0;
   const profitFactor = grossLossR > 0 ? grossWinR / grossLossR : wins > 0 ? 2.5 : 0;
   const weakEvidence = total < 30 || expectancyR <= 0;
+  const rTail = rseq.slice(-15);
+  const rWins = rTail.filter(v => v > 0.01);
+  const rWin = rTail.reduce((a, b) => a + (b > 0.01 ? b : 0), 0);
+  const rLoss = rTail.reduce((a, b) => a + (b > 0.01 ? 0 : Math.abs(b)), 0);
   const longTotal = longWins + longLosses, shortTotal = shortWins + shortLosses;
   return {
     disabled: false,
@@ -1050,6 +1115,9 @@ export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto
     shortTotal,
     longWR: longTotal > 0 ? Number(((longWins / longTotal) * 100).toFixed(1)) : 0,
     shortWR: shortTotal > 0 ? Number(((shortWins / shortTotal) * 100).toFixed(1)) : 0,
+    recentSample: rTail.length,
+    recentWinRate: rTail.length ? Number(((rWins.length / rTail.length) * 100).toFixed(1)) : 0,
+    recentExpectancyR: rTail.length ? Number(((rWin - rLoss) / rTail.length).toFixed(2)) : 0,
     winRate: Number(winRate.toFixed(1)),
     expectancyR: Number(expectancyR.toFixed(2)),
     profitFactor: Number(profitFactor.toFixed(2)),

@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Bars",
     "ctLine": "📈 Line",
     "ctArea": "🏔️ Area",
+    "eVetoSqueeze": "Bollinger Squeeze unconfirmed (no volume-backed breakout) — do not queue before resolution",
+    "fmCycle": "7. Measured Price-Cycle Position",
+    "fmCycleHi": "at cycle top — exit-liquidity risk",
+    "fmCycleLo": "at cycle bottom — bounce risk",
+    "fmPersist": "8. Momentum Persistence (50 candles)",
+    "fmVolPct": "9. ATR Volatility Percentile",
+    "fmVolPctVal": "Current ATR sits at the {p}% percentile of 120 observations",
+    "fmVolExt": "volatility outlier — SL easily clipped by noise",
+    "fmSession": "10. Session Quality & HTF Alignment",
+    "fmHtfOk": "HTF aligned with signal direction",
+    "fmHtfNo": "HTF against — extra caution required",
     "eGateScanning": "Scanning 9 timeframes in the background to route you to the best signal…",
   }
 };

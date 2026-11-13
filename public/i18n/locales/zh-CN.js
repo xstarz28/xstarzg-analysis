@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 美国线",
     "ctLine": "📈 折线",
     "ctArea": "🏔️ 面积图",
+    "eVetoSqueeze": "布林挤压尚未放量突破确认 — 突破前不要排队入场",
+    "fmCycle": "7. 价格周期位置（实测）",
+    "fmCycleHi": "处于周期顶部——退出流动性风险",
+    "fmCycleLo": "处于周期底部——反弹风险",
+    "fmPersist": "8. 动量持续性（50根K线）",
+    "fmVolPct": "9. ATR波动率百分位",
+    "fmVolPctVal": "当前ATR处于120次观测的{p}%百分位",
+    "fmVolExt": "波动率异常值——止损容易被噪音扫掉",
+    "fmSession": "10. 时段质量与HTF一致性",
+    "fmHtfOk": "HTF与信号方向一致",
+    "fmHtfNo": "HTF逆向——需格外谨慎",
     "eGateScanning": "正在后台扫描 9 个时间框架，为您引导至最佳信号…",
   }
 };

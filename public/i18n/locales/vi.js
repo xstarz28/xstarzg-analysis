@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Thanh",
     "ctLine": "📈 Đường",
     "ctArea": "🏔️ Vùng",
+    "eVetoSqueeze": "Bollinger Squeeze chưa xác nhận breakout kèm volume — đừng vào trước khi phân giải",
+    "fmCycle": "7. Vị thế chu kỳ giá (đo lường)",
+    "fmCycleHi": "ở đỉnh chu kỳ — rủi ro exit liquidity",
+    "fmCycleLo": "ở đáy chu kỳ — rủi ro bật lại",
+    "fmPersist": "8. Độ bền momentum (50 nến)",
+    "fmVolPct": "9. Phân vị biến động ATR",
+    "fmVolPctVal": "ATR hiện tại ở phân vị {p}% của 120 quan sát",
+    "fmVolExt": "biến động ngoại lai — SL dễ bị quét bởi nhiễu",
+    "fmSession": "10. Chất lượng phiên & phù hợp HTF",
+    "fmHtfOk": "HTF cùng hướng với tín hiệu",
+    "fmHtfNo": "HTF ngược chiều — cần hết sức thận trọng",
     "eGateScanning": "Đang quét 9 khung thời gian ngầm để dẫn bạn tới tín hiệu tốt nhất…",
   }
 };

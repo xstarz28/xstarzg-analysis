@@ -489,6 +489,17 @@ export default {
     "ctBars": "📊 Bar",
     "ctLine": "📈 Garis",
     "ctArea": "🏔️ Kawasan",
+    "eVetoSqueeze": "Bollinger Squeeze belum disahkan breakout ber-volum — jangan beratur sebelum resolusi",
+    "fmCycle": "7. Posisi Kitaran Harga (Terukur)",
+    "fmCycleHi": "di puncak kitaran — risiko exit liquidity",
+    "fmCycleLo": "di dasar kitaran — risiko lantunan",
+    "fmPersist": "8. Persistensi Momentum (50 batang)",
+    "fmVolPct": "9. Persentil Kemeruapan ATR",
+    "fmVolPctVal": "ATR semasa pada persentil {p}% daripada 120 cerapan",
+    "fmVolExt": "kemeruapan luar biasa — SL mudah kena noise",
+    "fmSession": "10. Kualiti Sesi & Penjajaran HTF",
+    "fmHtfOk": "HTF sejajar dengan arah isyarat",
+    "fmHtfNo": "HTF bertentangan — wajib lebih berhati-hati",
     "eGateScanning": "Mengimbas 9 timeframe di belakang tabir untuk mengarahkan anda ke isyarat terbaik…",
   }
 };
