@@ -163,6 +163,7 @@ function buildEngineTextMap() {
     ['Struktur choppy (Efficiency Ratio rendah)', 'eVetoChop'],
     ['Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)', 'eVetoSpotOnly'],
     ['Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antri sebelum resolusi', 'eVetoSqueeze'],
+    ['Momentum baru 1 candle — menunggu candle ke-2 searah (anti fakeout tajam)', 'eVetoPersist'],
     ['Menunggu konfirmasi', 'eWaitConf'],
     // String mode-ringan (engine sintetis app.js saat modul kuant penuh belum termuat)
     ['N/A — engine penuh belum termuat', 'eLiteOrb'],
@@ -537,27 +538,86 @@ function lazyLoadCryptoPairs() {
    (simbol | mode | subMode). Sinyal terkunci hanya dilepas saat TP tersentuh,
    SL ditembus, atau struktur candle closed berbalik (lihat validateSignalLock di
    engine). Refresh (F5), pindah menu, dan klik kalkulator TIDAK menggeser angka. */
-var SIGNAL_LOCK_KEY = 'xstarzg_siglock_v2';
+/* v2026.47: kunci ditingkatkan per (simbol|mode|subMode|TF) — radar multi-TF tidak
+   saling menimpa; entri v2 dimigrasi (lock aktif TIDAK dibuang diam-diam).
+   SETIAP pelepasan lock dicatat outcome-nya (jujur, bukan hilang tanpa jejak) dan
+   SL/invalidasi memicu cooldown penerbitan ulang untuk simbol+TF yang sama. */
+var SIGNAL_LOCK_KEY = 'xstarzg_siglock_v3';
+var SIGNAL_LOCK_KEY_V2 = 'xstarzg_siglock_v2';
+var SIGNAL_OUTCOME_KEY = 'xstarzg_sigoutcome_v1';
+var RADAR_ACC_KEY = 'xstarzg_radaracc_v1';
 function signalLockStore() {
-  try { var p = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY) || '{}'); return (p && typeof p === 'object') ? p : {}; }
-  catch (e) { return {}; }
+  var p = {};
+  try { p = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY) || '{}') || {}; } catch (e) { p = {}; }
+  if (!p.__migratedV2) {
+    try {
+      var old = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY_V2) || '{}') || {};
+      for (var ok in old) {
+        var ol = old[ok];
+        if (ol && ol.status === 'ACTIVE' && ol.tf) {
+          var nk = ok + '|' + ol.tf;
+          if (!p[nk]) p[nk] = ol;
+        }
+      }
+    } catch (e) {}
+    p.__migratedV2 = 1;
+    try { localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(p)); } catch (e) {}
+  }
+  return p;
 }
-function signalLockId(symbol) {
-  return (symbol || '').toUpperCase() + '|' + (state.mode || 'trader') + '|' + (state.mode === 'investor' ? 'spot' : (state.subMode || 'futures'));
+function signalLockId(symbol, tf) {
+  return (symbol || '').toUpperCase() + '|' + (state.mode || 'trader') + '|' + (state.mode === 'investor' ? 'spot' : (state.subMode || 'futures')) + '|' + String(tf || state.tf || '');
 }
-function getSignalLock(symbol) {
-  var l = signalLockStore()[signalLockId(symbol)];
+function getSignalLock(symbol, tf) {
+  var l = signalLockStore()[signalLockId(symbol, tf)];
   return (l && l.status === 'ACTIVE') ? l : null;
 }
-function saveSignalLock(symbol, lock) {
+function saveSignalLock(symbol, tf, lock) {
   try {
     var all = signalLockStore();
-    var id = signalLockId(symbol);
+    var id = signalLockId(symbol, tf);
     if (lock) all[id] = lock; else delete all[id];
-    var ks = Object.keys(all);
-    while (ks.length > 40) { var k0 = ks.shift(); delete all[k0]; }
+    var ks = Object.keys(all).filter(function (k) { return k !== '__migratedV2'; });
+    while (ks.length > 60) { var k0 = ks.shift(); delete all[k0]; }
     localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
   } catch (e) {}
+}
+/* --- Outcome tercatat & akurasi radar terukur (loop umpan-balik jujur) --- */
+function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(SIGNAL_OUTCOME_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function hzOfTf(tf) { var t = String(tf || ''); if (t === 'M1' || t === 'M5' || t === 'M15') return 'scalping'; if (t === 'M30' || t === 'H1') return 'intraday'; return 'swing'; }
+function outcomeCooldownMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 30 * 60000 : hz === 'intraday' ? 90 * 60000 : 6 * 3600000; }
+function outcomeBadgeWindowMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 45 * 60000 : hz === 'intraday' ? 3 * 3600000 : 12 * 3600000; }
+function radarAccStore() { try { return JSON.parse(localStorage.getItem(RADAR_ACC_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function recordSignalOutcome(symbol, tf, verdict, lock) {
+  try {
+    var oc = String((verdict && verdict.status) || '');
+    if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID') return;
+    var out = signalOutcomeStore();
+    out[signalLockId(symbol, tf)] = { status: oc, reason: verdict.reason || '', at: Date.now(), dir: lock && lock.direction, entry: lock && lock.entry, score: lock && lock.score };
+    var ks = Object.keys(out);
+    while (ks.length > 80) { var k0 = ks.shift(); delete out[k0]; }
+    localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
+    if (SE && SE.updateRadarAccuracy) {
+      var acc = radarAccStore();
+      var hz = hzOfTf(tf);
+      acc[hz] = SE.updateRadarAccuracy(acc[hz], oc === 'TP_HIT' ? 'TP' : 'SL');
+      localStorage.setItem(RADAR_ACC_KEY, JSON.stringify(acc));
+    }
+  } catch (e) {}
+}
+function signalCooldownActive(symbol, tf) {
+  var o = signalOutcomeStore()[signalLockId(symbol, tf)];
+  return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID') && (Date.now() - o.at) < outcomeCooldownMs(tf));
+}
+function latestSignalOutcome(symbol, tf) {
+  var o = signalOutcomeStore()[signalLockId(symbol, tf)];
+  return (o && (Date.now() - o.at) < outcomeBadgeWindowMs(tf)) ? o : null;
+}
+function adaptiveMinScore(tf) {
+  try {
+    if (SE && SE.radarAdaptiveGate) return SE.radarAdaptiveGate(radarAccStore()[hzOfTf(tf)]).minScore;
+  } catch (e) {}
+  return 62;
 }
 
 /* ==================== 2. MESIN ANALISIS QUANT (computeQuantEngine) ==================== */
@@ -576,20 +636,26 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope) {
         var scope = (lockScope === 'create' || lockScope === 'apply') ? lockScope : 'create';
         try {
           if (typeof SE.validateSignalLock === 'function') {
-            var lock = getSignalLock(symbol);
-            if (lock && lock.tf === (a.timeframe || tf)) {
+            var tfA = a.timeframe || tf;
+            var lock = getSignalLock(symbol, tfA);
+            if (lock && lock.tf === tfA) {
               var closedBars = SE.trimClosedCandles(candles, a.tfSeconds || 3600);
               var verdict = SE.validateSignalLock(lock, closedBars, a);
               if (verdict && verdict.status === 'ACTIVE') {
                 SE.applyLockedSignal(a, lock);
               } else {
                 a.lockCleared = verdict || { status: 'GONE' };
-                saveSignalLock(symbol, null);
+                recordSignalOutcome(symbol, tfA, verdict, lock); // jujur: outcome dicatat
+                saveSignalLock(symbol, tfA, null);
               }
             }
-            if (!a.lockedSignal && scope === 'create' && a.signalEligible) {
+            /* Kartu yang TAMPIL (create/apply) = komitmen terlacak. Penerbitan baru
+               dihormati 2 penjaga: cooldown pasca-SL/invalidasi + ambang adaptif
+               dari akurasi terukur horizon (mengetat otomatis saat radar buruk). */
+            if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible
+                && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
-              if (nl) { saveSignalLock(symbol, nl); SE.applyLockedSignal(a, nl); }
+              if (nl) { saveSignalLock(symbol, tfA, nl); SE.applyLockedSignal(a, nl); }
             }
           }
         } catch (e) {}
@@ -1530,6 +1596,19 @@ function paintRadarItems(cfg, items) {
     var sc = num(a.convictionScore, a.confluenceScore);
     var entryRef = state.mode === 'investor' ? (a.levels && a.levels.dcaZone1 ? a.levels.dcaZone1 : a.lastPrice) : (a.levels ? a.levels.entry : a.lastPrice);
     var isActive = it.sym === state.symbol && it.tf === state.tf;
+    // Badge outcome jujur: sinyal yang gugur/selesai TIDAK hilang diam-diam —
+    // kartu menampilkan hasil akhirnya (TP/SL/dibatalkan struktur) + jamnya.
+    var outBadge = '';
+    var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(it.sym, it.tf) : null;
+    if (oc) {
+      var ocTxt = oc.status === 'TP_HIT' ? T('ui.eOutTp', 'TP tercapai — setup selesai')
+        : oc.status === 'STRUCTURE_INVALID' ? T('ui.eOutInv', 'Dibatalkan struktur + penerimaan harga')
+        : T('ui.eOutSl', 'SL tersentuh — sinyal invalid');
+      var dt = new Date(oc.at);
+      var hhmm = ('0' + dt.getHours()).slice(-2) + ':' + ('0' + dt.getMinutes()).slice(-2);
+      outBadge = '<span class="sig-badge ' + (oc.status === 'TP_HIT' ? 'long' : 'wait') + '" style="margin-top:4px;">'
+        + (oc.status === 'TP_HIT' ? '✓ ' : '✗ ') + ocTxt + ' • ' + hhmm + '</span>';
+    }
     html += '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '" data-tf="' + it.tf + '">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
         '<span class="r-sym">' + it.sym + ' <small style="color:#64748b;font-weight:700;">' + it.tf + '</small></span>' +
@@ -1540,7 +1619,7 @@ function paintRadarItems(cfg, items) {
         '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
         '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
       '</div>' +
-      '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' +
+      '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' + outBadge +
       '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
         '<span class="r-entry">' + (state.mode === 'investor' ? T('ui.cDcaShort', 'Zona DCA 1: ') : T('ui.cEntry', 'Entry: ')) + formatPrice(entryRef, it.sym) + '</span>' +
         '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
@@ -1698,7 +1777,14 @@ function renderOpportunityRadar(force) {
   syncHorizonTabs();
   var infoEl = $id('radarHorizonInfo');
   var hzCap = hz.charAt(0).toUpperCase() + hz.slice(1);
-  if (infoEl) infoEl.textContent = (state.mode === 'investor' ? T('ui.radarInfoI' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoInvestor || '') : T('ui.radarInfoT' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoTrader || ''));
+  if (infoEl) {
+    var accTxt = '';
+    try {
+      var stAcc = radarAccStore()[hz];
+      if (stAcc && stAcc.sample >= 5) accTxt = ' • ' + T('ui.eAccRadar', 'Akurasi radar terukur: {wr}% (n={n})').replace('{wr}', stAcc.winRate).replace('{n}', stAcc.sample);
+    } catch (e) {}
+    infoEl.textContent = (state.mode === 'investor' ? T('ui.radarInfoI' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoInvestor || '') : T('ui.radarInfoT' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoTrader || '')) + accTxt;
+  }
   /* Radar merata ke seluruh katalog: batch bergilir per slot 5 menit + cache
      per-instrumen (TTL 8 mnt) -> semua simbol dinilai, 12 sinyal terkuat tampil. */
   var tfFor = hz === 'scalping' ? 'M5' : hz === 'swing' ? 'D1' : 'H1';
