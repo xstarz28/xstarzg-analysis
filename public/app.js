@@ -1444,6 +1444,7 @@ function fetchRadarCandidate(item) {
     if (!a) throw new Error('no-analysis');
     return {
       sym: item.sym, tf: item.tf, analysis: a,
+      candles: Array.isArray(d.candles) ? d.candles.slice(-240) : null, // snapshot utk konsistensi klik-through
       price: num(d.price) > 0 ? num(d.price) : a.lastPrice,
       changePct: Number.isFinite(Number(d.changePct)) ? Number(d.changePct) : num(a.changePct),
       source: d.source || 'BROKER FEED'
@@ -1685,6 +1686,26 @@ function renderOpportunityRadar(force) {
     paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4));
   }).catch(function () {});
 }
+/* Kon-sistensi klik-through: hasil yang tampil di kartu rekomendasi (trader &
+   investor) HARUS sama dengan yang tampil di workspace. Karena engine deterministik
+   per candle closed, kita pakai ulang snapshot candle kartu yang masih segar
+   (<=3 menit) sebagai data awal workspace — angka skor/entry tidak mungkin flip. */
+function primeFromRadarPool(sym, tf) {
+  var now = Date.now();
+  var pools = [];
+  for (var hz in radarScanPool) pools.push(radarScanPool[hz]);
+  pools.push(investorScanPool);
+  for (var p = 0; p < pools.length; p++) {
+    var pool = pools[p];
+    for (var key in pool) {
+      var rec = pool[key];
+      if (rec && rec.item && rec.item.sym === sym && rec.item.tf === tf && rec.item.candles && (now - rec.ts) < 180000) {
+        return rec.item.candles;
+      }
+    }
+  }
+  return null;
+}
 function gotoInstrument(sym, tf) {
   if (!sym) return;
   if (!ensureQuotaFor(sym)) {
@@ -1702,11 +1723,21 @@ function gotoInstrument(sym, tf) {
       });
     }
   }
-  state.candles = [];
+  var primed = primeFromRadarPool(sym, tf);
+  state.candles = primed ? primed.slice() : [];
   state.lastAnalysis = null;
   state.bestTfBoard = null;
   renderInstrumentCatalog();
   saveSession();
+  // Render instan dari snapshot kartu (skor/entry identik dengan yang diklik user),
+  // sekaligus scope 'create' agar sinyal yang tampil langsung TERKUNCI permanen —
+  // refresh/kalkulasi ulang berikutnya tidak bisa mengubahnya sampai TP/SL/invalidasi.
+  if (primed) {
+    try {
+      var primeAnalysis = computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create');
+      if (primeAnalysis && !primeAnalysis.error) renderAllVisuals(primeAnalysis, true);
+    } catch (e) {}
+  }
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
   connectRealtimeStream();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
