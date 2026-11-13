@@ -254,5 +254,30 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('ELITE tanpa recent WR >=70 tidak mungkin terbit', !anyEliteWeak);
 }
 
+/* ---------- 17. Siklus hidup sinyal + persistensi + akurasi adaptif ---------- */
+{
+  const a = SE.runFullAnalysis({ symbol: 'ATOM/USDT', timeframe: 'M5', candles: gen('ATOM/USDT','M5'), mode: 'trader', horizon: 'all' });
+  chk('output membawa persistOk (gate persistensi)', typeof a.persistOk === 'boolean');
+  let tierTanpaPersist = false;
+  for (const sym of ['BTC/USDT','SOL/USDT','NVDA','EUR/USD','JUP/USDT','LINK/USDT']) for (const tf of ['M5','M15','H1','H4']) {
+    const b = SE.runFullAnalysis({ symbol: sym, timeframe: tf, candles: gen(sym, tf), mode: 'trader', horizon: 'all' });
+    if (!b.error && b.signalTier && b.persistOk !== true) tierTanpaPersist = true;
+  }
+  chk('tier tanpa persistOk mustahil terbit', !tierTanpaPersist);
+  let st = null;
+  st = SE.updateRadarAccuracy(st, 'TP'); st = SE.updateRadarAccuracy(st, 'SL'); st = SE.updateRadarAccuracy(st, 'SL');
+  chk('updateRadarAccuracy menghitung benar', st.sample === 3 && st.wins === 1 && st.losses === 2 && st.winRate === 33);
+  for (let i = 0; i < 60; i++) st = SE.updateRadarAccuracy(st, 'TP');
+  chk('akurasi dibatasi 40 terakhir', st.sample === 40);
+  const gCold = SE.radarAdaptiveGate({ sample: 12, winRate: 40 });
+  const gMid = SE.radarAdaptiveGate({ sample: 12, winRate: 50 });
+  const gHot = SE.radarAdaptiveGate({ sample: 12, winRate: 70 });
+  const gSmall = SE.radarAdaptiveGate({ sample: 4, winRate: 10 });
+  chk('gate adaptif benar: WR<45 -> +6, <55 -> +3, sehat -> +0, sampel kecil -> netral',
+    gCold.minScore === SE.PRO_MIN_SCORE + 6 && gCold.defensive === true &&
+    gMid.minScore === SE.PRO_MIN_SCORE + 3 &&
+    gHot.minScore === SE.PRO_MIN_SCORE && gHot.defensive === false &&
+    gSmall.minScore === SE.PRO_MIN_SCORE);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -98,7 +98,7 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
   };
 }
 /* ================================================================================
-   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.46)
+   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.47)
    Upgrade otak pengambilan keputusan setara trader institusional 20+ tahun:
 
    A. HARD VETO SYSTEM (4 filter fatal pembatal sinyal otomatis)
@@ -305,7 +305,7 @@ export function evaluateHardVetoes(ctx) {
   const { price, rsi, div, vah, val, bullOb, bearOb, htfBias, eqHigh, eqLow, prevSessHigh, prevSessLow, oldHigh, oldLow, atr } = ctx;
   const long = [], short = [];
   const a = Math.max(atr, price * 1e-8);
-  // Catatan desain (v2026.46): "kejar kereta" (overextended) bukan lagi hard-veto —
+  // Catatan desain (v2026.47): "kejar kereta" (overextended) bukan lagi hard-veto —
   // entry kita SELALU limit di zona mitigasi (retest), jadi anti-chase terjamin by design;
   // overextension kini menjadi penalti skor, menjaga XSTARZG tetap mampu memberi sinyal.
   // Veto 2: LIQUIDITY WALL — hanya kolam likuiditas MAYOR (VAH/EQH/sesi lama/old high/OB),
@@ -393,7 +393,8 @@ export const VETO_LABELS = {
   NO_SEQ: 'Belum ada urutan Liquidity Sweep -> CHoCH/BOS',
   CHOPPY: 'Struktur choppy (Efficiency Ratio rendah)',
   SPOT_ONLY: 'Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)',
-  SQUEEZE_UNCONFIRMED: 'Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antri sebelum resolusi'
+  SQUEEZE_UNCONFIRMED: 'Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antri sebelum resolusi',
+  PERSIST_WAIT: 'Momentum baru 1 candle — menunggu candle ke-2 searah (anti fakeout tajam)'
 };
 
 export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', horizon = 'intraday', spotOnly = null, candles = [] }) {
@@ -710,6 +711,17 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const qualityScore = softBias === 'SHORT' ? 100 - analystScore
     : softBias === 'LONG' ? analystScore
     : 50 - Math.abs(analystScore - 50);
+  // PERSISTENSI MOMENTUM 2-CANDLE (anti fakeout): sinyal baru diterbitkan HANYA bila
+  // minimal 2 candle penutup terakhir searah (tubuh searah + closing naik/turun).
+  // Lonjakan 1 candle yang hilang saat dicek ulang = fakeout klasik -> ditolak.
+  // Pengecualian: ledakan 1 candle yang impulsif-terukur (volume + skor sangat kuat).
+  const cP1 = closed[lastIdx], cP0 = closed[lastIdx - 1];
+  const bodyUp = c => !!c && Number(c.close) > Number(c.open);
+  const bodyDn = c => !!c && Number(c.close) < Number(c.open);
+  const persistLong = bodyUp(cP1) && bodyUp(cP0) && Number(cP1.close) > Number(cP0.close);
+  const persistShort = bodyDn(cP1) && bodyDn(cP0) && Number(cP1.close) < Number(cP0.close);
+  let persistOk = softBias === 'LONG' ? persistLong : softBias === 'SHORT' ? persistShort : false;
+  if (!persistOk && softBias !== 'NEUTRAL' && volImpulse && qualityScore >= PRO_MIN_SCORE + 10) persistOk = true;
   // Sinyal bertingkat: ELITE (>=84 & WR>=78) atau PRO (>=64 & WR>=55). Kedua tier
   // wajib: nol hard-veto + urutan Sweep->MSS + struktur bersih (anti-jebakan tetap mutlak).
   const expectancyOk = backtest.disabled ? false : (backtest.expectancyR > 0);
@@ -719,7 +731,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const recentWR = backtest.disabled ? 0 : (backtest.recentWinRate || 0);
   let signalTier = null;
   if (mode === 'trader' && softBias !== 'NEUTRAL' && vetoFree && seqOk && erOk && !backtest.disabled
-      && !squeezeBlockedDir && !(spotOnlyEffect && softBias === 'SHORT')) {
+      && !squeezeBlockedDir && persistOk && !(spotOnlyEffect && softBias === 'SHORT')) {
     if (qualityScore >= STRICT_MIN_SCORE && winRate >= STRICT_MIN_WINRATE && evidenceEnough && expectancyOk && recentWR >= 70) signalTier = 'ELITE';
     else if (qualityScore >= PRO_MIN_SCORE && (!evidenceEnough || (winRate >= PRO_MIN_WINRATE && expectancyOk && recentWR >= 45))) signalTier = 'PRO';
   }
@@ -732,6 +744,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     if (backtest.disabled || (evidenceEnough && (winRate < PRO_MIN_WINRATE || !expectancyOk || recentWR < 45))) gateReasons.push('LOW_WINRATE');
     if (!seqOk) gateReasons.push('NO_SEQ');
     if (squeezeBlockedDir) gateReasons.push('SQUEEZE_UNCONFIRMED');
+    if (!persistOk) gateReasons.push('PERSIST_WAIT');
     if (!erOk) gateReasons.push('CHOPPY');
   }
   // Skor yang DIPUBLIKASIKAN selalu koheren dengan peluang: tanpa sinyal -> skor
@@ -833,7 +846,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     convictionScore,
     signalEligible: eligible,
     signalTier,
-    analystScore,
+    persistOk,
+ analystScore,
     entryType,
     lockedSignal: false,
     gating: {
@@ -976,6 +990,29 @@ export function applyLockedSignal(a, lock) {
     rrRatio: lock.rrRatio
   });
   return a;
+}
+
+/* ==================== RADAR SIGNAL LIFECYCLE (aturan #5) ====================
+   Sinyal yang TAMPIL di radar = komitmen terlacak (bukan cuplikan sekali lirik):
+   outcome dicatat, akurasi radar diukur, dan ambang penerbitan mengetat otomatis
+   saat akurasi horizon jeblok (umpan-balik jujur — fake signal tidak bisa hilang
+   diam-diam). Fungsi murni/deterministik; storage dipegang pemanggil. */
+export function updateRadarAccuracy(stats, outcome, maxN = 40) {
+  const r = (stats && Array.isArray(stats.recent)) ? stats.recent.slice() : [];
+  r.push(outcome === 'TP' ? 1 : 0);
+  while (r.length > maxN) r.shift();
+  const wins = r.reduce((a, b) => a + b, 0);
+  return { recent: r, sample: r.length, wins, losses: r.length - wins, winRate: r.length ? Math.round((wins / r.length) * 100) : 0 };
+}
+export function radarAdaptiveGate(stats, baseMin = PRO_MIN_SCORE) {
+  const sample = stats && Number.isFinite(stats.sample) ? stats.sample : 0;
+  const wr = stats && Number.isFinite(stats.winRate) ? stats.winRate : 100;
+  let extra = 0;
+  if (sample >= 10) {
+    if (wr < 45) extra = 6;       // horizon sedang buruk -> terbitkan hanya yang jauh lebih kuat
+    else if (wr < 55) extra = 3;  // waspada ringan
+  }
+  return { minScore: baseMin + extra, defensive: extra > 0, winRate: wr, sample };
 }
 
 /* ==================== SELEKSI MULTI-TIMEFRAME (aturan #2) ====================

@@ -14,12 +14,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.46/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.46/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.46">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.46">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.46/.test(boot) && /signal-engine\.js\?v=2026\.46/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.46/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.47/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.47/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.47">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.47">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.47/.test(boot) && /signal-engine\.js\?v=2026\.47/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.47/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -36,7 +36,7 @@ chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
 chk('radar/kurasi memakai scope apply (tidak menerbitkan lock)', app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply')"));
 chk('lock divalidasi sebelum diterapkan', app.includes('SE.validateSignalLock(') && app.includes('SE.applyLockedSignal('));
-chk('lock baru diterbitkan hanya dari sinyal eligible', /a\.signalEligible\)\s*\{\s*var nl = SE\.createSignalLock/.test(app));
+chk('lock baru diterbitkan hanya dari sinyal eligible + 2 penjaga', /signalCooldownActive\(symbol, tfA\) && num\(a\.confluenceScore, 0\) >= adaptiveMinScore\(tfA\)\) \{\s*var nl = SE\.createSignalLock/.test(app));
 
 // --- Wiring scan multi-TF (aturan #2) ---
 chk('9 TF dipindai', app.includes("'M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'"));
@@ -54,7 +54,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (423)', uniform && count === 423);
+chk('20 locale punya keyset ui seragam (428)', uniform && count === 428);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -84,5 +84,11 @@ chk('anti-desync: heartbeat canvas fallback terhubung ke tick live', app.include
 chk('websocket crypto self-heal (onclose reconnect)', app.includes('ws.onclose') && app.includes('setTimeout(startBinanceStream, 3000)'));
 chk('harga tampilan ikut walau candle belum siap', app.includes("setTxt('hdrLivePrice', formatPrice(price, state.symbol))"));
 chk('cadangan anti-stall Binance ticker untuk crypto', app.includes("ticker/price?symbol=' + sym2.replace"));
+chk('lock v3 per-TF + migrasi v2 (sinyal lama tidak dibuang)', app.includes("'xstarzg_siglock_v3'") && app.includes('__migratedV2') && app.includes("'|' + String(tf || state.tf || '')"));
+chk('lifecycle outcome tercatat + cooldown pasca-SL', app.includes('recordSignalOutcome(symbol, tfA, verdict, lock)') && app.includes('signalCooldownActive(symbol, tfA)') && app.includes("'xstarzg_sigoutcome_v1'"));
+chk('kartu radar ikut menerbitkan kunci (scope create/apply)', app.includes("(scope === 'create' || scope === 'apply') && a.signalEligible"));
+chk('akurasi radar adaptif mengetatkan ambang terbit', app.includes('adaptiveMinScore(tfA)') && eng.includes('radarAdaptiveGate') && eng.includes('updateRadarAccuracy'));
+chk('badge outcome jujur di kartu radar', app.includes('latestSignalOutcome(it.sym, it.tf)') && app.includes('eOutSl'));
+chk('gate persistensi 2-candle anti fakeout', eng.includes('persistOk') && eng.includes('PERSIST_WAIT'));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
