@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ 時間框架 {tf} 禁止進場（易虧損）—— 機構門禁已拒絕；本 TF 不會強行給出 Entry/SL/TP 數值。",
     "eGateBest": "目前最佳訊號 → 剝頭皮: {sc} | 日內: {id} | 波段: {sw}",
     "eGateBestHint": "開啟標示 ✅（PRO，評分 ≥62）或 ★（ELITE，評分 ≥84 且勝率 ≥78%）的週期。",
+    "ctCandles": "🕯️ 蠟燭圖",
+    "ctBars": "📊 竹線圖",
+    "ctLine": "📈 折線",
+    "ctArea": "🏔️ 面積圖",
     "eGateScanning": "正在背景掃描 9 個時間框架，為您導向最佳訊號…",
   }
 };

@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ TEMPORALIDADE {tf} PROIBIDA PARA ENTRADA (risco de perda) — o filtro institucional rejeitou; nenhum valor de Entry/SL/TP é forçado neste TF.",
     "eGateBest": "Melhor Sinal Agora → Scalping: {sc} | Intraday: {id} | Swing: {sw}",
     "eGateBestHint": "Abra o TF com ✅ (PRO, pontuação ≥62) ou ★ (ELITE, pontuação ≥84 e WR ≥78%).",
+    "ctCandles": "🕯️ Velas",
+    "ctBars": "📊 Barras",
+    "ctLine": "📈 Linha",
+    "ctArea": "🏔️ Área",
     "eGateScanning": "Escaneando 9 temporalidades em segundo plano para direcioná-lo ao melhor sinal…",
   }
 };

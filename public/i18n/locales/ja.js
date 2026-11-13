@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ 時間枠 {tf} はエントリー禁止（損失リスク大）— 機関ゲートが却下。このTFでは Entry/SL/TP の数値を強制表示しません。",
     "eGateBest": "現在の最良シグナル → スキャル: {sc} | デイ: {id} | スイング: {sw}",
     "eGateBestHint": "✅（PRO、スコア≥62）または ★（ELITE、スコア≥84・勝率≥78%）のTFを開いてください。",
+    "ctCandles": "🕯️ ローソク足",
+    "ctBars": "📊 バー",
+    "ctLine": "📈 ライン",
+    "ctArea": "🏔️ エリア",
     "eGateScanning": "バックグラウンドで 9 つの時間枠をスキャンし、最良シグナルへご案内中…",
   }
 };

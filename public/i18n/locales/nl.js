@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ TIMEFRAME {tf} VERBODEN VOOR ENTRY (verliesgevoelig) — de institutionele poort weigerde het; er worden geen Entry/SL/TP-waarden afgedwongen op dit TF.",
     "eGateBest": "Beste Signaal Nu → Scalping: {sc} | Intraday: {id} | Swing: {sw}",
     "eGateBestHint": "Open TF met ✅ (PRO, score ≥62) of ★ (ELITE, score ≥84 & WR ≥78%).",
+    "ctCandles": "🕯️ Candles",
+    "ctBars": "📊 Bars",
+    "ctLine": "📈 Lijn",
+    "ctArea": "🏔️ Gebied",
     "eGateScanning": "Er worden 9 timeframes op de achtergrond gescand om je naar het beste signaal te leiden…",
   }
 };

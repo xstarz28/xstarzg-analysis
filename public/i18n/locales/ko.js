@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ 타임프레임 {tf} 진입 금지(손실 위험) — 기관 게이트가 거부했습니다. 이 TF에서는 Entry/SL/TP 수치를 억지로 표시하지 않습니다.",
     "eGateBest": "현재 최고 신호 → 스캘핑: {sc} | 인트라데이: {id} | 스윙: {sw}",
     "eGateBestHint": "✅(PRO, 점수 ≥62) 또는 ★(ELITE, 점수 ≥84 & 승률 ≥78%) 표시된 TF를 여세요.",
+    "ctCandles": "🕯️ 캔들",
+    "ctBars": "📊 바",
+    "ctLine": "📈 라인",
+    "ctArea": "🏔️ 영역",
     "eGateScanning": "백그라운드에서 9개 타임프레임을 스캔해 최적 신호로 안내 중…",
   }
 };

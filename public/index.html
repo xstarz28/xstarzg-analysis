@@ -10,7 +10,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.42" />
+  <link rel="stylesheet" href="/styles.css?v=2026.43" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -203,6 +203,12 @@
               <div><span style="color:#94a3b8;">Low:</span> <strong id="hdrLow">4,045.00</strong></div>
               <div><span style="color:#94a3b8;">ATR(14):</span> <strong id="hdrATR">12.50</strong></div>
             </div>
+          </div>
+          <div id="chartTypeBar" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 4px 8px 2px;border-top:1px solid rgba(30,41,59,0.6);">
+            <button type="button" class="tf-btn chart-type-btn active" data-ctype="candles" data-i18n="ui.ctCandles">🕯️ Candlestick</button>
+            <button type="button" class="tf-btn chart-type-btn" data-ctype="bars" data-i18n="ui.ctBars">📊 Bar</button>
+            <button type="button" class="tf-btn chart-type-btn" data-ctype="line" data-i18n="ui.ctLine">📈 Line</button>
+            <button type="button" class="tf-btn chart-type-btn" data-ctype="area" data-i18n="ui.ctArea">🏔️ Area</button>
           </div>
           <div id="tvChartContainer" class="tv-chart-box"></div>
         </div>
@@ -443,8 +449,8 @@
       </button>
     </div>
   </div>
-  <script type="module" src="/js/engine-boot.js?v=2026.42"></script>
-  <script src="/app.js?v=2026.42"></script>
-  <script type="module" src="/i18n/boot.js?v=2026.42"></script>
+  <script type="module" src="/js/engine-boot.js?v=2026.43"></script>
+  <script src="/app.js?v=2026.43"></script>
+  <script type="module" src="/i18n/boot.js?v=2026.43"></script>
 </body>
 </html>

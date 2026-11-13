@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ TIMEFRAME {tf} FÜR EINSTIEG GESPERRT (verlustträchtig) — das institutionelle Gate hat ihn abgelehnt; auf diesem TF werden keine Entry/SL/TP-Werte erzwungen.",
     "eGateBest": "Bestes Signal jetzt → Scalping: {sc} | Intraday: {id} | Swing: {sw}",
     "eGateBestHint": "TF mit ✅ (PRO, Score ≥62) oder ★ (ELITE, Score ≥84 & WR ≥78%) öffnen.",
+    "ctCandles": "🕯️ Kerzen",
+    "ctBars": "📊 Balken",
+    "ctLine": "📈 Linie",
+    "ctArea": "🏔️ Fläche",
     "eGateScanning": "Scanne 9 Timeframes im Hintergrund, um zum besten Signal zu führen…",
   }
 };

@@ -257,6 +257,7 @@ var state = {
   tf: 'H1', timeframe: 'H1',
   mode: 'trader',            // 'trader' | 'investor'
   subMode: 'futures',        // 'futures' | 'spot'
+  chartType: 'candles',      // 'candles' | 'bars' | 'line' | 'area' (ala TradingView)
   radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
   bestTfBoard: null,         // papan hasil scan multi-TF (engine), diisi async
   candles: [],
@@ -775,12 +776,88 @@ function fetchRealMarketCandles(symbol, tf) {
   });
 }
 
+/* Payload seri utama sesuai tipe chart: candlestick/bar = OHLC penuh;
+   line/area = titik close saja. Semua jalur data (setData & tick live) WAJIB
+   lewat helper ini supaya chart selalu konsisten dengan harga. */
+function mainSeriesPayload(candles) {
+  if (state.chartType === 'line' || state.chartType === 'area') {
+    var out = [];
+    for (var q = 0; q < candles.length; q++) out.push({ time: candles[q].time, value: candles[q].close });
+    return out;
+  }
+  return candles;
+}
+function updateMainSeries(bar) {
+  if (!candleSeries || !bar) return;
+  var p = (state.chartType === 'line' || state.chartType === 'area') ? { time: bar.time, value: bar.close } : bar;
+  try { candleSeries.update(p); } catch (e) {}
+}
+/* Ganti tipe chart ala TradingView: seri harga utama dibongkar & dibangun ulang
+   sesuai pilihan; overlay indikator & garis level digambar ulang di seri baru. */
+function applyChartType(type, skipSave) {
+  if (['candles', 'bars', 'line', 'area'].indexOf(type) === -1) type = 'candles';
+  state.chartType = type;
+  if (!skipSave) { try { localStorage.setItem('xstarzg_chart_type', type); } catch (e) {} }
+  var barEl = $id('chartTypeBar');
+  if (barEl) Array.prototype.forEach.call(barEl.querySelectorAll('.chart-type-btn'), function (b) {
+    b.classList.toggle('active', b.getAttribute('data-ctype') === type);
+  });
+  if (!chartInstance) return;
+  try { if (candleSeries) chartInstance.removeSeries(candleSeries); } catch (e) {}
+  candleSeries = null; drawnPriceLines = [];
+  if (type === 'bars') {
+    candleSeries = chartInstance.addBarSeries({ upColor: '#10b981', downColor: '#f43f5e', thinBars: false });
+  } else if (type === 'line') {
+    candleSeries = chartInstance.addLineSeries({ color: '#38bdf8', lineWidth: 2, lastValueVisible: true });
+  } else if (type === 'area') {
+    candleSeries = chartInstance.addAreaSeries({ lineColor: '#38bdf8', topColor: 'rgba(56,189,248,0.32)', bottomColor: 'rgba(56,189,248,0.03)', lineWidth: 2, lastValueVisible: true });
+  } else {
+    candleSeries = chartInstance.addCandlestickSeries({
+      upColor: '#10b981', downColor: '#f43f5e',
+      borderUpColor: '#10b981', borderDownColor: '#f43f5e',
+      wickUpColor: '#10b981', wickDownColor: '#f43f5e'
+    });
+  }
+  if (state.candles && state.candles.length) candleSeries.setData(mainSeriesPayload(state.candles));
+  if (state.lastAnalysis) {
+    try { syncIndicatorOverlays(state.lastAnalysis); } catch (e) {}
+    try { drawChartLevels(state.lastAnalysis); } catch (e) {}
+  }
+  try { chartInstance.timeScale().fitContent(); } catch (e) {}
+}
+
 /* ==================== 4. GRAFIK TRADINGVIEW (Lightweight Charts) ==================== */
 function initChart() {
   var el = $id('tvChartContainer');
   if (!el) return false;
   if (chartInstance) return true;
   if (typeof LightweightCharts === 'undefined') return false; // canvas fallback menangani
+  // Mobile: container bisa berukuran 0 saat init terlalu dini (rotasi/panel baru
+  // tampil) -> tunggu frame berikutnya sampai ada lebar nyata, maksimal ~1.5 dtk.
+  // Satu timer pending saja (flag global) agar panggilan berulang tidak menumpuk timer.
+  if ((el.clientWidth || 0) < 40) {
+    if (typeof window !== 'undefined' && !window.__chartInitPending) {
+      window.__chartInitPending = true;
+      var tries = 0;
+      var tmr = setInterval(function () {
+        tries++;
+        if ((el.clientWidth || 0) >= 40 || tries > 45) {
+          clearInterval(tmr);
+          window.__chartInitPending = false;
+          if (!chartInstance) {
+            try {
+              initChart();
+              if (chartInstance && state.candles && state.candles.length) {
+                if (state.lastAnalysis) renderAllVisuals(state.lastAnalysis);
+                else candleSeries && candleSeries.setData(mainSeriesPayload(state.candles));
+              }
+            } catch (e) {}
+          }
+        }
+      }, 33);
+    }
+    return false;
+  }
   try {
     chartInstance = LightweightCharts.createChart(el, {
       width: el.clientWidth || 820,
@@ -807,6 +884,23 @@ function initChart() {
         if (chartInstance && w > 0) chartInstance.applyOptions({ width: w });
       } catch (e) {}
     });
+    // ResizeObserver: rotasi HP / buka-tutup panel / keyboard virtual tetap rapi
+    try {
+      if (typeof ResizeObserver !== 'undefined') {
+        var ro = new ResizeObserver(function () {
+          try {
+            if (chartInstance && el.clientWidth > 0) chartInstance.applyOptions({ width: el.clientWidth });
+          } catch (e) {}
+        });
+        ro.observe(el);
+      }
+    } catch (e) {}
+    // Hormati preferensi tipe chart tersimpan
+    try {
+      var savedCt = localStorage.getItem('xstarzg_chart_type');
+      if (savedCt && savedCt !== 'candles') applyChartType(savedCt, true);
+      else applyChartType('candles', true);
+    } catch (e) {}
     return true;
   } catch (e) {
     chartInstance = null; candleSeries = null;
@@ -1214,7 +1308,7 @@ function renderAllVisuals(analysis) {
   try { renderHeader(analysis); } catch (e) {}
   try {
     if (candleSeries && state.candles && state.candles.length) {
-      candleSeries.setData(state.candles);
+      candleSeries.setData(mainSeriesPayload(state.candles));
     }
     syncIndicatorOverlays(analysis);
     drawChartLevels(analysis);
@@ -1245,7 +1339,7 @@ function applyLiveTick(price, changePct, silent) {
     if (price < bar.low) bar.low = price;
     state.candles[idx] = bar;
   }
-  if (candleSeries && candleSeries.update) { try { candleSeries.update(bar); } catch (e) {} }
+  updateMainSeries(bar);
   var prev = num(state.livePrice, price);
   state.livePrice = price;
   if (changePct !== undefined && Number.isFinite(Number(changePct))) state.liveChangePct = Number(changePct);
@@ -1512,7 +1606,7 @@ function renderInvestorPicks(force) {
   if (!grid) return;
   var now = Date.now();
   var cachedItems = [];
-  for (var k0 in investorScanPool) if (now - investorScanPool[k0].ts < 600000) cachedItems.push(investorScanPool[k0].item);
+  for (var k0 in investorScanPool) if (now - investorScanPool[k0].ts < 1800000) cachedItems.push(investorScanPool[k0].item);
   var longOnly = cachedItems.filter(function (it) { return it.analysis.direction === 'LONG'; });
   longOnly.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
   var shown0 = longOnly.slice(0, 12);
@@ -1533,7 +1627,7 @@ function renderInvestorPicks(force) {
     }
     var merged = [];
     var now2 = Date.now();
-    for (var k in investorScanPool) if (now2 - investorScanPool[k].ts < 600000) merged.push(investorScanPool[k].item);
+    for (var k in investorScanPool) if (now2 - investorScanPool[k].ts < 1800000) merged.push(investorScanPool[k].item);
     // Hanya aset yang bias makronya memang akumulatif (LONG D1/W1) yang direkomendasikan
     // untuk diinvestasikan — diurut dari skor konfluensi makro terkuat.
     var longs = merged.filter(function (it) { return it.analysis.direction === 'LONG' && num(it.analysis.convictionScore, 0) >= 55; });
@@ -1564,7 +1658,7 @@ function renderOpportunityRadar(force) {
   var pool = radarScanPool[cacheKey] = radarScanPool[cacheKey] || {};
   var fresh = [];
   var now = Date.now();
-  for (var k in pool) if (now - pool[k].ts < 8 * 60000) fresh.push(pool[k].item);
+  for (var k in pool) if (now - pool[k].ts < 30 * 60000) fresh.push(pool[k].item);
   fresh.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
   // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
@@ -1585,7 +1679,7 @@ function renderOpportunityRadar(force) {
     }
     var merged = [];
     var now2 = Date.now();
-    for (var k2 in pool) if (now2 - pool[k2].ts < 8 * 60000) merged.push(pool[k2].item);
+    for (var k2 in pool) if (now2 - pool[k2].ts < 30 * 60000) merged.push(pool[k2].item);
     merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
     var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55; });
     paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4));
@@ -2055,6 +2149,13 @@ function bindUiEvents() {
       });
     });
   }
+  /* ---- Pemilih tipe chart (Candlestick/Bar/Line/Area) ---- */
+  var ctBar = $id('chartTypeBar');
+  if (ctBar) {
+    Array.prototype.forEach.call(ctBar.querySelectorAll('.chart-type-btn'), function (btn) {
+      btn.addEventListener('click', function () { applyChartType(btn.getAttribute('data-ctype')); });
+    });
+  }
   /* ---- Tab horizon radar (Scalping / Intraday / Swing) ---- */
   var hzBar = $id('radarHorizonBar');
   if (hzBar) {
@@ -2251,18 +2352,10 @@ if (document.readyState === 'loading') {
         if (q && Number(q.price) > 0 && state.symbol === sym) {
           const liveP = Number(q.price);
           const prevP = Number(state.livePrice) || liveP;
-          state.livePrice = liveP;
-          if (Array.isArray(state.candles) && state.candles.length > 0) {
-            const lastIdx = state.candles.length - 1;
-            const lastBar = Object.assign({}, state.candles[lastIdx]);
-            lastBar.close = liveP;
-            if (liveP > lastBar.high) lastBar.high = liveP;
-            if (liveP < lastBar.low) lastBar.low = liveP;
-            state.candles[lastIdx] = lastBar;
-            if (typeof candleSeries !== 'undefined' && candleSeries && typeof candleSeries.update === 'function') {
-              try { candleSeries.update(lastBar); } catch (e) {}
-            }
-          }
+          // Teruskan ke satu jalur resmi: applyLiveTick membucket waktu TF dengan benar
+          // (candle forming baru saat bucket berganti — chart bergerak sesuai waktu).
+          if (typeof applyLiveTick === 'function') applyLiveTick(liveP, Number.isFinite(Number(q.changePct)) ? Number(q.changePct) : undefined, true);
+          else state.livePrice = liveP;
           const fmt = typeof formatPrice === 'function' ? formatPrice(liveP, sym) : liveP.toLocaleString('en-US', { maximumFractionDigits: 2 });
           ['hdrLivePrice', 'livePriceDisplay', 'valCurrentPrice'].forEach(function (id) {
             const el = document.getElementById(id);
