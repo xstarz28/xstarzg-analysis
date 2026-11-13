@@ -1316,6 +1316,22 @@ function renderAllVisuals(analysis) {
   try { renderPanels(analysis); } catch (e) {}
   try { renderNarrative(analysis); } catch (e) {}
   try { renderPillars(analysis); } catch (e) {}
+  try { writeBackRadarPools(analysis); } catch (e) {}
+}
+/* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
+   TF yang sama -> kartu rekomendasi selalu mencerminkan kebenaran engine terkini. */
+function writeBackRadarPools(analysis) {
+  if (!analysis || analysis.error || !analysis.symbol || !analysis.timeframe) return;
+  var sym = analysis.symbol, tf = analysis.timeframe;
+  var item = {
+    sym: sym, tf: tf, analysis: analysis,
+    candles: (state.candles || []).slice(-240),
+    price: num(state.livePrice, analysis.lastPrice),
+    changePct: num(state.liveChangePct, analysis.changePct),
+    source: 'WORKSPACE LIVE'
+  };
+  for (var hz in radarScanPool) radarScanPool[hz][sym + '|' + tf] = { ts: Date.now(), item: item };
+  investorScanPool[sym] = { ts: Date.now(), item: item };
 }
 
 /* ==================== 6. REAL-TIME PRICE ENGINE (SEMUA INSTRUMEN) ==================== */
@@ -1614,7 +1630,7 @@ function renderInvestorPicks(force) {
   if (!force && shown0.length >= 4) { drawInvestorPickCards(shown0); return; }
   if (shown0.length) drawInvestorPickCards(shown0);
   var mySeq = ++investorPickRunSeq;
-  var batch = rotatingSlice(investableUniverse(), 26, 5);
+  var batch = rotatingSlice(investableUniverse(), 34, 5);
   if (!shown0.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.invScanning', 'Mengkurasi {n} aset portofolio dengan data broker real-time (D1/W1)…').replace('{n}', batch.length + '+') + '</span></div>';
   Promise.allSettled(batch.map(function (inst) {
     return fetchRadarCandidate({ sym: inst.symbol, tf: 'D1' }).then(function (r) { if (r) r.cat = catLabelOf(getMeta(inst.symbol)); return r; });
@@ -1659,7 +1675,7 @@ function renderOpportunityRadar(force) {
   var pool = radarScanPool[cacheKey] = radarScanPool[cacheKey] || {};
   var fresh = [];
   var now = Date.now();
-  for (var k in pool) if (now - pool[k].ts < 30 * 60000) fresh.push(pool[k].item);
+  for (var k in pool) if (now - pool[k].ts < 15 * 60000) fresh.push(pool[k].item);
   fresh.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
   // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
@@ -1667,7 +1683,7 @@ function renderOpportunityRadar(force) {
   var freshShow = freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4);
   if (!force && fresh.length >= 12) { paintRadarItems(cfg, freshShow); return; }
   if (fresh.length) paintRadarItems(cfg, freshShow);
-  var batch = rotatingSlice(catalogSortedStable(), 30, 5);
+  var batch = rotatingSlice(catalogSortedStable(), 40, 3);
   var mySeq = ++radarRunSeq;
   if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', batch.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
   Promise.allSettled(batch.map(function (inst) { return fetchRadarCandidate({ sym: inst.symbol, tf: tfFor }); })).then(function (results) {
@@ -1680,7 +1696,7 @@ function renderOpportunityRadar(force) {
     }
     var merged = [];
     var now2 = Date.now();
-    for (var k2 in pool) if (now2 - pool[k2].ts < 30 * 60000) merged.push(pool[k2].item);
+    for (var k2 in pool) if (now2 - pool[k2].ts < 15 * 60000) merged.push(pool[k2].item);
     merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
     var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55; });
     paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4));
@@ -2229,8 +2245,10 @@ function setMode(mode) {
   if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
   syncHorizonTabs();
   syncModeSections();
-  if (mode === 'investor') renderInvestorPicks(false);
-  else renderOpportunityRadar(false);
+  // Rescan paksa saat pindah mode -> kartu rekomendasi menyegarkan ke kebenaran
+  // engine terbaru (anti kartu basi yg kontradiksi dengan workspace).
+  if (mode === 'investor') renderInvestorPicks(true);
+  else renderOpportunityRadar(true);
   updateModeChip();
   syncTfBarForMode();
   saveSession();
@@ -2282,7 +2300,7 @@ function startRadarAutoPilot() {
   window.__radarAutoTimer = setInterval(function () {
     try {
       if (typeof document !== 'undefined' && document.hidden) return;
-      var force = (Date.now() - radarAutoLastForce) >= 5 * 60000;
+      var force = (Date.now() - radarAutoLastForce) >= 3 * 60000;
       if (force) radarAutoLastForce = Date.now();
       if (state.mode === 'investor') renderInvestorPicks(force);
       else renderOpportunityRadar(force);
