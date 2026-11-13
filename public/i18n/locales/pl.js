@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ RAMY CZASOWE {tf} ZABRONIONE DLA WEJŚCIA (ryzyko straty) — filtr instytucjonalny je odrzucił; żadne wartości Entry/SL/TP nie są wymuszane na tym TF.",
     "eGateBest": "Najlepszy Sygnał Teraz → Scalping: {sc} | Intraday: {id} | Swing: {sw}",
     "eGateBestHint": "Otwórz TF oznaczony ✅ (PRO, wynik ≥62) lub ★ (ELITE, wynik ≥84 i WR ≥78%).",
+    "ctCandles": "🕯️ Świece",
+    "ctBars": "📊 Słupki",
+    "ctLine": "📈 Linia",
+    "ctArea": "🏔️ Obszar",
     "eGateScanning": "Skanowanie 9 ram czasowych w tle, aby poprowadzić Cię do najlepszego sygnału…",
   }
 };

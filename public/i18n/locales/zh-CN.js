@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ 时间框架 {tf} 禁止入场（易亏损）—— 机构门禁已拒绝；本 TF 不会强行给出 Entry/SL/TP 数值。",
     "eGateBest": "当前最佳信号 → 剥头皮: {sc} | 日内: {id} | 波段: {sw}",
     "eGateBestHint": "打开标有 ✅（PRO，评分 ≥62）或 ★（ELITE，评分 ≥84 且胜率 ≥78%）的时间框架。",
+    "ctCandles": "🕯️ 蜡烛图",
+    "ctBars": "📊 美国线",
+    "ctLine": "📈 折线",
+    "ctArea": "🏔️ 面积图",
     "eGateScanning": "正在后台扫描 9 个时间框架，为您引导至最佳信号…",
   }
 };

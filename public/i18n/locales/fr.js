@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ UNITÉ DE TEMPS {tf} INTERDITE À L’ENTRÉE (risque de perte) — le filtre institutionnel l’a rejetée ; aucun niveau Entry/SL/TP n’est forcé sur cette UT.",
     "eGateBest": "Meilleur Signal Actuel → Scalping : {sc} | Intraday : {id} | Swing : {sw}",
     "eGateBestHint": "Ouvrez le TF marqué ✅ (PRO, score ≥62) ou ★ (ELITE, score ≥84 & WR ≥78%).",
+    "ctCandles": "🕯️ Chandeliers",
+    "ctBars": "📊 Barres",
+    "ctLine": "📈 Ligne",
+    "ctArea": "🏔️ Zone",
     "eGateScanning": "Analyse de 9 unités de temps en arrière-plan pour vous guider vers le meilleur signal…",
   }
 };

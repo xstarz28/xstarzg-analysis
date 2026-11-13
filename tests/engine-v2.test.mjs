@@ -46,7 +46,7 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('rocket market: level eksekusi tidak dipaksakan (null)', a.levels.entry === null && a.levels.sl === null);
 }
 
-/* ---------- 3. Strict threshold (aturan #1D) ---------- */
+/* ---------- 3. Ambang bertingkat (v2026.40+): ELITE 84/78 mutlak, PRO >=62 ---------- */
 {
   const syms = ['BTC/USDT', 'ETH/USDT', 'EUR/USD', 'XAU/USD', 'WTI', 'NVDA'];
   let checked = 0;
@@ -54,11 +54,17 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
     const a = SE.runFullAnalysis({ symbol: sym, timeframe: 'H1', candles: gen(sym, 'H1'), mode: 'trader', horizon: 'all' });
     if (a.error) continue;
     checked++;
-    if (a.confluenceScore < 84) {
-      chk(`${sym}: skor <84 => tidak ada ENTRY`, !a.signalEligible && a.direction === 'NEUTRAL');
+    // Invariant koherensi tier: keyakinan <62 TIDAK pernah memberi entry
+    if (a.convictionScore < 62) {
+      chk(`${sym}: keyakinan <62 => tidak ada ENTRY`, !a.signalEligible && a.direction === 'NEUTRAL');
     }
-    if (a.backtest && !a.backtest.disabled && a.backtest.winRate < 78) {
-      chk(`${sym}: winrate <78 => tidak ada ENTRY`, !a.signalEligible);
+    // ELITE tetap mutlak: WR <78 tidak boleh diberi label ELITE
+    if (a.signalTier === 'ELITE') {
+      chk(`${sym}: ELITE wajib WR>=78 & skor>=84`, a.backtest.winRate >= 78 && a.convictionScore >= 84);
+    }
+    // Setiap sinyal yang terbit wajib keyakinan >=62 (koherensi angka<->peluang)
+    if (a.signalEligible) {
+      chk(`${sym}: ENTRY terbit => keyakinan >=62`, a.convictionScore >= 62);
     }
   }
   chk('sampel suite valid', checked >= 4);

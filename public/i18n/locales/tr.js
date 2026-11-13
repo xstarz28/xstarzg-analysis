@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ ZAMAN DİLİMİ {tf} GİRİŞE YASAK (zarar riski) — kurumsal kapı reddetti; bu TF üzerinde Entry/SL/TP değerleri zorlanmaz.",
     "eGateBest": "Şu An En İyi Sinyal → Scalping: {sc} | Gün İçi: {id} | Swing: {sw}",
     "eGateBestHint": "✅ (PRO, skor ≥62) veya ★ (ELITE, skor ≥84 & WR ≥78%) işaretli TF açın.",
+    "ctCandles": "🕯️ Mum grafiği",
+    "ctBars": "📊 Bar",
+    "ctLine": "📈 Çizgi",
+    "ctArea": "🏔️ Alan",
     "eGateScanning": "En iyi sinyale yönlendirmek için 9 zaman dilimi arka planda taranıyor…",
   }
 };

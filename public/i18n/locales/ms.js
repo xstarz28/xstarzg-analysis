@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ TIMEFRAME {tf} DILARANG ENTRY (rawan rugi) — pintu institusi menolak; tiada angka Entry/SL/TP dipaksa pada TF ini.",
     "eGateBest": "Isyarat Terbaik Sekarang → Scalping: {sc} | Intraday: {id} | Swing: {sw}",
     "eGateBestHint": "Buka TF bertanda ✅ (PRO, skor ≥62) atau ★ (ELITE, skor ≥84 & WR ≥78%).",
+    "ctCandles": "🕯️ Batang lilin",
+    "ctBars": "📊 Bar",
+    "ctLine": "📈 Garis",
+    "ctArea": "🏔️ Kawasan",
     "eGateScanning": "Mengimbas 9 timeframe di belakang tabir untuk mengarahkan anda ke isyarat terbaik…",
   }
 };

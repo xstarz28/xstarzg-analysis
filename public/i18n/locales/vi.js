@@ -485,6 +485,10 @@ export default {
     "eGateForbidden": "⛔ KHUNG THỜI GIAN {tf} CẤM VÀO LỆNH (dễ lỗ) — cổng tổ chức đã từ chối; không ép số Entry/SL/TP trên TF này.",
     "eGateBest": "Tín Hiệu Tốt Nhất Hiện Tại → Scalping: {sc} | Intraday: {id} | Swing: {sw}",
     "eGateBestHint": "Mở TF có dấu ✅ (PRO, điểm ≥62) hoặc ★ (ELITE, điểm ≥84 & WR ≥78%).",
+    "ctCandles": "🕯️ Nến",
+    "ctBars": "📊 Thanh",
+    "ctLine": "📈 Đường",
+    "ctArea": "🏔️ Vùng",
     "eGateScanning": "Đang quét 9 khung thời gian ngầm để dẫn bạn tới tín hiệu tốt nhất…",
   }
 };
