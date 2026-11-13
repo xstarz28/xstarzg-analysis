@@ -14,12 +14,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.43 (styles)', /styles\.css\?v=2026\.43/.test(html));
-chk('index.html memakai v=2026.43 (app.js)', /app\.js\?v=2026\.43/.test(html));
-chk('index.html memakai v=2026.43 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.43">/.test(html));
-chk('index.html memakai v=2026.43 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.43">/.test(html));
-chk('engine-boot import shared v=2026.43 (2x)', /quant-core\.js\?v=2026\.43/.test(boot) && /signal-engine\.js\?v=2026\.43/.test(boot));
-chk('i18n index import locale v=2026.43', /locales\/\$\{currentLang\}\.js\?v=2026\.43/.test(i18nIndex));
+chk('index.html memakai v=2026.44 (styles)', /styles\.css\?v=2026\.44/.test(html));
+chk('index.html memakai v=2026.44 (app.js)', /app\.js\?v=2026\.44/.test(html));
+chk('index.html memakai v=2026.44 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.44">/.test(html));
+chk('index.html memakai v=2026.44 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.44">/.test(html));
+chk('engine-boot import shared v=2026.44 (2x)', /quant-core\.js\?v=2026\.44/.test(boot) && /signal-engine\.js\?v=2026\.44/.test(boot));
+chk('i18n index import locale v=2026.44', /locales\/\$\{currentLang\}\.js\?v=2026\.44/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -71,6 +71,8 @@ chk('ticker realtime lewat bucket waktu resmi (bukan timpa candle terakhir)', !a
 chk('pemilih tipe chart (candlestick/bar/line/area) ter-wire', html.includes('chartTypeBar') && html.includes('data-ctype="area"') && app.includes('applyChartType') && app.includes('mainSeriesPayload') && app.includes('updateMainSeries'));
 chk('chart responsif HP (ResizeObserver + defer lebar 0)', app.includes('ResizeObserver') && app.includes('__chartInitPending'));
 chk('pool radar/kurasi menahan seluruh katalog (TTL 30 mnt)', app.includes('30 * 60000') && app.includes('1800000'));
+chk('kartu rekomendasi membawa snapshot candle', app.includes('candles.slice(-240)'));
+chk('klik-through memakai snapshot segar + lock create (konsistensi skor)', app.includes('primeFromRadarPool(sym, tf)') && app.includes("computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create')"));
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
