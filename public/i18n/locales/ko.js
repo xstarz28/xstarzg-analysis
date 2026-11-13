@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "유동성 스윕 -> CHoCH/BOS 시퀀스 미형성",
     "eVetoChop": "변동성 구조(효율비율 낮음)",
     "eWaitConf": "확인 대기",
+    "eProSetup": "✅ 프로 셋업 {tf}",
     "eEliteSetup": "✅ 엘리트 셋업 {tf}",
     "eNoTradeTf": "🚫 노트레이드 존 {tf}",
     "eGateLockOk": "🔒 셋업이 TF {tf}에 잠김 — {dir} • 점수 {s} • 승률 {w}%. TP 도달·SL 이탈·종가 구조가 오더블록을 무효화할 때까지 Entry/SL/TP는 고정됩니다.",

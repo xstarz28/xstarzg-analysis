@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "Nog geen Liquidity-Sweep -> CHoCH/BOS-sequentie",
     "eVetoChop": "Choppy structuur (lage Efficiency Ratio)",
     "eWaitConf": "Wacht op bevestiging",
+    "eProSetup": "✅ PRO-SETUP {tf}",
     "eEliteSetup": "✅ ELITE-SETUP {tf}",
     "eNoTradeTf": "🚫 NO-TRADE-ZONE {tf}",
     "eGateLockOk": "🔒 Setup VERGRENDELD op TF {tf} — {dir} • score {s} • winrate {w}%. Entry/SL/TP blijven vast tot TP is geraakt, SL is gebroken of de slotstructuur de Order Block ongeldig maakt.",

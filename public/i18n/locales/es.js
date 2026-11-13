@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "Sin secuencia Barrido de Liquidez -> CHoCH/BOS aún",
     "eVetoChop": "Estructura entrecortada (Ratio de Eficiencia bajo)",
     "eWaitConf": "Esperando confirmación",
+    "eProSetup": "✅ CONFIG PRO {tf}",
     "eEliteSetup": "✅ SETUP ÉLITE {tf}",
     "eNoTradeTf": "🚫 ZONA SIN OPERAR {tf}",
     "eGateLockOk": "🔒 Setup BLOQUEADO en TF {tf} — {dir} • puntaje {s} • winrate {w}%. Los números Entry/SL/TP permanecen fijos hasta tocar TP, romper SL o que la estructura de cierre invalide el Order Block.",

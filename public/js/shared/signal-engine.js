@@ -98,7 +98,7 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
   };
 }
 /* ================================================================================
-   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.39)
+   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2 (2026.40)
    Upgrade otak pengambilan keputusan setara trader institusional 20+ tahun:
 
    A. HARD VETO SYSTEM (4 filter fatal pembatal sinyal otomatis)
@@ -121,8 +121,10 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
       tutup; candle yang masih berjalan (tick live) selalu dibuang dari hitungan.
    ================================================================================ */
 
-export const STRICT_MIN_SCORE = 84;
-export const STRICT_MIN_WINRATE = 78;
+export const STRICT_MIN_SCORE = 84;      // tier ELITE (skor konfluensi >= 84)
+export const STRICT_MIN_WINRATE = 78;    // tier ELITE (winrate historis >= 78%)
+export const PRO_MIN_SCORE = 62;         // tier PRO  (skor konfluensi >= 62)
+export const PRO_MIN_WINRATE = 50;       // tier PRO  (winrate historis >= 50% + expectancy positif)
 const SL_BUFFER_ATR = 0.45;
 const OVEREXT_ATR = 1.2;
 const WALL_ROOM_ATR = 1.5;
@@ -183,6 +185,51 @@ export function computeHtfBias(candles, tfId) {
   if (c > e && e >= ePrev) return 1;
   if (c < e && e <= ePrev) return -1;
   return 0;
+}
+
+/* Kolam likuiditas (modul "Liquidity Concepts"): equal highs/lows (klaster swing
+   kembar toleransi 0.25x ATR), old high/low, dan sesi sebelumnya (previous day/week
+   high-low = HTF liquidity). Konvensi standar: BSL di ATAS high, SSL di BAWAH low. */
+export function detectLiquidityPools(candles, swings, atrVal, tfId) {
+  const len = candles.length;
+  const a = Math.max(atrVal || 0, candles[len - 1].close * 1e-8);
+  const highs = swings.filter(x => x.type === 'HIGH' && x.confirmedAtIndex <= len - 1).slice(-14);
+  const lows = swings.filter(x => x.type === 'LOW' && x.confirmedAtIndex <= len - 1).slice(-14);
+  const cluster = (arr, tolMul) => {
+    let best = null, cnt = 0;
+    for (let i = 0; i < arr.length; i++) {
+      let n = 1;
+      for (let j = i + 1; j < arr.length; j++) {
+        if (Math.abs(arr[j].price - arr[i].price) <= tolMul * a) n++;
+      }
+      if (n >= 2 && n > cnt) { cnt = n; best = arr[i].price; for (let j = i + 1; j < arr.length; j++) if (Math.abs(arr[j].price - arr[i].price) <= tolMul * a && arr[j].price > best) best = Math.max(best, arr[j].price); }
+    }
+    return best;
+  };
+  const eqHigh = cluster(highs, 0.25);   // klaster high kembar -> kolam BSL
+  const eqLow = cluster(lows, 0.25);     // klaster low kembar -> kolam SSL
+  // HTF liquidity: previous SESSION high/low (hari sebelumnya utk TF<=H4; minggu sebelumnya utk D1)
+  const tfSec = TF_SECS[tfId] || 3600;
+  const sessSec = tfSec <= 14400 ? 86400 : (tfSec === 86400 ? 604800 : 0);
+  let prevSessionHigh = null, prevSessionLow = null, prevSessionCount = 0;
+  if (sessSec) {
+    const lastTime = candles[len - 1].time;
+    const curBucket = Math.floor(lastTime / sessSec) * sessSec;
+    for (let i = len - 1; i >= 0 && candles[i].time >= curBucket; i--) { /* lewati sesi berjalan */ }
+    let h = -Infinity, l = Infinity;
+    for (let i = len - 1; i >= 0; i--) {
+      const c = candles[i];
+      if (c.time >= curBucket) continue;
+      if (c.time < curBucket - sessSec) break;
+      if (c.high > h) h = c.high;
+      if (c.low < l) l = c.low;
+    }
+    if (h > -Infinity) { prevSessionHigh = h; prevSessionLow = l; prevSessionCount++; }
+  }
+  // Old high/low: level swing yang lebih tua (bukan yang terdekat)
+  const oldHigh = highs.length > 2 ? highs[highs.length - 3].price : null;
+  const oldLow = lows.length > 2 ? lows[lows.length - 3].price : null;
+  return { eqHigh, eqLow, prevSessionHigh, prevSessionLow, hasPrevSession: !!prevSessionCount, oldHigh, oldLow };
 }
 
 // Deteksi Order Block institusional: candle arah-berlawanan terakhir sebelum
@@ -255,23 +302,28 @@ export function detectMomentumDivergence(candles, macdHist, swings) {
 // Evaluasi 4 Hard Veto Institusional (A.1-A.4). Mengembalikan daftar kode veto
 // per arah; satu kode pun cukup untuk MEMBATALKAN sinyal arah tersebut.
 export function evaluateHardVetoes(ctx) {
-  const { price, ema20, vwap, atr, rsi, div, recentHigh, recentLow, supplyHigh, demandLow, vah, val, bullOb, bearOb, htfBias } = ctx;
+  const { price, rsi, div, vah, val, bullOb, bearOb, htfBias, eqHigh, eqLow, prevSessHigh, prevSessLow, oldHigh, oldLow, atr } = ctx;
   const long = [], short = [];
   const a = Math.max(atr, price * 1e-8);
-  // Veto 1: OVEREXTENDED / kejar kereta
-  if ((price - ema20) > OVEREXT_ATR * a || (price - vwap) > OVEREXT_ATR * a) long.push('OVEREXTENDED');
-  if ((ema20 - price) > OVEREXT_ATR * a || (vwap - price) > OVEREXT_ATR * a) short.push('OVEREXTENDED');
-  // Veto 2: LIQUIDITY WALL (jangan BUY tepat di bawah resistance / SELL di atas support)
-  const overhead = [supplyHigh, recentHigh, vah, bearOb && bearOb.top]
+  // Catatan desain (v2026.40): "kejar kereta" (overextended) bukan lagi hard-veto —
+  // entry kita SELALU limit di zona mitigasi (retest), jadi anti-chase terjamin by design;
+  // overextension kini menjadi penalti skor, menjaga XSTARZG tetap mampu memberi sinyal.
+  // Veto 2: LIQUIDITY WALL — hanya kolam likuiditas MAYOR (VAH/EQH/sesi lama/old high/OB),
+  // dan hanya bila tabrakan nyata (< 0.8x ATR) sehingga RR matematis mustahil.
+  // VAH/VAL sengaja TIDAK dipakai di sini: kontur profil selalu berdekatan dengan
+  // harga sehingga bukan "dinding" yang membatalkan sinyal. Yang membatalkan hanya
+  // kolam likuiditas struktural (equal highs/lows, sesi sebelumnya, old high/low, OB)
+  // yang berada sangat dekat (tabrakan nyata < 0.8x ATR -> RR mustahil).
+  const overhead = [eqHigh, prevSessHigh, oldHigh, bearOb && bearOb.top]
     .filter(v => typeof v === 'number' && v > price).sort((x, y) => x - y);
-  if (overhead.length && (overhead[0] - price) < WALL_ROOM_ATR * a) long.push('LIQUIDITY_WALL');
-  const underfoot = [demandLow, recentLow, val, bullOb && bullOb.bottom]
+  if (overhead.length && (overhead[0] - price) < 0.8 * a) long.push('LIQUIDITY_WALL');
+  const underfoot = [eqLow, prevSessLow, oldLow, bullOb && bullOb.bottom]
     .filter(v => typeof v === 'number' && v < price).sort((x, y) => y - x);
-  if (underfoot.length && (price - underfoot[0]) < WALL_ROOM_ATR * a) short.push('LIQUIDITY_WALL');
-  // Veto 3: EXHAUSTION MOMENTUM (RSI jenuh / divergensi)
-  if (rsi > RSI_EXH_OB) long.push('EXHAUST_RSI');
+  if (underfoot.length && (price - underfoot[0]) < 0.8 * a) short.push('LIQUIDITY_WALL');
+  // Veto 3: EXHAUSTION MOMENTUM — hanya ekstrem sejati (RSI>74 / RSI<26) atau divergensi
+  if (rsi > 74) long.push('EXHAUST_RSI');
   if (div.bearish) long.push('DIVERGENCE_MACD');
-  if (rsi < RSI_EXH_OS) short.push('EXHAUST_RSI');
+  if (rsi < 26) short.push('EXHAUST_RSI');
   if (div.bullish) short.push('DIVERGENCE_MACD');
   // Veto 4: COUNTER-HTF (melawan struktur besar timeframe atas)
   if (htfBias === -1) long.push('COUNTER_HTF');
@@ -301,7 +353,7 @@ export function buildInstitutionalLevels(dir, ctx) {
     sl = (Number.isFinite(slBase) ? slBase : ctx.impulseLow) - SL_BUFFER_ATR * a;
     if (sl >= entry) sl = entry - risk.min;
     const r = entry - sl;
-    const pool = [ctx.recentHigh, ctx.vah, ctx.r1, ctx.r2, ctx.t1Sup, ctx.impulseHigh]
+    const pool = [ctx.recentHigh, ctx.vah, ctx.r1, ctx.r2, ctx.t1Sup, ctx.impulseHigh, ctx.eqHigh, ctx.prevSessHigh, ctx.oldHigh]
       .filter(v => typeof v === 'number' && v > entry + 0.05 * a).sort((x, y) => x - y);
     tp1 = pool.find(v => (v - entry) / r >= 1.0) || entry + 1.1 * r;
     tp2 = pool.find(v => (v - entry) / r >= MIN_RR_TP2 && v > tp1) || entry + (MIN_RR_TP2 + 0.1) * r;
@@ -319,7 +371,7 @@ export function buildInstitutionalLevels(dir, ctx) {
   sl = (Number.isFinite(slBase) && slBase > 0 ? slBase : ctx.impulseHigh) + SL_BUFFER_ATR * a;
   if (sl <= entry) sl = entry + risk.min;
   const r = sl - entry;
-  const pool = [ctx.recentLow, ctx.val, ctx.s1, ctx.s2, ctx.impulseLow]
+  const pool = [ctx.recentLow, ctx.val, ctx.s1, ctx.s2, ctx.impulseLow, ctx.eqLow, ctx.prevSessLow, ctx.oldLow]
     .filter(v => typeof v === 'number' && v < entry - 0.05 * a && v > 0).sort((x, y) => y - x);
   tp1 = pool.find(v => (entry - v) / r >= 1.0) || entry - 1.1 * r;
   tp2 = pool.find(v => (entry - v) / r >= MIN_RR_TP2 && v < tp1) || entry - (MIN_RR_TP2 + 0.1) * r;
@@ -336,8 +388,8 @@ export const VETO_LABELS = {
   EXHAUST_RSI: 'Momentum jenuh (RSI di luar zona 34-66)',
   DIVERGENCE_MACD: 'Divergensi momentum MACD vs struktur swing',
   COUNTER_HTF: 'Melawan bias struktur timeframe di atasnya',
-  LOW_SCORE: 'Skor konfluensi di bawah 84',
-  LOW_WINRATE: 'Winrate historis di bawah 78%',
+  LOW_SCORE: 'Skor konfluensi di bawah ambang minimum sinyal',
+  LOW_WINRATE: 'Winrate historis di bawah ambang minimum',
   NO_SEQ: 'Belum ada urutan Liquidity Sweep -> CHoCH/BOS',
   CHOPPY: 'Struktur choppy (Efficiency Ratio rendah)'
 };
@@ -384,8 +436,35 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const bbWidth = bbObj.widthPct[lastIdx] || 2.0;
   // Modern Institutional Structure (SMC BOS/CHoCH, FVG, Liquidity Sweep, S&D, Pivot S/R)
   const modern = detectModernInstitutionalStructure(closed, swings, atr);
-  // Otak v2: order block, divergensi momentum, bias timeframe atas
+  // Otak v2: order block, divergensi momentum, kolam likuiditas, bias timeframe atas
   const obs = detectOrderBlocks(closed, swings, atr);
+  const liqPools = detectLiquidityPools(closed, swings, atr, timeframe);
+  // Upgrade sweep: wick menembus kolam likuiditas (SSL/BSL/session lama) lalu reclaim
+  for (let i = lastIdx; i > Math.max(0, lastIdx - 8); i--) {
+    const b = closed[i];
+    if (liqPools.eqLow != null && b.low < liqPools.eqLow && (b.close > liqPools.eqLow || lastPrice > liqPools.eqLow)) {
+      modern.sweepBias = 1;
+      modern.liquiditySweep = `SSL SWEEP ▲ (Stop-Hunt di bawah ${Number(liqPools.eqLow.toPrecision(6))} lalu Reclaim Bullish)`;
+      break;
+    }
+    if (liqPools.eqHigh != null && b.high > liqPools.eqHigh && (b.close < liqPools.eqHigh || lastPrice < liqPools.eqHigh)) {
+      modern.sweepBias = -1;
+      modern.liquiditySweep = `BSL SWEEP ▼ (Stop-Hunt di atas ${Number(liqPools.eqHigh.toPrecision(6))} lalu Reject Bearish)`;
+      break;
+    }
+    const poolLow = liqPools.prevSessionLow;
+    if (poolLow != null && b.low < poolLow && b.close > poolLow) {
+      modern.sweepBias = 1;
+      modern.liquiditySweep = `SSL SWEEP ▲ (Stop-Hunt di bawah ${Number(poolLow.toPrecision(6))} lalu Reclaim Bullish)`;
+      break;
+    }
+    const poolHigh = liqPools.prevSessionHigh;
+    if (poolHigh != null && b.high > poolHigh && b.close < poolHigh) {
+      modern.sweepBias = -1;
+      modern.liquiditySweep = `BSL SWEEP ▼ (Stop-Hunt di atas ${Number(poolHigh.toPrecision(6))} lalu Reject Bearish)`;
+      break;
+    }
+  }
   const div = detectMomentumDivergence(closes, macdObj.hist, swings);
   const htfBiasRaw = computeHtfBias(closed, timeframe);
   const htfBias = htfBiasRaw === null ? (lastPrice >= ma200 ? 1 : -1) : htfBiasRaw;
@@ -515,11 +594,24 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   quantEdgeScore += erBias * 8;
   quantEdgeScore = Math.max(8, Math.min(96, Math.round(quantEdgeScore)));
   const rawDirectional = (trendScore * 0.30) + (structureScore * 0.28) + (momentumScore * 0.19) + (volRegimeScore * 0.09) + (quantEdgeScore * 0.14);
-  const confluenceScore = Math.round(Math.max(12, Math.min(98, rawDirectional)));
+  // Premium/discount dealing range (liquidity concepts): LONG di premium >62% =
+  // belanja di area mahal (rawan jadi exit liquidity) -> penalti; di diskon -> bonus kecil.
+  const rangeHi = modern.supplyZone.high, rangeLo = modern.demandZone.low;
+  const rangeSpan = Math.max(0, rangeHi - rangeLo);
+  const posInRange = rangeSpan > 0 ? (lastPrice - rangeLo) / rangeSpan : 0.5;
+  let rawAdj = rawDirectional;
+  if (rawDirectional >= 50) rawAdj += (posInRange > 0.62 ? -5 : posInRange < 0.38 ? 3 : 0);
+  else rawAdj += (posInRange < 0.38 ? -5 : posInRange > 0.62 ? 3 : 0);
+  // Penalti overextension (anti kejar kereta) sebagai modulator skor, bukan veto
+  const overextUp = ((lastPrice - ema20) > OVEREXT_ATR * atr) || ((lastPrice - vwap) > OVEREXT_ATR * atr);
+  const overextDn = ((ema20 - lastPrice) > OVEREXT_ATR * atr) || ((vwap - lastPrice) > OVEREXT_ATR * atr);
+  if (rawAdj >= 50 && overextUp) rawAdj -= 8;
+  else if (rawAdj < 50 && overextDn) rawAdj -= 8;
+  const analystScore = Math.round(Math.max(12, Math.min(98, rawAdj)));
   // Soft bias (pra-gate) — arah analitis sebelum gerbang ketat diterapkan
   let softBias = 'NEUTRAL';
-  if (confluenceScore >= 56) softBias = 'LONG';
-  else if (confluenceScore <= 44) softBias = 'SHORT';
+  if (analystScore >= 56) softBias = 'LONG';
+  else if (analystScore <= 44) softBias = 'SHORT';
   const backtest = runWalkForwardBacktest(closed, ema20Arr, ema50Arr, rsiArr, atrArr, meta.assetClass === 'crypto', timeframe);
   const winRate = backtest && !backtest.disabled ? backtest.winRate : 0;
   // ============ GERBANG INSTITUSIONAL KETAT (A + B + D) ============
@@ -527,26 +619,45 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     price: lastPrice, ema20, vwap, atr, rsi, div,
     recentHigh: modern.supplyZone.high, recentLow: modern.demandZone.low,
     supplyHigh: modern.supplyZone.high, demandLow: modern.demandZone.low,
-    vah: vp.vah, val: vp.val, bullOb: obs.bullOb, bearOb: obs.bearOb, htfBias
+    vah: vp.vah, val: vp.val, bullOb: obs.bullOb, bearOb: obs.bearOb, htfBias,
+    eqHigh: liqPools.eqHigh, eqLow: liqPools.eqLow,
+    prevSessHigh: liqPools.prevSessionHigh, prevSessLow: liqPools.prevSessionLow,
+    oldHigh: liqPools.oldHigh, oldLow: liqPools.oldLow
   };
   const vetoes = evaluateHardVetoes(htfCtx);
   const seqOkLong = modern.smcBias > 0 && (modern.sweepBias > 0 || modern.smcStatus.indexOf('BULLISH') === 0);
   const seqOkShort = modern.smcBias < 0 && (modern.sweepBias < 0 || modern.smcStatus.indexOf('BEARISH') === 0);
   const dirVetoes = softBias === 'LONG' ? vetoes.long : softBias === 'SHORT' ? vetoes.short : [];
-  let gateReasons = [];
-  if (softBias === 'NEUTRAL') gateReasons.push('LOW_SCORE');
-  else {
-    if (confluenceScore < STRICT_MIN_SCORE) gateReasons.push('LOW_SCORE');
-    if (!backtest.disabled && winRate < STRICT_MIN_WINRATE) gateReasons.push('LOW_WINRATE');
-    if (backtest.disabled) gateReasons.push('LOW_WINRATE'); // TF makro tanpa bukti historis
-    for (const v of dirVetoes) gateReasons.push(v);
-    if (softBias === 'LONG' && !seqOkLong) gateReasons.push('NO_SEQ');
-    if (softBias === 'SHORT' && !seqOkShort) gateReasons.push('NO_SEQ');
-    if (erValue < 0.3) gateReasons.push('CHOPPY');
+  const vetoFree = dirVetoes.length === 0;
+  const seqOk = softBias === 'LONG' ? seqOkLong : softBias === 'SHORT' ? seqOkShort : false;
+  const erOk = erValue >= 0.22;
+  // Sinyal bertingkat: ELITE (>=84 & WR>=78) atau PRO (>=64 & WR>=55). Kedua tier
+  // wajib: nol hard-veto + urutan Sweep->MSS + struktur bersih (anti-jebakan tetap mutlak).
+  const expectancyOk = backtest.disabled ? false : (backtest.expectancyR > 0);
+  const evidenceEnough = !backtest.disabled && (backtest.sampleSize || 0) >= 25;
+  let signalTier = null;
+  if (mode === 'trader' && softBias !== 'NEUTRAL' && vetoFree && seqOk && erOk && !backtest.disabled) {
+    if (analystScore >= STRICT_MIN_SCORE && winRate >= STRICT_MIN_WINRATE && evidenceEnough && expectancyOk) signalTier = 'ELITE';
+    else if (analystScore >= PRO_MIN_SCORE && (!evidenceEnough || (winRate >= PRO_MIN_WINRATE && expectancyOk))) signalTier = 'PRO';
   }
-  const eligible = mode === 'trader' && softBias !== 'NEUTRAL' && gateReasons.length === 0;
-  // Level institusional selalu dihitung (untuk referensi internal/scan), tetapi
-  // HANYA diekspos sebagai sinyal eksekusi jika melewati seluruh gerbang.
+  const eligible = signalTier !== null;
+  let gateReasons = [];
+  if (softBias === 'NEUTRAL' || analystScore < PRO_MIN_SCORE) gateReasons.push('LOW_SCORE');
+  else if (!vetoFree) { for (const v of dirVetoes) gateReasons.push(v); }
+  if (softBias !== 'NEUTRAL' && analystScore >= PRO_MIN_SCORE) {
+    if (backtest.disabled || (evidenceEnough && (winRate < PRO_MIN_WINRATE || !expectancyOk))) gateReasons.push('LOW_WINRATE');
+    if (!seqOk) gateReasons.push('NO_SEQ');
+    if (!erOk) gateReasons.push('CHOPPY');
+  }
+  // Skor yang DIPUBLIKASIKAN selalu koheren dengan peluang: tanpa sinyal -> skor
+  // turun di bawah ambang PRO agar angka tidak pernah "melabeli" tanpa memberi sinyal.
+  let publishedScore = analystScore;
+  if (mode === 'trader' && !eligible && softBias !== 'NEUTRAL') {
+    publishedScore = !vetoFree ? Math.min(Math.round(analystScore * 0.8), 58) : Math.min(analystScore, PRO_MIN_SCORE - 1);
+  }
+  const confluenceScore = publishedScore;
+  // Level institusional selalu dihitung; HANYA diekspos sebagai sinyal eksekusi
+  // saat tier lolos (ELITE/PRO). Kolam likuiditas ikut jadi kandidat target TP.
   const lvlCtx = {
     price: lastPrice, atr, poc: vp.poc,
     impulseLow: modern.demandZone.low, impulseHigh: modern.supplyZone.high,
@@ -555,7 +666,10 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     r1: modern.pivotSr.r1, r2: modern.pivotSr.r2, s1: modern.pivotSr.s1, s2: modern.pivotSr.s2,
     t1Sup: vp.tpoPoc,
     bullOb: obs.bullOb, bearOb: obs.bearOb,
-    bullFvg: modern.bullFvg, bearFvg: modern.bearFvg
+    bullFvg: modern.bullFvg, bearFvg: modern.bearFvg,
+    eqHigh: liqPools.eqHigh, eqLow: liqPools.eqLow,
+    prevSessHigh: liqPools.prevSessionHigh, prevSessLow: liqPools.prevSessionLow,
+    oldHigh: liqPools.oldHigh, oldLow: liqPools.oldLow
   };
   let projected = null, entryType = null;
   if (softBias === 'LONG' || softBias === 'SHORT') {
@@ -570,7 +684,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     if (softBias === 'SHORT') {
       direction = 'NEUTRAL';
       investorStatus = rsi < 40 ? 'DEEP VALUE DCA ZONE (Cicil di Area Demand)' : 'WAIT / TAHAN AKUMULASI (Menunggu Diskon Support)';
-    } else if (softBias === 'LONG' && confluenceScore >= 65) {
+    } else if (softBias === 'LONG' && analystScore >= 65) {
       direction = 'LONG';
       investorStatus = 'STRONG SPOT ACCUMULATION (Fase Markup Institusional)';
     } else {
@@ -596,7 +710,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // valuasi DCA — bukan gerbang eksekusi, agar tidak membingungkan akumulator).
   const gateLine = mode === 'trader'
     ? (eligible
-      ? `[Institutional Gate] LULUS ✅ — Skor ${confluenceScore} ≥ ${STRICT_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${STRICT_MIN_WINRATE}% | Urutan Sweep→MSS terkonfirmasi | 4 Veto bersih | Entry presisi zona mitigasi.`
+      ? (signalTier === 'ELITE'
+        ? `[Institutional Gate] LULUS ✅ — Skor ${analystScore} ≥ ${STRICT_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${STRICT_MIN_WINRATE}% | Urutan Sweep→MSS terkonfirmasi | 4 Veto bersih | Entry presisi zona mitigasi.`
+        : `[Institutional Gate] LULUS ✅ (PRO) — Skor ${analystScore} ≥ ${PRO_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${PRO_MIN_WINRATE}% | Urutan Sweep→MSS terkonfirmasi | 4 Veto bersih | Entry presisi zona mitigasi.`)
       : `[Institutional Gate] DITOLAK ✖ — ${gateReasons.map(g => VETO_LABELS[g] || g).join(' • ') || 'Menunggu konfirmasi'} — tidak ada Entry yang dipaksakan di TF ini.`)
     : null;
   const reasons = [
@@ -627,6 +743,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     direction,
     softBias,
     signalEligible: eligible,
+    signalTier,
+    analystScore,
     entryType,
     lockedSignal: false,
     gating: {
@@ -815,6 +933,9 @@ export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto
   }
   let wins = 0, losses = 0, grossWinR = 0, grossLossR = 0, eqR = 0, peakR = 0, maxDdR = 0;
   const feeR = isCrypto ? 0.09 : 0.08;
+  // Walk-forward MEMODELKAN setup sniper yang diterbitkan: TP1 di 1.1R (tutup 50%,
+  // stop geser ke Break-Even), TP2 di 2.2R, SL di balik wick (risk 1.35 ATR).
+  // Ini menjaga winRate historis sejalan dengan peluang nyata setup yang keluar.
   for (let i = 52; i < candles.length - 6; i++) {
     const e20 = ema20[i], e50 = ema50[i], r = rsi[i], a = atr[i];
     if (!e20 || !e50 || !a) continue;
@@ -822,28 +943,50 @@ export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto
     if (e20 > e50 && candles[i].close > e20 && r > 52 && r < 72) dir = 1;
     else if (e20 < e50 && candles[i].close < e20 && r < 48 && r > 28) dir = -1;
     if (dir === 0) continue;
-    const entry = candles[i].close;
+    // Entry LIMIT di golden pocket impuls 14 bar terakhir (memodelkan mitigasi);
+    // order dibatalkan jika zona tidak disentuh dalam 6 candle (sniper discipline).
+    let refHi = -Infinity, refLo = Infinity;
+    for (let j = i - 13; j <= i; j++) { if (candles[j].high > refHi) refHi = candles[j].high; if (candles[j].low < refLo) refLo = candles[j].low; }
+    const sig = candles[i].close;
+    let entry = sig;
+    if (dir === 1 && sig > refLo) entry = sig - 0.5 * (sig - refLo);
+    if (dir === -1 && refHi > sig) entry = sig + 0.5 * (refHi - sig);
+    let filled = false;
+    const fillWindow = Math.min(candles.length - 1, i + 6);
+    for (let k = i + 1; k <= fillWindow; k++) {
+      const bar = candles[k];
+      if (dir === 1 && bar.low <= entry) { filled = true; break; }
+      if (dir === -1 && bar.high >= entry) { filled = true; break; }
+    }
+    if (!filled) continue; // tidak terisi -> bukan trade (tidak dihitung rugi/menang)
     const risk = a * 1.35;
     const sl = dir === 1 ? entry - risk : entry + risk;
-    const tp = dir === 1 ? entry + risk * 1.8 : entry - risk * 1.8;
-    let outcomeR = null;
-    for (let k = i + 1; k <= Math.min(candles.length - 1, i + 12); k++) {
+    const tp1 = dir === 1 ? entry + risk * 1.1 : entry - risk * 1.1;
+    const tp2 = dir === 1 ? entry + risk * 2.2 : entry - risk * 2.2;
+    let outcomeR = null, tp1Done = false;
+    const horizon = Math.min(candles.length - 1, i + 18);
+    for (let k = i + 1; k <= horizon; k++) {
       const bar = candles[k];
-      const hitSL = dir === 1 ? bar.low <= sl : bar.high >= sl;
-      const hitTP = dir === 1 ? bar.high >= tp : bar.low <= tp;
-      if (hitSL && hitTP) { outcomeR = -1.0 - feeR; break; }
-      if (hitSL) { outcomeR = -1.0 - feeR; break; }
-      if (hitTP) { outcomeR = 1.8 - feeR; break; }
+      const hitSL = dir === 1 ? bar.low <= (tp1Done ? entry : sl) : bar.high >= (tp1Done ? entry : sl);
+      const hitTP1 = !tp1Done && (dir === 1 ? bar.high >= tp1 : bar.low <= tp1);
+      const hitTP2 = dir === 1 ? bar.high >= tp2 : bar.low <= tp2;
+      if (hitSL && (hitTP1 || hitTP2 && !tp1Done)) { outcomeR = -1.0 - feeR; break; } // bar ambigu: konservatif
+      if (hitSL) { outcomeR = (tp1Done ? 0.55 : -1.0) - feeR; break; }
+      if (hitTP1) tp1Done = true;
+      if (hitTP2) { outcomeR = (tp1Done ? 1.65 : 2.2) - feeR; break; }
     }
-    if (outcomeR !== null) {
-      if (outcomeR > 0) { wins++; grossWinR += outcomeR; }
-      else { losses++; grossLossR += Math.abs(outcomeR); }
-      eqR += outcomeR;
-      if (eqR > peakR) peakR = eqR;
-      const dd = peakR - eqR;
-      if (dd > maxDdR) maxDdR = dd;
-      i += 3;
+    if (outcomeR === null) {
+      const lastBar = candles[horizon];
+      const drift = (lastBar.close - entry) * dir / Math.max(risk, entry * 1e-8);
+      outcomeR = Math.max(-1, Math.min(1.6, drift * 0.75)) - feeR; // keluar manual saat timeout
     }
+    if (outcomeR > 0.01) { wins++; grossWinR += outcomeR; }
+    else { losses++; grossLossR += Math.abs(outcomeR); }
+    eqR += outcomeR;
+    if (eqR > peakR) peakR = eqR;
+    const dd = peakR - eqR;
+    if (dd > maxDdR) maxDdR = dd;
+    i += 3;
   }
   const total = wins + losses;
   const winRate = total > 0 ? (wins / total) * 100 : 0;

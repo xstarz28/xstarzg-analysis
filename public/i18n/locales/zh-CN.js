@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "尚无 扫流动性 -> CHoCH/BOS 序列",
     "eVetoChop": "结构震荡（效率比偏低）",
     "eWaitConf": "等待确认",
+    "eProSetup": "✅ 专业级配置 {tf}",
     "eEliteSetup": "✅ 精英形态 {tf}",
     "eNoTradeTf": "🚫 禁止交易区 {tf}",
     "eGateLockOk": "🔒 形态已锁定于 {tf} — {dir} • 评分 {s} • 胜率 {w}%。Entry/SL/TP 保持不变，直至触及 TP、跌破 SL 或收盘结构推翻订单块。",

@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "لا يوجد تسلسل كنس سيولة -> CHoCH/BOS بعد",
     "eVetoChop": "هيكل متذبذب (نسبة كفاءة منخفضة)",
     "eWaitConf": "بانتظار التأكيد",
+    "eProSetup": "✅ إعداد احترافي {tf}",
     "eEliteSetup": "✅ إعداد نخبوي {tf}",
     "eNoTradeTf": "🚫 منطقة ممنوع التداول {tf}",
     "eGateLockOk": "🔒 الإعداد مقفل على TF ‏{tf} — {dir} • النتيجة {s} • الفوز {w}%. تبقى Entry/SL/TP ثابتة حتى بلوغ TP أو كسر SL أو إبطال هيكل الإغلاق لكتلة الأوامر.",

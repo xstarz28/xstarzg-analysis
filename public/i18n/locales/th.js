@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "ยังไม่มีลำดับ Liquidity Sweep -> CHoCH/BOS",
     "eVetoChop": "โครงสร้างขึ้นลงไม่ชัดเจน (ค่าประสิทธิภาพต่ำ)",
     "eWaitConf": "รอยืนยัน",
+    "eProSetup": "✅ โปรเซ็ตอัป {tf}",
     "eEliteSetup": "✅ เซ็ตอัพระดับสูง {tf}",
     "eNoTradeTf": "🚫 โซนห้ามเทรด {tf}",
     "eGateLockOk": "🔒 เซ็ตอัพถูกล็อกที่ TF {tf} — {dir} • คะแนน {s} • วินเรท {w}% ค่า Entry/SL/TP จะคงเดิมจนกว่า TP จะแตะ SL จะถูกทะลุ หรือโครงสร้างปิดแท่งทำให้ Order Block เป็นโมฆะ",

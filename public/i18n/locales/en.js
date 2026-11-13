@@ -476,6 +476,7 @@ export default {
     "eVetoSeq": "No Liquidity Sweep -> CHoCH/BOS sequence yet",
     "eVetoChop": "Choppy structure (low Efficiency Ratio)",
     "eWaitConf": "Awaiting confirmation",
+    "eProSetup": "✅ PRO SETUP {tf}",
     "eEliteSetup": "✅ ELITE SETUP {tf}",
     "eNoTradeTf": "🚫 NO-TRADE ZONE {tf}",
     "eGateLockOk": "🔒 Setup LOCKED on TF {tf} — {dir} • score {s} • winrate {w}%. Entry/SL/TP numbers stay permanent until TP is hit, SL is broken, or closing structure invalidates the Order Block.",
