@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL 터치 — 신호 무효",
     "eOutInv": "구조 반전 + 가격 수용으로 무효화",
     "eAccRadar": "측정된 레이더 정확도: {wr}% (n={n})",
+    "eEstFeed": "추정 데이터 — 신호 비활성화",
     "fmCycle": "7. 가격 사이클 위치(실측)",
     "fmCycleHi": "사이클 고점 — 출구 유동성 위험",
     "fmCycleLo": "사이클 저점 — 반등 위험",

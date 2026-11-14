@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL tersentuh — isyarat tidak sah",
     "eOutInv": "Dibatalkan struktur + penerimaan harga",
     "eAccRadar": "Ketepatan radar diukur: {wr}% (n={n})",
+    "eEstFeed": "Data anggaran — isyarat dilumpuhkan",
     "fmCycle": "7. Posisi Kitaran Harga (Terukur)",
     "fmCycleHi": "di puncak kitaran — risiko exit liquidity",
     "fmCycleLo": "di dasar kitaran — risiko lantunan",

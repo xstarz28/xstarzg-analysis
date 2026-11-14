@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL berührt — Signal ungültig",
     "eOutInv": "Durch Struktur + Preisakzeptanz annulliert",
     "eAccRadar": "Gemessene Radar-Trefferquote: {wr}% (n={n})",
+    "eEstFeed": "Geschätzte Daten — Signal deaktiviert",
     "fmCycle": "7. Gemessene Preiszyklus-Position",
     "fmCycleHi": "am Zyklushoch — Exit-Liquidity-Risiko",
     "fmCycleLo": "am Zyklustief — Abprallrisiko",

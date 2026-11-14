@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL tersentuh — sinyal invalid",
     "eOutInv": "Dibatalkan struktur + penerimaan harga",
     "eAccRadar": "Akurasi radar terukur: {wr}% (n={n})",
+    "eEstFeed": "Data estimasi — sinyal nonaktif",
     "fmCycle": "7. Posisi Siklus Harga (Terukur)",
     "fmCycleHi": "di puncak — rawan jadi exit liquidity",
     "fmCycleLo": "di dasar siklus — rawan pantulan",

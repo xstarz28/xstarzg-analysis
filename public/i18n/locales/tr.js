@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL değdi — sinyal geçersiz",
     "eOutInv": "Yapı dönüşü + fiyat kabulüyle iptal",
     "eAccRadar": "Ölçülen radar isabeti: {wr}% (n={n})",
+    "eEstFeed": "Tahmini veri — sinyal devre dışı",
     "fmCycle": "7. Fiyat döngüsü konumu (ölçüldü)",
     "fmCycleHi": "döngü tepesinde — çıkış likiditesi riski",
     "fmCycleLo": "döngü dibinde — tepki riski",

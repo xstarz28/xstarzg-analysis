@@ -593,7 +593,18 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     var oc = String((verdict && verdict.status) || '');
     if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID') return;
     var out = signalOutcomeStore();
-    out[signalLockId(symbol, tf)] = { status: oc, reason: verdict.reason || '', at: Date.now(), dir: lock && lock.direction, entry: lock && lock.entry, score: lock && lock.score };
+    out[signalLockId(symbol, tf)] = {
+      status: oc, reason: verdict.reason || '', at: Date.now(),
+      dir: lock && lock.direction, entry: lock && lock.entry, score: lock && lock.score,
+      // Snapshot lock penuh -> outcome bisa direkonsiliasi terhadap candle asli
+      // (jika badge lahir dari feed fabrikasi, lock dipulihkan & badge dicabut).
+      lock: lock ? {
+        v: lock.v, symbol: lock.symbol, tf: lock.tf, direction: lock.direction,
+        entry: lock.entry, sl: lock.sl, tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
+        rrRatio: lock.rrRatio, score: lock.score, winRate: lock.winRate,
+        anchorClosedTime: lock.anchorClosedTime, anchorPrice: lock.anchorPrice, issuedAt: lock.issuedAt
+      } : null
+    };
     var ks = Object.keys(out);
     while (ks.length > 80) { var k0 = ks.shift(); delete out[k0]; }
     localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
@@ -619,9 +630,48 @@ function adaptiveMinScore(tf) {
   } catch (e) {}
   return 62;
 }
+/* Rekonsiliasi jujur: badge TP/SL yang lahir dari candle fabrikasi (feed kotor)
+   DICABUT saat candle asli membuktikan level itu tidak pernah tersentuh —
+   lock dipulihkan ACTIVE dan statistik akurasi dikembalikan (rollback 1 outcome). */
+function reconcileSignalOutcome(symbol, tf, closedCandles) {
+  try {
+    var key = signalLockId(symbol, tf);
+    var out = signalOutcomeStore();
+    var o = out[key];
+    if (!o || (Date.now() - o.at) >= outcomeBadgeWindowMs(tf)) return;
+    if (!o.lock || !Number.isFinite(Number(o.lock.anchorClosedTime))) return;
+    if (o.status !== 'TP_HIT' && o.status !== 'SL_HIT') return; // struktur tidak direkonsiliasi mekanis
+    var L = o.lock, isLong = L.direction === 'LONG';
+    var target = o.status === 'TP_HIT' ? Number(L.tp1) : Number(L.sl);
+    var hit = false;
+    for (var i = 0; i < closedCandles.length; i++) {
+      var c = closedCandles[i];
+      if (!c || c.time <= L.anchorClosedTime || (c.time * 1000) > (o.at + 90000)) continue;
+      // LONG: TP tersentuh bila high >= tp1; SL bila low <= sl. SHORT cermin.
+      if (o.status === 'TP_HIT') { if (isLong ? c.high >= target : c.low <= target) { hit = true; break; } }
+      else { if (isLong ? c.low <= target : c.high >= target) { hit = true; break; } }
+    }
+    if (!hit) {
+      delete out[key];
+      localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
+      var all = signalLockStore();
+      all[key] = Object.assign({}, L, { status: 'ACTIVE' });
+      localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+      var acc = radarAccStore(); var hz = hzOfTf(tf); var st = acc[hz];
+      if (st && Array.isArray(st.recent) && st.recent.length) {
+        st.recent = st.recent.slice(0, -1);
+        var w = st.recent.reduce(function (a2, b) { return a2 + b; }, 0);
+        st.sample = st.recent.length; st.wins = w; st.losses = st.recent.length - w;
+        st.winRate = st.recent.length ? Math.round((w / st.recent.length) * 100) : 0;
+        acc[hz] = st;
+        localStorage.setItem(RADAR_ACC_KEY, JSON.stringify(acc));
+      }
+    }
+  } catch (e) {}
+}
 
 /* ==================== 2. MESIN ANALISIS QUANT (computeQuantEngine) ==================== */
-function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope) {
+function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSource) {
   try {
     if (SE && SE.runFullAnalysis && Array.isArray(candles) && candles.length >= 30) {
       var a = SE.runFullAnalysis({
@@ -634,13 +684,20 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope) {
            SKOPE 'create' = analisis utama workspace (boleh menerbitkan kunci baru),
            'apply' = radar/kurasi/scan (hanya menerapkan kunci yang sudah ada). */
         var scope = (lockScope === 'create' || lockScope === 'apply') ? lockScope : 'create';
+        /* v2026.48: siklus hidup sinyal (validasi TP/SL, outcome, penerbitan kunci)
+           HANYA boleh berjalan di atas candle yang PROVENANSINYA asli (klines broker).
+           Feed fabrikasi/estimasi (anchored/seed/synthetic) TIDAK boleh melahirkan
+           badge TP/SL maupun komitmen baru — itulah sumber badge dusta AMDB. */
+        var feedReal = typeof feedIsReal === 'function' ? feedIsReal(feedSource) : !!feedSource;
+        if (!feedReal) a.feedUnverified = true;
         try {
-          if (typeof SE.validateSignalLock === 'function') {
+          if (feedReal && typeof SE.validateSignalLock === 'function') {
             var tfA = a.timeframe || tf;
+            var closedBars0 = SE.trimClosedCandles(candles, a.tfSeconds || 3600);
+            reconcileSignalOutcome(symbol, tfA, closedBars0);
             var lock = getSignalLock(symbol, tfA);
             if (lock && lock.tf === tfA) {
-              var closedBars = SE.trimClosedCandles(candles, a.tfSeconds || 3600);
-              var verdict = SE.validateSignalLock(lock, closedBars, a);
+              var verdict = SE.validateSignalLock(lock, closedBars0, a);
               if (verdict && verdict.status === 'ACTIVE') {
                 SE.applyLockedSignal(a, lock);
               } else {
@@ -650,8 +707,8 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope) {
               }
             }
             /* Kartu yang TAMPIL (create/apply) = komitmen terlacak. Penerbitan baru
-               dihormati 2 penjaga: cooldown pasca-SL/invalidasi + ambang adaptif
-               dari akurasi terukur horizon (mengetat otomatis saat radar buruk). */
+               dihormati 3 penjaga: feed asli + cooldown pasca-SL/invalidasi + ambang
+               adaptif dari akurasi terukur horizon (mengetat otomatis saat radar buruk). */
             if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible
                 && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
@@ -1178,7 +1235,7 @@ function scheduleBestTfScan() {
       (function (tf) {
         if (tf === curTf) return;
         jobs.push(fetchRealMarketCandles(sym, tf).then(function (d) {
-          return { tf: tf, a: computeQuantEngine(d.candles, sym, tf, false, 'apply') };
+          return { tf: tf, a: computeQuantEngine(d.candles, sym, tf, false, 'apply', d.source) };
         }));
       })(ALL_TFS[i]);
     }
@@ -1318,7 +1375,13 @@ function renderPanels(a) {
   updateRiskSizing();
 }
 function feedIsEstimate(src) {
-  return /ESTIMATE|SYNTHETIC|LOCAL|CALIBRATED|DEFAULT/i.test(String(src || ''));
+  return /ESTIMATE|SYNTHETIC|LOCAL|CALIBRATED|DEFAULT|ANCHOR|SEED|FALLBACK/i.test(String(src || ''));
+}
+/* Feed dianggap ASLI hanya bila ada provenance broker nyata & bukan label estimasi.
+   Dipakai gerbang siklus hidup sinyal: candle fabrikasi dilarang memvalidasi TP/SL. */
+function feedIsReal(src) {
+  var s = String(src || '');
+  return !!s && !feedIsEstimate(s);
 }
 /* Mode investor hanya menyediakan timeframe investasi (D1/W1/MN/1Y) — tombol
    TF trader (M1..H4) disembunyikan agar kedua ruang kerja tidak tercampur. */
@@ -1553,8 +1616,11 @@ function connectRealtimeStream() {
    investor -> AKUMULASI / DCA / TUNGGU DISKON (framing beli-nyata). */
 function fetchRadarCandidate(item) {
   return fetchRealMarketCandles(item.sym, item.tf).then(function (d) {
-    var a = computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply');
+    var a = computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source);
     if (!a) throw new Error('no-analysis');
+    // Kandidat berbasis feed estimasi/fabrikasi: dinonaktifkan dari rekomendasi
+    // (sinyal, komitmen, dan outcome hanya lahir dari candle broker asli).
+    a.__estFeed = !feedIsReal(d.source);
     return {
       sym: item.sym, tf: item.tf, analysis: a,
       candles: Array.isArray(d.candles) ? d.candles.slice(-240) : null, // snapshot utk konsistensi klik-through
@@ -1591,6 +1657,7 @@ function paintRadarItems(cfg, items) {
     var a = it.analysis;
     var meta = getMeta(it.sym);
     var badge = radarBadgeFor(a);
+    if (a.__estFeed) badge = { cls: 'wait', txt: T('ui.eEstFeed', '○ Data estimasi — sinyal nonaktif') };
     var chg = num(it.changePct, num(a.changePct));
     var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
     var sc = num(a.convictionScore, a.confluenceScore);
@@ -1600,6 +1667,7 @@ function paintRadarItems(cfg, items) {
     // kartu menampilkan hasil akhirnya (TP/SL/dibatalkan struktur) + jamnya.
     var outBadge = '';
     var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(it.sym, it.tf) : null;
+    if (oc && a.__estFeed) oc = null; // outcome di feed estimasi tidak dimunculkan
     if (oc) {
       var ocTxt = oc.status === 'TP_HIT' ? T('ui.eOutTp', 'TP tercapai — setup selesai')
         : oc.status === 'STRUCTURE_INVALID' ? T('ui.eOutInv', 'Dibatalkan struktur + penerimaan harga')
@@ -1796,7 +1864,7 @@ function renderOpportunityRadar(force) {
   fresh.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
   // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
-  var freshStrong = fresh.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55; });
+  var freshStrong = fresh.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
   var freshShow = freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4);
   if (!force && fresh.length >= 12) { paintRadarItems(cfg, freshShow); return; }
   if (fresh.length) paintRadarItems(cfg, freshShow);
@@ -1815,7 +1883,7 @@ function renderOpportunityRadar(force) {
     var now2 = Date.now();
     for (var k2 in pool) if (now2 - pool[k2].ts < 15 * 60000) merged.push(pool[k2].item);
     merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
-    var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55; });
+    var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
     paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4));
   }).catch(function () {});
 }
@@ -1833,7 +1901,7 @@ function primeFromRadarPool(sym, tf) {
     for (var key in pool) {
       var rec = pool[key];
       if (rec && rec.item && rec.item.sym === sym && rec.item.tf === tf && rec.item.candles && (now - rec.ts) < 180000) {
-        return rec.item.candles;
+        return { candles: rec.item.candles, source: rec.item.source || 'BROKER FEED' };
       }
     }
   }
@@ -1857,7 +1925,8 @@ function gotoInstrument(sym, tf) {
     }
   }
   var primed = primeFromRadarPool(sym, tf);
-  state.candles = primed ? primed.slice() : [];
+  state.candles = primed ? primed.candles.slice() : [];
+  var primedSource = primed ? primed.source : null;
   state.lastAnalysis = null;
   state.bestTfBoard = null;
   renderInstrumentCatalog();
@@ -1867,7 +1936,7 @@ function gotoInstrument(sym, tf) {
   // refresh/kalkulasi ulang berikutnya tidak bisa mengubahnya sampai TP/SL/invalidasi.
   if (primed) {
     try {
-      var primeAnalysis = computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create');
+      var primeAnalysis = computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource);
       if (primeAnalysis && !primeAnalysis.error) renderAllVisuals(primeAnalysis, true);
     } catch (e) {}
   }
@@ -2688,7 +2757,7 @@ if (document.readyState === 'loading') {
         state.candles = seeded.candles;
         state.livePrice = seeded.price;
         state.liveChangePct = 0.25;
-        const instantAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc);
+        const instantAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc, 'create', 'LOCAL_SEED');
         renderAllVisuals(instantAnalysis, true);
         drawCanvasFallbackChart(state.candles, instantAnalysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
@@ -2701,7 +2770,7 @@ if (document.readyState === 'loading') {
         state.livePrice = Number(data.price) || data.candles[data.candles.length - 1].close;
         state.liveChangePct = Number(data.changePct) || 0.25;
         state.feedSource = data.source || 'LIVE_BROKER';
-        const analysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc);
+        const analysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc, 'create', data.source || 'LIVE_BROKER');
         renderAllVisuals(analysis, true);
         drawCanvasFallbackChart(state.candles, analysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
@@ -2713,7 +2782,7 @@ if (document.readyState === 'loading') {
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
       state.livePrice = seeded.price;
-      const fallbackAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false);
+      const fallbackAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'create', 'LOCAL_SEED');
       renderAllVisuals(fallbackAnalysis, true);
       drawCanvasFallbackChart(state.candles, fallbackAnalysis);
       renderOpportunityRadar();
@@ -2726,7 +2795,7 @@ if (document.readyState === 'loading') {
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
       state.livePrice = seeded.price;
-      const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false);
+      const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'create', 'LOCAL_SEED');
       renderAllVisuals(initAn, false);
       renderOpportunityRadar();
     }, 50);

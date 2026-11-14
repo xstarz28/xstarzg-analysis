@@ -495,6 +495,7 @@ export default {
     "eOutSl": "触及止损 — 信号失效",
     "eOutInv": "结构反转 + 价格确认而失效",
     "eAccRadar": "雷达实测准确率: {wr}% (n={n})",
+    "eEstFeed": "估算数据 — 信号已停用",
     "fmCycle": "7. 价格周期位置（实测）",
     "fmCycleHi": "处于周期顶部——退出流动性风险",
     "fmCycleLo": "处于周期底部——反弹风险",

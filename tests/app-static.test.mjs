@@ -9,17 +9,18 @@ const app = R('../public/app.js');
 const boot = R('../public/js/engine-boot.js');
 const i18nIndex = R('../public/i18n/index.js');
 const eng = R('../public/js/shared/signal-engine.js');
+const edgeAnalyze = R('../functions/api/market/analyze.js');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.47/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.47/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.47">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.47">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.47/.test(boot) && /signal-engine\.js\?v=2026\.47/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.47/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.48/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.48/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.48">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.48">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.48/.test(boot) && /signal-engine\.js\?v=2026\.48/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.48/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -34,7 +35,7 @@ chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes
 
 // --- Wiring lock persisten (aturan #3.2) ---
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
-chk('radar/kurasi memakai scope apply (tidak menerbitkan lock)', app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply')"));
+chk('radar/kurasi memakai scope apply + provenance feed (komitmen terlacak sejak tampil)', app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)"));
 chk('lock divalidasi sebelum diterapkan', app.includes('SE.validateSignalLock(') && app.includes('SE.applyLockedSignal('));
 chk('lock baru diterbitkan hanya dari sinyal eligible + 2 penjaga', /signalCooldownActive\(symbol, tfA\) && num\(a\.confluenceScore, 0\) >= adaptiveMinScore\(tfA\)\) \{\s*var nl = SE\.createSignalLock/.test(app));
 
@@ -54,7 +55,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (428)', uniform && count === 428);
+chk('20 locale punya keyset ui seragam (429)', uniform && count === 429);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -72,7 +73,7 @@ chk('pemilih tipe chart (candlestick/bar/line/area) ter-wire', html.includes('ch
 chk('chart responsif HP (ResizeObserver + defer lebar 0)', app.includes('ResizeObserver') && app.includes('__chartInitPending'));
 chk('pool radar 15 mnt & kurasi 30 mnt (rotasi penuh katalog)', app.includes('15 * 60000') && app.includes('1800000'));
 chk('kartu rekomendasi membawa snapshot candle', app.includes('candles.slice(-240)'));
-chk('klik-through memakai snapshot segar + lock create (konsistensi skor)', app.includes('primeFromRadarPool(sym, tf)') && app.includes("computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create')"));
+chk('klik-through memakai snapshot segar + lock create (konsistensi skor)', app.includes('primeFromRadarPool(sym, tf)') && app.includes("computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource)"));
 chk('invalidasi lock butuh penerimaan harga (anti chop)', eng.includes('againstLong') && eng.includes('STRUCTURE_INVALID'));
 chk('radar lebih segar: TTL 15 mnt + batch 40/slot 3 mnt', app.includes('15 * 60000') && app.includes('rotatingSlice(catalogSortedStable(), 40, 3)'));
 chk('analisis workspace menulis-balik ke pool rekomendasi', app.includes('writeBackRadarPools(analysis)') && app.includes('WORKSPACE LIVE'));
@@ -90,5 +91,9 @@ chk('kartu radar ikut menerbitkan kunci (scope create/apply)', app.includes("(sc
 chk('akurasi radar adaptif mengetatkan ambang terbit', app.includes('adaptiveMinScore(tfA)') && eng.includes('radarAdaptiveGate') && eng.includes('updateRadarAccuracy'));
 chk('badge outcome jujur di kartu radar', app.includes('latestSignalOutcome(it.sym, it.tf)') && app.includes('eOutSl'));
 chk('gate persistensi 2-candle anti fakeout', eng.includes('persistOk') && eng.includes('PERSIST_WAIT'));
+chk('candle fabrikasi edge dicap jujur EST_ANCHORED', edgeAnalyze.includes("'EST_ANCHORED:'") && edgeAnalyze.includes('candle di fungsi ini DIFABRIKASI'));
+chk('siklus hidup sinyal digerbang feed asli (feedIsReal)', app.includes('function feedIsReal(') && app.includes('if (!feedReal) a.feedUnverified = true;') && app.includes('if (feedReal && typeof SE.validateSignalLock'));
+chk('kandidat feed estimasi dikeluarkan dari rekomendasi & badge-nya jelas', app.includes('a.__estFeed = !feedIsReal(d.source)') && app.includes('!it.analysis.__estFeed') && app.includes("T('ui.eEstFeed'"));
+chk('rekonsiliasi outcome palsu -> lock dipulihkan', app.includes('reconcileSignalOutcome(symbol, tfA, closedBars0)') && app.includes('lock: lock ? {'));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
