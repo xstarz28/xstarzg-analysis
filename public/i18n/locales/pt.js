@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Estatísticas walk-forward/forma recente ainda insuficientes",
     "gSpot": "Modo spot unidirecional — SHORT não permitido",
     "gVeto": "Veto de estrutura/liquidez ativo (anti-armadilha)",
+    "eDisclaimer": "⚠️ Não é recomendação financeira. Todas as decisões e resultados de investimento/trading são inteiramente de sua responsabilidade — nunca esqueça a gestão de risco (risco por posição e disciplina de stop-loss).",
     "fmCycle": "7. Posição no ciclo de preço (medida)",
     "fmCycleHi": "no topo do ciclo — risco de liquidez de saída",
     "fmCycleLo": "no fundo do ciclo — risco de repique",

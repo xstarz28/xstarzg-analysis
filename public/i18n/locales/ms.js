@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Statistik walk-forward/bentuk terkini belum cukup kuat",
     "gSpot": "Mod spot satu hala — SHORT tidak dibenarkan",
     "gVeto": "Veto struktur/kecairan aktif (anti perangkap)",
+    "eDisclaimer": "⚠️ Bukan nasihat kewangan. Semua keputusan & hasil pelaburan/perdagangan adalah tanggungjawab anda sendiri — jangan lupa pengurusan wang (risiko setiap posisi & disiplin stop-loss).",
     "fmCycle": "7. Posisi Kitaran Harga (Terukur)",
     "fmCycleHi": "di puncak kitaran — risiko exit liquidity",
     "fmCycleLo": "di dasar kitaran — risiko lantunan",

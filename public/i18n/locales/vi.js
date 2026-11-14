@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Thống kê walk-forward/phong độ gần chưa đủ mạnh",
     "gSpot": "Chế độ spot một chiều — cấm SHORT",
     "gVeto": "Veto cấu trúc/thanh khoản đang bật (chống bẫy)",
+    "eDisclaimer": "⚠️ Không phải lời khuyên tài chính. Mọi quyết định và kết quả đầu tư/giao dịch hoàn toàn thuộc trách nhiệm của bạn — đừng quên quản lý vốn (rủi ro mỗi vị thế & kỷ luật cắt lỗ).",
     "fmCycle": "7. Vị thế chu kỳ giá (đo lường)",
     "fmCycleHi": "ở đỉnh chu kỳ — rủi ro exit liquidity",
     "fmCycleLo": "ở đáy chu kỳ — rủi ro bật lại",

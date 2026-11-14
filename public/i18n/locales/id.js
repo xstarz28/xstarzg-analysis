@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Statistik walk-forward/recent form belum cukup kuat",
     "gSpot": "Mode spot 1-arah — SHORT tidak diizinkan",
     "gVeto": "Veto struktur/likuiditas aktif (anti jebakan)",
+    "eDisclaimer": "⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).",
     "fmCycle": "7. Posisi Siklus Harga (Terukur)",
     "fmCycleHi": "di puncak — rawan jadi exit liquidity",
     "fmCycleLo": "di dasar siklus — rawan pantulan",

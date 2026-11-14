@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Walk-forward/recent form istatistikleri henüz yeterince güçlü değil",
     "gSpot": "Spot tek yön modu — SHORT yasak",
     "gVeto": "Yapı/likidite vetosu aktif (tuzak karşıtı)",
+    "eDisclaimer": "⚠️ Yatırım tavsiyesi değildir. Tüm yatırım/alım-satım kararları ve sonuçları tamamen senin sorumluluğundadır — para yönetimini unutma (pozisyon başına risk ve stop-loss disiplini).",
     "fmCycle": "7. Fiyat döngüsü konumu (ölçüldü)",
     "fmCycleHi": "döngü tepesinde — çıkış likiditesi riski",
     "fmCycleLo": "döngü dibinde — tepki riski",
