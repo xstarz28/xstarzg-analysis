@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL tocado — sinal inválido",
     "eOutInv": "Cancelado por estrutura + aceitação do preço",
     "eAccRadar": "Precisão medida do radar: {wr}% (n={n})",
+    "eEstFeed": "Dados estimados — sinal desativado",
     "fmCycle": "7. Posição no ciclo de preço (medida)",
     "fmCycleHi": "no topo do ciclo — risco de liquidez de saída",
     "fmCycleLo": "no fundo do ciclo — risco de repique",

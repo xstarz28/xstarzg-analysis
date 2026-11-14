@@ -495,6 +495,7 @@ export default {
     "eOutSl": "Dính SL — tín hiệu vô hiệu",
     "eOutInv": "Bị hủy bởi cấu trúc + chấp nhận giá",
     "eAccRadar": "Độ chính xác radar đo được: {wr}% (n={n})",
+    "eEstFeed": "Dữ liệu ước tính — tắt tín hiệu",
     "fmCycle": "7. Vị thế chu kỳ giá (đo lường)",
     "fmCycleHi": "ở đỉnh chu kỳ — rủi ro exit liquidity",
     "fmCycleLo": "ở đáy chu kỳ — rủi ro bật lại",

@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL dotknięty — sygnał nieważny",
     "eOutInv": "Unieważniony przez strukturę + akceptację ceny",
     "eAccRadar": "Zmierzona skuteczność radaru: {wr}% (n={n})",
+    "eEstFeed": "Dane szacunkowe — sygnał wyłączony",
     "fmCycle": "7. Pozycja w cyklu cenowym (zmierzona)",
     "fmCycleHi": "na szczycie cyklu — ryzyko płynności wyjścia",
     "fmCycleLo": "na dnie cyklu — ryzyko odbicia",

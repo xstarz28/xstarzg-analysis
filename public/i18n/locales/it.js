@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL toccato — segnale non valido",
     "eOutInv": "Annullato da struttura + accettazione del prezzo",
     "eAccRadar": "Accuratezza radar misurata: {wr}% (n={n})",
+    "eEstFeed": "Dati stimati — segnale disattivato",
     "fmCycle": "7. Posizione nel ciclo di prezzo (misurata)",
     "fmCycleHi": "sul massimo del ciclo — rischio liquidità di uscita",
     "fmCycleLo": "sul minimo del ciclo — rischio rimbalzo",

@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL geraakt — signaal ongeldig",
     "eOutInv": "Geannuleerd door structuur + prijsacceptatie",
     "eAccRadar": "Gemeten radar-accuratesse: {wr}% (n={n})",
+    "eEstFeed": "Geschatte data — signaal uitgeschakeld",
     "fmCycle": "7. Gemeten prijscycluspositie",
     "fmCycleHi": "op cycluspiek — exit-liquiditeitsrisico",
     "fmCycleLo": "op cyclusdiepte — stuiterrisico",

@@ -495,6 +495,7 @@ export default {
     "eOutSl": "觸及停損 — 訊號失效",
     "eOutInv": "結構反轉 + 價格確認而失效",
     "eAccRadar": "雷達實測準確率: {wr}% (n={n})",
+    "eEstFeed": "估算資料 — 訊號已停用",
     "fmCycle": "7. 價格週期位置（實測）",
     "fmCycleHi": "位於週期頂部——退出流動性風險",
     "fmCycleLo": "位於週期底部——反彈風險",

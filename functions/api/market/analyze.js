@@ -459,7 +459,10 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
   last.high = Math.max(last.open, last.close, Number(liveQuote?.tfHigh) || endPrice);
   last.low = Math.min(last.open, last.close, Number(liveQuote?.tfLow) || endPrice);
   return {
-    source: liveQuote?.source || 'ESTIMATED_FALLBACK',
+    // v2026.48: candle di fungsi ini DIFABRIKASI (anchored random path) — provenance
+    // WAJIB dicap jujur agar hilir (gerbang siklus hidup sinyal) tidak mempercayainya
+    // sebagai klines broker asli. Jangan pernah meneruskan 'BINANCE:PAIR' dsb mentah.
+    source: liveQuote?.source ? ('EST_ANCHORED:' + liveQuote.source) : 'ESTIMATED_FALLBACK',
     price: endPrice,
     changePct: Number(liveQuote?.changePct) || 0.25,
     candles

@@ -495,6 +495,7 @@ export default {
     "eOutSl": "SL到達 — シグナル無効",
     "eOutInv": "構造反転＋価格受容により無効化",
     "eAccRadar": "測定済みレーダー精度: {wr}% (n={n})",
+    "eEstFeed": "推定データ — シグナル無効",
     "fmCycle": "7. 価格サイクル位置（実測）",
     "fmCycleHi": "サイクル天井 — 出口流動性リスク",
     "fmCycleLo": "サイクル底 — 反発リスク",
