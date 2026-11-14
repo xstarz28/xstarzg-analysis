@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Walk-Forward/Recent-Form-Statistik noch zu schwach",
     "gSpot": "Spot Einweg-Modus — SHORT nicht erlaubt",
     "gVeto": "Struktur-/Liquiditätsveto aktiv (Anti-Falle)",
+    "eDisclaimer": "⚠️ Keine Finanzberatung. Alle Anlage-/Trading-Entscheidungen und Ergebnisse liegen allein in deiner Verantwortung — Money Management nie vergessen (Risiko pro Position & Stop-Loss-Disziplin).",
     "fmCycle": "7. Gemessene Preiszyklus-Position",
     "fmCycleHi": "am Zyklushoch — Exit-Liquidity-Risiko",
     "fmCycleLo": "am Zyklustief — Abprallrisiko",

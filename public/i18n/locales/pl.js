@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Statystyki walk-forward/ostatniej formy jeszcze za słabe",
     "gSpot": "Tryb spot jednokierunkowy — SHORT niedozwolony",
     "gVeto": "Weto struktury/płynności aktywne (anty-pułapka)",
+    "eDisclaimer": "⚠️ To nie jest porada finansowa. Wszystkie decyzje inwestycyjne/tradingowe i ich skutki ponosisz wyłącznie sam — pamiętaj o money managementu (ryzyko na pozycję i dyscyplina stop-loss).",
     "fmCycle": "7. Pozycja w cyklu cenowym (zmierzona)",
     "fmCycleHi": "na szczycie cyklu — ryzyko płynności wyjścia",
     "fmCycleLo": "na dnie cyklu — ryzyko odbicia",

@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Walk-forward/recente-vorm-statistieken nog niet sterk genoeg",
     "gSpot": "Spot éénrichtingsmodus — SHORT niet toegestaan",
     "gVeto": "Structuur-/liquiditeitsveto actief (anti-val)",
+    "eDisclaimer": "⚠️ Geen financieel advies. Alle beleggings-/handelsbeslissingen en -uitkomsten zijn volledig je eigen verantwoordelijkheid — vergeet money management niet (risico per positie & stop-loss-discipline).",
     "fmCycle": "7. Gemeten prijscycluspositie",
     "fmCycleHi": "op cycluspiek — exit-liquiditeitsrisico",
     "fmCycleLo": "op cyclusdiepte — stuiterrisico",

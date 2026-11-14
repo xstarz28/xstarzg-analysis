@@ -504,6 +504,7 @@ export default {
     "gWinrate": "Walk-forward/recent-form stats not strong enough yet",
     "gSpot": "Spot one-way mode — SHORT not allowed",
     "gVeto": "Structure/liquidity veto active (anti-trap)",
+    "eDisclaimer": "⚠️ Not financial advice. All investment/trading decisions and outcomes are entirely your own responsibility — never skip money management (risk per position & stop-loss discipline).",
     "fmCycle": "7. Measured Price-Cycle Position",
     "fmCycleHi": "at cycle top — exit-liquidity risk",
     "fmCycleLo": "at cycle bottom — bounce risk",
