@@ -1185,6 +1185,15 @@ function gateBlockHtml(a) {
       fillTpl(T('ui.eGateForbidden', '⛔ TIMEFRAME {tf} DILARANG ENTRY (rawan loss) — gerbang institusional menolak; tidak ada angka Entry/SL/TP yang dipaksakan di TF ini.'), { tf: (a.timeframe || state.tf) }) +
       '</div>';
   }
+  /* Koherensi WR vs entry: winrate historis besar TIDAK sama dengan izin entry.
+     Saat WR tinggi tapi gerbang menolak, jelaskan alasannya secara eksplisit agar
+     panel tidak terlihat kontradiktif. */
+  if (a.backtest && !a.backtest.disabled && num(a.backtest.winRate, 0) >= 60 && !a.signalEligible && !a.lockedSignal) {
+    var why0 = (a.gating && a.gating.active && a.gating.active.length) ? gateShortLabel(a.gating.active[0]) : '';
+    out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.3);font-size:11.5px;color:#bae6fd;">' +
+      fillTpl(T('ui.eWrVsEntry', 'ℹ️ Winrate walk-forward {wr}% memang besar — tapi WR ≠ izin entry: WR menilai masa lalu, sedangkan entry hanya diterbitkan bila struktur + volume + momentum TERKINI mengonfirmasi. Sekarang yang ditunggu: {why}. Menunggu konfirmasi inilah yang menyelamatkan dari fakeout.'), { wr: num(a.backtest.winRate, 0).toFixed(1), why: why0 }) +
+      '</div>';
+  }
   var b = state.bestTfBoard;
   if (b && b.groups) {
     var cell = function (g) {
@@ -1644,7 +1653,21 @@ function radarBadgeFor(a) {
   if (a.direction === 'SHORT') return isSpot ? { cls: 'wait', txt: T('ui.tbWaitSpot', '◆ TUNGGU (SPOT)') } : { cls: 'short', txt: T('ui.tbShort', '▼ SHORT / SELL') + star };
   return { cls: 'wait', txt: T('ui.tbNeutral', '◆ NETRAL') };
 }
-function paintRadarItems(cfg, items) {
+/* Label pendek alasan gerbang (kartu radar) — WR historis besar ≠ izin entry;
+   kartu wajib menyebut APA yang masih ditunggu supaya tidak terasa kontradiktif. */
+function gateShortLabel(code) {
+  var m = {
+    LOW_SCORE: T('ui.gLowScore', 'Skor berada di bawah ambang'),
+    NO_SEQ: T('ui.gNoSeq', 'Menunggu urutan sweep→BOS + volume terkonfirmasi'),
+    SQUEEZE_UNCONFIRMED: T('ui.eVetoSqueeze', 'Squeeze belum terkonfirmasi breakout bervolume'),
+    PERSIST_WAIT: T('ui.eVetoPersist', 'Momentum baru 1 candle — menunggu candle ke-2 searah'),
+    CHOPPY: T('ui.gChoppy', 'Pasar sideways/choppy — efficiency ratio rendah'),
+    LOW_WINRATE: T('ui.gWinrate', 'Statistik walk-forward/recent form belum cukup kuat'),
+    SPOT_ONLY: T('ui.gSpot', 'Mode spot 1-arah — SHORT tidak diizinkan')
+  };
+  return m[code] || T('ui.gVeto', 'Veto struktur/likuiditas aktif (anti jebakan)');
+}
+function paintRadarItems(cfg, items, noneQualified) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
   if (!items || !items.length) {
@@ -1652,6 +1675,14 @@ function paintRadarItems(cfg, items) {
     return;
   }
   var html = '';
+  /* Kejujuran daftar: bila TIDAK ADA yang lolos gerbang, tampilkan banner tegas —
+     daftar di bawahnya hanyalah pantauan (kandidat terbaik yang tersedia), bukan
+     rekomendasi. (Skor mereka ditahan <62 oleh engine = memang belum layak eksekusi.) */
+  if (noneQualified && state.mode !== 'investor') {
+    html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.06);"><span class="r-name" style="color:#fbbf24;">' +
+      T('ui.eRadarNone', '⚠️ Belum ada sinyal yang lolos gerbang ketat saat ini. Daftar di bawah = PANTAUAN saja (bukan rekomendasi) — lazim saat pasar sepi/akhir pekan & feed estimasi. Rekomendasi kembali begitu setup nyata matang.') +
+      '</span></div>';
+  }
   for (var i = 0; i < items.length; i++) {
     var it = items[i];
     var a = it.analysis;
@@ -1688,6 +1719,10 @@ function paintRadarItems(cfg, items) {
         '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
       '</div>' +
       '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' + outBadge +
+      // Alasan gerbang di kartu: kartu non-eligible menyebut yang masih ditunggu
+      // (koheren dengan WR besar di panel — WR masa lalu, izin entry = konfirmasi kini)
+      (state.mode === 'trader' && !a.signalEligible && !a.lockedSignal && !a.__estFeed && a.gating && a.gating.active && a.gating.active.length
+        ? '<div style="font-size:10.5px;color:#f59e0b;margin-top:3px;line-height:1.35;">⛔ ' + gateShortLabel(a.gating.active[0]) + '</div>' : '') +
       '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
         '<span class="r-entry">' + (state.mode === 'investor' ? T('ui.cDcaShort', 'Zona DCA 1: ') : T('ui.cEntry', 'Entry: ')) + formatPrice(entryRef, it.sym) + '</span>' +
         '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
@@ -1866,8 +1901,8 @@ function renderOpportunityRadar(force) {
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
   var freshStrong = fresh.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
   var freshShow = freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4);
-  if (!force && fresh.length >= 12) { paintRadarItems(cfg, freshShow); return; }
-  if (fresh.length) paintRadarItems(cfg, freshShow);
+  if (!force && fresh.length >= 12) { paintRadarItems(cfg, freshShow, freshStrong.length === 0); return; }
+  if (fresh.length) paintRadarItems(cfg, freshShow, freshStrong.length === 0);
   var batch = rotatingSlice(catalogSortedStable(), 40, 3);
   var mySeq = ++radarRunSeq;
   if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', batch.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
@@ -1884,7 +1919,7 @@ function renderOpportunityRadar(force) {
     for (var k2 in pool) if (now2 - pool[k2].ts < 15 * 60000) merged.push(pool[k2].item);
     merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
     var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
-    paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4));
+    paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4), strong.length === 0);
   }).catch(function () {});
 }
 /* Kon-sistensi klik-through: hasil yang tampil di kartu rekomendasi (trader &
