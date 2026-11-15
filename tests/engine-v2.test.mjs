@@ -84,7 +84,7 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   };
   const L = SE.buildInstitutionalLevels('LONG', ctx);
   chk('LONG entry di zona mitigasi (<= harga closed)', L.entry <= ctx.price + 1e-9 && L.entry > 0);
-  chk('LONG SL di bawah wick struktur - buffer 0.45 ATR', Math.abs(L.sl - (94 - 0.9)) < 1e-6); // min(impulseLow 94, OB bottom 95.4) - 0.45*2
+  chk('LONG SL di bawah wick struktur - buffer SNIPER 0.60 ATR', Math.abs(L.sl - (94 - 1.2)) < 1e-6); // min(impulseLow 94, OB bottom 95.4) - 0.60*2 (v2026.51 default SNIPER)
   chk('LONG SL di bawah entry', L.sl < L.entry);
   chk('LONG TP2 memenuhi RR >= 2.2', (L.tp2 - L.entry) / (L.entry - L.sl) >= 2.2 - 1e-9);
   chk('LONG TP naik berurutan', L.tp1 < L.tp2 && L.tp2 < L.tp3 && L.entry < L.tp1);
@@ -92,10 +92,30 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
     ...ctx, price: 100, bearOb: { top: 104.6, bottom: 103.8, index: 12 }, bearFvg: { top: 101.6, bottom: 100.8, mid: 101.2 }, bullOb: null, bullFvg: null
   });
   chk('SHORT entry di zona premium (>= harga closed)', S.entry >= ctx.price - 1e-9);
-  // SHORT SL = max(wick swing, OB top) + 0.45*ATR -> max(104, 104.6) + 0.9 = 105.5
-  chk('SHORT SL di atas wick struktur + buffer', Math.abs(S.sl - (104.6 + 0.9)) < 1e-6);
+  // SHORT SL (SNIPER) = max(wick swing, OB top) + 0.60*ATR -> max(104, 104.6) + 1.2 = 105.8
+  chk('SHORT SL di atas wick struktur + buffer SNIPER', Math.abs(S.sl - (104.6 + 1.2)) < 1e-6);
   chk('SHORT TP2 memenuhi RR >= 2.2', (S.entry - S.tp2) / (S.sl - S.entry) >= 2.2 - 1e-9);
   chk('SHORT TP turun berurutan', S.tp1 > S.tp2 && S.tp2 > S.tp3 && S.entry > S.tp1);
+}
+
+/* v2026.51 Dual-Brain: SCALP memakai risiko TP1-berat (target mikro); SNIPER SNIPER struktural */
+{
+  const ctxS = {
+    price: 100, atr: 2, poc: 99,
+    impulseLow: 94, impulseHigh: 104,
+    recentHigh: 104, recentLow: 94,
+    vah: 105, val: 96.5,
+    r1: 106, r2: 108, s1: 96, s2: 92.5,
+    t1Sup: 100.2,
+    bullOb: { top: 96.2, bottom: 95.4, index: 10 }, bearOb: null,
+    bullFvg: { top: 99.2, bottom: 98.4, mid: 98.8 }, bearFvg: null,
+    brain: 'SCALP'
+  };
+  const SL = SE.buildInstitutionalLevels('LONG', ctxS);
+  chk('SCALP SL buffer lebih tipis (0.30*ATR)', Math.abs(SL.sl - (94 - 0.6)) < 1e-6);
+  chk('SCALP TP1 boleh < 1R (mikro-target)', (SL.tp1 - SL.entry) / (SL.entry - SL.sl) >= 0.55 - 1e-9);
+  chk('SCALP TP2 minimal 1.25R (bukan 2.2R sniper)', (SL.tp2 - SL.entry) / (SL.entry - SL.sl) >= 1.25 - 1e-9);
+  chk('SCALP TP naik berurutan', SL.tp1 < SL.tp2 && SL.tp2 < SL.tp3 && SL.entry < SL.tp1);
 }
 
 /* ---------- 5. Persistent Signal Lock lifecycle (aturan #3.2) ---------- */
