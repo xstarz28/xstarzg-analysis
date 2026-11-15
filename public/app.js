@@ -1194,6 +1194,13 @@ function gateBlockHtml(a) {
       fillTpl(T('ui.eWrVsEntry', 'ℹ️ Winrate walk-forward {wr}% memang besar — tapi WR ≠ izin entry: WR menilai masa lalu, sedangkan entry hanya diterbitkan bila struktur + volume + momentum TERKINI mengonfirmasi. Sekarang yang ditunggu: {why}. Menunggu konfirmasi inilah yang menyelamatkan dari fakeout.'), { wr: num(a.backtest.winRate, 0).toFixed(1), why: why0 }) +
       '</div>';
   }
+  if (state.mode === 'trader' && a.brainMetrics) {
+    var bm = a.brainMetrics;
+    var bmTxt = bm.brain === 'SCALP'
+      ? fillTpl(T('ui.eBrainScalp', '⚡ OTAK SCALP (M5) — Tekanan orderflow BUY {of}% | Kecepatan tape {vel}% | Adj otak {adj}'), { of: bm.buyVolPct == null ? '—' : bm.buyVolPct, vel: bm.tapeVelPct == null ? '—' : bm.tapeVelPct, adj: (bm.brainAdj > 0 ? '+' : '') + bm.brainAdj })
+      : fillTpl(T('ui.eBrainSniper', '🎯 OTAK SNIPER — Posisi range 90 candle {pos}% | BOS50 {bos} | Adj otak {adj}'), { pos: bm.posInRangePct == null ? '—' : bm.posInRangePct, bos: bm.bosDir > 0 ? '↑' : bm.bosDir < 0 ? '↓' : '—', adj: (bm.brainAdj > 0 ? '+' : '') + bm.brainAdj });
+    out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(148,163,184,0.07);border:1px solid rgba(148,163,184,0.28);font-size:11.5px;color:#cbd5e1;">' + bmTxt + '</div>';
+  }
   var b = state.bestTfBoard;
   if (b && b.groups) {
     var cell = function (g) {
@@ -1663,7 +1670,10 @@ function gateShortLabel(code) {
     PERSIST_WAIT: T('ui.eVetoPersist', 'Momentum baru 1 candle — menunggu candle ke-2 searah'),
     CHOPPY: T('ui.gChoppy', 'Pasar sideways/choppy — efficiency ratio rendah'),
     LOW_WINRATE: T('ui.gWinrate', 'Statistik walk-forward/recent form belum cukup kuat'),
-    SPOT_ONLY: T('ui.gSpot', 'Mode spot 1-arah — SHORT tidak diizinkan')
+    SPOT_ONLY: T('ui.gSpot', 'Mode spot 1-arah — SHORT tidak diizinkan'),
+    SCALP_PRESSURE: T('ui.gScalpPressure', 'Tekanan orderflow berlawanan — scalp melawan tape terlarang'),
+    SNIPER_PREMIUM: T('ui.gSniperPremium', 'Harga berada di zona premium/diskon — akumulasi menunggu harga murah'),
+    SNIPER_STRUCTURE: T('ui.gSniperStruct', 'Struktur belum selaras (BOS/HTF lawan arah) — sniper wajib konfirmasi')
   };
   return m[code] || T('ui.gVeto', 'Veto struktur/likuiditas aktif (anti jebakan)');
 }
