@@ -356,8 +356,10 @@ function formatPrice(v, symbol) {
   if (a >= 1000) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (a >= 20) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (a >= 1) return n.toFixed(4);
-  if (a >= 0.01) return n.toFixed(5);
-  return n.toFixed(8);
+  // v2026.64: harga <1 diberi presisi signifikan dari nilainya sendiri (bukan baku
+  // 5 digit) — coin mikro seperti RDNT 0.00043436 tidak lagi membulat jadi "0.00".
+  var k = -Math.floor(Math.log10(a) + 1e-12);
+  return n.toFixed(Math.max(5, Math.min(10, k + 4)));
 }
 function pctFmt(v) { var n = num(v, 0); return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; }
 function getMeta(symbol) {
@@ -835,7 +837,7 @@ function computeQuickAnalysis(candles, symbol, tf) {
     backtest: { disabled: false, sampleSize: 0, winRate: 0, expectancyR: 0, profitFactor: 0, netR: 0, maxDrawdownR: 0, weakEvidence: true },
     reasons: [
       '[Engine Cepat] Analisis dasar dimuat — modul quant lengkap sedang disinkronkan.',
-      '[MA Stack] Harga ' + formatPrice(price) + ' vs EMA20 ' + formatPrice(ema20) + ' / EMA50 ' + formatPrice(ema50) + ' | RSI(14): ' + rsi.toFixed(1) + '.'
+      '[MA Stack] Harga ' + formatPrice(price, symbol) + ' vs EMA20 ' + formatPrice(ema20, symbol) + ' / EMA50 ' + formatPrice(ema50, symbol) + ' | RSI(14): ' + rsi.toFixed(1) + '.'
     ],
     series: {
       ema20: candles.map(function (c, idx) { return { time: c.time, value: ema20A[idx] || c.close }; }),
@@ -951,6 +953,7 @@ function applyChartType(type, skipSave) {
       wickUpColor: '#10b981', wickDownColor: '#f43f5e'
     });
   }
+  syncChartPriceFormat();
   if (state.candles && state.candles.length) candleSeries.setData(mainSeriesPayload(state.candles));
   if (state.lastAnalysis) {
     try { syncIndicatorOverlays(state.lastAnalysis); } catch (e) {}
@@ -960,6 +963,21 @@ function applyChartType(type, skipSave) {
 }
 
 /* ==================== 4. GRAFIK TRADINGVIEW (Lightweight Charts) ==================== */
+// v2026.64: presisi axis/tag LWC mengikuti harga simbol aktif — axis semua instrumen
+// (termasuk harga <1) selalu terbaca; tanpa ini tag axis membulat ke 2 desimal.
+function lwcPriceFormat(ref) {
+  var a = Math.abs(Number(ref));
+  var p = !Number.isFinite(a) || a <= 0 ? 4 : a >= 1000 ? 2 : a >= 20 ? 2 : a >= 1 ? 4 : Math.max(5, Math.min(8, -Math.floor(Math.log10(a) + 1e-12) + 3));
+  return { type: 'price', precision: p, minMove: Number('1e-' + p) };
+}
+function syncChartPriceFormat() {
+  if (!candleSeries || !state.candles || !state.candles.length) return;
+  try {
+    var pf = lwcPriceFormat(state.candles[state.candles.length - 1].close);
+    candleSeries.applyOptions({ priceFormat: pf });
+    [ema20Line, ema50Line, ma200Line, vwapLine].forEach(function (ser) { try { if (ser) ser.applyOptions({ priceFormat: pf }); } catch (e) {} });
+  } catch (e) {}
+}
 function initChart() {
   var el = $id('tvChartContainer');
   if (!el) return false;
@@ -1117,22 +1135,22 @@ function renderPillars(a) {
     var p = a.lastPrice;
     var bull = function (c) { return c ? 'bull' : 'bear'; };
     tech.innerHTML =
-      pillarHtml(T('ui.ePnEma', '1. EMA Ribbon 20 / 50'), formatPrice(ind.ema20) + ' / ' + formatPrice(ind.ema50), ind.ema20 > ind.ema50 ? T('ui.ePtRibbonUp', 'Ribbon bullish tersusun rapi') : T('ui.ePtRibbonDn', 'Ribbon bearish / belum searah'), bull(ind.ema20 > ind.ema50)) +
-      pillarHtml(T('ui.ePnMa200', '2. MA-200 Macro Filter'), formatPrice(ind.ma200 || ind.ema200), p >= (ind.ma200 || ind.ema200) ? T('ui.ePtMacroUp', 'Harga di atas garis makro (bias naik)') : T('ui.ePtMacroDn', 'Harga di bawah garis makro (bias turun)'), bull(p >= (ind.ma200 || ind.ema200))) +
-      pillarHtml(T('ui.ePnVwap', '3. VWAP Institusional'), formatPrice(ind.vwap), p >= ind.vwap ? T('ui.ePtVwapUp', 'Di atas VWAP — buyer dominan sesi ini') : T('ui.ePtVwapDn', 'Di bawah VWAP — seller dominan sesi ini'), bull(p >= ind.vwap)) +
-      pillarHtml(T('ui.ePnVpvr', '4. Volume Profile (VPVR)'), 'POC ' + formatPrice(lv.poc), 'VAH ' + formatPrice(lv.vah) + ' • VAL ' + formatPrice(lv.val), p >= lv.poc ? 'bull' : 'bear') +
-      pillarHtml(T('ui.ePnTpo', '5. TPO Market Profile'), 'TPO POC ' + formatPrice(lv.tpoPoc || lv.poc), T('ui.ePtTpo', 'Distribusi waktu harga pasar'), 'neutral') +
+      pillarHtml(T('ui.ePnEma', '1. EMA Ribbon 20 / 50'), formatPrice(ind.ema20, a ? a.symbol : state.symbol) + ' / ' + formatPrice(ind.ema50, a ? a.symbol : state.symbol), ind.ema20 > ind.ema50 ? T('ui.ePtRibbonUp', 'Ribbon bullish tersusun rapi') : T('ui.ePtRibbonDn', 'Ribbon bearish / belum searah'), bull(ind.ema20 > ind.ema50)) +
+      pillarHtml(T('ui.ePnMa200', '2. MA-200 Macro Filter'), formatPrice(ind.ma200 || ind.ema200, a ? a.symbol : state.symbol), p >= (ind.ma200 || ind.ema200) ? T('ui.ePtMacroUp', 'Harga di atas garis makro (bias naik)') : T('ui.ePtMacroDn', 'Harga di bawah garis makro (bias turun)'), bull(p >= (ind.ma200 || ind.ema200))) +
+      pillarHtml(T('ui.ePnVwap', '3. VWAP Institusional'), formatPrice(ind.vwap, a ? a.symbol : state.symbol), p >= ind.vwap ? T('ui.ePtVwapUp', 'Di atas VWAP — buyer dominan sesi ini') : T('ui.ePtVwapDn', 'Di bawah VWAP — seller dominan sesi ini'), bull(p >= ind.vwap)) +
+      pillarHtml(T('ui.ePnVpvr', '4. Volume Profile (VPVR)'), 'POC ' + formatPrice(lv.poc), 'VAH ' + formatPrice(lv.vah, a ? a.symbol : state.symbol) + ' • VAL ' + formatPrice(lv.val, a ? a.symbol : state.symbol), p >= lv.poc ? 'bull' : 'bear') +
+      pillarHtml(T('ui.ePnTpo', '5. TPO Market Profile'), 'TPO POC ' + formatPrice(lv.tpoPoc || lv.poc, a ? a.symbol : state.symbol), T('ui.ePtTpo', 'Distribusi waktu harga pasar'), 'neutral') +
       pillarHtml(T('ui.ePnSmc', '6. Struktur SMC (BOS / CHoCH)'), localizeEngineString(ind.smcStatus || '-'), null, (ind.smcStatus || '').indexOf('BULL') > -1 || (ind.smcStatus || '').indexOf('HIGHER') > -1 ? 'bull' : (ind.smcStatus || '').indexOf('BEAR') > -1 || (ind.smcStatus || '').indexOf('LOWER') > -1 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.ePnFvg', '7. Fair Value Gap (FVG)'), localizeEngineString(ind.fvgNote || '-'), T('ui.ePtFvg', 'Deteksi imbalance 3-candle terbaru'), (ind.fvgNote || '').indexOf('Bullish') > -1 ? 'bull' : (ind.fvgNote || '').indexOf('Bearish') > -1 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.ePnSweep', '8. Liquidity Sweep (BSL/SSL)'), localizeEngineString(ind.liquiditySweep || 'NONE'), T('ui.ePtSweep', 'Stop-hunt di sekitar swing terdekat'), (ind.liquiditySweep || '').indexOf('▲') > -1 ? 'bull' : (ind.liquiditySweep || '').indexOf('▼') > -1 ? 'bear' : 'neutral') +
-      pillarHtml(T('ui.ePnSd', '9. Supply & Demand Zone'), 'D: ' + (ind.demandZoneText || formatPrice(lv.swingLow)), 'S: ' + (ind.supplyZoneText || formatPrice(lv.swingHigh)), 'neutral') +
-      pillarHtml(T('ui.ePnPivot', '10. Pivot Support / Resistance'), 'S1 ' + formatPrice(lv.s1) + ' • R1 ' + formatPrice(lv.r1),
-        T('ui.ePtPivot', 'Pivot klasik: ') + formatPrice(lv.pivot) +
+      pillarHtml(T('ui.ePnSd', '9. Supply & Demand Zone'), 'D: ' + (ind.demandZoneText || formatPrice(lv.swingLow, a ? a.symbol : state.symbol)), 'S: ' + (ind.supplyZoneText || formatPrice(lv.swingHigh, a ? a.symbol : state.symbol)), 'neutral') +
+      pillarHtml(T('ui.ePnPivot', '10. Pivot Support / Resistance'), 'S1 ' + formatPrice(lv.s1, a ? a.symbol : state.symbol) + ' • R1 ' + formatPrice(lv.r1, a ? a.symbol : state.symbol),
+        T('ui.ePtPivot', 'Pivot klasik: ') + formatPrice(lv.pivot, a ? a.symbol : state.symbol) +
         (num(lv.swingLow) > 0 && num(lv.swingHigh) > 0 ? ' • ' + fillTpl(T('ui.ePtZone', 'Zona struktur: S ≈{S} • R ≈{R}'), { S: formatPrice(psychRoundPrice(Math.min(lv.swingLow, lv.s1)), a.symbol), R: formatPrice(psychRoundPrice(Math.max(lv.swingHigh, lv.r1)), a.symbol) }) : ''),
         bull(p >= lv.pivot)) +
       pillarHtml(T('ui.ePnRsi', '11. RSI(14) & MACD Histogram'), 'RSI ' + num(ind.rsi, 50).toFixed(1) + ' • MACD ' + (num(ind.macdHist) >= 0 ? '+' : '') + num(ind.macdHist).toPrecision(3), num(ind.rsi) > 70 ? T('ui.ePtRsiOb', 'Overbought — rawan koreksi') : num(ind.rsi) < 30 ? T('ui.ePtRsiOs', 'Oversold — rawan pantulan') : T('ui.ePtRsiOk', 'Momentum sehat'), num(ind.macdHist) >= 0 ? 'bull' : 'bear') +
       pillarHtml(T('ui.ePnBb', '12. Bollinger Bands & ATR'), 'BBW ' + num(ind.bbWidth).toFixed(2) + '% • ATR ' + num(ind.atrPct).toFixed(2) + '%', num(ind.bbWidth) < 1.25 ? T('ui.ePtBbSq', 'Squeeze — siap breakout volatilitas') : T('ui.ePtBbNorm', 'Ekspansi volatilitas normal'), 'neutral') +
-      pillarHtml(T('ui.ePnOrb', '13. ORB Breakout (Opening Range)'), ind.orbHigh && ind.orbLow ? formatPrice(ind.orbLow) + ' – ' + formatPrice(ind.orbHigh) : localizeEngineString(ind.orbLabel || 'ORB'),
+      pillarHtml(T('ui.ePnOrb', '13. ORB Breakout (Opening Range)'), ind.orbHigh && ind.orbLow ? formatPrice(ind.orbLow, a ? a.symbol : state.symbol) + ' – ' + formatPrice(ind.orbHigh, a ? a.symbol : state.symbol) : localizeEngineString(ind.orbLabel || 'ORB'),
         localizeEngineString(ind.orbState || '-'),
         (ind.orbState || '').indexOf('ATAS ▲') > -1 ? 'bull' : (ind.orbState || '').indexOf('BAWAH ▼') > -1 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.ePnTheta', '14. Theta Index (Decay Momentum)'), 'θ ' + num(ind.thetaIndex, 50) + '/100',
@@ -1493,6 +1511,7 @@ function renderAllVisuals(analysis) {
   try { analysis.symbol = analysis.symbol || state.symbol; } catch (e) {}
   state.lastAnalysis = analysis;
   try { renderHeader(analysis); } catch (e) {}
+  syncChartPriceFormat();
   try {
     if (candleSeries && state.candles && state.candles.length) {
       candleSeries.setData(mainSeriesPayload(state.candles));
