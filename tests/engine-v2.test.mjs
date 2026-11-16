@@ -299,5 +299,30 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
     gHot.minScore === SE.PRO_MIN_SCORE && gHot.defensive === false &&
     gSmall.minScore === SE.PRO_MIN_SCORE);
 }
+
+/* v2026.52 ICT Atlas unit tests */
+{
+  // Bangun candle sintetik 2 hari M15: hari-1 naik lalu hari-2 sweep bawah lalu markup
+  const DAY = 86400, TF = 900; const base = Math.floor(Date.now()/1000/TF)*TF - 400*TF;
+  const mk = [];
+  let price = 100;
+  for (let i = 0; i < 96; i++) { // hari-1: 96 candle => high 106 low 99
+    const op = price; price = 100 + (i < 48 ? i * 0.125 : 6 - (i - 48) * 0.1);
+    mk.push({ time: base - DAY + i * TF, open: op, high: Math.max(op, price) + 0.2, low: Math.min(op, price) - 0.3, close: price, volume: 100 + i });
+  }
+  for (let i = 0; i < 96; i++) { // hari-2: raid bawah 98.4 lalu markup 3 poin
+    let op = price;
+    price = i < 20 ? price - 0.5 * Math.sin(i) - 0.12 : price + 0.22;
+    mk.push({ time: base + i * TF, open: op, high: Math.max(op, price) + 0.15, low: i < 20 ? Math.min(op, price) - 0.4 - (i === 10 ? 0.5 : 0) : Math.min(op, price) - 0.15, close: price, volume: 120 + (i % 9) * 15 });
+  }
+  const atl = SE.detectIctAtlas(mk, [], 0.6, 'M15');
+  chk('pdh/pdl terbaca dari hari sebelumnya', atl.session.pdh > atl.session.pdl && atl.session.pdh != null && atl.session.pdl != null);
+  chk(' developing daily high/low ada', atl.session.dayHigh != null && atl.session.dayLow != null);
+  chk('new day opening terekam', atl.session.ndOpen != null);
+  chk('CISD dir terbaca (markup akhir)', typeof atl.cisd.dir === 'number');
+  chk('AMD fase terklasifikasi', atl.amd.phase === null || typeof atl.amd.phase === 'string');
+  chk('draw on liquidity dua sisi bernilai', atl.draw.above == null || atl.draw.above > 0);
+  chk('OTE zona lengkap', atl.ote && atl.ote.longZone.top > atl.ote.longZone.bottom && atl.ote.shortZone.top > atl.ote.shortZone.bottom);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
