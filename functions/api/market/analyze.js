@@ -187,6 +187,61 @@ async function fetchYahooQuote(symbol) {
   }
   return null;
 }
+// ================= ADAPTIVE LIVE FEED (v2026.53) =================
+// Candle NYATA dari Yahoo Finance chart (gratis, tanpa API key) untuk kelas aset
+// non-crypto (forex, metal, indeks, saham global, komoditas). Tidak ada lagi
+// logika statis weekday/weekend: adaptif murni dari data — saat market buka
+// (Senin dst.) Yahoo langsung beri candle sesi berjalan; saat tutup (weekend/
+// libur) mengembalikan candle NYATA sesi terakhir (lebih jujur daripada fabrikasi).
+const YAHOO_TF = {
+  'M1': { i: '1m', r: '1d' }, 'M5': { i: '5m', r: '5d' }, 'M15': { i: '15m', r: '5d' },
+  'M30': { i: '30m', r: '1mo' }, 'H1': { i: '60m', r: '1mo' },
+  'H4': { i: '60m', r: '3mo', resampleSec: 14400 },
+  'D1': { i: '1d', r: '1y' }, 'W1': { i: '1wk', r: '5y' },
+  'MN': { i: '1mo', r: '10y' }, '1Y': { i: '1wk', r: 'max' }
+};
+function resampleCandles(candles, bucketSec) {
+  const m = new Map();
+  for (const c of candles) {
+    const b = Math.floor(c.time / bucketSec) * bucketSec;
+    const g = m.get(b);
+    if (!g) m.set(b, { time: b, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume || 0 });
+    else { g.high = Math.max(g.high, c.high); g.low = Math.min(g.low, c.low); g.close = c.close; g.volume += c.volume || 0; }
+  }
+  return [...m.values()].sort((a, b) => a.time - b.time);
+}
+async function fetchYahooCandles(symbol, tf) {
+  const cfg = YAHOO_TF[tf] || YAHOO_TF['H1'];
+  for (const y of yahooSymbolsFor(symbol)) {
+    try {
+      const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y)
+        + '?interval=' + cfg.i + '&range=' + cfg.r;
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
+      if (!res.ok) continue;
+      const j = await res.json();
+      const node = j && j.chart && j.chart.result && j.chart.result[0];
+      const ts = node && Array.isArray(node.timestamp) ? node.timestamp : null;
+      const q = node && node.indicators && node.indicators.quote && node.indicators.quote[0];
+      if (!ts || !q || !Array.isArray(q.close)) continue;
+      let candles = [];
+      for (let k = 0; k < ts.length; k++) {
+        const c = q.close[k], o = q.open[k], h = q.high[k], l = q.low[k];
+        if (c == null || o == null || h == null || l == null) continue;
+        candles.push({ time: ts[k], open: Number(o), high: Number(h), low: Number(l), close: Number(c), volume: Number(q.volume && q.volume[k]) || 100 });
+      }
+      if (cfg.resampleSec) candles = resampleCandles(candles, cfg.resampleSec);
+      candles = candles.slice(-220);
+      if (candles.length < 10) continue;
+      const meta = node.meta || {};
+      const live = Number(meta.regularMarketPrice) > 0 ? Number(meta.regularMarketPrice) : candles[candles.length - 1].close;
+      const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || candles[0].close;
+      const last = candles[candles.length - 1];
+      if (!cfg.resampleSec && live > 0) { last.close = live; if (live > last.high) last.high = live; if (live < last.low) last.low = live; }
+      return { source: 'YAHOO_CANDLES:' + y, price: live, changePct: prev > 0 ? ((live - prev) / prev) * 100 : 0, candles };
+    } catch (e) {}
+  }
+  return null;
+}
 function getTvTimeframeSuffix(tf) {
   const map = {
     'M1': '|1', 'M5': '|5', 'M15': '|15', 'M30': '|30',
@@ -473,6 +528,12 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
   if (s.endsWith('/USDT')) {
     const binData = await fetchBinanceCandles(s, tf);
     if (binData) return binData;
+  }
+  // v2026.53: candle NYATA Yahoo Finance diutamakan untuk semua kelas aset non-crypto
+  // (adaptif ke hari kerja/weekend: Yahoo mengikuti jam bursa masing-masing pasar).
+  if (s !== 'XAU/USD' && s !== 'XAU/IDR') {
+    const yc = await fetchYahooCandles(s, tf).catch(() => null);
+    if (yc && Array.isArray(yc.candles) && yc.candles.length >= 10) return yc;
   }
   const liveQuote = await fetchExactLiveQuote(s, tf).catch(() => null);
   if (s === 'XAU/USD' || s === 'XAU/IDR') {
