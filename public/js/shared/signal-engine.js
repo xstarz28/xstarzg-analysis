@@ -98,7 +98,7 @@ function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct)
   };
 }
 /* ================================================================================
-   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2.1 DUAL-BRAIN (2026.51)
+   XSTARZG INSTITUTIONAL SIGNAL BRAIN v2.1 DUAL-BRAIN+ICT ATLAS (2026.52)
    Upgrade otak pengambilan keputusan setara trader institusional 20+ tahun:
 
    A. HARD VETO SYSTEM (4 filter fatal pembatal sinyal otomatis)
@@ -232,6 +232,174 @@ export function detectLiquidityPools(candles, swings, atrVal, tfId) {
   return { eqHigh, eqLow, prevSessionHigh, prevSessionLow, hasPrevSession: !!prevSessionCount, oldHigh, oldLow };
 }
 
+/* ==================== ICT ATLAS (v2026.52) ====================
+   Atlas teknikal ICT/SMC lengkap yang belum dimiliki: PDH/PDL/PWH/PWL, developing
+   daily high/low, New Day/New Week opening, CISD (change in state of delivery),
+   FVG ter-inversi (IFVG), Breaker Block, Mitigation Block, Balanced Price Range,
+   Optimal Trade Entry (OTE 61.8-79%), model Market Maker (AMD Power-of-3), dan
+   Draw on Liquidity (magnet kolam terdekat). Semua dihitung dari candle broker. */
+
+// Level sesi: previous day/week (HTF liquidity), developing daily, opening ranges.
+function detectSessionLevels(candles, tfSec) {
+  const out = { pdh: null, pdl: null, pwh: null, pwl: null, dayHigh: null, dayLow: null, ndOpen: null, nwOpen: null };
+  const len = candles.length;
+  const DAY = 86400, WEEK = 604800;
+  const dayB = t => Math.floor(t / DAY) * DAY;
+  // Epoch Kamis -> geser 3 hari agar bucket mulai SENIN 00:00 UTC (konvensi ICT).
+  const weekB = t => Math.floor((t + 3 * DAY) / WEEK) * WEEK - 3 * DAY;
+  const lastT = candles[len - 1].time;
+  const curDay = dayB(lastT), curWeek = weekB(lastT);
+  const hiLo = (arr) => arr.length ? [Math.max(...arr.map(c => c.high)), Math.min(...arr.map(c => c.low))] : [null, null];
+  const candlesOf = (pred) => candles.filter(c => pred(c.time));
+  if (tfSec < DAY) {
+    const prevDayC = candlesOf(t => t >= curDay - DAY && t < curDay);
+    const curDayC = candlesOf(t => t >= curDay);
+    const [dh, dl] = hiLo(prevDayC);
+    out.pdh = dh; out.pdl = dl;
+    const [ch, cl] = hiLo(curDayC);
+    out.dayHigh = ch; out.dayLow = cl;
+    if (curDayC.length) out.ndOpen = curDayC[0].open; // New Day Opening
+  }
+  if (tfSec <= DAY) {
+    const prevWeekC = candlesOf(t => t >= curWeek - WEEK && t < curWeek);
+    const curWeekC = candlesOf(t => t >= curWeek);
+    const [wh, wl] = hiLo(prevWeekC);
+    out.pwh = wh; out.pwl = wl;
+    if (curWeekC.length) out.nwOpen = curWeekC[0].open; // New Week Opening
+  }
+  return out;
+}
+
+// CISD: kaki pengiriman (delivery) terakhir = run candle searah dari belakang;
+// level = open pertama run itu. Close melewati level => status pengiriman berbalik.
+function detectCISD(candles) {
+  const w = candles.slice(-26);
+  if (w.length < 8) return { dir: 0, level: null };
+  let upRun = 0, dnRun = 0, mode = 0;
+  for (let i = w.length - 1; i >= 1; i--) {
+    const d = w[i].close - w[i - 1].close;
+    if (d > 0) { if (mode === -1) break; mode = 1; upRun++; }
+    else if (d < 0) { if (mode === 1) break; mode = -1; dnRun++; }
+    else break;
+  }
+  const firstIdx = Math.max(0, w.length - Math.max(upRun, dnRun) - 1);
+  const level = w[firstIdx] ? w[firstIdx].open : null;
+  const lastClose = w[w.length - 1].close;
+  if (upRun >= 2 && level != null) return lastClose < level ? { dir: -1, level } : { dir: 1, level };
+  if (dnRun >= 2 && level != null) return lastClose > level ? { dir: 1, level } : { dir: -1, level };
+  return { dir: 0, level };
+}
+
+// Breaker & Mitigation dari OB aktif: OB yang ditembus close berbalik jadi S/R
+// lawan (breaker); OB yang sudah dikunjungi ulang = mitigated (kekuatan menurun).
+function detectBreakerMitigation(candles, obs) {
+  const out = { bullBreaker: null, bearBreaker: null, bullObMitigated: false, bearObMitigated: false };
+  const last = candles[candles.length - 1].close;
+  const touched = (ob) => ob ? candles.some((c, i) => i > ob.index && c.low <= ob.top && c.high >= ob.bottom) : false;
+  if (obs && obs.bullOb) {
+    out.bullObMitigated = touched(obs.bullOb);
+    if (last < obs.bullOb.bottom) out.bearBreaker = { top: obs.bullOb.top, bottom: obs.bullOb.bottom }; // gagal -> resisten
+  }
+  if (obs && obs.bearOb) {
+    out.bearObMitigated = touched(obs.bearOb);
+    if (last > obs.bearOb.top) out.bullBreaker = { top: obs.bearOb.top, bottom: obs.bearOb.bottom }; // gagal -> support
+  }
+  return out;
+}
+
+// FVG mentah 48 candle terakhir + deteksi Inverse FVG (dilanggar penuh -> flip S/R)
+// dan Balanced Price Range (iris bull & bear FVG).
+function detectFvgAtlas(candles) {
+  const bulls = [], bears = [];
+  const start = Math.max(1, candles.length - 48);
+  for (let i = start; i < candles.length - 2; i++) {
+    const a = candles[i], b = candles[i + 1], c = candles[i + 2];
+    if (c.low > a.high) bulls.push({ top: c.low, bottom: a.high, mid: (c.low + a.high) / 2, index: i + 2 });
+    if (c.high < a.low) bears.push({ top: a.low, bottom: c.high, mid: (a.low + c.high) / 2, index: i + 2 });
+    void b;
+  }
+  const last = candles[candles.length - 1].close;
+  let bull = null, bear = null, ifvgBull = null, ifvgBear = null;
+  for (const f of bulls) { bull = f; if (last < f.bottom) ifvgBear = { top: f.top, bottom: f.bottom }; }   // bull FVG dilanggar -> resisten
+  for (const f of bears) { bear = f; if (last > f.top) ifvgBull = { top: f.top, bottom: f.bottom }; }      // bear FVG dilanggar -> support
+  let bpr = null;
+  if (bull && bear) {
+    const t = Math.min(bull.top, bear.top), b = Math.max(bull.bottom, bear.bottom);
+    if (t > b) bpr = { top: t, bottom: b, mid: (t + b) / 2 };
+  }
+  return { bullFvg: bull, bearFvg: bear, ifvgBull, ifvgBear, bpr };
+}
+
+// Optimal Trade Entry: kaki impulse utama (60 candle) -> zona 61.8%-79% (sweet 70.5%).
+function detectOTE(candles, swings) {
+  const w = candles.slice(-60);
+  if (!w.length) return null;
+  const hi = Math.max(...w.map(c => c.high));
+  const lo = Math.min(...w.map(c => c.low));
+  const r = hi - lo;
+  if (!(r > 0)) return null;
+  const last = w[w.length - 1].close;
+  // Kaki dominan: swing terakhir menentukan arah kaki yang sedang dikoreksi
+  const hsig = swings.filter(x => x.type === 'HIGH' && x.confirmedAtIndex <= candles.length - 1);
+  const lsig = swings.filter(x => x.type === 'LOW' && x.confirmedAtIndex <= candles.length - 1);
+  const lastSw = hsig.length && lsig.length ? (hsig[hsig.length - 1].index > lsig[lsig.length - 1].index ? 'HIGH' : 'LOW') : null;
+  const legDir = lastSw === 'HIGH' ? 1 : lastSw === 'LOW' ? -1 : (last > (hi + lo) / 2 ? 1 : -1);
+  return {
+    legDir, hi, lo,
+    longZone: { top: hi - 0.618 * r, bottom: hi - 0.79 * r, sweet: hi - 0.705 * r },
+    shortZone: { top: lo + 0.79 * r, bottom: lo + 0.618 * r, sweet: lo + 0.705 * r }
+  };
+}
+
+// Model Market Maker (Power of 3 / AMD): AKUMULASI (kompresi awal) -> MANIPULASI
+// (raid kolam lawan) -> DISTRIBUSI (ekspansi searah). 72 candle kerja.
+function detectAmdPhase(candles, atrVal) {
+  const w = candles.slice(-72);
+  if (w.length < 36) return { phase: null, manipSide: 0 };
+  const n = w.length;
+  const early = w.slice(0, Math.floor(n * 0.4));
+  const mid = w.slice(Math.floor(n * 0.4), Math.floor(n * 0.78));
+  const late = w.slice(Math.floor(n * 0.78));
+  const a = Math.max(atrVal || 0, w[n - 1].close * 1e-8);
+  const hiA = Math.max(...early.map(c => c.high));
+  const loA = Math.min(...early.map(c => c.low));
+  const tol = 0.15 * a;
+  const manipDown = mid.some(c => c.low < loA - tol);   // raid SSL -> manip bullish
+  const manipUp = mid.some(c => c.high > hiA + tol);    // raid BSL -> manip bearish
+  const last = w[n - 1].close;
+  const midRange = (hiA + loA) / 2;
+  if (manipDown && last >= hiA) return { phase: 'DISTRIBUTION_UP', manipSide: -1 };
+  if (manipUp && last <= loA) return { phase: 'DISTRIBUTION_DOWN', manipSide: 1 };
+  if (manipDown && last < midRange) return { phase: 'MANIPULATION_BULL', manipSide: -1 };  // raid -> tunggu markup
+  if (manipUp && last > midRange) return { phase: 'MANIPULATION_BEAR', manipSide: 1 };
+  if (last > loA && last < hiA) return { phase: 'ACCUMULATION', manipSide: 0 };
+  if (late.length && last >= hiA) return { phase: 'DISTRIBUTION_UP', manipSide: 0 };
+  if (late.length && last <= loA) return { phase: 'DISTRIBUTION_DOWN', manipSide: 0 };
+  return { phase: null, manipSide: 0 };
+}
+
+export function detectIctAtlas(candles, swings, atrVal, timefameParam, obs) {
+  const a = Math.max(atrVal || 0, candles[candles.length - 1].close * 1e-8);
+  const price = candles[candles.length - 1].close;
+  const sess = detectSessionLevels(candles, TF_SECS[timefameParam] || 3600);
+  const cisd = detectCISD(candles);
+  const fvg = detectFvgAtlas(candles);
+  const ote = detectOTE(candles, swings);
+  const amd = detectAmdPhase(candles, atrVal);
+  const above = [sess.pdh, sess.pwh, sess.dayHigh].filter(v => typeof v === 'number' && v > price);
+  const below = [sess.pdl, sess.pwl, sess.dayLow].filter(v => typeof v === 'number' && v < price);
+  const drawAbove = above.length ? Math.min(...above) : null;
+  const drawBelow = below.length ? Math.max(...below) : null;
+  const bm = detectBreakerMitigation(candles, obs || {});
+  return {
+    session: sess, cisd, fvg, ote, amd, bm,
+    draw: {
+      above: drawAbove, aboveDistAtr: drawAbove != null ? Number(((drawAbove - price) / a).toFixed(2)) : null,
+      below: drawBelow, belowDistAtr: drawBelow != null ? Number(((price - drawBelow) / a).toFixed(2)) : null
+    }
+  };
+}
+
 // Deteksi Order Block institusional: candle arah-berlawanan terakhir sebelum
 // displacemen (impuls yang menembus swing lawan). Range OB inklusif wick.
 export function detectOrderBlocks(candles, swings, atrVal) {
@@ -361,7 +529,7 @@ export function buildInstitutionalLevels(dir, ctx) {
     sl = (Number.isFinite(slBase) ? slBase : ctx.impulseLow) - slBuf;
     if (sl >= entry) sl = entry - risk.min;
     const r = entry - sl;
-    const pool = [ctx.recentHigh, ctx.vah, ctx.r1, ctx.r2, ctx.t1Sup, ctx.impulseHigh, ctx.eqHigh, ctx.prevSessHigh, ctx.oldHigh]
+    const pool = [ctx.recentHigh, ctx.vah, ctx.r1, ctx.r2, ctx.t1Sup, ctx.impulseHigh, ctx.eqHigh, ctx.prevSessHigh, ctx.oldHigh, ctx.pdh, ctx.pwh]
       .filter(v => typeof v === 'number' && v > entry + 0.05 * a).sort((x, y) => x - y);
     tp1 = pool.find(v => (v - entry) / r >= minTp1R) || entry + tp1Pad * r;
     tp2 = pool.find(v => (v - entry) / r >= rrMin2 && v > tp1) || entry + (rrMin2 + 0.1) * r;
@@ -379,7 +547,7 @@ export function buildInstitutionalLevels(dir, ctx) {
   sl = (Number.isFinite(slBase) && slBase > 0 ? slBase : ctx.impulseHigh) + slBuf;
   if (sl <= entry) sl = entry + risk.min;
   const r = sl - entry;
-  const pool = [ctx.recentLow, ctx.val, ctx.s1, ctx.s2, ctx.impulseLow, ctx.eqLow, ctx.prevSessLow, ctx.oldLow]
+  const pool = [ctx.recentLow, ctx.val, ctx.s1, ctx.s2, ctx.impulseLow, ctx.eqLow, ctx.prevSessLow, ctx.oldLow, ctx.pdl, ctx.pwl]
     .filter(v => typeof v === 'number' && v < entry - 0.05 * a && v > 0).sort((x, y) => y - x);
   tp1 = pool.find(v => (entry - v) / r >= minTp1R) || entry - tp1Pad * r;
   tp2 = pool.find(v => (entry - v) / r >= rrMin2 && v < tp1) || entry - (rrMin2 + 0.1) * r;
@@ -453,6 +621,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // Otak v2: order block, divergensi momentum, kolam likuiditas, bias timeframe atas
   const obs = detectOrderBlocks(closed, swings, atr);
   const liqPools = detectLiquidityPools(closed, swings, atr, timeframe);
+  // Atlas ICT lengkap (v2026.52): level sesi, CISD, FVG/IFVG/BPR, OTE, breaker, AMD, draw on liquidity
+  const ict = detectIctAtlas(closed, swings, atr, timeframe, obs);
   // Upgrade sweep: wick menembus kolam likuiditas (SSL/BSL/session lama) lalu reclaim
   for (let i = lastIdx; i > Math.max(0, lastIdx - 8); i--) {
     const b = closed[i];
@@ -750,6 +920,44 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   brainMetrics.brain = brain;
   brainMetrics.brainAdj = Number(brainAdj.toFixed(1));
   rawAdj += brainAdj;
+  /* ---- ATLAS ICT: penyesuaian konfluensi (maks +/-5) ----
+     CISD searah / AMD fase distribusi searah / draw on liquidity di arah TP /
+     harga di zona OTE ideal / breaker support-lawang = penguat. CISD lawan
+     arah diproses sebagai VETO (anti-jebakan), bukan sekadar penalti. */
+  const ictAdj = { parts: [] };
+  if (ict && Math.abs(rawAdj - 50) >= 6) {
+    let val = 0;
+    const dirSignI = rawAdj >= 50 ? 1 : -1;
+    const cisdSign = ict.cisd ? ict.cisd.dir : 0;
+    // CISD konfirmasi delivery searah -> bonus
+    if (cisdSign !== 0 && cisdSign === dirSignI) val += 1.2;
+    // AMD Power-3: distribusi searah bias = model lengkap -> bonus
+    const amdSign = ict.amd && ict.amd.phase ? (ict.amd.phase === 'DISTRIBUTION_UP' ? 1 : ict.amd.phase === 'DISTRIBUTION_DOWN' ? -1 : 0) : 0;
+    if (amdSign !== 0) val += (amdSign === dirSignI ? 1.0 : -1.0);
+    // Draw on liquidity: kolam magnet di arah TP = peluang; magnet di belakang = hambatan
+    if (ict.draw && ict.draw.aboveDistAtr != null && ict.draw.belowDistAtr != null) {
+      const tpSide = dirSignI > 0 ? ict.draw.aboveDistAtr : ict.draw.belowDistAtr;
+      const slSide = dirSignI > 0 ? ict.draw.belowDistAtr : ict.draw.aboveDistAtr;
+      val += (tpSide <= slSide ? 0.8 : -0.5);
+    }
+    // Sudut OTE: harga DI zona OTE ideal (bukan dikejar); jauh di luar = FOMO (dicekal di bawah)
+    if (ict.ote) {
+      const zz = dirSignI > 0 ? ict.ote.longZone : ict.ote.shortZone;
+      const inOte = lastPrice <= zz.top + 0.25 * atr && lastPrice >= zz.bottom - 0.25 * atr;
+      if (inOte) val += 1.2;
+    }
+    // Breaker searah sebagai bantalan; IFVG berlawanan di depan = penalti kecil
+    if (dirSignI > 0) {
+      if (ict.fvg && ict.bm && ict.bm.bullBreaker && lastPrice >= ict.bm.bullBreaker.bottom) val += 0.5;
+      if (ict.fvg && ict.fvg.ifvgBear && ict.fvg.ifvgBear.bottom > lastPrice && (ict.fvg.ifvgBear.bottom - lastPrice) < 1.2 * atr) val -= 0.6;
+    } else {
+      if (ict.bm && ict.bm.bearBreaker && lastPrice <= ict.bm.bearBreaker.top) val += 0.5;
+      if (ict.fvg && ict.fvg.ifvgBull && ict.fvg.ifvgBull.top < lastPrice && (lastPrice - ict.fvg.ifvgBull.top) < 1.2 * atr) val -= 0.6;
+    }
+    val = Math.max(-5, Math.min(5, val));
+    ictAdj.val = Number(val.toFixed(1));
+    rawAdj += val;
+  }
   const analystScore = Math.round(Math.max(12, Math.min(98, rawAdj)));
   // Soft bias (pra-gate) — arah analitis sebelum gerbang ketat diterapkan
   let softBias = 'NEUTRAL';
@@ -793,6 +1001,15 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const sniperPremiumVeto = brain === 'SNIPER' && ((softBias === 'LONG' && pos90 >= 62 && bosDir <= 0) || (softBias === 'SHORT' && pos90 <= 38 && bosDir >= 0));
   const sniperStructVeto = brain === 'SNIPER' && ((softBias === 'LONG' && bosDir < 0 && htfBias <= 0) || (softBias === 'SHORT' && bosDir > 0 && htfBias >= 0));
   const brainVeto = scalpPressureVeto || sniperPremiumVeto || sniperStructVeto;
+  // VETO ATLAS ICT (v2026.52): CISD lawan arah = status pengiriman sudah berbalik
+  // (sinyal reversal ICT); FOMO zone = harga >2.2 ATR di luar zona OTE searah.
+  const cisdCounterVeto = !!(ict && ict.cisd && softBias !== 'NEUTRAL'
+    && ((softBias === 'LONG' && ict.cisd.dir === -1) || (softBias === 'SHORT' && ict.cisd.dir === 1)));
+  const fomoPad = brain === 'SCALP' ? 3.0 : 2.2; // scalp toleran jarak lebih lebar
+  const fomoVeto = !!(ict && ict.ote && softBias !== 'NEUTRAL'
+    && ((softBias === 'LONG' && lastPrice > ict.ote.longZone.top + fomoPad * atr)
+      || (softBias === 'SHORT' && lastPrice < ict.ote.shortZone.bottom - fomoPad * atr)));
+  const ictVeto = cisdCounterVeto || fomoVeto;
   // Skor KEYAKINAN netral-arah (0-100): SHORT kuat = angka BESAR (bukan kecil) —
   // skor publik selalu bermakna "seberapa layak sinyal ini", arah dibawa badge arah.
   const qualityScore = softBias === 'SHORT' ? 100 - analystScore
@@ -818,7 +1035,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const recentWR = backtest.disabled ? 0 : (backtest.recentWinRate || 0);
   let signalTier = null;
   if (mode === 'trader' && softBias !== 'NEUTRAL' && vetoFree && seqOk && erOk && !backtest.disabled
-      && !squeezeBlockedDir && persistOk && !brainVeto && !(spotOnlyEffect && softBias === 'SHORT')) {
+      && !squeezeBlockedDir && persistOk && !brainVeto && !ictVeto && !(spotOnlyEffect && softBias === 'SHORT')) {
     if (qualityScore >= STRICT_MIN_SCORE && winRate >= STRICT_MIN_WINRATE && evidenceEnough && expectancyOk && recentWR >= 70) signalTier = 'ELITE';
     else if (qualityScore >= PRO_MIN_SCORE && (!evidenceEnough || (winRate >= PRO_MIN_WINRATE && expectancyOk && recentWR >= 45))) signalTier = 'PRO';
   }
@@ -829,6 +1046,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   if (scalpPressureVeto) gateReasons.push('SCALP_PRESSURE');
   else if (sniperPremiumVeto) gateReasons.push('SNIPER_PREMIUM');
   else if (sniperStructVeto) gateReasons.push('SNIPER_STRUCTURE');
+  if (cisdCounterVeto) gateReasons.push('CISD_COUNTER');
+  else if (fomoVeto) gateReasons.push('FOMO_ZONE');
   if (spotOnlyEffect && mode === 'trader' && softBias === 'SHORT') gateReasons.push('SPOT_ONLY');
   if (softBias !== 'NEUTRAL' && qualityScore >= PRO_MIN_SCORE) {
     if (backtest.disabled || (evidenceEnough && (winRate < PRO_MIN_WINRATE || !expectancyOk || recentWR < 45))) gateReasons.push('LOW_WINRATE');
@@ -840,6 +1059,21 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     if (sniperStructVeto) gateReasons.push('SNIPER_STRUCTURE');
     if (!erOk) gateReasons.push('CHOPPY');
   }
+  /* ==================== MASTER MIND (v2026.52): psikologi & disiplin ala master ====================
+     Bagan trader sejati dikodekan: POSITION SIZING per risiko (ELITE 1% / PRO 0.5%),
+     CAPITAL PROTECTION (mode DEFENSIVE saat recent-form jebol, low-evidence saat
+     sampel kecil), EXIT PLANNING (setengah di TP1 -> SL break-even; runner TP2/TP3),
+     DISIPLIN & SABAR (tunggu konfirmasi struktur; jangan mengejar = FOMO dicekal). */
+  const masterProfile = (() => {
+    let rp = 0, m = 'NORMAL';
+    if (signalTier === 'ELITE') rp = 1.0;
+    else if (signalTier === 'PRO') rp = 0.5;
+    const weakRecent = !backtest.disabled && evidenceEnough && recentWR < 40;
+    const smallSample = backtest.disabled || (backtest.sampleSize || 0) < 30;
+    if (weakRecent) { m = 'DEFENSIVE'; rp *= 0.5; }
+    if (smallSample && rp > 0) { rp *= 0.75; if (m === 'NORMAL') m = 'LOW_EVIDENCE'; }
+    return { riskPct: Number(rp.toFixed(2)), mode: m, beAfterTp1: true, partialAtTp1Pct: 50, maxActivePositions: 3 };
+  })();
   // Skor yang DIPUBLIKASIKAN selalu koheren dengan peluang: tanpa sinyal -> skor
   // ditahan di bawah ambang PRO agar angka tidak pernah "melabeli" tanpa sinyal.
   let publishedScore = qualityScore;
@@ -861,7 +1095,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     bullFvg: modern.bullFvg, bearFvg: modern.bearFvg,
     eqHigh: liqPools.eqHigh, eqLow: liqPools.eqLow,
     prevSessHigh: liqPools.prevSessionHigh, prevSessLow: liqPools.prevSessionLow,
-    oldHigh: liqPools.oldHigh, oldLow: liqPools.oldLow, brain
+    oldHigh: liqPools.oldHigh, oldLow: liqPools.oldLow, brain,
+    pdh: ict.session.pdh, pwh: ict.session.pwh, pdl: ict.session.pdl, pwl: ict.session.pwl
   };
   let projected = null, entryType = null;
   if (softBias === 'LONG' || softBias === 'SHORT') {
@@ -916,6 +1151,11 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     `[ORB • Theta • VWAP Entry] ORB: ${orb.state}${orb.high ? ' (' + formatSmartPrice(orb.low) + ' – ' + formatSmartPrice(orb.high) + ')' : ''} | Theta Index: ${thetaIndex}/100 (${thetaNote}) | Entry VWAP: ${vwapEntry.text} | Efficiency Ratio: ${(erValue * 100).toFixed(0)}%.`,
     `[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`,
     `[Fundamental Terukur] Siklus ${macroQuant.posCyclePct}% range | Drawdown ${macroQuant.drawdownPct}% dari puncak | Momentum naik ${macroQuant.upClosesPct}% | Persentil ATR ${macroQuant.atrPercentile}% | ${macroQuant.sessionQuality} | HTF ${macroQuant.htfAligned ? 'SELARAS' : 'TIDAK SELARAS'} | Adj ${macroQuant.macroAdj > 0 ? '+' : ''}${macroQuant.macroAdj}.`,
+    `[ICT Atlas] CISD ${ict.cisd.dir > 0 ? 'BULLISH ▲' : ict.cisd.dir < 0 ? 'BEARISH ▼' : 'netral'}${ict.cisd.level ? ' @ ' + Number(ict.cisd.level.toPrecision(7)) : ''} | AMD: ${{
+      ACCUMULATION: 'Akumulasi (kompresi)', MANIPULATION_BULL: 'Manipulasi — raid SSL (sebelum markup)', MANIPULATION_BEAR: 'Manipulasi — raid BSL (sebelum markdown)', DISTRIBUTION_UP: 'Distribusi NAIK (markup)', DISTRIBUTION_DOWN: 'Distribusi TURUN (markdown)'
+    }[ict.amd.phase] || 'Belum terbaca'} | Draw on liquidity atas ${ict.draw.aboveDistAtr != null ? ict.draw.aboveDistAtr + ' ATR' : '-'} / bawah ${ict.draw.belowDistAtr != null ? ict.draw.belowDistAtr + ' ATR' : '-'}${ict.fvg.bpr ? ' | BPR aktif (zona seimbang kuat)' : ''}${ict.bm.bearBreaker || ict.bm.bullBreaker ? ' | Breaker ' + (ict.bm.bullBreaker ? 'BULL (support flip)' : 'BEAR (resisten flip)') : ''} | AdjAtlas ${ictAdj.val != null ? (ictAdj.val > 0 ? '+' : '') + ictAdj.val : 0}.`,
+    `[Rencana Master] Mode ${masterProfile.mode} | Risiko ${masterProfile.riskPct}% per posisi | Setengah di TP1 -> SL geser Break-Even | Runner TP2/TP3 | Maks ${masterProfile.maxActivePositions} posisi aktif berjalan.`,
+    ...((!eligible && (cisdCounterVeto || fomoVeto || !persistOk || !seqOk)) ? [`[Sabar Master] Disiplin master = MENUNGGU: ${cisdCounterVeto ? 'CISD masih lawan arah (delivery berbalik)' : fomoVeto ? 'harga sudah terlalu jauh dari zona OTE — jangan mengejar kereta' : !persistOk ? 'candle ke-2 searah belum lahir' : 'sweep→BOS + volume belum lengkap'}. Entry tergesa adalah penyebab loss terbesar; setup berikutnya pasti datang.`] : []),
     `[${brain === 'SCALP' ? 'SCALP Micro' : 'SNIPER Struktur'}] ${brain === 'SCALP' ? `VWAP30 ${brainMetrics.microVwap} | EMA9/21 ${brainMetrics.ema9}/${brainMetrics.ema21} | RSI(7) ${brainMetrics.rsi7} | Tekanan orderflow BUY ${brainMetrics.buyVolPct}% | Kecepatan tape ${brainMetrics.tapeVelPct}%` : `Posisi range 90 candle ${brainMetrics.posInRangePct}% | BOS50 ${brainMetrics.bosDir > 0 ? 'NAIK' : brainMetrics.bosDir < 0 ? 'TURUN' : '-'} | Trend EMA200 ${brainMetrics.ema200Aligned ? 'SELARAS' : 'TIDAK'} | Zona demand ${brainMetrics.distDemandAtr} ATR / supply ${brainMetrics.distSupplyAtr} ATR`} | AdjOtak ${brainMetrics.brainAdj > 0 ? '+' : ''}${brainMetrics.brainAdj}.`
   ];
   return {
@@ -995,6 +1235,16 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     reasons,
     brainMetrics,
     brain,
+    ict: {
+      pdh: ict.session.pdh, pdl: ict.session.pdl, pwh: ict.session.pwh, pwl: ict.session.pwl,
+      dayHigh: ict.session.dayHigh, dayLow: ict.session.dayLow, ndOpen: ict.session.ndOpen, nwOpen: ict.session.nwOpen,
+      cisdDir: ict.cisd.dir, cisdLevel: ict.cisd.level,
+      amdPhase: ict.amd.phase,
+      drawAboveDistAtr: ict.draw.aboveDistAtr, drawBelowDistAtr: ict.draw.belowDistAtr,
+      hasBpr: !!(ict.fvg && ict.fvg.bpr),
+      oteLong: ict.ote ? ict.ote.longZone : null, oteShort: ict.ote ? ict.ote.shortZone : null
+    },
+    riskPlan: masterProfile,
     series: {
       ema20: closed.map((c, i) => ({ time: c.time, value: ema20Arr[i] ?? c.close })),
       ema50: closed.map((c, i) => ({ time: c.time, value: ema50Arr[i] ?? c.close })),
