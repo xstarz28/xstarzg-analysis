@@ -370,5 +370,59 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('keduanya rendah => DEFENSIF', C(30, 30) === 'DESINFLASI_DEFENSIF');
   chk('zona abu-abu => CAMPURAN', C(50, 50) === 'CAMPURAN');
 }
+
+/* v2026.62 AUDIT FORMULA indikator inti (RSI Wilder / EMA / ATR / MACD) vs referensi independen */
+{
+  const closes = [10, 10.5, 10.2, 10.8, 11.0, 10.6, 11.2, 11.5, 11.1, 11.7, 12.0, 11.4, 11.9, 12.3, 12.1, 12.6, 12.2, 12.8, 13.0, 12.7, 13.2, 13.5, 13.1, 13.6];
+  // Referensi RSI (Wilder) ditulis ULANG di sini (bukan import) supaya kesalahan engine ketahuan
+  const refRSI = (c, p) => {
+    let g = 0, l = 0;
+    for (let i = 1; i <= p; i++) { const d = c[i] - c[i - 1]; if (d >= 0) g += d; else l -= d; }
+    let ag = g / p, al = l / p;
+    let out = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+    const arr = [out];
+    for (let i = p + 1; i < c.length; i++) { const d = c[i] - c[i - 1]; ag = (ag * (p - 1) + Math.max(d, 0)) / p; al = (al * (p - 1) + Math.max(-d, 0)) / p; arr.push(al === 0 ? 100 : 100 - 100 / (1 + ag / al)); }
+    return arr;
+  };
+  const refEMA = (v, p) => {
+    const k = 2 / (p + 1); let e = 0;
+    for (let i = 0; i < p; i++) e += v[i]; e /= p;
+    const arr = [e];
+    for (let i = p; i < v.length; i++) { e = v[i] * k + e * (1 - k); arr.push(e); }
+    return arr;
+  };
+  const rR = refRSI(closes, 14), eR = refEMA(closes, 10);
+  const gotRSI = QC.calcRSI(closes, 14), gotEMA = QC.calcEMA(closes, 10);
+  const okRSI = Math.abs(gotRSI[closes.length - 1] - rR[rR.length - 1]) < 1e-9;
+  const okEMA = Math.abs(gotEMA[closes.length - 1] - eR[eR.length - 1]) < 1e-9;
+  chk('RSI-14 engine == referensi Wilder (audit rumus)', okRSI);
+  chk('EMA-10 engine == referensi seed-SMA+k (audit rumus)', okEMA);
+  // ATR: TR tertinggi=high-low/hc/lc lalu SMA-14
+  const candles = closes.map((c, i) => ({ high: c + 0.3, low: c - 0.3, close: c }));
+  const atrArr = QC.calcATR(candles, 14);
+  const tr = candles.map((c, i) => i === 0 ? c.high - c.low : Math.max(c.high - c.low, Math.abs(c.high - closes[i - 1]), Math.abs(c.low - closes[i - 1])));
+  const refAtr = tr.slice(tr.length - 14).reduce((a, b) => a + b, 0) / 14;
+  chk('ATR-14 engine == referensi SMA-of-TR (audit rumus)', Math.abs(atrArr[atrArr.length - 1] - refAtr) < 1e-9);
+  // Pivot klasik periode sebelumnya (D1 -> candle kemarin H/L/C)
+  const prev = { h: 5300, l: 5200, c: 5250 };
+  const dc = [];
+  for (let i = 0; i < 30; i++) dc.push({ time: 1700000000 + i * 86400, open: 5200, high: 5300, low: 5200, close: 5250, volume: 100 });
+  dc[dc.length - 2].high = prev.h; dc[dc.length - 2].low = prev.l; dc[dc.length - 2].close = prev.c;
+  const m = QC.detectModernInstitutionalStructure(dc, [], 10, 'D1');
+  const P = (prev.h + prev.l + prev.c) / 3;
+  chk('pivot klasik = (H+L+C)/3 candle KEMARIN pada D1', Math.abs(m.pivotSr.pivot - P) < 1e-9);
+  chk('S1=2P-H & R1=2P-L (formula klasik analis)', Math.abs(m.pivotSr.s1 - (2 * P - prev.h)) < 1e-9 && Math.abs(m.pivotSr.r1 - (2 * P - prev.l)) < 1e-9);
+}
+/* v2026.62 kalender: event selesai -> arah dari aktual vs prakiraan */
+{
+  const XML = '<wrap><event><title>Prelim GDP q/q</title><country>JPY</country><date>2026-11-16</date><time>6:50pm</time><impact>Low</impact><forecast>0.1%</forecast><previous>0.3%</previous><actual>0.3%</actual></event><event><title>CPI y/y</title><country>USD</country><date>2026-11-20</date><time>8:30am</time><impact>High</impact><forecast>3.1%</forecast><previous>3.4%</previous><actual></actual></event><event><title>Prelim Manufacturing PMI</title><country>JPY</country><date>2026-11-19</date><time>7:00pm</time><impact>Medium</impact><forecast>50.0</forecast><previous>50.5</previous><actual>49.2</actual></event></wrap>';
+  const evs = newsEdge.__testHooks.parseFx(XML);
+  const gdp = evs.find(e => e.title.indexOf('GDP') > -1);
+  const pmi = evs.find(e => e.title.indexOf('PMI') > -1);
+  const cpi = evs.find(e => e.title.indexOf('CPI') > -1);
+  chk('event SELESAI: arah dari aktual (0.3 > f 0.1 => JPY kuat) bukan dari prev', gdp && gdp.dirCcy === 1 && gdp.actual === '0.3%');
+  chk('PMI aktual 49.2 < f 50 => JPY lemah', pmi && pmi.dirCcy === -1);
+  chk('event mendatang tetap bias pra-event (f 3.1 < p 3.4 => USD lemah)', cpi && cpi.dirCcy === -1 && !cpi.actual);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

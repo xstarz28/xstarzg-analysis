@@ -137,21 +137,23 @@ function parseFx(text) {
   for (const raw of items) {
     const get = (tag) => { const m = raw.match(new RegExp('<' + tag + '>([\\s\\S]*?)</' + tag + '>')); return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : ''; };
     const title = get('title'), ccy = get('country'), impact = (get('impact') || '').toUpperCase();
-    const forecast = get('forecast'), previous = get('previous');
+    const forecast = get('forecast'), previous = get('previous'), actual = get('actual');
     const ts = etToUtc(get('date'), get('time'));
     if (!title || !ccy || !ts) continue;
     const kind = classify(title);
-    const f = numOf(forecast), pv = numOf(previous);
-    let dir = 0;
-    if (f != null && pv != null) dir = f > pv ? 1 : f < pv ? -1 : 0;
+    const f = numOf(forecast), pv = numOf(previous), act = numOf(actual);
+    // v2026.62: event SELESAI -> arah ditakar dari KEJUTAN aktual vs prakiraan;
+    // tanpa aktual -> bias pra-event (prakiraan vs sebelumnya) seperti sebelumnya.
+    let dir = 0, spread = 0;
+    if (act != null && f != null) { dir = act > f ? 1 : act < f ? -1 : 0; spread = f !== 0 ? Math.abs((act - f) / f) * 100 : 0; }
+    else if (f != null && pv != null) { dir = f > pv ? 1 : f < pv ? -1 : 0; spread = pv !== 0 ? Math.abs((f - pv) / pv) * 100 : 0; }
     if (kind === 'unemp') dir = -dir; // pengangguran naik = ccy lemah
     if (dir === 0) continue; // tanpa prakiraan/vs sebelumnya tidak bisa ditakar arah -> tidak ditampilkan sebagai bias
-    const spread = pv !== 0 ? Math.abs((f - pv) / pv) * 100 : 0;
     const pct = Math.round(Math.min(78, 56 + Math.min(16, spread * 0.6) + (impact === 'HIGH' ? 6 : impact === 'MEDIUM' ? 2 : 0)));
     evs.push({
       id: 'FF_' + ts + '_' + ccy,
       title, ccy, impact: impact || 'MEDIUM', ts,
-      date: new Date(ts).toISOString(), forecast, previous,
+      date: new Date(ts).toISOString(), forecast, previous, actual,
       kind, dirCcy: dir,
       impacts: buildImpacts(ccy, { dir: dir === 1 ? 1 : -1, pct }),
       src: 'FOREXFACTORY'
