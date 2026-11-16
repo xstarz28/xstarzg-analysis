@@ -1212,10 +1212,10 @@ function gateBlockHtml(a) {
       return g.tf + ' ✖';
     };
     out += '<div style="margin-top:6px;font-size:11.5px;font-weight:700;color:#e2e8f0;">' +
-      fillTpl(T('ui.eGateBest', 'Sinyal Terbaik Saat Ini → Scalping: {sc} | Intraday: {id} | Swing: {sw}'), {
+      fillTpl(T('ui.eGateBest', 'Status Scan Timeframe Terbaik → Scalping: {sc} | Intraday: {id} | Swing: {sw}'), {
         sc: cell(b.groups.scalping), id: cell(b.groups.intraday), sw: cell(b.groups.swing)
       }) + '</div>' +
-      '<div style="font-size:10.8px;color:#94a3b8;">' + T('ui.eGateBestHint', 'Buka timeframe berlogo ✅ di atas untuk sinyal berprobabilitas tinggi (skor ≥ 84 & winrate ≥ 78%).') + '</div>';
+      '<div style="font-size:10.8px;color:#94a3b8;">' + T('ui.eGateBestHint', '✖ artinya horizon itu BELUM ADA setup layak (ditahan gerbang — bukan rekomendasi). Buka TF berlogo ✅ (PRO, skor ≥62) atau ★ (ELITE, skor ≥84 & WR ≥78%).') + '</div>';
   } else if (!a.signalEligible && !a.lockedSignal) {
     out += '<div style="font-size:10.8px;color:#94a3b8;margin-top:4px;">' + T('ui.eGateScanning', 'Memindai 9 timeframe di belakang layar untuk mengarahkan ke sinyal terbaik…') + '</div>';
   }
