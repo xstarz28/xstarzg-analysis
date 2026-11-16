@@ -426,6 +426,77 @@ async function fetchExactLiveQuote(symbol, tf) {
     atr: defP * 0.0035
   };
 }
+/* v2026.61: JALUR CRYPTO MULTI-EXCHANGE. Binance bukan satu-satunya bursa spot —
+   ribuan pair (mis. HYPE/USDT) TIDAK listing di Binance tapi cair di Bybit/OKX.
+   Sebelum ini pair tsb jatuh ke candle ESTIMASI; sekarang dicoba Bybit lalu OKX
+   (keduanya publik, gratis, tanpa API key) sebelum menyerah ke fallback. */
+const BYBIT_TF = { 'M1': '1', 'M5': '5', 'M15': '15', 'M30': '30', 'H1': '60', 'H4': '240', 'D1': 'D', 'W1': 'W', 'MN': 'M', '1Y': 'M' };
+const OKX_TF = { 'M1': '1m', 'M5': '5m', 'M15': '15m', 'M30': '30m', 'H1': '1H', 'H4': '4H', 'D1': '1D', 'W1': '1W', 'MN': '1M', '1Y': '1M' };
+const EXUA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+async function fetchBybitCandles(symbol, tf) {
+  const pair = symbol.replace('/', '').toUpperCase();
+  const interval = BYBIT_TF[tf] || '60';
+  try {
+    const [kRes, tRes] = await Promise.all([
+      fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${pair}&interval=${interval}&limit=220`, { headers: EXUA }),
+      fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${pair}`, { headers: EXUA })
+    ]);
+    if (!kRes.ok) return null;
+    const kj = await kRes.json();
+    const list = kj && kj.result && Array.isArray(kj.result.list) ? kj.result.list : [];
+    if (list.length < 10) return null;
+    const candles = list.slice().reverse().map(k => ({
+      time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
+      low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
+    })).filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
+    if (candles.length < 10) return null;
+    let livePrice = candles[candles.length - 1].close; let changePct = 0;
+    if (tRes.ok) {
+      const tj = await tRes.json();
+      const row = tj && tj.result && tj.result.list && tj.result.list[0];
+      if (row && Number(row.lastPrice) > 0) { livePrice = Number(row.lastPrice); changePct = (Number(row.price24hPcnt) || 0) * 100; }
+    }
+    const last = candles[candles.length - 1];
+    last.close = livePrice;
+    if (livePrice > last.high) last.high = livePrice;
+    if (livePrice < last.low) last.low = livePrice;
+    return { source: `BYBIT:${pair}`, price: livePrice, changePct, candles };
+  } catch (e) { return null; }
+}
+async function fetchOkxCandles(symbol, tf) {
+  const instId = symbol.replace('/', '-').toUpperCase();
+  const bar = OKX_TF[tf] || '1H';
+  try {
+    const [kRes, tRes] = await Promise.all([
+      fetch(`https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=220`, { headers: EXUA }),
+      fetch(`https://www.okx.com/api/v5/market/ticker?instId=${instId}`, { headers: EXUA })
+    ]);
+    if (!kRes.ok) return null;
+    const kj = await kRes.json();
+    const rows = kj && Array.isArray(kj.data) ? kj.data : [];
+    if (rows.length < 10) return null;
+    const candles = rows.slice().reverse().map(k => ({
+      time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
+      low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
+    })).filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
+    if (candles.length < 10) return null;
+    let livePrice = candles[candles.length - 1].close; let changePct = 0;
+    if (tRes.ok) {
+      const tj = await tRes.json();
+      const row = tj && tj.data && tj.data[0];
+      if (row && Number(row.last) > 0) {
+        livePrice = Number(row.last);
+        const o24 = Number(row.open24h);
+        if (o24 > 0) changePct = ((livePrice - o24) / o24) * 100;
+      }
+    }
+    const last = candles[candles.length - 1];
+    last.close = livePrice;
+    if (livePrice > last.high) last.high = livePrice;
+    if (livePrice < last.low) last.low = livePrice;
+    return { source: `OKX:${instId}`, price: livePrice, changePct, candles };
+  } catch (e) { return null; }
+}
 async function fetchBinanceCandles(symbol, tf) {
   const pair = symbol.replace('/', '').toUpperCase();
   const tfMap = {
@@ -528,6 +599,11 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
   if (s.endsWith('/USDT')) {
     const binData = await fetchBinanceCandles(s, tf);
     if (binData) return binData;
+    // v2026.61: pair tanpa listing Binance (HYPE dll) -> Bybit lalu OKX
+    const bybData = await fetchBybitCandles(s, tf).catch(() => null);
+    if (bybData) return bybData;
+    const okxData = await fetchOkxCandles(s, tf).catch(() => null);
+    if (okxData) return okxData;
   }
   // v2026.53: candle NYATA Yahoo Finance diutamakan untuk semua kelas aset non-crypto
   // (adaptif ke hari kerja/weekend: Yahoo mengikuti jam bursa masing-masing pasar).

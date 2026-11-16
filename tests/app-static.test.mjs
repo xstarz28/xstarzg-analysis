@@ -13,6 +13,7 @@ const edgeAnalyze = R('../functions/api/market/analyze.js');
 const edgeNews = R('../functions/api/news/calendar.js');
 const edgeMacro = R('../functions/api/macro/regime.js');
 const edgeMarket = R('../functions/api/market/analyze.js');
+const edgeQuotes = R('../functions/api/market/quotes.js');
 const calcMod = R('../public/js/calculator.js');
 const engineBoot = R('../public/js/engine-boot.js');
 
@@ -20,12 +21,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.60/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.60/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.60">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.60">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.60/.test(boot) && /signal-engine\.js\?v=2026\.60/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.60/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.61/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.61/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.61">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.61">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.61/.test(boot) && /signal-engine\.js\?v=2026\.61/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.61/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -143,5 +144,8 @@ chk('kalkulator memakai ATR & leverage + kunci calcTitle', /updateMarketContext/
 chk('banner ESTIMASI kini BENAR-BENAR reconnect (retry 45s)', /scheduleFeedReconnect/.test(app) && /feedReconnectTimer/.test(app));
 chk('edge XAU spot pakai candle Yahoo NYATA (XAUUSD=X) tanpa pengecualian', /'XAU\/USD': \['XAUUSD=X'/.test(edgeMarket) && !/"XAU\/USD" && s !== 'XAU\/IDR'/.test(edgeMarket) && /if \(s !== 'XAU\/IDR'\)/.test(edgeMarket));
 chk('kalender anti-kosong: mirror FF + stale-while-error + klien tak menghapus event', /FF_URLS/.test(edgeNews) && /cdn-nfs\.faireconomy/.test(edgeNews) && /stale: true/.test(edgeNews) && /j\.events\.length > 0 \|\| !newsState\.loaded/.test(app) && /CRYPTO_RSS_URLS/.test(edgeNews) && /cointelegraph/.test(edgeNews));
+/* v2026.61 crypto multi-exchange lint */
+chk('pair crypto non-Binance (HYPE dll) -> candle Bybit lalu OKX', /fetchBybitCandles/.test(edgeMarket) && /fetchOkxCandles/.test(edgeMarket) && /BYBIT:\$\{pair\}/.test(edgeMarket) && /OKX:\$\{instId\}/.test(edgeMarket) && edgeMarket.indexOf('fetchBinanceCandles(s, tf);\n    if (binData) return binData;\n    // v2026.61') > -1);
+chk('quotes batch: ticker Bybit->OKX->Yahoo untuk pair non-Binance', /api\.bybit\.com\/v5\/market\/tickers/.test(edgeQuotes) && /www\.okx\.com\/api\/v5\/market\/ticker/.test(edgeQuotes));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
