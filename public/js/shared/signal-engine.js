@@ -1076,8 +1076,11 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   })();
   // Skor yang DIPUBLIKASIKAN selalu koheren dengan peluang: tanpa sinyal -> skor
   // ditahan di bawah ambang PRO agar angka tidak pernah "melabeli" tanpa sinyal.
+  // v2026.54b: skor yang dipublikasikan selalu selaras dengan keputusan akhir —
+  // baik di mode trader (gerbang ketat) maupun investor (NETRAL = tunggu).
+  const scopedPublished = (v) => Math.max(12, Math.min(98, Math.round(v)));
   let publishedScore = qualityScore;
-  if (mode === 'trader' && !eligible && softBias !== 'NEUTRAL') {
+  if (mode === 'trader' && !eligible) {
     publishedScore = !vetoFree ? Math.min(Math.round(qualityScore * 0.8), 58) : Math.min(qualityScore, PRO_MIN_SCORE - 1);
     /* v2026.54 SELARAS: skor & winrate wajib sejalan. WR hanyalah rekam masa lalu;
        skor = keyakinan SAAT INI. Tiap gerbang penolak aktif (NO_SEQ, SQUEEZE,
@@ -1086,8 +1089,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     const gatesBlocked = gateReasons.filter(g => g !== 'LOW_SCORE').length;
     publishedScore = Math.min(publishedScore, Math.max(48, 59 - 2 * gatesBlocked));
   }
-  const confluenceScore = publishedScore;
-  const convictionScore = publishedScore; // alias eksplisit: 0-100 = keyakinan sinyal (netral-arah)
+  let confluenceScore = scopedPublished(publishedScore);
+  let convictionScore = confluenceScore; // alias eksplisit: 0-100 = keyakinan sinyal (netral-arah)
   // Level institusional selalu dihitung; HANYA diekspos sebagai sinyal eksekusi
   // saat tier lolos (ELITE/PRO). Kolam likuiditas ikut jadi kandidat target TP.
   const lvlCtx = {
@@ -1125,10 +1128,24 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       investorStatus = 'GRADUAL DCA ACCUMULATION (Akumulasi Bertahap)';
     }
   }
+  // Investor: NETRAL (tahan/tunggu) tidak boleh membawa skor tinggi — sama seperti
+  // trader, skor keyakinan wajib sejalan dengan keputusan akhir (SELARAS v2026.54b).
+  if (mode === 'investor' && direction === 'NEUTRAL') {
+    confluenceScore = Math.min(confluenceScore, 59);
+    convictionScore = confluenceScore;
+  }
   const lv = eligible && projected ? projected : null;
-  const dcaZone1 = lastPrice * 0.992;
-  const dcaZone2 = Math.min(lastPrice * 0.965, vp.val || lastPrice * 0.96);
-  const dcaZone3 = Math.min(lastPrice * 0.925, modern.demandZone.low || lastPrice * 0.92);
+  /* ============ ZONA DCA INVESTOR ELITE (v2026.54b) ============
+     Tangga DCA WAJIB turun berurutan & berlabuh pada NILAI WAJAR (fair value),
+     bukan persentase acak: saat harga PREMIUM (di atas fair), cicilan pertama
+     menunggu di sekitar fair value; tiap tahap berikutnya lebih ke bawah.
+     Tidak boleh pernah muncul DCA2 lebih tinggi dari DCA1 dsb (bug "ngacak"). */
+  const fairValueInv = Math.max(1e-8, (vp.poc || lastPrice) * 0.55 + vwap * 0.45);
+  const isPremiumNow = lastPrice > fairValueInv;
+  let dcaZone1 = Math.min(lastPrice * 0.988, isPremiumNow ? fairValueInv * 1.02 : lastPrice * 0.985);
+  let dcaZone2 = Math.min(dcaZone1 * 0.94, isPremiumNow ? fairValueInv * 0.94 : lastPrice * 0.952);
+  let dcaZone3 = Math.min(dcaZone2 * 0.90, modern.demandZone.low > 0 ? modern.demandZone.low : lastPrice * 0.86);
+  if (!(dcaZone3 > 0)) dcaZone3 = dcaZone2 * 0.9;
   const invTarget1 = lastPrice * 1.12;
   const invTarget2 = lastPrice * 1.28;
   const invTarget3 = lastPrice * 1.55;

@@ -324,5 +324,20 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('draw on liquidity dua sisi bernilai', atl.draw.above == null || atl.draw.above > 0);
   chk('OTE zona lengkap', atl.ote && atl.ote.longZone.top > atl.ote.longZone.bottom && atl.ote.shortZone.top > atl.ote.shortZone.bottom);
 }
+
+/* v2026.54b/55: DCA investor monoton & skor NETRAL selaras */
+{
+  const DAYB = 86400, nb = 60; const mk = []; let pr = 1000;
+  const base = Math.floor(Date.now()/1000/DAYB)*DAYB - nb*DAYB;
+  for (let i = 0; i < nb; i++) {
+    const op = pr; pr = 1000 + i * 22; // tren naik kuat -> harga premium vs POC/VWAP
+    mk.push({ time: base + i * DAYB, open: op, high: pr * 1.01, low: op * 0.995, close: pr, volume: 900 + i * 3 });
+  }
+  const inv = SE.runFullAnalysis({ symbol: 'ETH/USDT', timeframe: 'D1', mode: 'investor', candles: mk });
+  const L = inv.levels || {};
+  chk('tangga DCA turun berurutan', L.dcaZone1 > L.dcaZone2 && L.dcaZone2 > L.dcaZone3 && L.dcaZone3 > 0);
+  chk('DCA1 di bawah harga live & tak melampaui premium parah', L.dcaZone1 < inv.lastPrice);
+  chk('investor NEUTRAL tak melabeli skor tinggi', inv.direction !== 'NEUTRAL' || inv.confluenceScore <= 59);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
