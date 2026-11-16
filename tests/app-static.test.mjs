@@ -15,12 +15,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.54/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.54/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.54">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.54">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.54/.test(boot) && /signal-engine\.js\?v=2026\.54/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.54/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.55/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.55/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.55">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.55">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.55/.test(boot) && /signal-engine\.js\?v=2026\.55/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.55/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -116,5 +116,9 @@ chk('edge punya fetchYahooCandles + resample H4', /async function fetchYahooCand
 chk('edge prioritas candle NYATA Yahoo sebelum fabrikasi', edgeAnalyze.indexOf('fetchYahooCandles(s, tf)') < edgeAnalyze.indexOf('buildBrokerAnchoredCandles(s, tf, liveQuote)'));
 /* v2026.54 SELARAS lint: plafon skor direm per gerbang penolak */
 chk('engine cap skor proporsional ke jumlah gerbang tolak', /gatesBlocked = gateReasons/.test(eng) && /59 - 2 \* gatesBlocked/.test(eng));
+/* v2026.55b lint */
+chk('engine cap investor NETRAL + DCA monotonic fair-value', /confluenceScore = Math\.min\(confluenceScore, 59\)/.test(eng) && /dcaZone2 = Math\.min\(dcaZone1/.test(eng) && /dcaZone3 = Math\.min\(dcaZone2/.test(eng));
+chk('engine remove kondisi NEUTRAL dari cap trader', /mode === 'trader' && !eligible\) \{/.test(eng) && !/!eligible && softBias !== 'NEUTRAL'/.test(eng));
+chk('label pillars diperbarui (26/10)', /26-Pillar|26 Pilar/.test(html));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
