@@ -1571,6 +1571,31 @@ function applyLiveTick(price, changePct, silent) {
   setTxt('hdrLow', formatPrice(bar.low, state.symbol));
   scheduleLiveCanvasRepaint(); // candle canvas fallback ikut seirama tiap tick
 }
+/* v2026.60: janji banner "menyambung ulang" kini DIPENUHI — jika candle saat ini
+   ESTIMASI, klien mencoba lagi feed broker asli tiap 45 detik dan langsung menukar
+   candle + status begitu feed REAL berhasil (bukan menunggu refresh manual). */
+var feedReconnectTimer = null;
+function scheduleFeedReconnect() {
+  if (feedReconnectTimer) return;
+  feedReconnectTimer = setInterval(function () {
+    try {
+      if (!feedIsEstimate(state.feedSource)) { clearInterval(feedReconnectTimer); feedReconnectTimer = null; return; }
+      fetchRealMarketCandles(state.symbol, state.tf).then(function (data) {
+        if (data && Array.isArray(data.candles) && data.candles.length >= 5 && !feedIsEstimate(data.source)) {
+          state.candles = data.candles;
+          state.livePrice = Number(data.price) > 0 ? Number(data.price) : data.candles[data.candles.length - 1].close;
+          state.liveChangePct = Number(data.changePct) || 0;
+          state.feedSource = data.source;
+          var analysis = computeQuantEngine(state.candles, state.symbol, state.tf, true, 'create', data.source);
+          renderAllVisuals(analysis, true);
+          try { drawCanvasFallbackChart(state.candles, analysis); } catch (e) {}
+          if (chartInstance) chartInstance.timeScale().fitContent();
+          try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {}
+        }
+      });
+    } catch (e) {}
+  }, 45000);
+}
 function startBinanceStream() {
   stopBinanceStream();
   var sym = (state.symbol || '').toUpperCase();
@@ -1692,10 +1717,20 @@ function escH(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function
 function fetchNewsCalendar(force) {
   if (!force && newsState.loaded && (Date.now() - newsState.ts) < NEWS_TTL) { renderNewsPanel(); return; }
   fetch('/api/news/calendar').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-    if (j && j.ok && Array.isArray(j.events)) { newsState.events = j.events; newsState.ts = Date.now(); newsState.loaded = true; }
+    // v2026.60: jangan PERNAH menghapus event yang sudah tampil hanya karena satu
+    // fetch gagal/kosong (penyebab panel "kadang muncul kadang tidak").
+    if (j && j.ok && Array.isArray(j.events) && (j.events.length > 0 || !newsState.loaded)) {
+      newsState.events = j.events; newsState.ts = Date.now(); newsState.loaded = true;
+    } else if (!newsState.loaded) {
+      // retry cepat satu-shot saat pemuatan pertama gagal (anti panel kosong diam-2)
+      setTimeout(function () { try { fetchNewsCalendar(false); } catch (e) {} }, 20000);
+    }
     renderNewsPanel();
     try { if (state.lastAnalysis && !state.lastAnalysis.error) gateBlockHtml(state.lastAnalysis); } catch (e) {}
-  }).catch(function () { renderNewsPanel(); });
+  }).catch(function () {
+    if (!newsState.loaded) setTimeout(function () { try { fetchNewsCalendar(false); } catch (e) {} }, 20000);
+    renderNewsPanel();
+  });
 }
 function newsClassOfSym(sym) {
   var m = (typeof getMeta === 'function') ? getMeta(sym) : null;
@@ -2961,6 +2996,7 @@ if (document.readyState === 'loading') {
         state.livePrice = Number(data.price) || data.candles[data.candles.length - 1].close;
         state.liveChangePct = Number(data.changePct) || 0.25;
         state.feedSource = data.source || 'LIVE_BROKER';
+        if (!feedIsEstimate(state.feedSource) && feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
         const analysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc, 'create', data.source || 'LIVE_BROKER');
         renderAllVisuals(analysis, true);
         drawCanvasFallbackChart(state.candles, analysis);
@@ -2969,6 +3005,7 @@ if (document.readyState === 'loading') {
       connectRealtimeStream();
       renderOpportunityRadar();
       scheduleBestTfScan();
+      if (feedIsEstimate(state.feedSource)) scheduleFeedReconnect();
     } catch (err) {
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
@@ -2978,6 +3015,7 @@ if (document.readyState === 'loading') {
       drawCanvasFallbackChart(state.candles, fallbackAnalysis);
       renderOpportunityRadar();
       scheduleBestTfScan();
+      scheduleFeedReconnect();
     }
   };
   // Pre-warm radar & initial analysis on load
