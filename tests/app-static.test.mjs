@@ -21,12 +21,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.62/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.62/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.62">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.62">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.62/.test(boot) && /signal-engine\.js\?v=2026\.62/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.62/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.63/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.63/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.63">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.63">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.63/.test(boot) && /signal-engine\.js\?v=2026\.63/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.63/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -150,5 +150,9 @@ chk('quotes batch: ticker Bybit->OKX->Yahoo untuk pair non-Binance', /api\.bybit
 /* v2026.62 lint: kalender selesai + zona struktur pivot */
 chk('event lewat ditandai SELESAI + hasil aktual', /eNewsDone/.test(app) && /eNewsActual/.test(app) && /actual/.test(edgeNews) && /d < 0 \|\|/.test(app));
 chk('pilar pivot menampilkan zona struktur psikologis', /psychRoundPrice/.test(app) && /ePtZone/.test(app));
+/* v2026.63 lint: fallback canvas chart */
+chk('fallback canvas punya AXIS HARGA (fxPriceAxis) & tag level (lvTag)', /function fxPriceAxis/.test(app) && /function lvTag/.test(app) && /FALLBACK VIEW — axis harga aktif/.test(app));
+chk('fallback membaca level via effectiveLevels (bukan analysis.entry undefined)', /effectiveLevels\(analysis\)/.test(app) && !/drawLine\(analysis\.entry/.test(app));
+chk('fallback menggambar overlay EMA/VWAP + harga terkini + toggle redraw', /__fxEmaList/.test(app) && /vwapN/.test(app) && /candleLastPrice/.test(app) && /window\.drawCanvasFallbackChart\(state\.candles, state\.lastAnalysis\)/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
