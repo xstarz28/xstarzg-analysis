@@ -1079,6 +1079,12 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   let publishedScore = qualityScore;
   if (mode === 'trader' && !eligible && softBias !== 'NEUTRAL') {
     publishedScore = !vetoFree ? Math.min(Math.round(qualityScore * 0.8), 58) : Math.min(qualityScore, PRO_MIN_SCORE - 1);
+    /* v2026.54 SELARAS: skor & winrate wajib sejalan. WR hanyalah rekam masa lalu;
+       skor = keyakinan SAAT INI. Tiap gerbang penolak aktif (NO_SEQ, SQUEEZE,
+       PERSIST, CHOPPY, CISD, FOMO, dst) menurunkan plafon skor, sehingga panel
+       tidak menampilkan pasangan kontradiktif (skor 61 vs WR 80% yang ditolak). */
+    const gatesBlocked = gateReasons.filter(g => g !== 'LOW_SCORE').length;
+    publishedScore = Math.min(publishedScore, Math.max(48, 59 - 2 * gatesBlocked));
   }
   const confluenceScore = publishedScore;
   const convictionScore = publishedScore; // alias eksplisit: 0-100 = keyakinan sinyal (netral-arah)

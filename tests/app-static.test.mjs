@@ -15,12 +15,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.53/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.53/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.53">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.53">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.53/.test(boot) && /signal-engine\.js\?v=2026\.53/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.53/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.54/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.54/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.54">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.54">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.54/.test(boot) && /signal-engine\.js\?v=2026\.54/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.54/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -114,5 +114,7 @@ chk('app label gerbang + rencana master', /CISD_COUNTER: T\('ui\.gCISD'/.test(ap
 /* v2026.53 ADAPTIVE LIVE FEED lint */
 chk('edge punya fetchYahooCandles + resample H4', /async function fetchYahooCandles/.test(edgeAnalyze) && /resampleCandles/.test(edgeAnalyze) && /YAHOO_CANDLES:/.test(edgeAnalyze));
 chk('edge prioritas candle NYATA Yahoo sebelum fabrikasi', edgeAnalyze.indexOf('fetchYahooCandles(s, tf)') < edgeAnalyze.indexOf('buildBrokerAnchoredCandles(s, tf, liveQuote)'));
+/* v2026.54 SELARAS lint: plafon skor direm per gerbang penolak */
+chk('engine cap skor proporsional ke jumlah gerbang tolak', /gatesBlocked = gateReasons/.test(eng) && /59 - 2 \* gatesBlocked/.test(eng));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
