@@ -32,6 +32,7 @@ function T(key, fallback) {
   } catch (e) {}
   return fallback;
 }
+try { window.__xsT = T; } catch (e) {}
 /* === Penerjemah string yang dihasilkan ENGINE (round 6) ===
    Engine (signal-engine.js) TIDAK diubah: ia tetap menghasilkan frasa sumber
    Bahasa Indonesia. Di sini frasa itu dipetakan ke bahasa aktif lewat daftar
@@ -1371,6 +1372,9 @@ function renderPanels(a) {
   setTxt('valEntry', formatPrice(L.entry, a.symbol));
   setTxt('valSL', formatPrice(L.sl, a.symbol));
   setTxt('valSLDesc', fillTpl(isSpot ? T('ui.eSlSpot', 'Proteksi LONG spot di luar swing wick + buffer ATR {p}%') : T('ui.eSlFutures', 'Di luar swing wick + buffer ATR {p}%'), { p: num(a.indicators.atrPct).toFixed(2) }));
+  if (window.__calcWidget && window.__calcWidget.elBalance) {
+    try { window.__calcWidget.setLevelsFromSignal({ entry: L.entry, stopLoss: L.sl }); } catch (e) {}
+  }
   setTxt('valTP1', formatPrice(L.tp1, a.symbol));
   setTxt('valTP2', formatPrice(L.tp2, a.symbol));
   setTxt('valTP3', formatPrice(L.tp3, a.symbol));
@@ -1400,12 +1404,8 @@ function renderPanels(a) {
   var futBox = $id('futuresRiskBox');
   if (futBox) futBox.classList.toggle('hidden', !marginProduct);
   if (!marginProduct) { setTxt('valRecLeverage', '1x (SPOT)'); setTxt('valLiqPrice', '--'); }
-  // Toggle SPOT/FUTURES hanya untuk crypto — aset lain punya konvensi pasar sendiri
-  // (saham=spot 1-arah, forex/logam/komoditas=margin 2-arah), tidak disamakan dg crypto.
-  var btnF = $id('btnSubFutures'), btnS = $id('btnSubSpot');
-  var showSub = a.assetClass === 'crypto';
-  if (btnF) btnF.style.display = showSub ? '' : 'none';
-  if (btnS) btnS.style.display = showSub ? '' : 'none';
+  // v2026.59: toggle SPOT/FUTURES dibiarkan terlihat di SEMUA aset pada mode trader
+  // (dipulihkan atas permintaan user — tombol sempat dianggap "hilang").
   updateRiskSizing();
 }
 function feedIsEstimate(src) {
@@ -1472,6 +1472,10 @@ function renderHeader(a) {
     setTxt('hdrLow', formatPrice(last.low, a.symbol));
   }
   setTxt('hdrATR', num(a.indicators.atr).toPrecision(4));
+  var cw = window.__calcWidget;
+  if (cw && cw.elBalance) {
+    try { cw.updateMarketContext({ price: a.lastPrice, atr: num(a.indicators.atr, 0), symbol: a.symbol, mode: state.mode }); } catch (e) {}
+  }
 }
 function renderAllVisuals(analysis) {
   if (!analysis) return;
