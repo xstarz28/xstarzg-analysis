@@ -1208,6 +1208,11 @@ function gateBlockHtml(a) {
     out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);font-size:11.5px;color:#fde68a;">' +
       fillTpl(T('ui.eNewsWarn', '⏰ PERINGATAN NEWS: {t} ({imp}) sekitar {w} — volatilitas dapat melonjak dua arah; disiplin master = tunggu resolusi news, jangan entry tepat sebelum rilis.'), { t: escH(newsWarn.title), imp: newsWarn.impact, w: newsFmtTime(newsWarn.ts) }) + '</div>';
   }
+  if (macroState.data && macroState.data.ok) {
+    var md = macroState.data;
+    out += '<div style="margin-top:6px;padding:5px 9px;border-radius:7px;background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.25);font-size:11px;color:#bae6fd;">' +
+      fillTpl(T('ui.eMacroTrader', '🌐 Konteks Makro: {r} • Growth {g}% • Inflasi {i}% • USD {u}% • Risk {x}% — sesuaikan ekspektasi & sizing dengan cuaca makro.'), { r: macroRegimeLabel(), g: md.growth, i: md.inflation, u: md.usdBias, x: md.riskAppetite }) + '</div>';
+  }
   var b = state.bestTfBoard;
   if (b && b.groups) {
     var cell = function (g) {
@@ -1320,7 +1325,13 @@ function renderPanels(a) {
     setTxt('valInvDCA1', formatPrice(lv.dcaZone1, a.symbol));
     setTxt('valInvDCA2', formatPrice(lv.dcaZone2, a.symbol));
     setTxt('valInvDCA3', formatPrice(lv.dcaZone3, a.symbol));
-    var avg = num(lv.dcaZone1) * 0.4 + num(lv.dcaZone2) * 0.35 + num(lv.dcaZone3) * 0.25;
+    // v2026.58: bobot alokasi DCA menyesuaikan REGIME GLOBAL MACRO (relatif value)
+    var dcaW = macroDcaWeights();
+    ['valInvDCA1', 'valInvDCA2', 'valInvDCA3'].forEach(function (vid, wi) {
+      var el = $id(vid); var lb = el && el.closest ? el.closest('.level-box') : null; lb = lb ? lb.querySelector('.lbl') : null;
+      if (lb) lb.textContent = fillTpl(T('ui.invDcaPace', '🟢 DCA TAHAP {n} — ALOKASI {p}% MODAL'), { n: wi + 1, p: dcaW[wi] });
+    });
+    var avg = num(lv.dcaZone1) * (dcaW[0] / 100) + num(lv.dcaZone2) * (dcaW[1] / 100) + num(lv.dcaZone3) * (dcaW[2] / 100);
     setTxt('valInvAvgPrice', formatPrice(avg, a.symbol));
     setTxt('valInvTarget1', formatPrice(lv.invTarget1, a.symbol));
     setTxt('valInvTarget2', formatPrice(lv.invTarget2, a.symbol));
@@ -1743,6 +1754,48 @@ function newsSoonFor(symbol, windowMin) {
     if (!best || ev.ts < best.ts) best = ev;
   }
   return best;
+}
+
+/* ==================== GLOBAL MACRO REGIME MAP (v2026.58) ==================== */
+var macroState = { data: null, ts: 0 };
+var MACRO_TTL = 30 * 60 * 1000;
+function fetchMacroRegime(force) {
+  if (!force && macroState.data && Date.now() - macroState.ts < MACRO_TTL) { renderMacroMap(); return; }
+  fetch('/api/macro/regime').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    if (j && j.ok) { macroState = { data: j, ts: Date.now() }; }
+    renderMacroMap();
+  }).catch(function () { renderMacroMap(); });
+}
+var MACRO_REGIME_KEY = { GOLDILOCKS: 'eMacroGoldi', REFLASI: 'eMacroReflasi', STAGFLASI: 'eMacroStag', DESINFLASI_DEFENSIF: 'eMacroDef', CAMPURAN: 'eMacroMix' };
+function macroRegimeLabel() {
+  var d = macroState.data; if (!d || !d.regime) return '';
+  var key = MACRO_REGIME_KEY[d.regime] || 'eMacroMix';
+  return T('ui.' + key, d.regime);
+}
+function renderMacroMap() {
+  var box = $id('macroMapBox');
+  if (!box) return;
+  var d = macroState.data;
+  if (!d || !d.ok) { box.style.display = 'none'; return; }
+  box.style.display = state.mode === 'investor' ? 'block' : 'none';
+  if (state.mode !== 'investor') return;
+  var flowChips = '';
+  (d.flow || []).slice(0, 5).forEach(function (f) {
+    flowChips += '<span style="font-size:10px;padding:2px 8px;border-radius:99px;border:1px solid rgba(148,163,184,0.3);color:' + (f.score >= 55 ? '#34d399' : f.score <= 45 ? '#fb7185' : '#94a3b8') + ';">' + escH(f.label) + ' ' + f.score + '</span>';
+  });
+  var impChips = '';
+  (d.impacts || []).slice(0, 5).forEach(function (im) {
+    impChips += '<span style="font-size:10px;padding:2px 7px;border-radius:99px;color:' + (im.dir > 0 ? '#34d399' : '#fb7185') + ';border:1px solid rgba(148,163,184,0.25);">' + escH(im.sym) + ' ' + (im.dir > 0 ? '▲' : '▼') + '</span>';
+  });
+  box.innerHTML =
+    '<div style="font-size:11px;font-weight:800;color:#7dd3fc;">' + T('ui.eMacroTitle', '🌐 Peta Global Macro — Regime: {r} • Growth {g}% • Inflasi {i}% • USD {u}% • Risk-Appetite {x}%').replace('{r}', macroRegimeLabel()).replace('{g}', d.growth).replace('{i}', d.inflation).replace('{u}', d.usdBias).replace('{x}', d.riskAppetite) + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">' + flowChips + '</div>'
+    + (impChips ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + impChips + '</div>' : '')
+    + '<div style="font-size:10.5px;color:#94a3b8;margin-top:5px;">' + fillTpl(T('ui.eMacroDca', 'Bobot DCA disesuaikan regime global macro: Tahap-1 {a}% • Tahap-2 {b}% • Tahap-3 {c}%.'), { a: d.dcaWeights[0], b: d.dcaWeights[1], c: d.dcaWeights[2] }) + '</div>';
+}
+function macroDcaWeights() {
+  var d = macroState.data;
+  return d && d.ok && d.dcaWeights ? d.dcaWeights : [40, 35, 25];
 }
 
 /* Label pendek alasan gerbang (kartu radar) — WR historis besar ≠ izin entry;
@@ -2568,6 +2621,7 @@ function setMode(mode) {
   // engine terbaru (anti kartu basi yg kontradiksi dengan workspace).
   if (mode === 'investor') renderInvestorPicks(true);
   else renderOpportunityRadar(true);
+  renderMacroMap(); // strip peta makro hanya relevan di workspace investor
   updateModeChip();
   syncTfBarForMode();
   saveSession();
@@ -2933,6 +2987,9 @@ if (document.readyState === 'loading') {
       renderOpportunityRadar();
       fetchNewsCalendar(false);
       setInterval(function () { fetchNewsCalendar(false); }, 15 * 60 * 1000);
+      fetchMacroRegime(false);
+      setInterval(function () { fetchMacroRegime(false); }, MACRO_TTL);
+      setInterval(function () { renderMacroMap(); }, 60 * 1000);
       var nfBar = $id('newsFilterBar');
       if (nfBar) nfBar.addEventListener('click', function (ev) {
         var b = ev.target && ev.target.closest ? ev.target.closest('[data-nf]') : null;

@@ -1,3 +1,4 @@
+import * as macroEdge from '../functions/api/macro/regime.js';
 import * as newsEdge from '../functions/api/news/calendar.js';
 // Engine Brain v2 — unit checks (Node, tanpa dependensi).
 // Jalankan: node tests/engine-v2.test.mjs
@@ -358,6 +359,16 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('claims naik -> USD melemah (dirCcy=-1) & USD/JPY melemah', un.dirCcy === -1 && un.impacts.some(x => x.sym === 'USD/JPY' && x.dir === -1));
   const ts = H.etToUtc('11-18-2026', '8:30am');
   chk('konversi waktu ET->UTC valid (Nov = UTC-5, 8:30am -> 13:30 UTC)', Math.abs(ts - Date.UTC(2026, 10, 18, 13, 30)) <= 3600e3);
+}
+
+/* v2026.58 Global Macro regime classification */
+{
+  const C = macroEdge.__macro.classifyRegime;
+  chk('growth kuat + inflasi rendah => GOLDILOCKS', C(80, 40) === 'GOLDILOCKS');
+  chk('growth+inflasi tinggi => REFLASI', C(70, 70) === 'REFLASI');
+  chk('growth lemah + inflasi tinggi => STAGFLASI', C(30, 75) === 'STAGFLASI');
+  chk('keduanya rendah => DEFENSIF', C(30, 30) === 'DESINFLASI_DEFENSIF');
+  chk('zona abu-abu => CAMPURAN', C(50, 50) === 'CAMPURAN');
 }
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
