@@ -12,17 +12,19 @@ const eng = R('../public/js/shared/signal-engine.js');
 const edgeAnalyze = R('../functions/api/market/analyze.js');
 const edgeNews = R('../functions/api/news/calendar.js');
 const edgeMacro = R('../functions/api/macro/regime.js');
+const calcMod = R('../public/js/calculator.js');
+const engineBoot = R('../public/js/engine-boot.js');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.58/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.58/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.58">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.58">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.58/.test(boot) && /signal-engine\.js\?v=2026\.58/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.58/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.59/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.59/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.59">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.59">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.59/.test(boot) && /signal-engine\.js\?v=2026\.59/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.59/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -57,7 +59,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (471)', uniform && count === 471);
+chk('20 locale punya keyset ui seragam (486)', uniform && count === 486);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -67,7 +69,7 @@ chk('backtest melacak statistik per-arah (longWR/shortWR)', eng.includes('longWR
 chk('papan TF tier-aware (★ ELITE / ✅ PRO)', app.includes("' ★ ELITE '") && app.includes("' ✅ PRO '"));
 chk('radar menyaring keyakinan >= 55', app.includes('convictionScore, 0) >= 55'));
 chk('kotak futures tidak untuk saham/spot', app.includes("a.assetClass !== 'stocks'") && app.includes('marginProduct'));
-chk('toggle spot/futures hanya crypto', app.includes("showSub = a.assetClass === 'crypto'"));
+chk('toggle spot/futures tampak di semua aset (dipulihkan v2026.59)', !app.includes("showSub = a.assetClass === 'crypto'"));
 chk('lock mengikat skor keyakinan (fix skor berubah saat refresh)', eng.includes('a.convictionScore = Math.max(a.convictionScore || 0, lock.score || 0)'));
 chk('radar & kurasi investor auto-refresh mandiri', app.includes('startRadarAutoPilot') && app.includes('__radarAutoTimer') && app.includes('renderOpportunityRadar(force)') && app.includes('renderInvestorPicks(force)'));
 chk('ticker realtime lewat bucket waktu resmi (bukan timpa candle terakhir)', !app.includes('lastBar.close = liveP') && app.includes('applyLiveTick(liveP'));
@@ -132,5 +134,9 @@ chk('news risk chip radar & peringatan panel', /newsSoonFor/.test(app) && /eNews
 chk('edge macro endpoint ada & classifyRegime', /classifyRegime/.test(edgeMacro) && /dcaWeights/.test(edgeMacro) && /'GOLDILOCKS'/.test(edgeNews+edgeMacro));
 chk('app fetch/render macro + strip investor', /fetchMacroRegime/.test(app) && /renderMacroMap/.test(app) && /macroMapBox/.test(html));
 chk('bobot DCA dinamis regime + konteks trader', /macroDcaWeights/.test(app) && /invDcaPace/.test(app) && /eMacroTrader/.test(app));
+/* v2026.59 FITUR DIPULIHKAN lint */
+chk('toggle Spot/Futures trader TIDAK disembunyikan lagi', !/showSub \? '' : 'none'/.test(app) && /btnSubFutures/.test(html));
+chk('kalkulator posisi: panel HTML + widget boot + wiring levels', /id="calcPanel"/.test(html) && /resPosSizeUnits/.test(html) && /__calcWidget/.test(app) && /PositionCalculator/.test(engineBoot) && /class PositionCalculator/.test(calcMod));
+chk('kalkulator memakai ATR & leverage + kunci calcTitle', /updateMarketContext/.test(calcMod) && /recalculate/.test(calcMod) && /calcTitle/.test(R('../public/i18n/locales/id.js')));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

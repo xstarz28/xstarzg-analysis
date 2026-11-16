@@ -110,7 +110,7 @@ export class PositionCalculator {
     if (this.elResMargin) this.elResMargin.textContent = `$${formatNumber(reqMargin, 2)}`;
     if (this.elResEffLev) this.elResEffLev.textContent = `${formatNumber(effectiveLev, 2)}x`;
     if (this.elResLiq) {
-      this.elResLiq.textContent = liqPrice && liqPrice > 0 ? this.formatPriceInput(liqPrice) : 'SPOT (Tanpa Likuidasi)';
+      this.elResLiq.textContent = liqPrice && liqPrice > 0 ? this.formatPriceInput(liqPrice) : (window.__xsT ? window.__xsT('ui.calcLiqSpot', 'SPOT (Tanpa Likuidasi)') : 'SPOT (Tanpa Likuidasi)');
     }
   }
 }
