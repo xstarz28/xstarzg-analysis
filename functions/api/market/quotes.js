@@ -192,9 +192,35 @@ async function handleQuotes(symbols) {
           if (hit && hit.price > 0) quotes[s] = { price: hit.price, changePct: hit.changePct, source: 'BINANCE:' + pair };
         }
       }
-      // Pair yang tidak ada di Binance ticker -> cadangan Yahoo Finance (BTC-USD dsb)
+      // v2026.61: pair yang tidak listing di Binance (HYPE dll) -> tickers Bybit lalu OKX
+      // (publik, tanpa API key), baru terakhir Yahoo — jauh lebih stabil untuk crypto.
       const missing = cryptoSyms.filter(s => !quotes[s]);
       await Promise.allSettled(missing.map(async (s) => {
+        const pair = s.replace('/', '');
+        try {
+          const br = await fetch('https://api.bybit.com/v5/market/tickers?category=spot&symbol=' + pair, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (br.ok) {
+            const bj = await br.json();
+            const row = bj && bj.result && bj.result.list && bj.result.list[0];
+            if (row && Number(row.lastPrice) > 0) {
+              quotes[s] = { price: Number(row.lastPrice), changePct: (Number(row.price24hPcnt) || 0) * 100, source: 'BYBIT:' + pair };
+              return;
+            }
+          }
+        } catch (e) {}
+        try {
+          const instId = s.replace('/', '-');
+          const or = await fetch('https://www.okx.com/api/v5/market/ticker?instId=' + instId, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (or.ok) {
+            const oj = await or.json();
+            const row = oj && oj.data && oj.data[0];
+            if (row && Number(row.last) > 0) {
+              const o24 = Number(row.open24h);
+              quotes[s] = { price: Number(row.last), changePct: o24 > 0 ? ((Number(row.last) - o24) / o24) * 100 : 0, source: 'OKX:' + instId };
+              return;
+            }
+          }
+        } catch (e) {}
         const y = await fetchYahooQuote(s);
         if (y && y.price > 0) quotes[s] = { price: y.price, changePct: y.changePct, source: y.source };
       }));
