@@ -531,7 +531,9 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
   }
   // v2026.53: candle NYATA Yahoo Finance diutamakan untuk semua kelas aset non-crypto
   // (adaptif ke hari kerja/weekend: Yahoo mengikuti jam bursa masing-masing pasar).
-  if (s !== 'XAU/USD' && s !== 'XAU/IDR') {
+  // v2026.60: XAU/USD TIDAK lagi dikecualikan — ticker spot XAUUSD=X memberi candle
+  // emas spot NYATA (1m..D1), mengurangi banner ESTIMASI pada instrumen default.
+  if (s !== 'XAU/IDR') {
     const yc = await fetchYahooCandles(s, tf).catch(() => null);
     if (yc && Array.isArray(yc.candles) && yc.candles.length >= 10) return yc;
   }

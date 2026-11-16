@@ -7,8 +7,29 @@
    (XAU, perak, EUR/USD, USD/JPY, USD/IDR, BTC/ETH, WTI/BRENT, indeks Asia/Eropa).
    Output JSON siap-render oleh klien + dipakai untuk penanda "news segera". */
 
-const FF_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.xml';
-const COINDESK_RSS = 'https://www.coindesk.com/arc/outboundfeeds/rss/';
+// v2026.60: daftar mirror + timeout; Codeploys CF kadang di-rate-limit satu host,
+// mirror lain menjaga panel tetap terisi (bug: kalender kadang muncul kadang tidak).
+const FF_URLS = [
+  'https://nfs.faireconomy.media/ff_calendar_thisweek.xml',
+  'https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml'
+];
+const CRYPTO_RSS_URLS = [
+  'https://www.coindesk.com/arc/outboundfeeds/rss/',
+  'https://cointelegraph.com/rss'
+];
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+function fetchTextTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, ms || 8000);
+  return fetch(url, { headers: { 'User-Agent': UA }, signal: ctrl.signal })
+    .then(r => { clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
+}
+async function fetchFirstOk(urls, parser) {
+  for (const u of urls) {
+    try { const txt = await fetchTextTimeout(u, 8000); const rows = parser(txt); if (rows && rows.length) return rows; } catch (e) {}
+  }
+  return [];
+}
 let cache = { ts: 0, data: null };
 const TTL = 10 * 60 * 1000;
 
@@ -171,17 +192,17 @@ export async function onRequestGet(context) {
   if (context.request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const now = Date.now();
   if (cache.data && now - cache.ts < TTL) return new Response(JSON.stringify(cache.data), { status: 200, headers: CORS });
-  let ff = [], cd = [];
-  try {
-    const r1 = await fetch(FF_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (r1.ok) ff = parseFx(await r1.text());
-  } catch (e) {}
-  try {
-    const r2 = await fetch(COINDESK_RSS, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (r2.ok) cd = parseCryptoRss(await r2.text());
-  } catch (e) {}
+  const [ff, cd] = await Promise.all([fetchFirstOk(FF_URLS, parseFx), fetchFirstOk(CRYPTO_RSS_URLS, parseCryptoRss)]);
   const events = [...ff, ...cd].sort((a, b) => a.ts - b.ts);
-  const payload = { ok: true, count: events.length, now, events };
-  if (events.length) cache = { ts: now, data: payload };
-  return new Response(JSON.stringify(payload), { status: 200, headers: CORS });
+  if (events.length) {
+    const payload = { ok: true, count: events.length, now, events };
+    cache = { ts: now, data: payload };
+    return new Response(JSON.stringify(payload), { status: 200, headers: CORS });
+  }
+  // v2026.60 STALE-WHILE-ERROR: upstream seret/diblokir -> sajikan cache baik terakhir
+  // (meski sudah lewat TTL) daripada panel kosong; tandai stale agar klien tahu.
+  if (cache.data && cache.data.count > 0) {
+    return new Response(JSON.stringify({ ...cache.data, now, stale: true }), { status: 200, headers: { ...CORS, 'Cache-Control': 'public, max-age=120' } });
+  }
+  return new Response(JSON.stringify({ ok: false, count: 0, now, events: [] }), { status: 200, headers: CORS });
 }

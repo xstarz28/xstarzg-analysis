@@ -12,6 +12,7 @@ const eng = R('../public/js/shared/signal-engine.js');
 const edgeAnalyze = R('../functions/api/market/analyze.js');
 const edgeNews = R('../functions/api/news/calendar.js');
 const edgeMacro = R('../functions/api/macro/regime.js');
+const edgeMarket = R('../functions/api/market/analyze.js');
 const calcMod = R('../public/js/calculator.js');
 const engineBoot = R('../public/js/engine-boot.js');
 
@@ -19,12 +20,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.59/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.59/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.59">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.59">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.59/.test(boot) && /signal-engine\.js\?v=2026\.59/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.59/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.60/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.60/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.60">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.60">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.60/.test(boot) && /signal-engine\.js\?v=2026\.60/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.60/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -138,5 +139,9 @@ chk('bobot DCA dinamis regime + konteks trader', /macroDcaWeights/.test(app) && 
 chk('toggle Spot/Futures trader TIDAK disembunyikan lagi', !/showSub \? '' : 'none'/.test(app) && /btnSubFutures/.test(html));
 chk('kalkulator posisi: panel HTML + widget boot + wiring levels', /id="calcPanel"/.test(html) && /resPosSizeUnits/.test(html) && /__calcWidget/.test(app) && /PositionCalculator/.test(engineBoot) && /class PositionCalculator/.test(calcMod));
 chk('kalkulator memakai ATR & leverage + kunci calcTitle', /updateMarketContext/.test(calcMod) && /recalculate/.test(calcMod) && /calcTitle/.test(R('../public/i18n/locales/id.js')));
+/* v2026.60 BUGFIX lint (feed + kalender) */
+chk('banner ESTIMASI kini BENAR-BENAR reconnect (retry 45s)', /scheduleFeedReconnect/.test(app) && /feedReconnectTimer/.test(app));
+chk('edge XAU spot pakai candle Yahoo NYATA (XAUUSD=X) tanpa pengecualian', /'XAU\/USD': \['XAUUSD=X'/.test(edgeMarket) && !/"XAU\/USD" && s !== 'XAU\/IDR'/.test(edgeMarket) && /if \(s !== 'XAU\/IDR'\)/.test(edgeMarket));
+chk('kalender anti-kosong: mirror FF + stale-while-error + klien tak menghapus event', /FF_URLS/.test(edgeNews) && /cdn-nfs\.faireconomy/.test(edgeNews) && /stale: true/.test(edgeNews) && /j\.events\.length > 0 \|\| !newsState\.loaded/.test(app) && /CRYPTO_RSS_URLS/.test(edgeNews) && /cointelegraph/.test(edgeNews));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
