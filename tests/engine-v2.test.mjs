@@ -424,5 +424,20 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('PMI aktual 49.2 < f 50 => JPY lemah', pmi && pmi.dirCcy === -1);
   chk('event mendatang tetap bias pra-event (f 3.1 < p 3.4 => USD lemah)', cpi && cpi.dirCcy === -1 && !cpi.actual);
 }
+
+/* v2026.65 SNIPER masa hidup horison: EXPIRED jujur, bukan gantung selamanya */
+{
+  // Lock H1 berjangkar 20 jam lalu; candle tetap di area entry (tanpa TP/SL)
+  const t0 = Math.floor(Date.now() / 1000) - 20 * 3600;
+  const candles = [];
+  for (let i = 0; i < 20; i++) candles.push({ time: t0 + i * 3600, open: 100, high: 100.9, low: 99.5, close: 100.4, volume: 100 });
+  const lock = { v: 2, symbol: 'X/USDT', tf: 'H1', direction: 'LONG', entry: 100.4, sl: 99.0, tp1: 102.5, tp2: 103.2, tp3: 104.5, anchorClosedTime: candles[2].time, issuedAt: t0 * 1000, status: 'ACTIVE' };
+  const v = SE.validateSignalLock(lock, candles, null);
+  chk('H1 lock > 14 candle tanpa TP/SL => EXPIRED (masa hidup horison)', v.status === 'EXPIRED');
+  // TP tetap menang melawan usia: candle menyentuh tp1 duluan => TP_HIT
+  const c2 = candles.map(function(c){return Object.assign({},c);}); c2[3].high = 102.6;
+  const v2 = SE.validateSignalLock(lock, c2, null);
+  chk('TP tersentuh lebih dulu => TP_HIT (usia setup tidak membatalkan win)', v2.status === 'TP_HIT');
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

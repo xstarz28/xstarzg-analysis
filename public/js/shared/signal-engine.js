@@ -1318,6 +1318,18 @@ export function validateSignalLock(lock, closedCandles, fresh) {
         if (c.low <= lock.tp1) return { status: 'TP_HIT', reason: 'TP tersentuh — setup selesai', at: c.time };
       }
     }
+    // v2026.65: setup punya MASA HIDUP sesuai horison — horison lewat tanpa TP/SL
+    // => EXPIRED (dicatat jujur), BUKAN mengapung tanpa keputusan selamanya.
+    const tfLifeBars = (tf) => {
+      const t = String(tf || 'H1');
+      if (t === 'M1' || t === 'M5' || t === 'M15') return 12;   // scalping: ±12 candle
+      if (t === 'M30' || t === 'H1') return 14;                 // intraday: ±14 candle (H1 ~14 jam)
+      return 10;                                                // swing H4+ : ±10 candle
+    };
+    if (newBars > 0 && newBars >= tfLifeBars(lock.tf)) {
+      const lastBar = closedCandles[closedCandles.length - 1];
+      return { status: 'EXPIRED', reason: 'Horison setup berakhir tanpa TP/SL (' + newBars + ' candle berlalu)', at: lastBar ? lastBar.time : Date.now() };
+    }
     // Pembatalan struktur: flip label SMC saja TIDAK cukup untuk membunuh setup yang
     // sudah direkomendasikan (TF scalping memang sering chop-flip). Invalidasi baru sah
     // bila struktur berbalik DAN harga DITERIMA melawan trade >= 50% risiko dari entry

@@ -10,7 +10,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.64" />
+  <link rel="stylesheet" href="/styles.css?v=2026.65" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -339,7 +339,7 @@
             </div>
           </div>
         </div>
-        <!-- KALKULATOR UKURAN POSISI & RISIKO (dipulihkan v2026.64) -->
+        <!-- KALKULATOR UKURAN POSISI & RISIKO (dipulihkan v2026.65) -->
         <div id="calcPanel" class="side-panel-card" style="margin-top:14px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
             <span style="font-size:12px;font-weight:800;color:#fbbf24;" data-i18n="ui.calcTitle">🧮 KALKULATOR UKURAN POSISI &amp; RISIKO</span>
@@ -400,6 +400,13 @@
         </div>
         <div style="font-size:11px;color:#94a3b8;margin:6px 0 2px;" data-i18n="ui.secNewsSub">Prakiraan vs data sebelumnya dipetakan ke bias arah tiap instrumen — dipakai sebagai acuan untuk TIDAK sembarang entry menjelang news ber-impact tinggi.</div>
         <div id="newsGrid" class="radar-grid"></div>
+      </div>
+      <!-- Jurnal Sinyal: rekam jejak komitmen di perangkat (v2026.65) -->
+      <div class="section-card" id="journalSection">
+        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.jnlTitle">📒 Jurnal Sinyal — Rekam Jejak Terverifikasi (Perangkat Ini)</h3>
+        <div style="font-size:11px;color:#94a3b8;margin:3px 0 6px;" data-i18n="ui.jnlSub">Setiap komitmen yang lolos gerbang ketat tercatat SANGKAI putusan akhir: TP, SL, invalid struktur, atau kedaluwarsa horison — tanpa ditutupi, tanpa korban jam berubah-ubah.</div>
+        <div id="journalSummary" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;"></div>
+        <div id="signalJournalList" class="radar-grid"></div>
       </div>
       <!-- Rekomendasi khusus INVESTOR (dipisah total dari radar trader) -->
       <div class="section-card hidden" id="investorRadarSection">
@@ -491,8 +498,8 @@
   </div>
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script type="module" src="/js/engine-boot.js?v=2026.64"></script>
-  <script src="/app.js?v=2026.64"></script>
-  <script type="module" src="/i18n/boot.js?v=2026.64"></script>
+  <script type="module" src="/js/engine-boot.js?v=2026.65"></script>
+  <script src="/app.js?v=2026.65"></script>
+  <script type="module" src="/i18n/boot.js?v=2026.65"></script>
 </body>
 </html>
