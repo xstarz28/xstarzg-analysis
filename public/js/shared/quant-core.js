@@ -352,7 +352,7 @@ export function detectSwingsNoLookahead(candles, leftRight = 3) {
   return swings;
 }
 // Modern Institutional Indicator 3: SMC, FVG, Liquidity Sweep, Order Block, Supply/Demand & S/R
-export function detectModernInstitutionalStructure(candles, swings, atrVal) {
+export function detectModernInstitutionalStructure(candles, swings, atrVal, tfId = 'H1') {
   const len = candles.length;
   const last = candles[len - 1];
   const lastPrice = last.close;
@@ -412,14 +412,36 @@ export function detectModernInstitutionalStructure(candles, swings, atrVal) {
   const demandZone = { low: recentLow, high: recentLow + safeAtr * 0.65 };
   const supplyZone = { low: recentHigh - safeAtr * 0.65, high: recentHigh };
   // 5. Classical Pivot Support & Resistance (S1, S2, R1, R2)
-  const slice24 = candles.slice(-24);
-  const h24 = Math.max(...slice24.map(c => c.high));
-  const l24 = Math.min(...slice24.map(c => c.low));
-  const pivot = (h24 + l24 + lastPrice) / 3;
-  const r1 = 2 * pivot - l24;
-  const s1 = 2 * pivot - h24;
-  const r2 = pivot + (h24 - l24);
-  const s2 = pivot - (h24 - l24);
+  // v2026.62: pivot KLASIK sesuai konvensi analis — dihitung dari H/L/C periode
+  // kalender SEBELUMNYA (D1 intraday -> kemarin; chart D1 -> candle harian kemarin;
+  // W1 -> minggu lalu; MN -> bulan lalu), BUKAN jendela 24 candle campur-aduk.
+  const tfObj = TIMEFRAMES.find(t => t.id === tfId) || null;
+  const tfSec = tfObj ? tfObj.seconds : 3600;
+  let prevP;
+  if (tfSec >= 86400) {
+    const pb = candles[Math.max(0, candles.length - 2)];
+    prevP = { h: pb.high, l: pb.low, c: pb.close };
+  } else {
+    const dayStart = Math.floor(candles[candles.length - 1].time / 86400) * 86400;
+    let ph = -Infinity, pl = Infinity, pc = null;
+    for (let i = candles.length - 1; i >= 0; i--) {
+      const t = candles[i].time;
+      if (t >= dayStart) continue;
+      if (t < dayStart - 86400) break;
+      if (candles[i].high > ph) ph = candles[i].high;
+      if (candles[i].low < pl) pl = candles[i].low;
+      if (pc === null) pc = candles[i].close;
+    }
+    if (!Number.isFinite(ph) || pc === null) {
+      const pb = candles[Math.max(0, candles.length - 2)];
+      prevP = { h: pb.high, l: pb.low, c: pb.close };
+    } else prevP = { h: ph, l: pl, c: pc };
+  }
+  const pivot = (prevP.h + prevP.l + prevP.c) / 3;
+  const r1 = 2 * pivot - prevP.l;
+  const s1 = 2 * pivot - prevP.h;
+  const r2 = pivot + (prevP.h - prevP.l);
+  const s2 = pivot - (prevP.h - prevP.l);
   return {
     smcStatus,
     smcBias,

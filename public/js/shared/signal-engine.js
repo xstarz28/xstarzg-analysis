@@ -617,7 +617,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const bbLower = bbObj.lower[lastIdx] ?? (lastPrice - atr * 2);
   const bbWidth = bbObj.widthPct[lastIdx] || 2.0;
   // Modern Institutional Structure (SMC BOS/CHoCH, FVG, Liquidity Sweep, S&D, Pivot S/R)
-  const modern = detectModernInstitutionalStructure(closed, swings, atr);
+  const modern = detectModernInstitutionalStructure(closed, swings, atr, timeframe);
   // Otak v2: order block, divergensi momentum, kolam likuiditas, bias timeframe atas
   const obs = detectOrderBlocks(closed, swings, atr);
   const liqPools = detectLiquidityPools(closed, swings, atr, timeframe);

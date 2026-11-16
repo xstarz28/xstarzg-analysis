@@ -188,6 +188,14 @@ function buildEngineTextMap() {
   ];
   return E;
 }
+/* v2026.62: snapping angka psikologis (round numbers ala analis: 5,300/5,500 dst.)
+   Dipakai untuk menampilkan ZONA struktur — bukan mengubah pivot klasik mentah. */
+function psychRoundPrice(v) {
+  var a = Math.abs(num(v));
+  if (a <= 0) return null;
+  var step = a >= 50000 ? 500 : a >= 10000 ? 100 : a >= 1000 ? 50 : a >= 100 ? 5 : a >= 10 ? 0.5 : a >= 1 ? 0.05 : 0.005;
+  return Math.round(v / step) * step;
+}
 function fillTpl(tpl, vals) {
   return String(tpl).replace(/\{(\w+)\}/g, function (_, k) { return k in vals ? vals[k] : '{' + k + '}'; });
 }
@@ -1118,7 +1126,10 @@ function renderPillars(a) {
       pillarHtml(T('ui.ePnFvg', '7. Fair Value Gap (FVG)'), localizeEngineString(ind.fvgNote || '-'), T('ui.ePtFvg', 'Deteksi imbalance 3-candle terbaru'), (ind.fvgNote || '').indexOf('Bullish') > -1 ? 'bull' : (ind.fvgNote || '').indexOf('Bearish') > -1 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.ePnSweep', '8. Liquidity Sweep (BSL/SSL)'), localizeEngineString(ind.liquiditySweep || 'NONE'), T('ui.ePtSweep', 'Stop-hunt di sekitar swing terdekat'), (ind.liquiditySweep || '').indexOf('▲') > -1 ? 'bull' : (ind.liquiditySweep || '').indexOf('▼') > -1 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.ePnSd', '9. Supply & Demand Zone'), 'D: ' + (ind.demandZoneText || formatPrice(lv.swingLow)), 'S: ' + (ind.supplyZoneText || formatPrice(lv.swingHigh)), 'neutral') +
-      pillarHtml(T('ui.ePnPivot', '10. Pivot Support / Resistance'), 'S1 ' + formatPrice(lv.s1) + ' • R1 ' + formatPrice(lv.r1), T('ui.ePtPivot', 'Pivot klasik: ') + formatPrice(lv.pivot), bull(p >= lv.pivot)) +
+      pillarHtml(T('ui.ePnPivot', '10. Pivot Support / Resistance'), 'S1 ' + formatPrice(lv.s1) + ' • R1 ' + formatPrice(lv.r1),
+        T('ui.ePtPivot', 'Pivot klasik: ') + formatPrice(lv.pivot) +
+        (num(lv.swingLow) > 0 && num(lv.swingHigh) > 0 ? ' • ' + fillTpl(T('ui.ePtZone', 'Zona struktur: S ≈{S} • R ≈{R}'), { S: formatPrice(psychRoundPrice(Math.min(lv.swingLow, lv.s1)), a.symbol), R: formatPrice(psychRoundPrice(Math.max(lv.swingHigh, lv.r1)), a.symbol) }) : ''),
+        bull(p >= lv.pivot)) +
       pillarHtml(T('ui.ePnRsi', '11. RSI(14) & MACD Histogram'), 'RSI ' + num(ind.rsi, 50).toFixed(1) + ' • MACD ' + (num(ind.macdHist) >= 0 ? '+' : '') + num(ind.macdHist).toPrecision(3), num(ind.rsi) > 70 ? T('ui.ePtRsiOb', 'Overbought — rawan koreksi') : num(ind.rsi) < 30 ? T('ui.ePtRsiOs', 'Oversold — rawan pantulan') : T('ui.ePtRsiOk', 'Momentum sehat'), num(ind.macdHist) >= 0 ? 'bull' : 'bear') +
       pillarHtml(T('ui.ePnBb', '12. Bollinger Bands & ATR'), 'BBW ' + num(ind.bbWidth).toFixed(2) + '% • ATR ' + num(ind.atrPct).toFixed(2) + '%', num(ind.bbWidth) < 1.25 ? T('ui.ePtBbSq', 'Squeeze — siap breakout volatilitas') : T('ui.ePtBbNorm', 'Ekspansi volatilitas normal'), 'neutral') +
       pillarHtml(T('ui.ePnOrb', '13. ORB Breakout (Opening Range)'), ind.orbHigh && ind.orbLow ? formatPrice(ind.orbLow) + ' – ' + formatPrice(ind.orbHigh) : localizeEngineString(ind.orbLabel || 'ORB'),
@@ -1759,7 +1770,9 @@ function renderNewsPanel() {
   var html = '';
   for (var i = 0; i < evs.length; i++) {
     var ev = evs[i];
-    var soon = ev.ts - now >= -30 * 60e3 && ev.ts - now <= 90 * 60e3;
+    var diffMin = ev.ts - now;
+    var done = diffMin <= 0;
+    var soon = !done && diffMin <= 90 * 60e3; // ⏰ khusus event MENDATANG (<90 mnt)
     var impCol = ev.impact === 'HIGH' ? '#f43f5e' : ev.impact === 'MEDIUM' ? '#f59e0b' : '#64748b';
     var impTxt = ev.impact === 'HIGH' ? T('ui.eNewsHigh', 'HIGH') : ev.impact === 'MEDIUM' ? T('ui.eNewsMed', 'MEDIUM') : T('ui.eNewsLow', 'LOW');
     var chips = '';
@@ -1769,13 +1782,13 @@ function renderNewsPanel() {
       chips += '<span style="font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid rgba(148,163,184,0.3);color:' + (im.dir > 0 ? '#34d399' : '#fb7185') + ';">'
         + escH(im.sym) + ' ' + (im.dir > 0 ? '▲' : '▼') + ' ~' + im.pct + '%</span>';
     }
-    html += '<div class="radar-card" style="cursor:default;">' +
+    html += '<div class="radar-card" style="cursor:default;' + (done ? 'opacity:0.78;' : '') + '">' +
       '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;">' +
         '<span class="r-name" style="line-height:1.35;">' + escH(ev.title) + '</span>' +
         '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:' + impCol + '22;color:' + impCol + ';border:1px solid ' + impCol + '55;white-space:nowrap;">' + impTxt + '</span>' +
       '</div>' +
-      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;">' + escH(ev.ccy) + ' • ' + newsFmtTime(ev.ts) + (soon ? ' • <b style="color:#f59e0b;">⏰ ' + T('ui.eNewsSoon', 'SEGERA') + '</b>' : '') + '</div>' +
-      ((ev.forecast || ev.previous) ? '<div style="font-size:10.5px;color:#cbd5e1;margin-top:3px;">' + T('ui.eNewsFc', 'Prakiraan') + ': <b>' + escH(ev.forecast || '—') + '</b> • ' + T('ui.eNewsPv', 'Sebelumnya') + ': ' + escH(ev.previous || '—') + '</div>' : '') +
+      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;">' + escH(ev.ccy) + ' • ' + newsFmtTime(ev.ts) + (soon ? ' • <b style="color:#f59e0b;">⏰ ' + T('ui.eNewsSoon', 'SEGERA') + '</b>' : done ? ' • <b style="color:#10b981;">✅ ' + T('ui.eNewsDone', 'SELESAI') + '</b>' : '') + '</div>' +
+      ((ev.forecast || ev.previous) ? '<div style="font-size:10.5px;color:#cbd5e1;margin-top:3px;">' + (ev.actual ? T('ui.eNewsActual', 'Hasil') + ': <b style="color:#fbbf24;">' + escH(ev.actual) + '</b> • ' : '') + T('ui.eNewsFc', 'Prakiraan') + ': <b>' + escH(ev.forecast || '—') + '</b> • ' + T('ui.eNewsPv', 'Sebelumnya') + ': ' + escH(ev.previous || '—') + '</div>' : '') +
       '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + chips + '</div>' +
     '</div>';
   }
@@ -1788,7 +1801,7 @@ function newsSoonFor(symbol, windowMin) {
     var ev = newsState.events[i];
     if (ev.impact === 'LOW') continue;
     var d = ev.ts - now;
-    if (d < -30 * 60e3 || d > (windowMin || 90) * 60e3) continue;
+    if (d < 0 || d > (windowMin || 90) * 60e3) continue; // v2026.62: event selesai bukan lagi "segera"
     if (!(ev.impacts || []).some(function (x) { return x.sym === symbol; })) continue;
     if (!best || ev.ts < best.ts) best = ev;
   }

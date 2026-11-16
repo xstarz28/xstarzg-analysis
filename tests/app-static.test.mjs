@@ -21,12 +21,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.61/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.61/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.61">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.61">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.61/.test(boot) && /signal-engine\.js\?v=2026\.61/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.61/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.62/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.62/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.62">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.62">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.62/.test(boot) && /signal-engine\.js\?v=2026\.62/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.62/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -61,7 +61,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (486)', uniform && count === 486);
+chk('20 locale punya keyset ui seragam (489)', uniform && count === 489);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -147,5 +147,8 @@ chk('kalender anti-kosong: mirror FF + stale-while-error + klien tak menghapus e
 /* v2026.61 crypto multi-exchange lint */
 chk('pair crypto non-Binance (HYPE dll) -> candle Bybit lalu OKX', /fetchBybitCandles/.test(edgeMarket) && /fetchOkxCandles/.test(edgeMarket) && /BYBIT:\$\{pair\}/.test(edgeMarket) && /OKX:\$\{instId\}/.test(edgeMarket) && edgeMarket.indexOf('fetchBinanceCandles(s, tf);\n    if (binData) return binData;\n    // v2026.61') > -1);
 chk('quotes batch: ticker Bybit->OKX->Yahoo untuk pair non-Binance', /api\.bybit\.com\/v5\/market\/tickers/.test(edgeQuotes) && /www\.okx\.com\/api\/v5\/market\/ticker/.test(edgeQuotes));
+/* v2026.62 lint: kalender selesai + zona struktur pivot */
+chk('event lewat ditandai SELESAI + hasil aktual', /eNewsDone/.test(app) && /eNewsActual/.test(app) && /actual/.test(edgeNews) && /d < 0 \|\|/.test(app));
+chk('pilar pivot menampilkan zona struktur psikologis', /psychRoundPrice/.test(app) && /ePtZone/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
