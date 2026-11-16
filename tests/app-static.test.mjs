@@ -21,12 +21,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.64/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.64/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.64">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.64">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.64/.test(boot) && /signal-engine\.js\?v=2026\.64/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.64/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.65/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.65/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.65">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.65">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.65/.test(boot) && /signal-engine\.js\?v=2026\.65/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.65/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -61,7 +61,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (489)', uniform && count === 489);
+chk('20 locale punya keyset ui seragam (499)', uniform && count === 499);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -157,5 +157,8 @@ chk('fallback menggambar overlay EMA/VWAP + harga terkini + toggle redraw', /__f
 /* v2026.64 lint: presisi harga micro-cap */
 chk('formatPrice harga <1 pakai presisi signifikan (anti "0.00" RDNT)', /K\.floor\(Math\.log10\(a\)/.test(app) || /Math\.log10\(a\)/.test(app));
 chk('LWC series menyesuaikan priceFormat per simbol (syncChartPriceFormat)', /function lwcPriceFormat/.test(app) && /syncChartPriceFormat\(\);/.test(app) && app.split('syncChartPriceFormat();').length >= 3);
+/* v2026.65 lint jurnal sinyal + masa hidup horison */
+chk('jurnal sinyal: section + renderer + wiring outcome', /id="signalJournalList"/.test(html) && /renderSignalJournal/.test(app) && /xstarzg_siglock_v3/.test(app));
+chk('EXPIRED dicatat (bukan hilang diam-2) & ikut cooldown', /oc !== 'EXPIRED'/.test(app) && /status === 'EXPIRED'/.test(app) && /EXPIRED/.test(eng));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

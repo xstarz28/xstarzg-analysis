@@ -602,7 +602,9 @@ function radarAccStore() { try { return JSON.parse(localStorage.getItem(RADAR_AC
 function recordSignalOutcome(symbol, tf, verdict, lock) {
   try {
     var oc = String((verdict && verdict.status) || '');
-    if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID') return;
+    // v2026.65: EXPIRED dicatat juga ke jurnal (transparansi penuh) namun TIDAK
+    // memengaruhi winrate adaptif (bukan kemenangan/kekalahan — netral usia setup).
+    if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED') return;
     var out = signalOutcomeStore();
     out[signalLockId(symbol, tf)] = {
       status: oc, reason: verdict.reason || '', at: Date.now(),
@@ -619,17 +621,18 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     var ks = Object.keys(out);
     while (ks.length > 80) { var k0 = ks.shift(); delete out[k0]; }
     localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
-    if (SE && SE.updateRadarAccuracy) {
+    if (SE && SE.updateRadarAccuracy && oc !== 'EXPIRED') {
       var acc = radarAccStore();
       var hz = hzOfTf(tf);
       acc[hz] = SE.updateRadarAccuracy(acc[hz], oc === 'TP_HIT' ? 'TP' : 'SL');
       localStorage.setItem(RADAR_ACC_KEY, JSON.stringify(acc));
     }
+    try { renderSignalJournal(); } catch (e) {}
   } catch (e) {}
 }
 function signalCooldownActive(symbol, tf) {
   var o = signalOutcomeStore()[signalLockId(symbol, tf)];
-  return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID') && (Date.now() - o.at) < outcomeCooldownMs(tf));
+  return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID' || o.status === 'EXPIRED') && (Date.now() - o.at) < outcomeCooldownMs(tf));
 }
 function latestSignalOutcome(symbol, tf) {
   var o = signalOutcomeStore()[signalLockId(symbol, tf)];
@@ -1825,6 +1828,71 @@ function newsSoonFor(symbol, windowMin) {
     if (!best || ev.ts < best.ts) best = ev;
   }
   return best;
+}
+
+
+/* ==================== JURNAL SINYAL (v2026.65) ====================
+   Rekam jejak TERVERIFIKASI perangkat: setiap komitmen tercatat sampai putusan
+   akhir — TP, SL, Invalid struktur, atau Expired horison. Ini jawaban atas
+   "kenapa sinyal berubah/hilang": tidak hilang, tersimpan & bisa diaudit. */
+function jnlStatusBadge(st) {
+  var m = {
+    ACTIVE: ['#38bdf8', 'ui.jnlActive', '🔒 AKTIF - menunggu TP/SL'],
+    TP_HIT: ['#10b981', 'ui.jnlTP', '✅ TP TERSENTUH'],
+    SL_HIT: ['#f43f5e', 'ui.jnlSL', '❌ SL TERSENTUH'],
+    STRUCTURE_INVALID: ['#f59e0b', 'ui.jnlInvalid', '⚠️ INVALID STRUKTUR'],
+    EXPIRED: ['#a8a29e', 'ui.jnlExpired', '⏳ KEDALUWARSA (horison lewat)']
+  }[st] || ['#64748b', null, st];
+  return { col: m[0], txt: m[2] ? T(m[1], m[2]) : st };
+}
+function renderSignalJournal() {
+  var list = $id('signalJournalList'); var sum = $id('journalSummary');
+  if (!list) return;
+  var locks = signalLockStore();
+  var outs = signalOutcomeStore();
+  var rows = [];
+  for (var k in locks) {
+    if (k === '__migratedV2') continue;
+    var lk = locks[k];
+    if (!lk || lk.status !== 'ACTIVE' || !lk.tf) continue;
+    rows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', entry: lk.entry, sl: lk.sl, tp1: lk.tp1, score: lk.score, at: lk.issuedAt || 0 });
+  }
+  for (var k2 in outs) {
+    var o = outs[k2]; if (!o || !o.lock) continue;
+    rows.push({ sym: o.lock.symbol, tf: o.lock.tf, dir: o.dir, st: o.status, entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, score: o.score, at: o.at, reason: o.reason });
+  }
+  // ringkasan per horison (akurasi adaptif + jumlah outcome)
+  if (sum) {
+    var acc = radarAccStore(); var chips = '';
+    ['scalping', 'intraday', 'swing'].forEach(function (hz) {
+      var st = acc[hz];
+      if (!st || !st.sample) return;
+      chips += '<span style="font-size:10.5px;padding:3px 8px;border-radius:99px;border:1px solid rgba(148,163,184,0.3);color:#cbd5e1;">' + hz.toUpperCase() + ' — WR <b style="color:#fbbf24;">' + st.winRate + '%</b> (n=' + st.sample + ')</span>';
+    });
+    sum.innerHTML = chips || ('<span style="font-size:10.5px;color:#64748b;">' + T('ui.jnlNoStats', 'Statistik terbentuk setelah ada komitmen yang selesai di perangkat ini.') + '</span>');
+  }
+  if (!rows.length) {
+    list.innerHTML = '<div style="font-size:12px;color:#64748b;padding:8px 2px;">' + T('ui.jnlEmpty', 'Belum ada komitmen terekam. Jurnal terisi otomatis begitu ada sinyal yang lolos gerbang ketat.') + '</div>';
+    return;
+  }
+  rows.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+  var html = '';
+  rows.slice(0, 14).forEach(function (r) {
+    var b = jnlStatusBadge(r.st);
+    var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
+    var tTxt = r.at ? new Date(r.at).toLocaleString(navigator.language || 'id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    html += '<div class="radar-card" style="cursor:default;">' +
+      '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;">' +
+        '<span class="r-name">' + escH(r.sym || '-') + ' <span style="color:#64748b;font-size:10px;">' + escH(r.tf || '') + '</span></span>' +
+        '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:' + b.col + '22;color:' + b.col + ';border:1px solid ' + b.col + '55;white-space:nowrap;">' + b.txt + '</span>' +
+      '</div>' +
+      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;">' +
+        '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + ' • TP1 ' + formatPrice(num(r.tp1), r.sym) +
+      '</div>' +
+      (r.reason ? '<div style="font-size:10.2px;color:#64748b;margin-top:2px;">' + escH(String(r.reason)).slice(0, 90) + '</div>' : '') +
+    '</div>';
+  });
+  list.innerHTML = html;
 }
 
 /* ==================== GLOBAL MACRO REGIME MAP (v2026.58) ==================== */
@@ -3197,6 +3265,8 @@ if (document.readyState === 'loading') {
       fetchMacroRegime(false);
       setInterval(function () { fetchMacroRegime(false); }, MACRO_TTL);
       setInterval(function () { renderMacroMap(); }, 60 * 1000);
+      renderSignalJournal();
+      setInterval(function () { renderSignalJournal(); }, 60 * 1000);
       var nfBar = $id('newsFilterBar');
       if (nfBar) nfBar.addEventListener('click', function (ev) {
         var b = ev.target && ev.target.closest ? ev.target.closest('[data-nf]') : null;
