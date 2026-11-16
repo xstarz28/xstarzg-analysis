@@ -1,3 +1,4 @@
+import * as newsEdge from '../functions/api/news/calendar.js';
 // Engine Brain v2 — unit checks (Node, tanpa dependensi).
 // Jalankan: node tests/engine-v2.test.mjs
 const QC = await import('../public/js/shared/quant-core.js');
@@ -338,6 +339,25 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('tangga DCA turun berurutan', L.dcaZone1 > L.dcaZone2 && L.dcaZone2 > L.dcaZone3 && L.dcaZone3 > 0);
   chk('DCA1 di bawah harga live & tak melampaui premium parah', L.dcaZone1 < inv.lastPrice);
   chk('investor NEUTRAL tak melabeli skor tinggi', inv.direction !== 'NEUTRAL' || inv.confluenceScore <= 59);
+}
+
+/* v2026.57 News calendar parsing & bias map */
+{
+  const H = newsEdge.__testHooks;
+  const xml = `<weeklyevents>
+    <event><title>CPI y/y</title><country>USD</country><date>11-18-2026</date><time>8:30am</time><impact>High</impact><forecast>3.2%</forecast><previous>3.0%</previous></event>
+    <event><title>Unemployment Claims</title><country>USD</country><date>11-19-2026</date><time>8:30am</time><impact>Medium</impact><forecast>245K</forecast><previous>232K</previous></event>
+    <event><title>No Forecast Speech</title><country>USD</country><date>11-19-2026</date><time>2:00pm</time><impact>Low</impact><forecast></forecast><previous></previous></event>
+  </weeklyevents>`;
+  const evs = H.parseFx(xml);
+  chk('parseFx menemukan event dengan arah', evs.length === 2);
+  const cpi = evs[0];
+  chk('CPI beat -> USD menguat (dirCcy=1) & XAU melemah', cpi.dirCcy === 1 && cpi.impacts.some(x => x.sym === 'XAU/USD' && x.dir === -1));
+  chk('klasifikasi judul inflasi = hawk', H.classify('CPI y/y') === 'hawk');
+  const un = evs[1];
+  chk('claims naik -> USD melemah (dirCcy=-1) & USD/JPY melemah', un.dirCcy === -1 && un.impacts.some(x => x.sym === 'USD/JPY' && x.dir === -1));
+  const ts = H.etToUtc('11-18-2026', '8:30am');
+  chk('konversi waktu ET->UTC valid (Nov = UTC-5, 8:30am -> 13:30 UTC)', Math.abs(ts - Date.UTC(2026, 10, 18, 13, 30)) <= 3600e3);
 }
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
