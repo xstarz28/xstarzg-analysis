@@ -2647,6 +2647,8 @@ function bindUiEvents() {
     if (el) el.addEventListener('change', function () {
       syncIndicatorOverlays(state.lastAnalysis);
       drawChartLevels(state.lastAnalysis);
+      // v2026.63: canvas fallback juga ikut menggambar ulang overlay/level
+      try { if (typeof window.drawCanvasFallbackChart === 'function') window.drawCanvasFallbackChart(state.candles, state.lastAnalysis); } catch (e) {}
     });
   });
   bind('btnRunEngine', function () { if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true); });
@@ -2913,6 +2915,18 @@ if (document.readyState === 'loading') {
     return { price: baseP, candles: out };
   }
   // Fallback Canvas Candlestick Renderer jika CDN LightweightCharts diblokir ISP
+  // v2026.63 REWRITE: axis harga nyata di kanan + tag level (ENTRY/SL/TP/DCA)
+  // dari analysis.levels via effectiveLevels (bug lama: baca analysis.entry langsung
+  // yang selalu undefined -> garis & harga SL/TP tidak pernah tergambar).
+  function __fxEmaList(values, period) {
+    const out = new Array(values.length).fill(null);
+    if (values.length < period) return out;
+    const k = 2 / (period + 1);
+    let e = 0; for (let i = 0; i < period; i++) e += values[i]; e /= period;
+    out[period - 1] = e;
+    for (let i = period; i < values.length; i++) { e = values[i] * k + e * (1 - k); out[i] = e; }
+    return out;
+  }
   function drawCanvasFallbackChart(candles, analysis) {
     const container = document.getElementById('tvChartContainer');
     if (!container || typeof LightweightCharts !== 'undefined') return;
@@ -2932,28 +2946,76 @@ if (document.readyState === 'loading') {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#050811';
     ctx.fillRect(0, 0, w, h);
+    if (!candles || !candles.length) return;
     const slice = candles.slice(-90);
-    if (slice.length === 0) return;
-    let maxP = Math.max(...slice.map(c => c.high));
-    let minP = Math.min(...slice.map(c => c.low));
-    if (analysis) {
-      maxP = Math.max(maxP, analysis.tp2 || maxP);
-      minP = Math.min(minP, analysis.sl || minP);
+    const N = slice.length;
+
+    // ---- Toggle indikator & level (sama dengan chart utama) ----
+    const showEMA = $id('chkEMA') ? $id('chkEMA').checked : true;
+    const showVWAP = $id('chkVWAP') ? $id('chkVWAP').checked : true;
+    const showSMC = $id('chkSMC') ? $id('chkSMC').checked : true;
+    const showSniper = $id('chkSniper') ? $id('chkSniper').checked : true;
+    const L = (() => { try { return analysis ? effectiveLevels(analysis) : {}; } catch (e) { return (analysis && analysis.levels) || {}; } })();
+    const fullCloses = candles.map(c => c.close);
+    const ema20 = showEMA ? __fxEmaList(fullCloses, 20).slice(-N) : null;
+    const ema50 = showEMA ? __fxEmaList(fullCloses, 50).slice(-N) : null;
+    const ma200 = showEMA ? __fxEmaList(fullCloses, 200).slice(-N) : null;
+    let vwapN = null;
+    if (showVWAP && typeof QC !== 'undefined' && QC && QC.calcVWAP) {
+      try { vwapN = (QC.calcVWAP(candles, Math.min(60, candles.length)).vwap || []).slice(-N); } catch (e) {}
     }
-    const pad = (maxP - minP) * 0.08 || 1;
-    maxP += pad;
-    minP -= pad;
-    const yOf = (p) => h - 28 - ((p - minP) / (maxP - minP)) * (h - 56);
-    ctx.strokeStyle = 'rgba(148,163,184,0.08)';
-    ctx.lineWidth = 1;
-    for (let g = 1; g <= 5; g++) {
-      const gy = (h / 6) * g;
-      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+
+    // ---- Rentang harga mencakup candle DAN seluruh overlay/level aktif ----
+    let maxP = -Infinity, minP = Infinity;
+    slice.forEach(c => { if (c.high > maxP) maxP = c.high; if (c.low < minP) minP = c.low; });
+    const absorb = (arr) => { if (!arr) return; for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (v != null && Number.isFinite(v)) { if (v > maxP) maxP = v; if (v < minP) minP = v; } } };
+    absorb(ema20); absorb(ema50); absorb(ma200); absorb(vwapN);
+    const lvlKeys = showSniper
+      ? (state.mode === 'investor' ? ['dcaZone1', 'dcaZone2', 'dcaZone3', 'invTarget1', 'invTarget2'] : ['entry', 'sl', 'tp1', 'tp2'])
+      : [];
+    if (showSMC) lvlKeys.push('poc', 'swingHigh', 'swingLow');
+    lvlKeys.forEach(k => { const v = Number(L[k]); if (Number.isFinite(v) && v > 0) { if (v > maxP) maxP = v; if (v < minP) minP = v; } });
+    if (!Number.isFinite(maxP) || !Number.isFinite(minP) || maxP <= minP) { maxP = (candles[candles.length - 1].close || 100) * 1.01; minP = maxP * 0.98; }
+    const pad = (maxP - minP) * 0.06 || 1;
+    maxP += pad; minP -= pad;
+
+    // ---- Geometri area plot & AXIS HARGA kanan (fix bug utama: tidak ada bacaan harga) ----
+    const AX = 78;                 // lebar kolom axis harga kanan
+    const top = 26, bottom = 20;   // ruang legenda atas & time axis bawah
+    const plotR = w - AX - 6;      // batas kanan area candle
+    const yOf = (p) => top + (maxP - p) * (h - top - bottom) / (maxP - minP);
+    const yClamp = (y) => Math.max(top + 6, Math.min(h - bottom - 2, y));
+    // fxPriceAxis: tick genap (nice numbers) — dibaca kanan-kiri seperti chart TradingView
+    function fxPriceAxis(rangeMax, rangeMin, count) {
+      const rawStep = (rangeMax - rangeMin) / count;
+      const mag = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+      const norm = rawStep / mag;
+      const stepM = (norm >= 5 ? 10 : norm >= 2 ? 5 : norm >= 1 ? 2 : 1) * mag;
+      const t0 = Math.ceil(rangeMin / stepM) * stepM;
+      const out = [];
+      for (let v = t0; v <= rangeMax; v += stepM) if (out.length < 14) out.push(v); else break;
+      return out;
     }
-    const stepX = (w - 90) / slice.length;
+    ctx.font = '10px monospace';
+    ctx.textBaseline = 'middle';
+    fxPriceAxis(maxP, minP, 6).forEach(v => {
+      const y = yOf(v);
+      if (y < top || y > h - bottom) return;
+      ctx.strokeStyle = 'rgba(148,163,184,0.10)';
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotR, y); ctx.stroke();
+      const txt = formatPrice(v, analysis ? analysis.symbol : undefined);
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(txt, plotR + 6, y);
+    });
+    // garis frame plot
+    ctx.strokeStyle = 'rgba(148,163,184,0.18)';
+    ctx.strokeRect(0.5, top + 0.5, plotR, h - top - bottom);
+
+    // ---- Candlestick ----
+    const stepX = plotR / N;
     const barW = Math.max(2, stepX * 0.68);
     slice.forEach((c, idx) => {
-      const x = 14 + idx * stepX;
+      const x = idx * stepX + (stepX - barW) / 2;
       const isUp = c.close >= c.open;
       ctx.strokeStyle = isUp ? '#10b981' : '#f43f5e';
       ctx.fillStyle = isUp ? '#10b981' : '#f43f5e';
@@ -2963,28 +3025,99 @@ if (document.readyState === 'loading') {
       ctx.stroke();
       const yTop = yOf(Math.max(c.open, c.close));
       const yBot = yOf(Math.min(c.open, c.close));
-      ctx.fillRect(x, yTop, barW, Math.max(2, yBot - yTop));
+      ctx.fillRect(x, yTop, barW, Math.max(1.5, yBot - yTop));
     });
-    if (analysis) {
-      const drawLine = (p, col, lbl) => {
-        if (p == null || !Number.isFinite(Number(p))) return;
-        const y = yOf(p);
-        if (y < 10 || y > h - 10) return;
-        ctx.strokeStyle = col;
-        ctx.setLineDash([5, 4]);
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = col;
-        ctx.font = 'bold 11px monospace';
-        ctx.fillText(`${lbl}: ${formatPrice(p, analysis.symbol)}`, w - 210, y - 4);
-      };
-      drawLine(analysis.entry, '#38bdf8', 'ENTRY');
-      drawLine(analysis.sl, '#f43f5e', 'SL');
-      drawLine(analysis.tp1, '#10b981', 'TP1');
-      drawLine(analysis.tp2, '#10b981', 'TP2');
+
+    // ---- Garis overlay (EMA20/50/200 + VWAP) ----
+    const plotLine = (arr, col, dashed) => {
+      if (!arr) return;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.4;
+      ctx.setLineDash(dashed ? [5, 4] : []);
+      ctx.beginPath(); let started = false;
+      for (let i = 0; i < arr.length; i++) {
+        const v = arr[i];
+        if (v == null || !Number.isFinite(v)) continue;
+        const x = i * stepX + stepX / 2, y = yOf(v);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      }
+      ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+    };
+    plotLine(ema20, '#38bdf8', false);
+    plotLine(ema50, '#eab308', false);
+    plotLine(ma200, '#a855f7', false);
+    plotLine(vwapN, '#ec4899', true);
+
+    // ---- Tag level (harga) di tepi axis: lvTag ----
+    function lvTag(p, col, lbl, dash) {
+      const v = Number(p);
+      if (!Number.isFinite(v) || v <= 0) return;
+      const y = yClamp(yOf(v));
+      ctx.strokeStyle = col;
+      ctx.setLineDash(dash === 0 ? [] : [5, 4]);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotR, y); ctx.stroke();
+      ctx.setLineDash([]);
+      const txt = lbl + ' ' + formatPrice(v, analysis ? analysis.symbol : undefined);
+      ctx.font = 'bold 10px monospace';
+      const tw = ctx.measureText(txt).width + 8;
+      const x0 = w - tw - 4;
+      ctx.fillStyle = col;
+      ctx.fillRect(x0, y - 8, tw, 15);
+      ctx.fillStyle = '#0b1020';
+      ctx.fillText(txt, x0 + 4, y);
     }
+    if (showSMC) {
+      lvTag(L.poc, '#eab308', 'POC', 1);
+      if (L.swingHigh > 0) lvTag(L.swingHigh, 'rgba(244,63,94,0.85)', 'SUPPLY', 1);
+      if (L.swingLow > 0) lvTag(L.swingLow, 'rgba(16,185,129,0.85)', 'DEMAND', 1);
+    }
+    if (showSniper) {
+      if (state.mode === 'investor') {
+        lvTag(L.dcaZone1, '#10b981', 'DCA1'); lvTag(L.dcaZone2, '#34d399', 'DCA2'); lvTag(L.dcaZone3, '#6ee7b7', 'DCA3');
+        lvTag(L.invTarget1, '#38bdf8', 'T1'); lvTag(L.invTarget2, '#818cf8', 'T2');
+      } else {
+        lvTag(L.entry, '#38bdf8', 'ENTRY', 0);
+        lvTag(L.sl, '#f43f5e', 'SL', 1);
+        lvTag(L.tp1, '#10b981', 'TP1', 1);
+        lvTag(L.tp2, '#34d399', 'TP2', 1);
+      }
+    }
+
+    // ---- Harga TERKINI: garis penuh + pil harga di axis ----
+    const lastC = candleLastPrice(sourceSafe(candles));
+    function candleLastPrice(arr) { const c = arr[arr.length - 1]; return c && Number.isFinite(c.close) ? c.close : 0; }
+    function sourceSafe(a) { return a && a.length ? a : []; }
+    if (lastC > 0) {
+      const y = yClamp(yOf(lastC));
+      const up = slice[N - 1].close >= (slice[N - 2] ? slice[N - 2].close : slice[N - 1].open);
+      const col = up ? '#10b981' : '#f43f5e';
+      ctx.strokeStyle = col; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotR, y); ctx.stroke(); ctx.setLineDash([]);
+      const txt = formatPrice(lastC, analysis ? analysis.symbol : undefined);
+      ctx.font = 'bold 10px monospace';
+      const tw = ctx.measureText(txt).width + 8;
+      ctx.fillStyle = col; ctx.fillRect(plotR + 2, y - 8, Math.min(tw, AX - 2), 15);
+      ctx.fillStyle = '#ffffff'; ctx.fillText(txt, plotR + 6, y);
+    }
+
+    // ---- Legenda indikator rapi (kiri atas) ----
+    ctx.font = 'bold 9.5px monospace';
+    let lx = 8; const ly = 13;
+    const legend = (txt, col) => {
+      const tw = ctx.measureText(txt).width + 14;
+      if (lx + tw > plotR) return;
+      ctx.fillStyle = 'rgba(11,16,32,0.72)'; ctx.fillRect(lx, ly - 8, tw, 16);
+      ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(lx + 3, ly); ctx.lineTo(lx + 10, ly); ctx.stroke();
+      ctx.fillStyle = '#cbd5e1'; ctx.fillText(txt, lx + 12, ly);
+      lx += tw + 4;
+    };
+    if (ema20) legend('EMA20', '#38bdf8');
+    if (ema50) legend('EMA50', '#eab308');
+    if (ma200) legend('MA200', '#a855f7');
+    if (vwapN) legend('VWAP', '#ec4899');
+    ctx.fillStyle = '#475569'; ctx.font = '9px monospace';
+    ctx.fillText('FALLBACK VIEW — axis harga aktif', 8, h - 7);
   }
-  // Expose untuk heartbeat live-tick (anti-desync chart vs harga saat CDN diblokir)
+    // Expose untuk heartbeat live-tick (anti-desync chart vs harga saat CDN diblokir)
   window.drawCanvasFallbackChart = drawCanvasFallbackChart;
   // Override runFullAnalysis agar 100% langsung menggambar data & chart dalam 0 detik lalu menyinkronkan harga live
   window.runFullAnalysis = async function (forceRecalc = false) {
