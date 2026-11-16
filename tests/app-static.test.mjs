@@ -10,17 +10,18 @@ const boot = R('../public/js/engine-boot.js');
 const i18nIndex = R('../public/i18n/index.js');
 const eng = R('../public/js/shared/signal-engine.js');
 const edgeAnalyze = R('../functions/api/market/analyze.js');
+const edgeNews = R('../functions/api/news/calendar.js');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.56/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.56/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.56">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.56">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.56/.test(boot) && /signal-engine\.js\?v=2026\.56/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.56/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.57/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.57/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.57">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.57">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.57/.test(boot) && /signal-engine\.js\?v=2026\.57/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.57/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -55,7 +56,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (446)', uniform && count === 446);
+chk('20 locale punya keyset ui seragam (462)', uniform && count === 462);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -122,5 +123,9 @@ chk('engine remove kondisi NEUTRAL dari cap trader', /mode === 'trader' && !elig
 chk('label pillars diperbarui (26/10)', /26-Pillar|26 Pilar/.test(html));
 /* v2026.56 lint: judul scan tidak lagi 'sinyal terbaik' yang ambigu */
 chk('eGateBest judul status-scan jelas', /Status Scan Timeframe Terbaik/.test(app) && !app.includes('Sinyal Terbaik Saat Ini'));
+/* v2026.57 NEWS lint */
+chk('edge news endpoint ada & parse FF XML + bias map', /FOREXFACTORY/.test(edgeNews) && /buildImpacts/.test(edgeNews) && /etToUtc/.test(edgeNews));
+chk('app fetch & render panel news', /function fetchNewsCalendar/.test(app) && /function renderNewsPanel/.test(app) && /newsGrid/.test(html));
+chk('news risk chip radar & peringatan panel', /newsSoonFor/.test(app) && /eNewsWarn/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -1203,6 +1203,11 @@ function gateBlockHtml(a) {
       : fillTpl(T('ui.eBrainSniper', '🎯 OTAK SNIPER — Posisi range 90 candle {pos}% | BOS50 {bos} | Adj otak {adj}'), { pos: bm.posInRangePct == null ? '—' : bm.posInRangePct, bos: bm.bosDir > 0 ? '↑' : bm.bosDir < 0 ? '↓' : '—', adj: (bm.brainAdj > 0 ? '+' : '') + bm.brainAdj });
     out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(148,163,184,0.07);border:1px solid rgba(148,163,184,0.28);font-size:11.5px;color:#cbd5e1;">' + bmTxt + '</div>';
   }
+  var newsWarn = (typeof newsSoonFor === 'function') ? newsSoonFor(state.symbol, 90) : null;
+  if (newsWarn) {
+    out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);font-size:11.5px;color:#fde68a;">' +
+      fillTpl(T('ui.eNewsWarn', '⏰ PERINGATAN NEWS: {t} ({imp}) sekitar {w} — volatilitas dapat melonjak dua arah; disiplin master = tunggu resolusi news, jangan entry tepat sebelum rilis.'), { t: escH(newsWarn.title), imp: newsWarn.impact, w: newsFmtTime(newsWarn.ts) }) + '</div>';
+  }
   var b = state.bestTfBoard;
   if (b && b.groups) {
     var cell = function (g) {
@@ -1662,6 +1667,84 @@ function radarBadgeFor(a) {
   if (a.direction === 'SHORT') return isSpot ? { cls: 'wait', txt: T('ui.tbWaitSpot', '◆ TUNGGU (SPOT)') } : { cls: 'short', txt: T('ui.tbShort', '▼ SHORT / SELL') + star };
   return { cls: 'wait', txt: T('ui.tbNeutral', '◆ NETRAL') };
 }
+/* ==================== NEWS & KALENDER EKONOMI (v2026.57) ====================
+   Fetch kalender ekonomi & berita dari edge /api/news/calendar (Forex Factory
+   weekly + headline kripto), dirender sebagai panel dampak per instrumen, dan
+   dipakai sebagai penanda "news segera" di panel analisis & kartu radar. */
+var newsState = { events: [], ts: 0, filter: 'all', loaded: false };
+var NEWS_TTL = 10 * 60 * 1000;
+function escH(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function fetchNewsCalendar(force) {
+  if (!force && newsState.loaded && (Date.now() - newsState.ts) < NEWS_TTL) { renderNewsPanel(); return; }
+  fetch('/api/news/calendar').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    if (j && j.ok && Array.isArray(j.events)) { newsState.events = j.events; newsState.ts = Date.now(); newsState.loaded = true; }
+    renderNewsPanel();
+    try { if (state.lastAnalysis && !state.lastAnalysis.error) gateBlockHtml(state.lastAnalysis); } catch (e) {}
+  }).catch(function () { renderNewsPanel(); });
+}
+function newsClassOfSym(sym) {
+  var m = (typeof getMeta === 'function') ? getMeta(sym) : null;
+  var ac = m && m.assetClass ? String(m.assetClass) : '';
+  if (ac === 'crypto') return 'crypto';
+  if (ac === 'stocks' || ac === 'indices') return 'stock';
+  if (ac === 'metals' || ac === 'commodities') return 'metal';
+  return 'fx';
+}
+function newsFmtTime(ts) {
+  try { return new Date(ts).toLocaleString(navigator.language || 'id-ID', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
+}
+function renderNewsPanel() {
+  var grid = $id('newsGrid');
+  if (!grid) return;
+  var now = Date.now();
+  var evs = (newsState.events || []).filter(function (ev) { return ev.ts >= now - 12 * 3600e3; });
+  if (newsState.filter === 'high') evs = evs.filter(function (e) { return e.impact === 'HIGH'; });
+  else if (newsState.filter !== 'all') evs = evs.filter(function (e) { return (e.impacts || []).some(function (x) { return newsClassOfSym(x.sym) === newsState.filter; }); });
+  evs = evs.slice().sort(function (a, b) { return a.ts - b.ts; }).slice(0, 12);
+  if (!evs.length) {
+    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.eNewsEmpty', 'Tidak ada agenda berdampak dalam 7 hari ke depan yang terpetakan ke instrumen katalog.') + '</span></div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < evs.length; i++) {
+    var ev = evs[i];
+    var soon = ev.ts - now >= -30 * 60e3 && ev.ts - now <= 90 * 60e3;
+    var impCol = ev.impact === 'HIGH' ? '#f43f5e' : ev.impact === 'MEDIUM' ? '#f59e0b' : '#64748b';
+    var impTxt = ev.impact === 'HIGH' ? T('ui.eNewsHigh', 'HIGH') : ev.impact === 'MEDIUM' ? T('ui.eNewsMed', 'MEDIUM') : T('ui.eNewsLow', 'LOW');
+    var chips = '';
+    var list = (ev.impacts || []).slice(0, 6);
+    for (var k = 0; k < list.length; k++) {
+      var im = list[k];
+      chips += '<span style="font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid rgba(148,163,184,0.3);color:' + (im.dir > 0 ? '#34d399' : '#fb7185') + ';">'
+        + escH(im.sym) + ' ' + (im.dir > 0 ? '▲' : '▼') + ' ~' + im.pct + '%</span>';
+    }
+    html += '<div class="radar-card" style="cursor:default;">' +
+      '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;">' +
+        '<span class="r-name" style="line-height:1.35;">' + escH(ev.title) + '</span>' +
+        '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:' + impCol + '22;color:' + impCol + ';border:1px solid ' + impCol + '55;white-space:nowrap;">' + impTxt + '</span>' +
+      '</div>' +
+      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;">' + escH(ev.ccy) + ' • ' + newsFmtTime(ev.ts) + (soon ? ' • <b style="color:#f59e0b;">⏰ ' + T('ui.eNewsSoon', 'SEGERA') + '</b>' : '') + '</div>' +
+      ((ev.forecast || ev.previous) ? '<div style="font-size:10.5px;color:#cbd5e1;margin-top:3px;">' + T('ui.eNewsFc', 'Prakiraan') + ': <b>' + escH(ev.forecast || '—') + '</b> • ' + T('ui.eNewsPv', 'Sebelumnya') + ': ' + escH(ev.previous || '—') + '</div>' : '') +
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + chips + '</div>' +
+    '</div>';
+  }
+  grid.innerHTML = html;
+}
+// Event ber-impact yang dekat dengan instrumen (untuk peringatan panel/radar)
+function newsSoonFor(symbol, windowMin) {
+  var now = Date.now(), best = null;
+  for (var i = 0; i < newsState.events.length; i++) {
+    var ev = newsState.events[i];
+    if (ev.impact === 'LOW') continue;
+    var d = ev.ts - now;
+    if (d < -30 * 60e3 || d > (windowMin || 90) * 60e3) continue;
+    if (!(ev.impacts || []).some(function (x) { return x.sym === symbol; })) continue;
+    if (!best || ev.ts < best.ts) best = ev;
+  }
+  return best;
+}
+
 /* Label pendek alasan gerbang (kartu radar) — WR historis besar ≠ izin entry;
    kartu wajib menyebut APA yang masih ditunggu supaya tidak terasa kontradiktif. */
 function gateShortLabel(code) {
@@ -1737,6 +1820,7 @@ function paintRadarItems(cfg, items, noneQualified) {
       // (koheren dengan WR besar di panel — WR masa lalu, izin entry = konfirmasi kini)
       (state.mode === 'trader' && !a.signalEligible && !a.lockedSignal && !a.__estFeed && a.gating && a.gating.active && a.gating.active.length
         ? '<div style="font-size:10.5px;color:#f59e0b;margin-top:3px;line-height:1.35;">⛔ ' + gateShortLabel(a.gating.active[0]) + '</div>' : '') +
+      (function () { var nw = newsSoonFor(it.sym, 120); return nw ? '<div style="font-size:10.5px;color:#7dd3fc;margin-top:3px;">⏰ ' + escH(nw.title).slice(0, 34) + ' • ' + newsFmtTime(nw.ts) + '</div>' : ''; })() +
       '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
         '<span class="r-entry">' + (state.mode === 'investor' ? T('ui.cDcaShort', 'Zona DCA 1: ') : T('ui.cEntry', 'Entry: ')) + formatPrice(entryRef, it.sym) + '</span>' +
         '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
@@ -2847,6 +2931,16 @@ if (document.readyState === 'loading') {
       const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'create', 'LOCAL_SEED');
       renderAllVisuals(initAn, false);
       renderOpportunityRadar();
+      fetchNewsCalendar(false);
+      setInterval(function () { fetchNewsCalendar(false); }, 15 * 60 * 1000);
+      var nfBar = $id('newsFilterBar');
+      if (nfBar) nfBar.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('[data-nf]') : null;
+        if (!b) return;
+        newsState.filter = b.getAttribute('data-nf');
+        nfBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
+        renderNewsPanel();
+      });
     }, 50);
   });
 })();

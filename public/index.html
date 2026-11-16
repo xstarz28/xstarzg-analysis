@@ -10,7 +10,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.56" />
+  <link rel="stylesheet" href="/styles.css?v=2026.57" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -362,6 +362,22 @@
         <div id="radarHorizonInfo" style="font-size:11px;color:#94a3b8;margin:6px 0 2px;"></div>
         <div id="opportunityRadarGrid" class="radar-grid"></div>
       </div>
+      <!-- Kalender Ekonomi & Berita (bias arah per instrumen) -->
+      <div class="section-card" id="newsPanelSection">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.secNews">📰 Kalender Ekonomi &amp; Berita Pasar — Arah Kemungkinan per Instrumen</h3>
+          <div class="radar-horizon-bar" id="newsFilterBar">
+            <button type="button" class="hz-btn active" data-nf="all"><span data-i18n="ui.nfAll">SEMUA</span></button>
+            <button type="button" class="hz-btn" data-nf="high"><span data-i18n="ui.nfHigh">HIGH IMPACT</span></button>
+            <button type="button" class="hz-btn" data-nf="metal"><span data-i18n="ui.nfMetal">EMAS/METAL</span></button>
+            <button type="button" class="hz-btn" data-nf="fx"><span data-i18n="ui.nfFx">FOREX</span></button>
+            <button type="button" class="hz-btn" data-nf="crypto"><span data-i18n="ui.nfCrypto">KRIPTO</span></button>
+            <button type="button" class="hz-btn" data-nf="stock"><span data-i18n="ui.nfStock">SAHAM/INDEKS</span></button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin:6px 0 2px;" data-i18n="ui.secNewsSub">Prakiraan vs data sebelumnya dipetakan ke bias arah tiap instrumen — dipakai sebagai acuan untuk TIDAK sembarang entry menjelang news ber-impact tinggi.</div>
+        <div id="newsGrid" class="radar-grid"></div>
+      </div>
       <!-- Rekomendasi khusus INVESTOR (dipisah total dari radar trader) -->
       <div class="section-card hidden" id="investorRadarSection">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -451,8 +467,8 @@
   </div>
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script type="module" src="/js/engine-boot.js?v=2026.56"></script>
-  <script src="/app.js?v=2026.56"></script>
-  <script type="module" src="/i18n/boot.js?v=2026.56"></script>
+  <script type="module" src="/js/engine-boot.js?v=2026.57"></script>
+  <script src="/app.js?v=2026.57"></script>
+  <script type="module" src="/i18n/boot.js?v=2026.57"></script>
 </body>
 </html>
