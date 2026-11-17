@@ -499,6 +499,64 @@ export function evaluateHardVetoes(ctx) {
   return { long, short, htfBias };
 }
 
+// ================================================================================
+// DUAL FIBONACCI MATRIX (Retracement & Extension)
+// ================================================================================
+// Mengukur 2 dimensi Fibonacci matematis secara presisi:
+// 1. Retracement: Mengukur kedalaman pullback/koreksi untuk area entry optimal (OTE)
+//    - 23.6%, 38.2%, 50.0% (Equilibrium), 61.8% (Golden Ratio Pocket), 78.6% (ICT OTE)
+// 2. Extension / Expansion: Proyeksi target profit TP & impuls kelanjutan tren
+//    - 1.272, 1.414, 1.618 (Golden Extension), 2.000 (Measured Move), 2.618 (Super Impulse)
+export function calculateDualFibonacci(high, low, currentPrice, direction = 'LONG') {
+  const h = Math.max(Number(high) || 0, Number(low) || 0);
+  const l = Math.min(Number(high) || 0, Number(low) || 0);
+  const diff = h - l;
+  if (diff <= 0 || !Number.isFinite(h) || !Number.isFinite(l)) return null;
+
+  const isLong = direction === 'LONG' || (direction !== 'SHORT' && (Number(currentPrice) || 0) >= (h + l) / 2);
+
+  // 1. FIBONACCI RETRACEMENT (zona koreksi / retest)
+  const retracement = isLong ? {
+    r236: h - 0.236 * diff,
+    r382: h - 0.382 * diff,
+    r500: h - 0.500 * diff, // Equilibrium (Fair Value)
+    r618: h - 0.618 * diff, // Golden Ratio Pocket
+    r786: h - 0.786 * diff  // ICT OTE (Optimal Trade Entry)
+  } : {
+    r236: l + 0.236 * diff,
+    r382: l + 0.382 * diff,
+    r500: l + 0.500 * diff,
+    r618: l + 0.618 * diff,
+    r786: l + 0.786 * diff
+  };
+
+  // 2. FIBONACCI EXTENSION (proyeksi target TP & ekspansi gelombang)
+  const extension = isLong ? {
+    ext1272: h + 0.272 * diff, // 127.2% Extension
+    ext1414: h + 0.414 * diff, // 141.4% Extension
+    ext1618: h + 0.618 * diff, // 161.8% Golden Extension
+    ext2000: h + 1.000 * diff, // 200.0% Measured Move
+    ext2618: h + 1.618 * diff  // 261.8% Super Impulse
+  } : {
+    ext1272: Math.max(l * 0.001, l - 0.272 * diff),
+    ext1414: Math.max(l * 0.001, l - 0.414 * diff),
+    ext1618: Math.max(l * 0.001, l - 0.618 * diff),
+    ext2000: Math.max(l * 0.001, l - 1.000 * diff),
+    ext2618: Math.max(l * 0.001, l - 1.618 * diff)
+  };
+
+  return {
+    isLong,
+    high: h,
+    low: l,
+    diff,
+    retracement,
+    extension,
+    goldenPocket: retracement.r618,
+    goldenExtension: extension.ext1618
+  };
+}
+
 // Penempatan Entry/SL/TP institusional (B & C). Entry = titik mitigasi
 // (mitigation), SL di balik wick+OB, TP dari kolam likuiditas, RR TP2 >= 2.2.
 export function buildInstitutionalLevels(dir, ctx) {
@@ -1150,6 +1208,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const invTarget2 = lastPrice * 1.28;
   const invTarget3 = lastPrice * 1.55;
   const invInvalidation = lastPrice * 0.86;
+  const fib = calculateDualFibonacci(modern.supplyZone.high, modern.demandZone.low, lastPrice, softBias || 'LONG');
   const fundamentalCot = buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsi, atrPct);
   const fvgNote = modern.bullFvg
     ? `Bullish FVG di ${formatSmartPrice(modern.bullFvg.bottom)}-${formatSmartPrice(modern.bullFvg.top)}`
@@ -1170,6 +1229,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     `[SMC & Struktur ${timeframe}] ${modern.smcStatus} | ${modern.liquiditySweep}.`,
     `[VWAP, VPVR & TPO] Harga terhadap VWAP (${formatSmartPrice(vwap)}), VPVR POC (${formatSmartPrice(vp.poc)}), dan TPO POC (${formatSmartPrice(vp.tpoPoc)}).`,
     `[FVG & Supply/Demand] ${fvgNote} | Zona Demand: ${formatSmartPrice(modern.demandZone.low)} | Zona Supply: ${formatSmartPrice(modern.supplyZone.high)}.`,
+    ...(fib ? [`[Dual Fibonacci] Retracement (50% Eq: ${formatSmartPrice(fib.retracement.r500)} | 61.8% Golden: ${formatSmartPrice(fib.retracement.r618)} | 78.6% OTE: ${formatSmartPrice(fib.retracement.r786)}) • Ekstensi Target (1.272: ${formatSmartPrice(fib.extension.ext1272)} | 1.618 Golden: ${formatSmartPrice(fib.extension.ext1618)} | 2.0: ${formatSmartPrice(fib.extension.ext2000)}).`] : []),
     `[MA Stack & Bollinger] EMA20 (${formatSmartPrice(ema20)}) / EMA50 (${formatSmartPrice(ema50)}) / MA200 (${formatSmartPrice(ma200)}) | RSI(14): ${rsi.toFixed(1)}.`,
     `[ORB • Theta • VWAP Entry] ORB: ${orb.state}${orb.high ? ' (' + formatSmartPrice(orb.low) + ' – ' + formatSmartPrice(orb.high) + ')' : ''} | Theta Index: ${thetaIndex}/100 (${thetaNote}) | Entry VWAP: ${vwapEntry.text} | Efficiency Ratio: ${(erValue * 100).toFixed(0)}%.`,
     `[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`,
@@ -1236,6 +1296,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       pivot: modern.pivotSr.pivot,
       r1: modern.pivotSr.r1, r2: modern.pivotSr.r2,
       s1: modern.pivotSr.s1, s2: modern.pivotSr.s2,
+      fib,
       dcaZone1, dcaZone2, dcaZone3, invTarget1, invTarget2, invTarget3, invInvalidation
     },
     projectedLevels: projected,

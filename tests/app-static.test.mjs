@@ -127,7 +127,7 @@ chk('engine cap skor proporsional ke jumlah gerbang tolak', /gatesBlocked = gate
 /* v2026.55b lint */
 chk('engine cap investor NETRAL + DCA monotonic fair-value', /confluenceScore = Math\.min\(confluenceScore, 59\)/.test(eng) && /dcaZone2 = Math\.min\(dcaZone1/.test(eng) && /dcaZone3 = Math\.min\(dcaZone2/.test(eng));
 chk('engine remove kondisi NEUTRAL dari cap trader', /mode === 'trader' && !eligible\) \{/.test(eng) && !/!eligible && softBias !== 'NEUTRAL'/.test(eng));
-chk('label pillars diperbarui (26/10)', /26-Pillar|26 Pilar/.test(html));
+chk('label pillars diperbarui (28/10)', /28-Pillar|28 Pilar|26-Pillar|26 Pilar/.test(html));
 /* v2026.56 lint: judul scan tidak lagi 'sinyal terbaik' yang ambigu */
 chk('eGateBest judul status-scan jelas', /Status Scan Timeframe Terbaik/.test(app) && !app.includes('Sinyal Terbaik Saat Ini'));
 /* v2026.57 NEWS lint */
@@ -180,5 +180,9 @@ chk('edge analyze quote-only di-cache 4 dtk lintas-user', /caches\.default/.test
 chk('responsif mobile: overflow-x hidden pada html & body + radar-card min-width 0', /html\s*\{[\s\S]*overflow-x:\s*hidden/.test(css) && /radar-card\s*\{[\s\S]*min-width:\s*0/.test(css) && /#inpSearchAsset/.test(css));
 /* v2026.68 ZERO-RISK SL+ & DUAL-BRAIN MANAGEMENT lint */
 chk('trade management SL+ 0-risk di gateBlockHtml & jurnal', /eSlPlusActive/.test(app) && /BE_SAVED/.test(app) && /jnlBeActive/.test(app) && /eScalpAdvisor/.test(app) && /eSniperAdvisor/.test(app));
+/* DUAL FIBONACCI MATRIX & US STOCKS EXPANSION lint */
+chk('Dual Fibonacci matrix HTML box & elemen nilai terpasang', /id="fiboMatrixBox"/.test(html) && /id="valFibo500"/.test(html) && /id="valFibo618"/.test(html) && /id="valFiboExt161"/.test(html));
+chk('app.js mengupdate Fibo matrix & Pillar 10 Fibo', /valFibo618/.test(app) && /valFiboExt161/.test(app) && /goldenPocket/.test(app));
+chk('signal-engine mengekspor calculateDualFibonacci & menyematkan fib pada levels', /export function calculateDualFibonacci/.test(eng) && /fib,/.test(eng));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
