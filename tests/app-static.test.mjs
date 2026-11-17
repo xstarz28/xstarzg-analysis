@@ -81,7 +81,7 @@ chk('pool radar 15 mnt & kurasi 30 mnt (rotasi penuh katalog)', app.includes('15
 chk('kartu rekomendasi membawa snapshot candle', app.includes('candles.slice(-240)'));
 chk('klik-through memakai snapshot segar + lock create (konsistensi skor)', app.includes('primeFromRadarPool(sym, tf)') && app.includes("computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource)"));
 chk('invalidasi lock butuh penerimaan harga (anti chop)', eng.includes('againstLong') && eng.includes('STRUCTURE_INVALID'));
-chk('radar lebih segar: TTL 15 mnt + batch 40/slot 3 mnt', app.includes('15 * 60000') && app.includes('rotatingSlice(catalogSortedStable(), 40, 3)'));
+chk('radar hemat kuota: TTL 15 mnt + batch 30/slot 4 mnt', app.includes('15 * 60000') && app.includes('rotatingSlice(catalogSortedStable(), 30, 4)'));
 chk('analisis workspace menulis-balik ke pool rekomendasi', app.includes('writeBackRadarPools(analysis)') && app.includes('WORKSPACE LIVE'));
 chk('pindah mode memaksa rescan rekomendasi', app.includes('renderInvestorPicks(true)') && app.includes('renderOpportunityRadar(true)'));
 chk('gate konfirmasi volume & squeeze breakout', eng.includes('volImpulse') && eng.includes('squeezeBlockedDir') && eng.includes('SQUEEZE_UNCONFIRMED'));
@@ -168,5 +168,10 @@ chk('server: verify-bsc WAJIB auth 401 + meneken entitlement VIP + anti-replay',
 chk('endpoint register menerbitkan JWT FREE & tak pernah OWNER_VIP', /signJwt/.test(R('../functions/api/auth/register.js')) && /let tier = 'FREE'/.test(R('../functions/api/auth/register.js')));
 chk('revalidasi sesi VIP saat boot (verifyVipSession + /api/auth/me)', /function verifyVipSession/.test(app) && /verifyVipSession\(\);/.test(app) && /api\/auth\/me/.test(app) && /authenticateRequest/.test(R('../functions/api/auth/me.js')));
 chk('faktur invoice endpoint nyata + hidrasi modal', /onRequestGet/.test(R('../functions/api/billing/invoice.js')) && /hydrateVipInvoice/.test(app) && /id="vipInvoiceId"/.test(html) && /id="vipWalletAddr"/.test(html) && /ui\.payInvoiceId/.test(html));
+/* v2026.66 HEMAT KUOTA CLOUDFLARE lint (paket gratis 100rb request/hari) */
+chk('ticker 5 dtk + 0 request saat tab latar + crypto Binance-first', /RT_TICK_MS = 5000/.test(app) && /document\.hidden\) return;/.test(app) && /data-api\.binance\.vision\/api\/v3\/ticker\/price/.test(app));
+chk('ticker tanpa cache-buster _t pada quote=1 (respons bisa di-cache)', !/analyze\?quote=1&symbol=' \+ encodeURIComponent\(sym\) \+ '&tf=' \+ encodeURIComponent\(tf\) \+ '&_t='/.test(app));
+chk('batch radar & investor diet (30/4 & 26/6) + autopilot force 4 mnt', /rotatingSlice\(catalogSortedStable\(\), 30, 4\)/.test(app) && /rotatingSlice\(investableUniverse\(\), 26, 6\)/.test(app) && />= 4 \* 60000/.test(app));
+chk('edge analyze quote-only di-cache 4 dtk lintas-user', /caches\.default/.test(edgeAnalyze) && /max-age=4/.test(edgeAnalyze));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -2143,7 +2143,8 @@ function renderInvestorPicks(force) {
   if (!force && shown0.length >= 4) { drawInvestorPickCards(shown0); return; }
   if (shown0.length) drawInvestorPickCards(shown0);
   var mySeq = ++investorPickRunSeq;
-  var batch = rotatingSlice(investableUniverse(), 34, 5);
+  // v2026.66: batch 26 simbol / slot 6 menit (dulu 34/5) demi kuota Functions gratis.
+  var batch = rotatingSlice(investableUniverse(), 26, 6);
   if (!shown0.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.invScanning', 'Mengkurasi {n} aset portofolio dengan data broker real-time (D1/W1)…').replace('{n}', batch.length + '+') + '</span></div>';
   Promise.allSettled(batch.map(function (inst) {
     return fetchRadarCandidate({ sym: inst.symbol, tf: 'D1' }).then(function (r) { if (r) r.cat = catLabelOf(getMeta(inst.symbol)); return r; });
@@ -2203,7 +2204,9 @@ function renderOpportunityRadar(force) {
   var freshShow = freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4);
   if (!force && fresh.length >= 12) { paintRadarItems(cfg, freshShow, freshStrong.length === 0); return; }
   if (fresh.length) paintRadarItems(cfg, freshShow, freshStrong.length === 0);
-  var batch = rotatingSlice(catalogSortedStable(), 40, 3);
+  // v2026.66: batch 30 simbol / slot 4 menit (dulu 40/3) — memangkas panggilan Functions
+  // ~55% per pengguna demi kuota gratis Cloudflare; rotasi tetap menutupi seluruh katalog.
+  var batch = rotatingSlice(catalogSortedStable(), 30, 4);
   var mySeq = ++radarRunSeq;
   if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', batch.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
   Promise.allSettled(batch.map(function (inst) { return fetchRadarCandidate({ sym: inst.symbol, tf: tfFor }); })).then(function (results) {
@@ -2899,7 +2902,7 @@ function startRadarAutoPilot() {
   window.__radarAutoTimer = setInterval(function () {
     try {
       if (typeof document !== 'undefined' && document.hidden) return;
-      var force = (Date.now() - radarAutoLastForce) >= 3 * 60000;
+      var force = (Date.now() - radarAutoLastForce) >= 4 * 60000;
       if (force) radarAutoLastForce = Date.now();
       if (state.mode === 'investor') renderInvestorPicks(force);
       else renderOpportunityRadar(force);
@@ -2983,18 +2986,48 @@ if (document.readyState === 'loading') {
 // === XSTARZG_SAFE_REALTIME_TICKER_V2026_27 ===
 (function () {
   let rtBusy = false;
+  let rtLastTick = 0;
+  const RT_TICK_MS = 5000;
   setInterval(async function () {
     if (rtBusy) return;
     try {
       if (typeof state === 'undefined' || !state || !state.symbol) return;
+      /* HEMAT KUOTA CLOUDFLARE (v2026.66): Functions request dibatasi 100rb/hari
+         di paket gratis, jadi ticker diperketat tanpa mengurangi fitur:
+         1) tab latar belakang -> 0 request (document.hidden);
+         2) kancelensi 1.5 dtk -> 5 dtk (harga terakhir tetap tampil dari state);
+         3) crypto /USDT -> Binance langsung dari browser (gratis, tanpa kuota CF),
+            edge Function tetap sebagai fallback penuh. */
+      if (typeof document !== 'undefined' && document.hidden) return;
       const workEl = document.getElementById('appWorkspaceWrapper');
       if (workEl && workEl.classList.contains('hidden')) return;
+      if (Date.now() - rtLastTick < RT_TICK_MS) return;
+      rtLastTick = Date.now();
       rtBusy = true;
       const sym = state.symbol;
       const tf = state.tf || state.timeframe || 'H1';
-      const res = await fetch('/api/market/analyze?quote=1&symbol=' + encodeURIComponent(sym) + '&tf=' + encodeURIComponent(tf) + '&_t=' + Date.now(), {
-        cache: 'no-store'
-      });
+      if ((sym || '').indexOf('/USDT') > -1) {
+        try {
+          const bc = new AbortController();
+          const bt = setTimeout(function () { try { bc.abort(); } catch (e) {} }, 4000);
+          const rB = await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol=' + sym.replace('/', ''), { signal: bc.signal });
+          clearTimeout(bt);
+          if (rB.ok) {
+            const jB = await rB.json();
+            const lpB = Number(jB && jB.price);
+            if (lpB > 0 && state.symbol === sym && typeof applyLiveTick === 'function') {
+              applyLiveTick(lpB, undefined, true);
+              ['hdrLivePrice', 'livePriceDisplay', 'valCurrentPrice'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = typeof formatPrice === 'function' ? formatPrice(lpB, sym) : lpB;
+              });
+              rtBusy = false;
+              return;
+            }
+          }
+        } catch (eB) { /* lanjut ke edge Function di bawah */ }
+      }
+      const res = await fetch('/api/market/analyze?quote=1&symbol=' + encodeURIComponent(sym) + '&tf=' + encodeURIComponent(tf));
       if (res.ok) {
         const d = await res.json();
         const q = d && d.quote ? d.quote : null;

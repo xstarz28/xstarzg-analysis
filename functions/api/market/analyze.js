@@ -16,14 +16,30 @@ export async function onRequest(context) {
   const quoteOnly = url.searchParams.get('quote') === '1';
   try {
     if (quoteOnly) {
+      // v2026.66: kuotasi singkat dibagi lintas-pengguna via Cache API (TTL 4 dtk).
+      // Harga simbol yang sama tidak memicu fetch upstream Yahoo/TradingView berulang
+      // per detik saat ribuan pengguna menonton aset yang sama. (Hitungan request
+      // Functions tetap berlaku — penghematannya ada di sisi klien; cache ini menjaga
+      // upstream & latensi.)
+      let cache = null, cacheKeyReq = null, hit = null;
+      try {
+        if (typeof caches !== 'undefined' && caches.default && request.method === 'GET') {
+          cache = caches.default;
+          cacheKeyReq = new Request(url.toString(), request);
+          hit = await cache.match(cacheKeyReq);
+        }
+      } catch (e) {}
+      if (hit) return hit;
       const liveQuote = await fetchExactLiveQuote(symbol, tf);
-      return new Response(JSON.stringify({
+      const qRes = new Response(JSON.stringify({
         ok: true,
         symbol,
         tf,
         timestamp: Date.now(),
         quote: liveQuote
-      }), { status: 200, headers: corsHeaders });
+      }), { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=4' } });
+      try { if (cache && cacheKeyReq && context.waitUntil) context.waitUntil(cache.put(cacheKeyReq, qRes.clone())); } catch (e) {}
+      return qRes;
     }
     const marketData = await fetchSynchronizedMarketCandles(symbol, tf);
     return new Response(JSON.stringify({

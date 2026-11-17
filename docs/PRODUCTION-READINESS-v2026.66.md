@@ -96,6 +96,37 @@ katalog penuh/sinyal ke API yang digate server (pekerjaan besar, Fase 2). Pada h
 audit kita, risiko praktisnya rendah-sedang; risiko reputasi (klaim "scam") sudah ditangani jurnal
 transparan. Lacak ulang bila pendapatan mulai berarti.
 
+### Batas kuota Cloudflare gratis & cara kita bertahan menghadapinya
+
+Fakta penting: penghitung "Requests 100.000/hari" hanya berlaku untuk **Pages Functions**
+(endpoint `/api/*`). **File statis (HTML/CSS/JS) — UNLIMITED dan gratis**, jadi membuka situs
+tidak ikut menghitung. Yang dihitung adalah panggilan API, dan aplikasi ini awalnya rakus:
+ticker harga tiap 1,5 dtk (~2.400/jam/user) + scan radar 40 simbol/3 mnt (~800/jam) →
+satu user aktif seharian ≈ 60–70 rb request → kuota jebol oleh ±2 user fanatik saja.
+
+Perbaikan v2026.66 (tanpa mengurangi satu pun fitur):
+
+1. **Ticker 5 detik** + **0 request saat tab latar belakang** (`document.hidden`) → ~720/jam,
+   dan nol saat ditinggal. Harga terakhir tetap ditampilkan antar-tick.
+2. **Crypto `/USDT` diambil langsung dari Binance oleh browser** (publik, gratis, tanpa kuota
+   Cloudflare) — edge Function tetap fallback otomatis bila Binance tak terjangkau. Sesi crypto
+   praktis **0 kuota** untuk ticker.
+3. **Radar/investor di-diet**: batch 40→30 simbol per slot 3→4 mnt; kurasi investor 34→26 per
+   5→6 mnt; auto-pilot force 3→4 mnt. Rotasi tetap menyapu seluruh katalog, hanya ritmenya
+   longgar ~1,8× — tampilan tidak berubah.
+4. **Edge Function `quote=1` kini memakai Cache API (TTL 4 dtk)**: ratusan user yang menonton
+   simbol sama berbagi satu fetch upstream Yahoo/TradingView (melindungi upstream & latensi;
+   counter request sendiri dihemat oleh poin 1–3 di sisi klien + hilangnya cache-buster `_t`).
+
+Kapasitas setelah perbaikan: user non-crypto ~**1.200 request/jam**; sesi tipikal 15 menit
+≈ ~300 request → kuota gratis menopang **±300–400 sesi/hari** (atau ~80 user non-crypto aktif
+bersamaan; user crypto jauh lebih ringan). Cukup lega untuk fase launch organik. Jika suatu hari
+benar-benar mentok: API berhenti merespons sampai reset tengah malam UTC — situs tetap terbuka,
+harga tetap berjalan via fallback Binance untuk crypto, dan banner ESTIMASI/reconnect yang sudah
+ada menangani degradasi secara sopan (bukan layar mati). Keluar dari itu cukup $5/bulan
+(Workers Paid = **10 juta** request) — terbayar oleh SATU pelanggan VIP.
+
+
 ---
 
 ## 5. STRATEGI PEMASARAN ORGANIK — TANPA MEMBAYAR PROMOTOR MANUSIA
