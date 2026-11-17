@@ -1180,7 +1180,9 @@ function renderPillars(a) {
         (ind.vwapEntryText || '').indexOf('▲') > -1 ? 'bull' : (ind.vwapEntryText || '').indexOf('▼') > -1 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.ePnEr', '16. Efficiency Ratio (Kualitas Tren)'), (num(ind.erValue, 0.5) * 100).toFixed(0) + '%',
         localizeEngineString(ind.erNote || '-'),
-        num(ind.erValue, 0.5) >= 0.55 ? (a.direction === 'SHORT' ? 'bear' : 'bull') : 'neutral');
+        num(ind.erValue, 0.5) >= 0.55 ? (a.direction === 'SHORT' ? 'bear' : 'bull') : 'neutral') +
+      pillarHtml(T('ui.ePnFiboRetrace', '17. Fibonacci Retracement (OTE)'), lv.fib && lv.fib.retracement ? '61.8% ' + formatPrice(lv.fib.goldenPocket, a ? a.symbol : state.symbol) : '--', lv.fib && lv.fib.retracement ? '50% Eq ' + formatPrice(lv.fib.retracement.r500, a ? a.symbol : state.symbol) + ' • 78.6% OTE ' + formatPrice(lv.fib.retracement.r786, a ? a.symbol : state.symbol) : T('ui.ePtFiboRetrace', 'Kedalaman koreksi pullback'), 'neutral') +
+      pillarHtml(T('ui.ePnFiboExt', '18. Fibonacci Extension (Target TP)'), lv.fib && lv.fib.extension ? '161.8% ' + formatPrice(lv.fib.goldenExtension, a ? a.symbol : state.symbol) : '--', lv.fib && lv.fib.extension ? '127.2% ' + formatPrice(lv.fib.extension.ext1272, a ? a.symbol : state.symbol) + ' • 200% ' + formatPrice(lv.fib.extension.ext2000, a ? a.symbol : state.symbol) : T('ui.ePtFiboExt', 'Proyeksi target kelanjutan gelombang'), a.direction === 'LONG' ? 'bull' : a.direction === 'SHORT' ? 'bear' : 'neutral');
   }
   var macro = $id('macroPillarsGrid');
   if (macro) {
@@ -2550,7 +2552,7 @@ function ensureQuotaFor(symbol) {
     if (gm) gm.classList.remove('hidden');
   } else {
     var reason = $id('vipModalReasonText');
-    if (reason) reason.textContent = T('ui.quotaFull', 'Kuota {limit} instrumen akun FREE Anda sudah penuh ({list}). Upgrade VIP $29 USDT untuk membuka seluruh 600+ instrumen tanpa batas.').replace('{limit}', limit).replace('{list}', unlocked.join(', '));
+    if (reason) reason.textContent = T('ui.quotaFull', 'Kuota {limit} instrumen akun FREE Anda sudah penuh ({list}). Upgrade VIP $29 USDT untuk membuka seluruh 650+ instrumen tanpa batas.').replace('{limit}', limit).replace('{list}', unlocked.join(', '));
     var pm = $id('paymentModal');
     if (pm) pm.classList.remove('hidden');
   }

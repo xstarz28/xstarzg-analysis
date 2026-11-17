@@ -127,7 +127,7 @@ chk('engine cap skor proporsional ke jumlah gerbang tolak', /gatesBlocked = gate
 /* v2026.55b lint */
 chk('engine cap investor NETRAL + DCA monotonic fair-value', /confluenceScore = Math\.min\(confluenceScore, 59\)/.test(eng) && /dcaZone2 = Math\.min\(dcaZone1/.test(eng) && /dcaZone3 = Math\.min\(dcaZone2/.test(eng));
 chk('engine remove kondisi NEUTRAL dari cap trader', /mode === 'trader' && !eligible\) \{/.test(eng) && !/!eligible && softBias !== 'NEUTRAL'/.test(eng));
-chk('label pillars diperbarui (26/10)', /26-Pillar|26 Pilar/.test(html));
+chk('label pillars diperbarui (28/10)', /28-Pillar|28 Pilar|26-Pillar|26 Pilar/.test(html));
 /* v2026.56 lint: judul scan tidak lagi 'sinyal terbaik' yang ambigu */
 chk('eGateBest judul status-scan jelas', /Status Scan Timeframe Terbaik/.test(app) && !app.includes('Sinyal Terbaik Saat Ini'));
 /* v2026.57 NEWS lint */
