@@ -184,5 +184,9 @@ chk('trade management SL+ 0-risk di gateBlockHtml & jurnal', /eSlPlusActive/.tes
 chk('Dual Fibonacci matrix HTML box & elemen nilai terpasang', /id="fiboMatrixBox"/.test(html) && /id="valFibo500"/.test(html) && /id="valFibo618"/.test(html) && /id="valFiboExt161"/.test(html));
 chk('app.js mengupdate Fibo matrix & Pillar 10 Fibo', /valFibo618/.test(app) && /valFiboExt161/.test(app) && /goldenPocket/.test(app));
 chk('signal-engine mengekspor calculateDualFibonacci & menyematkan fib pada levels', /export function calculateDualFibonacci/.test(eng) && /fib,/.test(eng));
+/* VIP EXPIRY WARNING & OWNER SUBSCRIBERS LINT */
+chk('banner peringatan kedaluwarsa VIP & modal pelanggan owner terpasang', /id="vipExpiryWarningBanner"/.test(html) && /id="ownerSubscribersModal"/.test(html) && /vipExpiryDaysText/.test(app));
+chk('admin overview endpoint memverifikasi owner & query D1', /vip_entitlements/.test(R('../functions/api/admin/overview.js')) && /OWNER_EMAILS/.test(R('../functions/api/admin/overview.js')));
+chk('quotaLimit & auth/me otomatis mendowngrade VIP kedaluwarsa ke FREE', /state\.user\.tier = 'FREE'/.test(app) && /out\.tier = 'FREE'/.test(R('../functions/api/auth/me.js')));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

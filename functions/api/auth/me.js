@@ -14,6 +14,14 @@ export async function onRequestGet(context) {
   if (!user) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   const out = { email: user.email, name: user.name, tier: user.tier, vipUntil: user.vipUntil };
   const until = await d1VipUntil(context.env, out.email);
-  if (until > Date.now() && until > (Number(out.vipUntil) || 0)) { out.tier = 'VIP'; out.vipUntil = until; }
+  if (until > Date.now() && until > (Number(out.vipUntil) || 0)) {
+    out.tier = 'VIP';
+    out.vipUntil = until;
+  } else if ((until && until <= Date.now()) || (out.vipUntil && Number(out.vipUntil) <= Date.now())) {
+    if (out.tier === 'VIP') {
+      out.tier = 'FREE';
+      out.vipUntil = null;
+    }
+  }
   return Response.json({ ok: true, user: out });
 }

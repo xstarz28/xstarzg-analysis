@@ -2498,7 +2498,18 @@ function verifyOwnerSession() {
 }
 function quotaLimit() {
   if (!state.user) return 0;
-  if (state.user.tier === 'VIP' || state.user.tier === 'OWNER_VIP') return Infinity;
+  if (state.user.tier === 'VIP') {
+    var until = Number(state.user.vipUntil) || 0;
+    if (until > 0 && until <= Date.now()) {
+      state.user.tier = 'FREE';
+      state.user.vipUntil = null;
+      saveSession();
+      updateUserUi();
+      return 2;
+    }
+    return Infinity;
+  }
+  if (state.user.tier === 'OWNER_VIP') return Infinity;
   if (state.user.tier === 'FREE') return 2;
   return 0; // GUEST: hanya melihat instrumen default, ganti instrumen wajib login
 }
@@ -2510,6 +2521,14 @@ function tierBadge(u) {
 }
 function updateUserUi() {
   var u = state.user;
+  if (u && u.tier === 'VIP') {
+    var until = Number(u.vipUntil) || 0;
+    if (until > 0 && until <= Date.now()) {
+      u.tier = 'FREE';
+      u.vipUntil = null;
+      saveSession();
+    }
+  }
   setTxt('lblUserName', u ? (u.name || u.email.split('@')[0]) : T('ui.guestName', 'Tamu'));
   var badge = $id('lblUserTierBadge');
   if (badge) {
@@ -2521,6 +2540,69 @@ function updateUserUi() {
   var unlocked = unlockedSymbols();
   var limit = quotaLimit();
   setTxt('ddUserQuota', limit === Infinity ? unlocked.length + ' / ∞ Unlimited' : unlocked.length + ' / ' + limit + ' ' + T('ui.quotaUnit', 'Instrumen'));
+
+  // Banner peringatan kedaluwarsa VIP (H-2 / hari ke-28 ke atas)
+  var banner = $id('vipExpiryWarningBanner');
+  if (banner) {
+    if (u && u.tier === 'VIP' && u.vipUntil) {
+      var msLeft = Number(u.vipUntil) - Date.now();
+      var daysLeft = Math.ceil(msLeft / 86400000);
+      if (msLeft > 0 && daysLeft <= 2) {
+        banner.classList.remove('hidden');
+        setTxt('vipExpiryDaysText', daysLeft <= 1 ? 'kurang dari 24 jam' : daysLeft + ' hari');
+        try {
+          var expDate = new Date(Number(u.vipUntil)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+          setTxt('vipExpiryDateText', expDate);
+        } catch (e) {
+          setTxt('vipExpiryDateText', new Date(Number(u.vipUntil)).toISOString().slice(0, 10));
+        }
+      } else {
+        banner.classList.add('hidden');
+      }
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  // Tombol admin panel khusus owner
+  var btnOwnerSubs = $id('btnOpenOwnerSubscribers');
+  if (btnOwnerSubs) {
+    btnOwnerSubs.classList.toggle('hidden', !u || u.tier !== 'OWNER_VIP');
+  }
+}
+function fetchOwnerSubscribers() {
+  if (!state.user || state.user.tier !== 'OWNER_VIP') return;
+  var token = state.user.ownerToken || state.user.authToken;
+  var container = $id('ownerSubsListContainer');
+  if (container) container.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:16px;">Memuat data pelanggan D1...</div>';
+  fetch('/api/admin/overview', { headers: { Authorization: 'Bearer ' + token } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.ok) {
+        if (container) container.innerHTML = '<div style="color:#f43f5e;padding:12px;">Gagal memuat data: ' + escH((d && d.error) || 'Akses ditolak') + '</div>';
+        return;
+      }
+      setTxt('valOwnerTotalSubs', d.count || 0);
+      setTxt('valOwnerActiveSubs', d.activeCount || 0);
+      if (!d.subscribers || !d.subscribers.length) {
+        if (container) container.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:16px;">Belum ada pelanggan VIP berbayar di database D1.</div>';
+        return;
+      }
+      var rows = d.subscribers.map(function (s) {
+        var statusBadge = s.isActive
+          ? '<span style="color:#10b981;font-weight:700;">● AKTIF (sisa ' + s.daysRemaining + ' hari)</span>'
+          : '<span style="color:#f43f5e;font-weight:700;">✖ HABIS / EXPIRED</span>';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(51,65,85,0.4);gap:8px;">' +
+          '<div><strong style="color:#f8fafc;font-size:12px;">' + escH(s.email) + '</strong>' +
+          '<div style="color:#94a3b8;font-size:10.5px;">Berakhir: ' + escH(s.vipUntilDate) + '</div></div>' +
+          '<div>' + statusBadge + '</div>' +
+          '</div>';
+      }).join('');
+      if (container) container.innerHTML = rows;
+    })
+    .catch(function (e) {
+      if (container) container.innerHTML = '<div style="color:#f43f5e;padding:12px;">Error: ' + escH(e.message) + '</div>';
+    });
 }
 function unlockedSymbols() {
   if (!state.user || !state.user.email) return [];
@@ -2702,6 +2784,21 @@ function bindVipFlow() {
       if (btn) btn.disabled = false;
       if (fb) { fb.style.color = '#fda4af'; fb.textContent = 'ℹ️ ' + T('ui.eVipServerFail', 'Server verifikasi tidak merespons. Coba lagi sesaat.'); }
     });
+  });
+  bind('btnRenewVipFromBanner', function () {
+    open('Perpanjang masa aktif lisensi VIP Anda agar akses 650+ instrumen tidak terputus.');
+  });
+  var osm = $id('ownerSubscribersModal');
+  bind('btnOpenOwnerSubscribers', function () {
+    var dd = $id('userProfileDropdown'); if (dd) dd.classList.add('hidden');
+    if (osm) osm.classList.remove('hidden');
+    fetchOwnerSubscribers();
+  });
+  bind('btnCloseOwnerSubscribers', function () {
+    if (osm) osm.classList.add('hidden');
+  });
+  bind('btnRefreshOwnerSubs', function () {
+    fetchOwnerSubscribers();
   });
 }
 
