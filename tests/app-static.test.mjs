@@ -16,6 +16,7 @@ const edgeMarket = R('../functions/api/market/analyze.js');
 const edgeQuotes = R('../functions/api/market/quotes.js');
 const calcMod = R('../public/js/calculator.js');
 const engineBoot = R('../public/js/engine-boot.js');
+const wrangler = R('../wrangler.toml');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
@@ -168,6 +169,7 @@ chk('server: verify-bsc WAJIB auth 401 + meneken entitlement VIP + anti-replay',
 chk('endpoint register menerbitkan JWT FREE & tak pernah OWNER_VIP', /signJwt/.test(R('../functions/api/auth/register.js')) && /let tier = 'FREE'/.test(R('../functions/api/auth/register.js')));
 chk('revalidasi sesi VIP saat boot (verifyVipSession + /api/auth/me)', /function verifyVipSession/.test(app) && /verifyVipSession\(\);/.test(app) && /api\/auth\/me/.test(app) && /authenticateRequest/.test(R('../functions/api/auth/me.js')));
 chk('faktur invoice endpoint nyata + hidrasi modal', /onRequestGet/.test(R('../functions/api/billing/invoice.js')) && /hydrateVipInvoice/.test(app) && /id="vipInvoiceId"/.test(html) && /id="vipWalletAddr"/.test(html) && /ui\.payInvoiceId/.test(html));
+chk('wrangler.toml mengikat D1 DB (database_id terkonfigurasi)', /\[\[d1_databases\]\][\s\S]*binding\s*=\s*"DB"[\s\S]*database_id\s*=\s*"d29a4547-d50e-42fb-a700-56364d967abb"/.test(wrangler));
 /* v2026.66 HEMAT KUOTA CLOUDFLARE lint (paket gratis 100rb request/hari) */
 chk('ticker 5 dtk + 0 request saat tab latar + crypto Binance-first', /RT_TICK_MS = 5000/.test(app) && /document\.hidden\) return;/.test(app) && /data-api\.binance\.vision\/api\/v3\/ticker\/price/.test(app));
 chk('ticker tanpa cache-buster _t pada quote=1 (respons bisa di-cache)', !/analyze\?quote=1&symbol=' \+ encodeURIComponent\(sym\) \+ '&tf=' \+ encodeURIComponent\(tf\) \+ '&_t='/.test(app));
