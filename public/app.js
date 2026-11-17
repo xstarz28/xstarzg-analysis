@@ -1102,6 +1102,9 @@ function drawChartLevels(analysis) {
     add(L.poc, '#eab308', 'POC', 1);
     add(L.swingHigh, 'rgba(244,63,94,0.7)', 'SUPPLY', 3);
     add(L.swingLow, 'rgba(16,185,129,0.7)', 'DEMAND', 3);
+    if (L.fib && num(L.fib.goldenPocket) > 0) {
+      add(L.fib.goldenPocket, '#fbbf24', 'FIBO 61.8%', 2);
+    }
   }
   if (showSniper) {
     if (state.mode === 'investor') {
@@ -1161,6 +1164,7 @@ function renderPillars(a) {
       pillarHtml(T('ui.ePnSd', '9. Supply & Demand Zone'), 'D: ' + (ind.demandZoneText || formatPrice(lv.swingLow, a ? a.symbol : state.symbol)), 'S: ' + (ind.supplyZoneText || formatPrice(lv.swingHigh, a ? a.symbol : state.symbol)), 'neutral') +
       pillarHtml(T('ui.ePnPivot', '10. Pivot Support / Resistance'), 'S1 ' + formatPrice(lv.s1, a ? a.symbol : state.symbol) + ' • R1 ' + formatPrice(lv.r1, a ? a.symbol : state.symbol),
         T('ui.ePtPivot', 'Pivot klasik: ') + formatPrice(lv.pivot, a ? a.symbol : state.symbol) +
+        (lv.fib ? ' • Fibo 61.8%: ' + formatPrice(lv.fib.goldenPocket, a ? a.symbol : state.symbol) + ' • Ext 1.618: ' + formatPrice(lv.fib.goldenExtension, a ? a.symbol : state.symbol) : '') +
         (num(lv.swingLow) > 0 && num(lv.swingHigh) > 0 ? ' • ' + fillTpl(T('ui.ePtZone', 'Zona struktur: S ≈{S} • R ≈{R}'), { S: formatPrice(psychRoundPrice(Math.min(lv.swingLow, lv.s1)), a.symbol), R: formatPrice(psychRoundPrice(Math.max(lv.swingHigh, lv.r1)), a.symbol) }) : ''),
         bull(p >= lv.pivot)) +
       pillarHtml(T('ui.ePnRsi', '11. RSI(14) & MACD Histogram'), 'RSI ' + num(ind.rsi, 50).toFixed(1) + ' • MACD ' + (num(ind.macdHist) >= 0 ? '+' : '') + num(ind.macdHist).toPrecision(3), num(ind.rsi) > 70 ? T('ui.ePtRsiOb', 'Overbought — rawan koreksi') : num(ind.rsi) < 30 ? T('ui.ePtRsiOs', 'Oversold — rawan pantulan') : T('ui.ePtRsiOk', 'Momentum sehat'), num(ind.macdHist) >= 0 ? 'bull' : 'bear') +
@@ -1443,6 +1447,21 @@ function renderPanels(a) {
   setTxt('valTP1', formatPrice(L.tp1, a.symbol));
   setTxt('valTP2', formatPrice(L.tp2, a.symbol));
   setTxt('valTP3', formatPrice(L.tp3, a.symbol));
+  if (L.fib && L.fib.retracement && L.fib.extension) {
+    setTxt('valFibo500', formatPrice(L.fib.retracement.r500, a.symbol));
+    setTxt('valFibo618', formatPrice(L.fib.retracement.r618, a.symbol));
+    setTxt('valFibo786', formatPrice(L.fib.retracement.r786, a.symbol));
+    setTxt('valFiboExt127', formatPrice(L.fib.extension.ext1272, a.symbol));
+    setTxt('valFiboExt161', formatPrice(L.fib.extension.ext1618, a.symbol));
+    setTxt('valFiboExt200', formatPrice(L.fib.extension.ext2000, a.symbol));
+  } else {
+    setTxt('valFibo500', '--');
+    setTxt('valFibo618', '--');
+    setTxt('valFibo786', '--');
+    setTxt('valFiboExt127', '--');
+    setTxt('valFiboExt161', '--');
+    setTxt('valFiboExt200', '--');
+  }
   var rp = riskParams(a);
   setTxt('valRecLeverage', rp.lev + 'x');
   setTxt('valLiqPrice', formatPrice(rp.liq, a.symbol));

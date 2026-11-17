@@ -462,5 +462,31 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   const vSaved = SE.validateSignalLock(Object.assign({}, lockScalp, { bePlusActive: true }), cDrop, null);
   chk('order membalik pasca-profit ditandai beProtected (0-Risk modal aman)', vSaved.status === 'SL_HIT' && vSaved.beProtected === true);
 }
+
+/* ---------- 26. DUAL FIBONACCI MATRIX (RETRACEMENT & EXTENSION) ---------- */
+{
+  // Test 1: LONG mode: High 100, Low 80 -> diff = 20
+  const fibLong = SE.calculateDualFibonacci(100, 80, 90, 'LONG');
+  chk('calculateDualFibonacci valid untuk LONG', !!fibLong && fibLong.isLong === true && fibLong.diff === 20);
+  chk('Retracement 50% Eq = 90.0', Math.abs(fibLong.retracement.r500 - 90.0) < 1e-6);
+  chk('Retracement 61.8% Golden Pocket = 87.64', Math.abs(fibLong.retracement.r618 - 87.64) < 1e-4);
+  chk('Retracement 78.6% OTE = 84.28', Math.abs(fibLong.retracement.r786 - 84.28) < 1e-4);
+  chk('Extension 127.2% = 105.44', Math.abs(fibLong.extension.ext1272 - 105.44) < 1e-4);
+  chk('Extension 161.8% Golden Extension = 112.36', Math.abs(fibLong.extension.ext1618 - 112.36) < 1e-4);
+  chk('Extension 200.0% Measured Move = 120.0', Math.abs(fibLong.extension.ext2000 - 120.0) < 1e-6);
+
+  // Test 2: SHORT mode: High 100, Low 80 -> diff = 20
+  const fibShort = SE.calculateDualFibonacci(100, 80, 85, 'SHORT');
+  chk('calculateDualFibonacci valid untuk SHORT', !!fibShort && fibShort.isLong === false);
+  chk('SHORT Retracement 50% = 90.0', Math.abs(fibShort.retracement.r500 - 90.0) < 1e-6);
+  chk('SHORT Retracement 61.8% = 92.36', Math.abs(fibShort.retracement.r618 - 92.36) < 1e-4);
+  chk('SHORT Extension 161.8% di bawah Low = 67.64', Math.abs(fibShort.extension.ext1618 - 67.64) < 1e-4);
+
+  // Test 3: runFullAnalysis levels membawa fib
+  const testCandles = gen('NVDA', 'H1');
+  const engineRes = SE.runFullAnalysis({ symbol: 'NVDA', timeframe: 'H1', candles: testCandles, mode: 'trader', horizon: 'all' });
+  chk('runFullAnalysis menghasilkan levels.fib', !!engineRes.levels && !!engineRes.levels.fib);
+  chk('levels.fib membawa retracement & extension lengkap', !!engineRes.levels.fib.retracement && !!engineRes.levels.fib.extension && engineRes.levels.fib.goldenPocket > 0);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

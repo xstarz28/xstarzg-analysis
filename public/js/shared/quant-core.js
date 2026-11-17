@@ -155,6 +155,38 @@ export const DEFAULT_INSTRUMENTS = [
   mkStock('PLTR', 'Palantir Technologies', 112.4, 'US'),
   mkStock('COIN', 'Coinbase Global Inc.', 274.0, 'US'),
   mkStock('MSTR', 'Strategy / MicroStrategy', 332.0, 'US'),
+  // AI, Cloud & Semiconductors
+  mkStock('SMCI', 'Super Micro Computer (AI Servers)', 32.5, 'US'),
+  mkStock('ARM', 'Arm Holdings plc (AI CPU)', 142.0, 'US'),
+  mkStock('INTC', 'Intel Corporation', 24.5, 'US'),
+  mkStock('MU', 'Micron Technology (HBM Memory)', 108.0, 'US'),
+  mkStock('QCOM', 'Qualcomm Incorporated (Snapdragon)', 165.0, 'US'),
+  mkStock('ORCL', 'Oracle Corporation (Cloud AI)', 188.0, 'US'),
+  // FinTech, Trading & Neobanks
+  mkStock('HOOD', 'Robinhood Markets Inc.', 36.8, 'US'),
+  mkStock('PYPL', 'PayPal Holdings Inc.', 84.5, 'US'),
+  mkStock('SQ', 'Block Inc. (Square & Cash App)', 88.0, 'US'),
+  mkStock('SOFI', 'SoFi Technologies Inc.', 15.2, 'US'),
+  // Mobility, EV, Space & Defense
+  mkStock('UBER', 'Uber Technologies Inc.', 76.5, 'US'),
+  mkStock('ABNB', 'Airbnb Inc.', 138.0, 'US'),
+  mkStock('RIVN', 'Rivian Automotive Inc. (EV)', 12.8, 'US'),
+  mkStock('BA', 'Boeing Company (Aerospace)', 158.0, 'US'),
+  mkStock('LMT', 'Lockheed Martin (Defense/Aerospace)', 475.0, 'US'),
+  mkStock('RTX', 'RTX Corporation (Raytheon Aerospace)', 124.0, 'US'),
+  // Consumer, Retail & Global Mega Brands
+  mkStock('WMT', 'Walmart Inc.', 92.5, 'US'),
+  mkStock('COST', 'Costco Wholesale Corporation', 965.0, 'US'),
+  mkStock('DIS', 'Walt Disney Company', 112.0, 'US'),
+  mkStock('NKE', 'NIKE Inc.', 78.5, 'US'),
+  mkStock('SBUX', 'Starbucks Corporation', 98.0, 'US'),
+  // Healthcare, Pharma & Biotech
+  mkStock('PFE', 'Pfizer Inc. (Biopharma)', 26.5, 'US'),
+  mkStock('MRK', 'Merck & Co. Inc.', 102.0, 'US'),
+  mkStock('UNH', 'UnitedHealth Group', 580.0, 'US'),
+  // Industrial & Energy Giants
+  mkStock('CVX', 'Chevron Corporation (Energy)', 158.0, 'US'),
+  mkStock('CAT', 'Caterpillar Inc. (Industrial)', 395.0, 'US'),
   // SAHAM & INDEKS GLOBAL (Asia, Eropa, Timur Tengah)
   mkStock('JP225', 'Nikkei 225 Index (Jepang)', 38950, 'JP'),
   mkStock('7203.T', 'Toyota Motor Corp (JPY)', 2845, 'JP'),

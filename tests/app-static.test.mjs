@@ -180,5 +180,9 @@ chk('edge analyze quote-only di-cache 4 dtk lintas-user', /caches\.default/.test
 chk('responsif mobile: overflow-x hidden pada html & body + radar-card min-width 0', /html\s*\{[\s\S]*overflow-x:\s*hidden/.test(css) && /radar-card\s*\{[\s\S]*min-width:\s*0/.test(css) && /#inpSearchAsset/.test(css));
 /* v2026.68 ZERO-RISK SL+ & DUAL-BRAIN MANAGEMENT lint */
 chk('trade management SL+ 0-risk di gateBlockHtml & jurnal', /eSlPlusActive/.test(app) && /BE_SAVED/.test(app) && /jnlBeActive/.test(app) && /eScalpAdvisor/.test(app) && /eSniperAdvisor/.test(app));
+/* DUAL FIBONACCI MATRIX & US STOCKS EXPANSION lint */
+chk('Dual Fibonacci matrix HTML box & elemen nilai terpasang', /id="fiboMatrixBox"/.test(html) && /id="valFibo500"/.test(html) && /id="valFibo618"/.test(html) && /id="valFiboExt161"/.test(html));
+chk('app.js mengupdate Fibo matrix & Pillar 10 Fibo', /valFibo618/.test(app) && /valFiboExt161/.test(app) && /goldenPocket/.test(app));
+chk('signal-engine mengekspor calculateDualFibonacci & menyematkan fib pada levels', /export function calculateDualFibonacci/.test(eng) && /fib,/.test(eng));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
