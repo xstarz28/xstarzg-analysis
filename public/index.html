@@ -10,7 +10,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.66" />
+  <link rel="stylesheet" href="/styles.css?v=2026.67" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -154,8 +154,8 @@
           <option value="COMMODITIES" data-i18n="ui.catCommo">🛢️ Komoditas Energi & Pangan (16)</option>
           <option value="CRYPTO" data-i18n="ui.catCrypto">₿ Crypto Spot Global (55 Utama + 400+ Pair USDT Real-Time)</option>
         </select>
-        <input type="text" id="inpSearchAsset" class="ctrl-input" placeholder="🔍 Cari simbol / nama (cth: XAU, BBCA, NVDA, BTC)..." data-i18n-ph="ui.searchPh" style="width:230px;" />
-        <select id="selInstrument" class="ctrl-select" style="min-width:250px;font-weight:700;"></select>
+        <input type="text" id="inpSearchAsset" class="ctrl-input" placeholder="🔍 Cari simbol / nama (cth: XAU, BBCA, NVDA, BTC)..." data-i18n-ph="ui.searchPh" />
+        <select id="selInstrument" class="ctrl-select" style="font-weight:700;"></select>
       </div>
       <div class="tf-bar" id="timeframeBar">
         <button type="button" class="tf-btn" data-tf="M1">M1</button>
@@ -364,7 +364,7 @@
         </div>
       </aside>
     </main>
-    <section style="max-width:1640px;width:100%;margin:0 auto 40px;padding:0 16px;display:flex;flex-direction:column;gap:16px;">
+    <section style="max-width:1640px;width:100%;margin:0 auto 40px;padding:0 16px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box;min-width:0;">
       <div class="section-card">
         <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.secTech">🔬 16 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC + ORB/Theta/VWAP-Entry)</h3>
         <div id="techPillarsGrid" class="pillars-grid"></div>
@@ -502,8 +502,8 @@
   </div>
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script type="module" src="/js/engine-boot.js?v=2026.66"></script>
-  <script src="/app.js?v=2026.66"></script>
-  <script type="module" src="/i18n/boot.js?v=2026.66"></script>
+  <script type="module" src="/js/engine-boot.js?v=2026.67"></script>
+  <script src="/app.js?v=2026.67"></script>
+  <script type="module" src="/i18n/boot.js?v=2026.67"></script>
 </body>
 </html>

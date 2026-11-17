@@ -23,7 +23,11 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100%;
+}
 body {
   background-color: var(--bg-deep);
   color: var(--text-primary);
@@ -31,6 +35,8 @@ body {
   font-size: 14px;
   line-height: 1.5;
   overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
   -webkit-font-smoothing: antialiased;
 }
 .hidden { display: none !important; }
@@ -169,9 +175,17 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
 /* ==================== STAGE 3: MAIN WORKSPACE ==================== */
 .workspace-wrapper {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background:
     radial-gradient(ellipse 65% 40% at 50% -5%, rgba(14, 165, 233, 0.10) 0%, transparent 60%),
     #020617;
+}
+.section-card, .chart-card, .side-panel-card, .radar-card, .pillar-item {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .topbar {
   position: sticky; top: 0; z-index: 70;
@@ -306,10 +320,12 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
 .pillar-item.neutral { border-left-color: var(--warn-amber); }
 .radar-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 10px; margin-top: 12px;
+  min-width: 0; max-width: 100%;
 }
 .radar-card {
   background: rgba(2, 6, 23, 0.55); border: 1px solid var(--border-subtle); border-radius: 12px;
   padding: 11px 13px; cursor: pointer;
+  min-width: 0; max-width: 100%; overflow: hidden;
   transition: border-color 0.13s ease, transform 0.13s ease, box-shadow 0.13s ease;
 }
 .radar-card:hover {
@@ -321,6 +337,7 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
 .radar-card .r-name {
   display: block; font-size: 10.5px; color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
+  min-width: 0;
 }
 .radar-card .r-price { font-family: var(--font-mono); font-size: 16.5px; font-weight: 800; color: var(--text-bright); margin-top: 6px; transition: color 0.18s; }
 .radar-card .r-chg { font-family: var(--font-mono); font-size: 11.5px; font-weight: 800; }
@@ -402,28 +419,46 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
   .control-bar { position: static; }
 }
 @media (max-width: 760px) {
+  html, body { overflow-x: hidden; width: 100%; max-width: 100vw; }
   body { font-size: 13.5px; }
   .front-navbar { padding: 12px 14px; }
-  .brand-logo-img { height: 38px; max-width: 150px; }
+  .brand-logo-img { height: 34px; max-width: 130px; }
   .brand-tag { font-size: 8.5px; padding: 2px 7px; letter-spacing: 1px; }
   .front-hero { padding: 34px 14px 22px; }
   .front-hero p { font-size: 13px; }
   .hero-cta-row .btn-primary-glow, .hero-cta-row .btn-secondary-outline { width: 100%; }
   .topbar { top: 0; padding: 8px 10px; }
-  .topbar-modes { order: 3; width: 100%; }
-  .workspace-main-grid { padding: 0 10px; }
-  .tv-chart-box { height: 345px; }
-  .live-price-big { font-size: 21px; }
-  .asset-title-block h2 { font-size: 14.5px; }
-  .control-group .ctrl-input { width: 100% !important; }
-  .control-group { width: 100%; }
-  .tf-bar { width: 100%; }
-  .overlay-toggles { width: 100%; gap: 8px; }
-  .pillars-grid, .radar-grid { grid-template-columns: 1fr 1fr; }
+  .topbar-modes { order: 3; width: 100%; gap: 5px; }
+  #traderSubModeWrap { width: 100%; margin-left: 0 !important; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .mode-btn, .submode-btn { font-size: 10.5px; padding: 6px 9px; flex: 1 1 auto; text-align: center; }
+  .topbar-right { width: 100%; justify-content: flex-end; gap: 6px; }
+  .workspace-main-grid { padding: 0 10px; max-width: 100%; overflow-x: hidden; }
+  .tv-chart-box { height: 320px; }
+  .live-price-big { font-size: 20px; }
+  .asset-title-block h2 { font-size: 14px; }
+  .control-bar { padding: 9px 10px; position: static; }
+  .control-group { width: 100%; gap: 6px; }
+  .control-group .ctrl-input,
+  .control-group .ctrl-select,
+  #inpSearchAsset,
+  #selInstrument,
+  #selCategory {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .tf-bar { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .overlay-toggles { width: 100%; gap: 8px; font-size: 10.5px; }
+  .pillars-grid, .radar-grid { grid-template-columns: 1fr; }
+  .radar-horizon-bar { gap: 4px; }
+  .hz-btn { padding: 5px 8px; font-size: 10px; }
 }
 @media (max-width: 480px) {
   .pillars-grid, .radar-grid { grid-template-columns: 1fr; }
   .setup-grid-levels .level-box[style*="span 2"] { grid-column: span 2; }
+  .section-card { padding: 12px 10px; }
+  .chart-card { padding: 10px 8px; }
+  .side-panel-card { padding: 10px 8px; }
 }
 /* ---- Pemilih bahasa (round 6) ---- */
 .lang-select { background: rgba(15, 23, 42, 0.92); border: 1px solid var(--border-subtle, #334155); color: #e2e8f0; border-radius: 10px; padding: 7px 10px; font-size: 12px; font-weight: 600; cursor: pointer; max-width: 190px; }
