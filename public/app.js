@@ -1805,12 +1805,12 @@ function renderNewsPanel() {
         + escH(im.sym) + ' ' + (im.dir > 0 ? '▲' : '▼') + ' ~' + im.pct + '%</span>';
     }
     html += '<div class="radar-card" style="cursor:default;' + (done ? 'opacity:0.78;' : '') + '">' +
-      '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;">' +
-        '<span class="r-name" style="line-height:1.35;">' + escH(ev.title) + '</span>' +
-        '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:' + impCol + '22;color:' + impCol + ';border:1px solid ' + impCol + '55;white-space:nowrap;">' + impTxt + '</span>' +
+      '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;min-width:0;">' +
+        '<span style="font-size:12px;font-weight:700;color:var(--text-bright);line-height:1.35;word-break:break-word;min-width:0;flex:1;">' + escH(ev.title) + '</span>' +
+        '<span style="flex-shrink:0;font-size:10px;padding:2px 8px;border-radius:99px;background:' + impCol + '22;color:' + impCol + ';border:1px solid ' + impCol + '55;white-space:nowrap;">' + impTxt + '</span>' +
       '</div>' +
-      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;">' + escH(ev.ccy) + ' • ' + newsFmtTime(ev.ts) + (soon ? ' • <b style="color:#f59e0b;">⏰ ' + T('ui.eNewsSoon', 'SEGERA') + '</b>' : done ? ' • <b style="color:#10b981;">✅ ' + T('ui.eNewsDone', 'SELESAI') + '</b>' : '') + '</div>' +
-      ((ev.forecast || ev.previous) ? '<div style="font-size:10.5px;color:#cbd5e1;margin-top:3px;">' + (ev.actual ? T('ui.eNewsActual', 'Hasil') + ': <b style="color:#fbbf24;">' + escH(ev.actual) + '</b> • ' : '') + T('ui.eNewsFc', 'Prakiraan') + ': <b>' + escH(ev.forecast || '—') + '</b> • ' + T('ui.eNewsPv', 'Sebelumnya') + ': ' + escH(ev.previous || '—') + '</div>' : '') +
+      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;word-break:break-word;">' + escH(ev.ccy) + ' • ' + newsFmtTime(ev.ts) + (soon ? ' • <b style="color:#f59e0b;">⏰ ' + T('ui.eNewsSoon', 'SEGERA') + '</b>' : done ? ' • <b style="color:#10b981;">✅ ' + T('ui.eNewsDone', 'SELESAI') + '</b>' : '') + '</div>' +
+      ((ev.forecast || ev.previous) ? '<div style="font-size:10.5px;color:#cbd5e1;margin-top:3px;word-break:break-word;">' + (ev.actual ? T('ui.eNewsActual', 'Hasil') + ': <b style="color:#fbbf24;">' + escH(ev.actual) + '</b> • ' : '') + T('ui.eNewsFc', 'Prakiraan') + ': <b>' + escH(ev.forecast || '—') + '</b> • ' + T('ui.eNewsPv', 'Sebelumnya') + ': ' + escH(ev.previous || '—') + '</div>' : '') +
       '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + chips + '</div>' +
     '</div>';
   }
@@ -1884,14 +1884,14 @@ function renderSignalJournal() {
     // v2026.66: setiap kartu jurnal (riwayat TP/SL/invalid/expired HARI LALU pun)
     // bisa diklik -> membuka kembali grafik instrumen+TF tersebut via gotoInstrument.
     html += '<div class="radar-card jnl-card" data-sym="' + r.sym + '" data-tf="' + (r.tf || '') + '" style="cursor:pointer;" title="' + escH(T('ui.jnlOpen', 'Klik untuk membuka kembali grafik instrumen ini')) + '">' +
-      '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;">' +
-        '<span class="r-name">' + escH(r.sym || '-') + ' <span style="color:#64748b;font-size:10px;">' + escH(r.tf || '') + '</span></span>' +
-        '<span style="display:inline-flex;align-items:center;gap:5px;">' +
+      '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;min-width:0;">' +
+        '<span class="r-name" style="min-width:0;">' + escH(r.sym || '-') + ' <span style="color:#64748b;font-size:10px;">' + escH(r.tf || '') + '</span></span>' +
+        '<span style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0;">' +
           '<span style="color:#38bdf8;font-size:11px;" title="' + escH(T('ui.jnlOpen', 'Klik untuk membuka kembali grafik instrumen ini')) + '">↗</span>' +
           '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:' + b.col + '22;color:' + b.col + ';border:1px solid ' + b.col + '55;white-space:nowrap;">' + b.txt + '</span>' +
         '</span>' +
       '</div>' +
-      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;">' +
+      '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;word-break:break-word;">' +
         '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + ' • TP1 ' + formatPrice(num(r.tp1), r.sym) +
       '</div>' +
       (r.reason ? '<div style="font-size:10.2px;color:#64748b;margin-top:2px;">' + escH(String(r.reason)).slice(0, 90) + '</div>' : '') +
