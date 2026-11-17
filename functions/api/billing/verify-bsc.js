@@ -1,23 +1,55 @@
-import { authenticateRequest, VIP_WALLET_BSC, USDT_CONTRACT_BSC, VIP_PRICE_USDT } from '../../lib/auth.js';
+import { authenticateRequest, signJwt, VIP_WALLET_BSC, USDT_CONTRACT_BSC, VIP_PRICE_USDT } from '../../lib/auth.js';
 // Register replay-protection per-isolate: txHash yang sudah dipakai untuk aktivasi tidak
 // boleh dipakai ulang. Catatan: ini best-effort tanpa D1/KV — jika env menyediakan
-// binding XS_TXLOG (KV), dipakai sebagai sumber kebenaran lintas-isolate.
+// binding XS_TXLOG (KV) atau DB (D1), dipakai sebagai sumber kebenaran lintas-isolate.
 async function isTxUsed(txHash, env) {
+  const k = txHash.toLowerCase();
   try {
-    if (env && env.XS_TXLOG) { return !!(await env.XS_TXLOG.get('tx:' + txHash.toLowerCase())); }
+    if (env && env.XS_TXLOG && await env.XS_TXLOG.get('tx:' + k)) return true;
   } catch (e) {}
-  return usedTx.has(txHash.toLowerCase());
+  try {
+    if (env && env.DB) {
+      const row = await env.DB.prepare('SELECT tx_hash FROM vip_tx WHERE tx_hash = ?1').bind(k).first();
+      if (row) return true;
+    }
+  } catch (e) {}
+  return usedTx.has(k);
 }
-async function markTxUsed(txHash, env) {
+async function markTxUsed(txHash, env, email) {
   const k = txHash.toLowerCase();
   usedTx.add(k);
   if (usedTx.size > 10000) usedTx.clear(); // jaga memori isolate
   try { if (env && env.XS_TXLOG) await env.XS_TXLOG.put('tx:' + k, '1', { expirationTtl: 60 * 60 * 24 * 365 }); } catch (e) {}
+  try {
+    if (env && env.DB) {
+      await env.DB.prepare('INSERT INTO vip_tx (tx_hash, email, created_at) VALUES (?1, ?2, ?3)')
+        .bind(k, email || '', new Date().toISOString()).run();
+    }
+  } catch (e) {}
+}
+async function d1VipUntil(env, email) {
+  try {
+    if (!env || !env.DB) return 0;
+    const row = await env.DB.prepare('SELECT vip_until FROM vip_entitlements WHERE email = ?1').bind(email).first();
+    return row && row.vip_until ? Number(row.vip_until) : 0;
+  } catch (e) { return 0; }
+}
+async function d1SetVip(env, email, until) {
+  try {
+    if (!env || !env.DB) return;
+    await env.DB.prepare('INSERT INTO vip_entitlements (email, vip_until, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(email) DO UPDATE SET vip_until = excluded.vip_until, updated_at = excluded.updated_at')
+      .bind(email, until, new Date().toISOString()).run();
+  } catch (e) {}
 }
 const usedTx = new Set();
 export async function onRequestPost(context) {
   try {
+    // WAJIB login: pembayaran diikat ke identitas akun. Tanpa sesi JWT valid,
+    // tidak ada VIP yang bisa diberikan (sebelumnya pengecekan ini dekoratif).
     const user = await authenticateRequest(context.request, context.env);
+    if (!user || !user.email) {
+      return Response.json({ ok: false, error: 'Sesi tidak valid. Silakan login ulang lalu verifikasi lagi.' }, { status: 401 });
+    }
     const { txHash } = await context.request.json();
     if (!txHash || !/^0x[a-fA-F0-9]{64}$/.test(txHash.trim())) {
       return Response.json({ ok: false, error: 'Format TxHash BSC tidak valid.' }, { status: 400 });
@@ -30,7 +62,7 @@ export async function onRequestPost(context) {
     const rpcData = await rpcRes.json();
     const receipt = rpcData?.result;
     if (!receipt || receipt.status !== '0x1') {
-      return Response.json({ ok: false, error: 'Transaksi belum ditemukan di jaringan BSC.' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Transaksi belum ditemukan di jaringan BSC (atau gagal/revert).' }, { status: 400 });
     }
     const targetWalletHex = VIP_WALLET_BSC.toLowerCase().replace('0x', '').padStart(64, '0');
     const matchedLog = (receipt.logs || []).find(l =>
@@ -51,8 +83,18 @@ export async function onRequestPost(context) {
     if (await isTxUsed(txHash, context.env)) {
       return Response.json({ ok: false, error: 'TxHash ini sudah pernah dipakai untuk aktivasi VIP.' }, { status: 409 });
     }
-    await markTxUsed(txHash, context.env);
-    return Response.json({ ok: true, tier: 'VIP', daysAdded: 30 });
+    await markTxUsed(txHash, context.env, user.email);
+    // Perpanjangan MENUMPUK: basis = max(sekarang, sisa VIP di D1, sisa VIP di token) +30 hari.
+    const now = Date.now();
+    const dbUntil = await d1VipUntil(context.env, user.email);
+    const jwtUntil = Number(user.vipUntil) || 0;
+    const vipUntil = Math.max(now, dbUntil, jwtUntil) + 30 * 86400000;
+    await d1SetVip(context.env, user.email, vipUntil);
+    // AUTO-APPROVE: entitlement ditandatangani server menjadi JWT baru — klien tidak
+    // lagi menentukan tiernya sendiri di localStorage.
+    const payload = { email: user.email, name: user.name || user.email.split('@')[0], tier: 'VIP', vipUntil };
+    const token = await signJwt(payload, context.env?.JWT_SECRET || 'xstarzg-2026-quant-secret');
+    return Response.json({ ok: true, tier: 'VIP', vipUntil, daysAdded: 30, token });
   } catch (e) {
     return Response.json({ ok: false, error: e.message || 'Gagal verifikasi BSC.' }, { status: 500 });
   }

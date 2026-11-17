@@ -10,7 +10,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
-  <link rel="stylesheet" href="/styles.css?v=2026.65" />
+  <link rel="stylesheet" href="/styles.css?v=2026.66" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
 </head>
@@ -474,7 +474,11 @@
       <div style="background:rgba(2,6,23,0.8);border:1px solid var(--border-subtle);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
           <span style="color:#94a3b8;" data-i18n="ui.payFee">Biaya Langganan (30 Hari):</span>
-          <strong style="color:#10b981;font-size:14px;">$29.00 USDT</strong>
+          <strong id="vipPriceLabel" style="color:#10b981;font-size:14px;">$29.00 USDT</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:#94a3b8;" data-i18n="ui.payInvoiceId">ID Faktur:</span>
+          <code id="vipInvoiceId" style="color:#64748b;font-size:10.5px;">—</code>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
           <span style="color:#94a3b8;" data-i18n="ui.payNetwork">Jaringan Blockchain:</span>
@@ -482,7 +486,7 @@
         </div>
         <div style="color:#94a3b8;margin-bottom:4px;" data-i18n="ui.payWalletLbl">Alamat Wallet Penerima Resmi:</div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <code style="flex:1;padding:8px;background:#0f172a;border-radius:8px;color:#38bdf8;word-break:break-all;font-size:11.5px;">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
+          <code id="vipWalletAddr" style="flex:1;padding:8px;background:#0f172a;border-radius:8px;color:#38bdf8;word-break:break-all;font-size:11.5px;">0xB2Da154e6619A57A2B839D7845920e55Bc58A12C</code>
           <button type="button" id="btnCopyWallet" class="btn-secondary-outline" style="padding:7px 11px;font-size:11.5px;" data-i18n="ui.payCopy">📋 Salin</button>
         </div>
       </div>
@@ -498,8 +502,8 @@
   </div>
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script type="module" src="/js/engine-boot.js?v=2026.65"></script>
-  <script src="/app.js?v=2026.65"></script>
-  <script type="module" src="/i18n/boot.js?v=2026.65"></script>
+  <script type="module" src="/js/engine-boot.js?v=2026.66"></script>
+  <script src="/app.js?v=2026.66"></script>
+  <script type="module" src="/i18n/boot.js?v=2026.66"></script>
 </body>
 </html>

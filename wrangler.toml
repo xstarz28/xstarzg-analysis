@@ -9,3 +9,10 @@ pages_build_output_dir = "public"
 #   JWT_SECRET        — secret penandatangan token sesi
 #   VIP_PRICE_USDT    — harga lisensi VIP
 #   XS_TXLOG (KV)     — opsional: register txHash terpakai lintas-isolate (anti-replay)
+#   DB (D1)         — opsional: entitlement VIP & log txHash lintas-isolate
+#                     (lihat migrations/0001_vip.sql). Contoh blok aktif:
+#
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "xstarzg-db"
+# database_id = "ISI-DENGAN-ID-DARI-wrangler-d1-create"

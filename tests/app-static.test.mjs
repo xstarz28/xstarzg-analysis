@@ -21,12 +21,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.65/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.65/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.65">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.65">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.65/.test(boot) && /signal-engine\.js\?v=2026\.65/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.65/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.66/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.66/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.66">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.66">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.66/.test(boot) && /signal-engine\.js\?v=2026\.66/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.66/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -61,7 +61,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (499)', uniform && count === 499);
+chk('20 locale punya keyset ui seragam (502)', uniform && count === 502);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -160,5 +160,13 @@ chk('LWC series menyesuaikan priceFormat per simbol (syncChartPriceFormat)', /fu
 /* v2026.65 lint jurnal sinyal + masa hidup horison */
 chk('jurnal sinyal: section + renderer + wiring outcome', /id="signalJournalList"/.test(html) && /renderSignalJournal/.test(app) && /xstarzg_siglock_v3/.test(app));
 chk('EXPIRED dicatat (bukan hilang diam-2) & ikut cooldown', /oc !== 'EXPIRED'/.test(app) && /status === 'EXPIRED'/.test(app) && /EXPIRED/.test(eng));
+/* v2026.66 lint: jurnal clickable + billing server-side (auto-approve bertanda tangan) */
+chk('kartu jurnal clickable -> gotoInstrument(sym, tf)', /jnl-card" data-sym/.test(app) && /list\.querySelectorAll\('\.radar-card\[data-sym\]'\)/.test(app) && /gotoInstrument\(card\.getAttribute\('data-sym'\)/.test(app) && /ui\.jnlOpen/.test(app));
+chk('verifikasi VIP via SERVER /api/billing/verify-bsc (grant lokal dihapus)', app.includes("'/api/billing/verify-bsc'") && !/function clientVerifyBscPayment/.test(app) && /serverVerifyBscPayment/.test(app));
+chk('sesi JWT publik /api/auth/register + dipanggil saat login', /api\/auth\/register/.test(app) && /function ensureAuthToken/.test(app) && /tvip|authToken/.test(app));
+chk('server: verify-bsc WAJIB auth 401 + meneken entitlement VIP + anti-replay', /if \(!user \|\| !user\.email\)/.test(R('../functions/api/billing/verify-bsc.js')) && /tier: 'VIP', vipUntil/.test(R('../functions/api/billing/verify-bsc.js')) && /isTxUsed/.test(R('../functions/api/billing/verify-bsc.js')));
+chk('endpoint register menerbitkan JWT FREE & tak pernah OWNER_VIP', /signJwt/.test(R('../functions/api/auth/register.js')) && /let tier = 'FREE'/.test(R('../functions/api/auth/register.js')));
+chk('revalidasi sesi VIP saat boot (verifyVipSession + /api/auth/me)', /function verifyVipSession/.test(app) && /verifyVipSession\(\);/.test(app) && /api\/auth\/me/.test(app) && /authenticateRequest/.test(R('../functions/api/auth/me.js')));
+chk('faktur invoice endpoint nyata + hidrasi modal', /onRequestGet/.test(R('../functions/api/billing/invoice.js')) && /hydrateVipInvoice/.test(app) && /id="vipInvoiceId"/.test(html) && /id="vipWalletAddr"/.test(html) && /ui\.payInvoiceId/.test(html));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -1881,10 +1881,15 @@ function renderSignalJournal() {
     var b = jnlStatusBadge(r.st);
     var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
     var tTxt = r.at ? new Date(r.at).toLocaleString(navigator.language || 'id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-    html += '<div class="radar-card" style="cursor:default;">' +
+    // v2026.66: setiap kartu jurnal (riwayat TP/SL/invalid/expired HARI LALU pun)
+    // bisa diklik -> membuka kembali grafik instrumen+TF tersebut via gotoInstrument.
+    html += '<div class="radar-card jnl-card" data-sym="' + r.sym + '" data-tf="' + (r.tf || '') + '" style="cursor:pointer;" title="' + escH(T('ui.jnlOpen', 'Klik untuk membuka kembali grafik instrumen ini')) + '">' +
       '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;">' +
         '<span class="r-name">' + escH(r.sym || '-') + ' <span style="color:#64748b;font-size:10px;">' + escH(r.tf || '') + '</span></span>' +
-        '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:' + b.col + '22;color:' + b.col + ';border:1px solid ' + b.col + '55;white-space:nowrap;">' + b.txt + '</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:5px;">' +
+          '<span style="color:#38bdf8;font-size:11px;" title="' + escH(T('ui.jnlOpen', 'Klik untuk membuka kembali grafik instrumen ini')) + '">↗</span>' +
+          '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:' + b.col + '22;color:' + b.col + ';border:1px solid ' + b.col + '55;white-space:nowrap;">' + b.txt + '</span>' +
+        '</span>' +
       '</div>' +
       '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;">' +
         '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + ' • TP1 ' + formatPrice(num(r.tp1), r.sym) +
@@ -1893,6 +1898,11 @@ function renderSignalJournal() {
     '</div>';
   });
   list.innerHTML = html;
+  Array.prototype.forEach.call(list.querySelectorAll('.radar-card[data-sym]'), function (card) {
+    card.addEventListener('click', function () {
+      gotoInstrument(card.getAttribute('data-sym'), card.getAttribute('data-tf'));
+    });
+  });
 }
 
 /* ==================== GLOBAL MACRO REGIME MAP (v2026.58) ==================== */
@@ -2372,6 +2382,45 @@ function downgradeOwnerSession() {
 }
 // Re-validasi sesi OWNER_VIP hasil restore refresh ke server. Toleran jika jaringan
 // gagal (server belum bangun dsb.) — hanya downgrade saat server menjawab tegas TIDAK.
+// Re-validasi sesi VIP berbayar ke server. Netiquette sama seperti owner: toleran
+// saat jaringan error, downgrade HANYA saat server menjawab tegas (token invalid/
+// kedaluwarsa). Tier VIP TANPA token server (sisa grant lokal era lama) diturunkan
+// ke FREE — lisensi kini hanya sah bila dikeluarkan & ditandatangani server.
+function verifyVipSession() {
+  try {
+    if (!state.user || state.user.tier !== 'VIP') return;
+    if (typeof fetch !== 'function') return;
+    if (!state.user.authToken) {
+      state.user.tier = 'FREE'; state.user.vipUntil = null;
+      saveSession(); updateUserUi(); return;
+    }
+    fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + state.user.authToken } })
+      .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+      .then(function (res) {
+        var d = (res && res.d) || {};
+        if (!d.ok || !d.user) {
+          // Token ditolak/kedaluwarsa (mis. 30 hari berlalu): daftarkan ulang diam-2 —
+          // entitlement VIP yang masih sah di database server dipulihkan otomatis.
+          state.user.authToken = null;
+          ensureAuthToken().then(function () { updateUserUi(); }).catch(function () {
+            state.user.tier = 'FREE'; state.user.vipUntil = null;
+            saveSession(); updateUserUi();
+          });
+          return;
+        }
+        var until = Number(d.user.vipUntil) || 0;
+        if (d.user.tier === 'VIP' && until > Date.now()) {
+          if (until !== state.user.vipUntil) { state.user.vipUntil = until; saveSession(); updateUserUi(); }
+          return;
+        }
+        if (until && until <= Date.now()) {
+          state.user.tier = 'FREE'; state.user.vipUntil = null;
+          saveSession(); updateUserUi();
+        }
+      })
+      .catch(function () { /* jaringan error -> toleran, sesi dipertahankan */ });
+  } catch (e) {}
+}
 function verifyOwnerSession() {
   try {
     if (!state.user || state.user.tier !== 'OWNER_VIP') return;
@@ -2471,54 +2520,76 @@ function enterWorkspace() {
 }
 
 /* ==================== 10. VIP PAYMENT (ON-CHAIN BSC VERIFY) ==================== */
-function clientVerifyBscPayment(txHash) {
-  var rpcList = [
-    'https://bsc-dataseed1.bnbchain.org',
-    'https://bsc-dataseed.binance.org',
-    'https://bsc-dataseed1.defibit.io',
-    'https://bsc.publicnode.com'
-  ];
-  var targetTopic = VIP_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
-  var attempt = function (idx) {
-    if (idx >= rpcList.length) return Promise.resolve({ verified: false, error: T('ui.eRpcAll', 'Semua RPC BSC gagal dihubungi.') });
-    var ctrl = new AbortController();
-    var t = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 7000);
-    return fetch(rpcList[idx], {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [txHash] }),
-      signal: ctrl.signal
-    }).then(function (r) {
-      clearTimeout(t);
-      return r.json();
-    }).then(function (d) {
-      var receipt = d && d.result;
-      if (!receipt) return attempt(idx + 1);
-      if (receipt.status !== '0x1') return { verified: false, error: T('ui.eTxRevert', 'Transaksi gagal (status revert) di BSC.') };
-      var logs = receipt.logs || [];
-      for (var i = 0; i < logs.length; i++) {
-        var lg = logs[i];
-        if ((lg.address || '').toLowerCase() !== USDT_BSC_CONTRACT.toLowerCase()) continue;
-        var topics = lg.topics || [];
-        if ((topics[2] || '').toLowerCase().replace(/^0x0+/, '0x') !== ('0x' + VIP_WALLET.toLowerCase().replace('0x', '')) &&
-            !(topics[2] || '').toLowerCase().endsWith(targetTopic)) continue;
-        var usdValue = parseInt(lg.data, 16) / 1e18;
-        if (usdValue >= VIP_PRICE - 0.25) return { verified: true, amount: usdValue };
-        return { verified: false, error: 'Jumlah transfer $' + usdValue.toFixed(2) + ' USDT — di bawah $' + VIP_PRICE + '.' };
-      }
-      return { verified: false, error: T('ui.eVipNoTransfer', 'Transfer USDT ke wallet VIP resmi tidak ditemukan pada TxHash ini.') };
-    }).catch(function () {
-      clearTimeout(t);
-      return attempt(idx + 1);
-    });
+/* v2026.66: verifikasi pembayaran DIPINDAH penuh ke server (/api/billing/verify-bsc).
+   Versi lama memverifikasi sendiri via RPC publik lalu MENULIS SENDIRI tier VIP di
+   localStorage — siapa pun bisa mengaktifkan VIP tanpa membayar. Sekarang server yang
+   memeriksa receipt on-chain, menolak replay txHash, dan menandatangani entitlement. */
+function serverRegister(email, name) {
+  return fetch('/api/auth/register', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, name: name })
+  }).then(function (r) { return r.json(); });
+}
+// Pastikan akun punya JWT server (sesi publik diterbitkan /api/auth/register).
+function ensureAuthToken() {
+  if (state.user && state.user.authToken) return Promise.resolve(state.user.authToken);
+  if (!state.user || !state.user.email || /@xstarzg\.local$/.test(state.user.email)) return Promise.reject(new Error('no-login'));
+  return serverRegister(state.user.email, state.user.name).then(function (d) {
+    if (!d || !d.ok || !d.token) throw new Error((d && d.error) || 'register-failed');
+    state.user.authToken = d.token;
+    if (d.user && d.user.tier === 'VIP' && d.user.vipUntil) {
+      state.user.tier = 'VIP';
+      state.user.vipUntil = d.user.vipUntil;
+    } else if (d.user && d.user.tier === 'FREE' && state.user.tier === 'VIP') {
+      // Server (D1) menyatakan entitlement sudah habis -> turunkan secara jujur.
+      state.user.tier = 'FREE';
+      state.user.vipUntil = null;
+    }
+    saveSession();
+    return d.token;
+  });
+}
+// Verifikasi on-chain DI SERVER + auto-approve entitlement bertanda tangan.
+// Jika JWT kedaluwarsa (401), daftarkan ulang sesi lalu coba SEKALI lagi.
+function serverVerifyBscPayment(txHash) {
+  var callVerify = function (token) {
+    return fetch('/api/billing/verify-bsc', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ txHash: txHash })
+    }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); });
   };
-  return attempt(0);
+  return ensureAuthToken().then(callVerify).then(function (res) {
+    if (res && res.status === 401 && state.user) {
+      state.user.authToken = null;
+      return ensureAuthToken().then(callVerify);
+    }
+    return res;
+  }).then(function (res) {
+    var d = (res && res.d) || {};
+    if (d && d.ok) return { verified: true, vipUntil: Number(d.vipUntil) || 0, token: d.token || null };
+    return { verified: false, error: (d && d.error) || T('ui.eVipNotFound', 'TxHash belum ditemukan. Pastikan transfer $29 USDT (BEP-20) sudah terkonfirmasi.') };
+  });
+}
+// v2026.66: hidrasi modal pembayaran dari faktur SERVER (/api/billing/invoice) —
+// nominal, wallet resmi, dan ID faktur satu sumber kebenaran. Markup hardcoded
+// hanya fallback bila fetch gagal (mis. fungsi Cloudflare belum aktif di dev).
+function hydrateVipInvoice() {
+  try {
+    if (typeof fetch !== 'function') return;
+    fetch('/api/billing/invoice').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok || !d.invoice) return;
+      var w = $id('vipWalletAddr'); if (w && d.invoice.wallet) { w.textContent = d.invoice.wallet; VIP_WALLET = d.invoice.wallet; }
+      var p = $id('vipPriceLabel'); if (p && d.invoice.amount) { p.textContent = '$' + Number(d.invoice.amount).toFixed(2) + ' USDT'; VIP_PRICE = Number(d.invoice.amount) || VIP_PRICE; }
+      var inv = $id('vipInvoiceId'); if (inv) inv.textContent = d.invoice.id || '';
+    }).catch(function () {});
+  } catch (e) {}
 }
 function bindVipFlow() {
   var pm = $id('paymentModal');
   var open = function (reasonText) {
     if (reasonText) { var r = $id('vipModalReasonText'); if (r) r.textContent = reasonText; }
     if (pm) pm.classList.remove('hidden');
+    hydrateVipInvoice();
   };
   var bind = function (id, fn) { var el = $id(id); if (el) el.addEventListener('click', fn); };
   bind('btnOpenVipModal', function () { open(); });
@@ -2543,21 +2614,31 @@ function bindVipFlow() {
       if (fb) { fb.style.color = '#fda4af'; fb.textContent = T('ui.eVipTxInvalid', '⚠️ Format TxHash tidak valid — harus diawali 0x dan 64 karakter hex.'); }
       return;
     }
+    // Lisensi diikat ke akun nyata — Mode Tamu harus login dulu (bukan placeholder lokal).
+    if (!state.user || !state.user.email || state.user.tier === 'GUEST' || /@xstarzg\.local$/.test(state.user.email)) {
+      if (fb) { fb.style.color = '#fda4af'; fb.textContent = T('ui.eVipNeedLogin', '⚠️ Masuk dengan email Google dulu — lisensi VIP diikat ke akun Anda.'); }
+      var gm = $id('googleAuthModal'); if (gm) gm.classList.remove('hidden');
+      return;
+    }
     if (fb) { fb.style.color = '#94a3b8'; fb.textContent = T('ui.eVipVerifying', '⏳ Memverifikasi pembayaran on-chain di jaringan BNB Smart Chain (BEP-20)…'); }
     if (btn) btn.disabled = true;
-    clientVerifyBscPayment(tx).then(function (res) {
+    serverVerifyBscPayment(tx).then(function (res) {
       if (btn) btn.disabled = false;
       if (res && res.verified) {
-        if (fb) { fb.style.color = '#10b981'; fb.textContent = fillTpl(T('ui.eVipSuccess', '✅ Pembayaran ${amt} USDT TERVERIFIKASI ON-CHAIN! Lisensi VIP 30 hari aktif.'), { amt: (res.amount || VIP_PRICE).toFixed(2) }); }
-        state.user = state.user || { email: 'vip@xstarzg.local', name: 'VIP Member' };
+        if (fb) { fb.style.color = '#10b981'; fb.textContent = fillTpl(T('ui.eVipSuccess', '✅ Pembayaran ${amt} USDT TERVERIFIKASI ON-CHAIN! Lisensi VIP 30 hari aktif.'), { amt: VIP_PRICE.toFixed(2) }); }
+        // Entitlement BERASAL DARI SERVER: tier, vipUntil, dan token bertanda tangan.
         state.user.tier = 'VIP';
-        state.user.vipUntil = Date.now() + 30 * 86400000;
+        state.user.vipUntil = res.vipUntil || (Date.now() + 30 * 86400000);
+        if (res.token) state.user.authToken = res.token;
         saveSession(); updateUserUi();
         setTimeout(function () { if (pm) pm.classList.add('hidden'); }, 2200);
       } else if (fb) {
         fb.style.color = '#fda4af';
         fb.textContent = 'ℹ️ ' + ((res && res.error) || T('ui.eVipNotFound', 'TxHash belum ditemukan. Pastikan transfer $29 USDT (BEP-20) sudah terkonfirmasi.'));
       }
+    }).catch(function () {
+      if (btn) btn.disabled = false;
+      if (fb) { fb.style.color = '#fda4af'; fb.textContent = 'ℹ️ ' + T('ui.eVipServerFail', 'Server verifikasi tidak merespons. Coba lagi sesaat.'); }
     });
   });
 }
@@ -2614,6 +2695,10 @@ function bindUiEvents() {
     saveSession();
     closeGoogle();
     enterWorkspace();
+    // v2026.66: terbitkan sesi JWT server sunyi-2 (dibutuhkan untuk verifikasi
+    // pembayaran VIP yang mengikat identitas). Gagal jaringan = ditoleransi,
+    // akan dicoba ulang otomatis saat user menekan tombol verifikasi.
+    try { ensureAuthToken().then(function () { updateUserUi(); }).catch(function () {}); } catch (e) {}
   });
   /* ---- Jalur khusus OWNER: email + kode rahasia, divalidasi penuh di server ---- */
   bind('btnToggleOwnerLogin', function () {
@@ -2832,6 +2917,7 @@ function bootCore() {
     renderInstrumentCatalog();
     updateUserUi();
     verifyOwnerSession();
+    verifyVipSession();
     syncModeSections();
     enterWorkspace();
   } else {
