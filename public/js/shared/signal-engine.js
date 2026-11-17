@@ -1287,13 +1287,23 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
    (localStorage di app.js); fungsi-fungsi di sini murni/deterministik. */
 export function createSignalLock(a, symbol, mode, subMode) {
   if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return null;
+  const entry = Number(a.levels.entry), sl = Number(a.levels.sl), tp1 = Number(a.levels.tp1);
+  const tfSec = a.tfSeconds || TF_SECS[a.timeframe] || 3600;
+  const brain = tfSec <= 900 ? 'SCALP' : 'SNIPER';
+  const risk = Math.max(Math.abs(entry - sl), 1e-12);
+  const beBuffer = Math.max(risk * 0.08, entry * 0.0003); // buffer tipis di atas entry (menutup fee spread)
+  const slPlus = a.direction === 'LONG' ? entry + beBuffer : entry - beBuffer;
+
   return {
-    v: 2,
+    v: 3,
     symbol: String(symbol || a.symbol).toUpperCase(),
     mode: mode || 'trader', subMode: subMode || null,
-    tf: a.timeframe, direction: a.direction,
+    tf: a.timeframe, tfSeconds: tfSec, brain,
+    direction: a.direction,
     entry: a.levels.entry, sl: a.levels.sl,
     tp1: a.levels.tp1, tp2: a.levels.tp2, tp3: a.levels.tp3,
+    slPlus: slPlus,
+    bePlusActive: false,
     rrRatio: a.levels.rrRatio,
     score: a.confluenceScore,
     winRate: a.gating ? a.gating.winRate : (a.backtest ? a.backtest.winRate : 0),
@@ -1305,16 +1315,39 @@ export function validateSignalLock(lock, closedCandles, fresh) {
   if (!lock || lock.status !== 'ACTIVE') return { status: 'GONE' };
   try {
     const isLong = lock.direction === 'LONG';
+    const entry = Number(lock.entry), sl = Number(lock.sl), tp1 = Number(lock.tp1);
+    const risk = Math.max(Math.abs(entry - sl), 1e-12);
+    const targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
+    const brain = lock.brain || (lock.tfSeconds <= 900 ? 'SCALP' : 'SNIPER');
+    // Batas pemicu saran SL+ (0-Risk):
+    // SCALP (M1-M15): sangat cepat & agresif (cukup 30% jarak ke TP1)
+    // SNIPER (M30+): sabar seperti investor, bernapas sampai 50% jarak ke TP1
+    const beTriggerRatio = brain === 'SCALP' ? 0.30 : 0.50;
+
     let newBars = 0;
+    let maxFavorableDist = 0;
+    let bePlusActive = !!lock.bePlusActive;
+
     for (let i = 0; i < closedCandles.length; i++) {
       const c = closedCandles[i];
       if (!c || c.time <= lock.anchorClosedTime) continue;
       newBars++;
+
+      // Ukur pergerakan positif maksimum
+      const favorableDist = isLong ? (Number(c.high) - entry) : (entry - Number(c.low));
+      if (favorableDist > maxFavorableDist) maxFavorableDist = favorableDist;
+
+      // Cek apakah menyentuh ambang SL+ (0-Risk)
+      if (!bePlusActive && maxFavorableDist >= beTriggerRatio * targetDist) {
+        bePlusActive = true;
+      }
+
+      // Cek eksekusi TP / SL
       if (isLong) {
-        if (c.low <= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time };
+        if (c.low <= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time, beProtected: bePlusActive, slPlus: lock.slPlus };
         if (c.high >= lock.tp1) return { status: 'TP_HIT', reason: 'TP tersentuh — setup selesai', at: c.time };
       } else {
-        if (c.high >= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time };
+        if (c.high >= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time, beProtected: bePlusActive, slPlus: lock.slPlus };
         if (c.low <= lock.tp1) return { status: 'TP_HIT', reason: 'TP tersentuh — setup selesai', at: c.time };
       }
     }
@@ -1328,7 +1361,7 @@ export function validateSignalLock(lock, closedCandles, fresh) {
     };
     if (newBars > 0 && newBars >= tfLifeBars(lock.tf)) {
       const lastBar = closedCandles[closedCandles.length - 1];
-      return { status: 'EXPIRED', reason: 'Horison setup berakhir tanpa TP/SL (' + newBars + ' candle berlalu)', at: lastBar ? lastBar.time : Date.now() };
+      return { status: 'EXPIRED', reason: 'Horison setup berakhir tanpa TP/SL (' + newBars + ' candle berlalu)', at: lastBar ? lastBar.time : Date.now(), beProtected: bePlusActive, slPlus: lock.slPlus };
     }
     // Pembatalan struktur: flip label SMC saja TIDAK cukup untuk membunuh setup yang
     // sudah direkomendasikan (TF scalping memang sering chop-flip). Invalidasi baru sah
@@ -1340,19 +1373,25 @@ export function validateSignalLock(lock, closedCandles, fresh) {
       const bullishFlip = st.indexOf('BULLISH') === 0;
       const lastClosed = closedCandles[closedCandles.length - 1];
       const cls = lastClosed ? Number(lastClosed.close) : NaN;
-      const risk = Math.max(Math.abs(Number(lock.entry) - Number(lock.sl)), 1e-12);
       const againstLong = isLong && Number.isFinite(cls) && cls <= Number(lock.entry) - 0.5 * risk;
       const againstShort = !isLong && Number.isFinite(cls) && cls >= Number(lock.entry) + 0.5 * risk;
       if ((isLong && bearishFlip && againstLong) || (!isLong && bullishFlip && againstShort)) {
-        return { status: 'STRUCTURE_INVALID', reason: 'Struktur berbalik + harga diterima melawan trade (>=50% risiko) — Order Block batal' };
+        return { status: 'STRUCTURE_INVALID', reason: 'Struktur berbalik + harga diterima melawan trade (>=50% risiko) — Order Block batal', beProtected: bePlusActive, slPlus: lock.slPlus };
       }
     }
-    return { status: 'ACTIVE' };
+    const progressPct = Math.min(100, Math.max(0, Math.round((maxFavorableDist / targetDist) * 100)));
+    return {
+      status: 'ACTIVE',
+      bePlusActive: bePlusActive,
+      slPlus: lock.slPlus,
+      brain: brain,
+      progressPct: progressPct
+    };
   } catch (e) {
     return { status: 'ACTIVE' };
   }
 }
-export function applyLockedSignal(a, lock) {
+export function applyLockedSignal(a, lock, verdict) {
   if (!a || a.error || !lock) return a;
   a.direction = lock.direction;
   a.signalEligible = true;
@@ -1361,13 +1400,18 @@ export function applyLockedSignal(a, lock) {
   a.lockScore = lock.score;
   a.lockWinRate = lock.winRate;
   a.confluenceScore = Math.max(a.confluenceScore || 0, lock.score || 0);
-  // Skor keyakinan yang tampil WAJIB mengikuti skor terkunci — sinyal terkunci
-  // membawa Entry/SL/TP dan skornya sebagai satu paket deterministik (tidak boleh
-  // panel menampilkan skor fresh yang lebih rendah sementara angka entry tetap ada).
   a.convictionScore = Math.max(a.convictionScore || 0, lock.score || 0);
+  const beActive = !!(verdict && verdict.bePlusActive != null ? verdict.bePlusActive : lock.bePlusActive);
+  a.tradeManagement = {
+    brain: lock.brain || (lock.tfSeconds <= 900 ? 'SCALP' : 'SNIPER'),
+    bePlusActive: beActive,
+    slPlus: lock.slPlus,
+    progressPct: verdict && verdict.progressPct ? verdict.progressPct : (beActive ? 40 : 0)
+  };
   a.levels = Object.assign({}, a.levels, {
     entry: lock.entry, sl: lock.sl,
     tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
+    slPlus: lock.slPlus,
     rrRatio: lock.rrRatio
   });
   return a;
