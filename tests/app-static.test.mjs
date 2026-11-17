@@ -23,12 +23,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.67/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.67/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.67">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.67">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.67/.test(boot) && /signal-engine\.js\?v=2026\.67/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.67/.test(i18nIndex));
+chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.68/.test(html));
+chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.68/.test(html));
+chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.68">/.test(html));
+chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.68">/.test(html));
+chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.68/.test(boot) && /signal-engine\.js\?v=2026\.68/.test(boot));
+chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.68/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -162,7 +162,7 @@ chk('LWC series menyesuaikan priceFormat per simbol (syncChartPriceFormat)', /fu
 /* v2026.65 lint jurnal sinyal + masa hidup horison */
 chk('jurnal sinyal: section + renderer + wiring outcome', /id="signalJournalList"/.test(html) && /renderSignalJournal/.test(app) && /xstarzg_siglock_v3/.test(app));
 chk('EXPIRED dicatat (bukan hilang diam-2) & ikut cooldown', /oc !== 'EXPIRED'/.test(app) && /status === 'EXPIRED'/.test(app) && /EXPIRED/.test(eng));
-/* v2026.67 lint: jurnal clickable + billing server-side (auto-approve bertanda tangan) */
+/* v2026.68 lint: jurnal clickable + billing server-side (auto-approve bertanda tangan) */
 chk('kartu jurnal clickable -> gotoInstrument(sym, tf)', /jnl-card" data-sym/.test(app) && /list\.querySelectorAll\('\.radar-card\[data-sym\]'\)/.test(app) && /gotoInstrument\(card\.getAttribute\('data-sym'\)/.test(app) && /ui\.jnlOpen/.test(app));
 chk('verifikasi VIP via SERVER /api/billing/verify-bsc (grant lokal dihapus)', app.includes("'/api/billing/verify-bsc'") && !/function clientVerifyBscPayment/.test(app) && /serverVerifyBscPayment/.test(app));
 chk('sesi JWT publik /api/auth/register + dipanggil saat login', /api\/auth\/register/.test(app) && /function ensureAuthToken/.test(app) && /tvip|authToken/.test(app));
@@ -171,12 +171,14 @@ chk('endpoint register menerbitkan JWT FREE & tak pernah OWNER_VIP', /signJwt/.t
 chk('revalidasi sesi VIP saat boot (verifyVipSession + /api/auth/me)', /function verifyVipSession/.test(app) && /verifyVipSession\(\);/.test(app) && /api\/auth\/me/.test(app) && /authenticateRequest/.test(R('../functions/api/auth/me.js')));
 chk('faktur invoice endpoint nyata + hidrasi modal', /onRequestGet/.test(R('../functions/api/billing/invoice.js')) && /hydrateVipInvoice/.test(app) && /id="vipInvoiceId"/.test(html) && /id="vipWalletAddr"/.test(html) && /ui\.payInvoiceId/.test(html));
 chk('wrangler.toml mengikat D1 DB (database_id terkonfigurasi)', /\[\[d1_databases\]\][\s\S]*binding\s*=\s*"DB"[\s\S]*database_id\s*=\s*"d29a4547-d50e-42fb-a700-56364d967abb"/.test(wrangler));
-/* v2026.67 HEMAT KUOTA CLOUDFLARE lint (paket gratis 100rb request/hari) */
+/* v2026.68 HEMAT KUOTA CLOUDFLARE lint (paket gratis 100rb request/hari) */
 chk('ticker 5 dtk + 0 request saat tab latar + crypto Binance-first', /RT_TICK_MS = 5000/.test(app) && /document\.hidden\) return;/.test(app) && /data-api\.binance\.vision\/api\/v3\/ticker\/price/.test(app));
 chk('ticker tanpa cache-buster _t pada quote=1 (respons bisa di-cache)', !/analyze\?quote=1&symbol=' \+ encodeURIComponent\(sym\) \+ '&tf=' \+ encodeURIComponent\(tf\) \+ '&_t='/.test(app));
 chk('batch radar & investor diet (30/4 & 26/6) + autopilot force 4 mnt', /rotatingSlice\(catalogSortedStable\(\), 30, 4\)/.test(app) && /rotatingSlice\(investableUniverse\(\), 26, 6\)/.test(app) && />= 4 \* 60000/.test(app));
 chk('edge analyze quote-only di-cache 4 dtk lintas-user', /caches\.default/.test(edgeAnalyze) && /max-age=4/.test(edgeAnalyze));
-/* v2026.67 RESPONSIF MOBILE lint */
+/* v2026.68 RESPONSIF MOBILE lint */
 chk('responsif mobile: overflow-x hidden pada html & body + radar-card min-width 0', /html\s*\{[\s\S]*overflow-x:\s*hidden/.test(css) && /radar-card\s*\{[\s\S]*min-width:\s*0/.test(css) && /#inpSearchAsset/.test(css));
+/* v2026.68 ZERO-RISK SL+ & DUAL-BRAIN MANAGEMENT lint */
+chk('trade management SL+ 0-risk di gateBlockHtml & jurnal', /eSlPlusActive/.test(app) && /BE_SAVED/.test(app) && /jnlBeActive/.test(app) && /eScalpAdvisor/.test(app) && /eSniperAdvisor/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

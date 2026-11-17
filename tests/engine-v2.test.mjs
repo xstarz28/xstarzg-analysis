@@ -439,5 +439,28 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   const v2 = SE.validateSignalLock(lock, c2, null);
   chk('TP tersentuh lebih dulu => TP_HIT (usia setup tidak membatalkan win)', v2.status === 'TP_HIT');
 }
+
+/* ---------- 25. ZERO-RISK SL+ & DUAL-BRAIN PROTEKSI MODAL ---------- */
+{
+  const scalpAnalysis = {
+    symbol: 'ETH/USDT', timeframe: 'M5', mode: 'trader',
+    direction: 'LONG', signalEligible: true,
+    levels: { entry: 2000, sl: 1980, tp1: 2040, tp2: 2060, tp3: 2080, rrRatio: 2.0 },
+    confluenceScore: 85, anchorClosedTime: 1000, anchorClosedClose: 2000,
+    gating: { winRate: 75 }, backtest: { winRate: 75 }
+  };
+  const lockScalp = SE.createSignalLock(scalpAnalysis, 'ETH/USDT', 'trader', 'futures');
+  chk('lock Scalp membawa slPlus & brain SCALP', !!lockScalp && lockScalp.brain === 'SCALP' && lockScalp.slPlus > 2000);
+
+  // Scalp: naik 35% jarak target (target 40 -> 35% = 14 -> price 2014) -> pemicu bePlusActive
+  const cUp = [{ time: 1300, open: 2002, high: 2016, low: 2001, close: 2015, volume: 100 }];
+  const vScalp = SE.validateSignalLock(lockScalp, cUp, null);
+  chk('scalp mencapai 30%+ target -> bePlusActive TRUE (saran 0-risk)', vScalp.status === 'ACTIVE' && vScalp.bePlusActive === true && vScalp.slPlus > 2000);
+
+  // Jika setelah bePlusActive harga berbalik dan kena SL lama -> ditandai beProtected
+  const cDrop = [{ time: 1400, open: 2010, high: 2012, low: 1975, close: 1978, volume: 100 }];
+  const vSaved = SE.validateSignalLock(Object.assign({}, lockScalp, { bePlusActive: true }), cDrop, null);
+  chk('order membalik pasca-profit ditandai beProtected (0-Risk modal aman)', vSaved.status === 'SL_HIT' && vSaved.beProtected === true);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

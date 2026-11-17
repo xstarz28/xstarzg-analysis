@@ -604,16 +604,24 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     var oc = String((verdict && verdict.status) || '');
     // v2026.65: EXPIRED dicatat juga ke jurnal (transparansi penuh) namun TIDAK
     // memengaruhi winrate adaptif (bukan kemenangan/kekalahan — netral usia setup).
-    if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED') return;
+    if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED' && oc !== 'BE_SAVED') return;
+    var beSaved = !!(verdict && verdict.beProtected) || !!(lock && lock.bePlusActive);
+    var finalStatus = (oc !== 'TP_HIT' && beSaved) ? 'BE_SAVED' : oc;
+    var finalReason = (finalStatus === 'BE_SAVED')
+      ? ((verdict && verdict.reason ? verdict.reason + ' • ' : '') + 'Terselamatkan oleh proteksi SL+ (0-Risk, modal aman)')
+      : ((verdict && verdict.reason) || '');
+
     var out = signalOutcomeStore();
     out[signalLockId(symbol, tf)] = {
-      status: oc, reason: verdict.reason || '', at: Date.now(),
+      status: finalStatus, reason: finalReason, at: Date.now(),
       dir: lock && lock.direction, entry: lock && lock.entry, score: lock && lock.score,
+      slPlus: lock && lock.slPlus, bePlusActive: beSaved,
       // Snapshot lock penuh -> outcome bisa direkonsiliasi terhadap candle asli
       // (jika badge lahir dari feed fabrikasi, lock dipulihkan & badge dicabut).
       lock: lock ? {
         v: lock.v, symbol: lock.symbol, tf: lock.tf, direction: lock.direction,
         entry: lock.entry, sl: lock.sl, tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
+        slPlus: lock.slPlus, bePlusActive: beSaved,
         rrRatio: lock.rrRatio, score: lock.score, winRate: lock.winRate,
         anchorClosedTime: lock.anchorClosedTime, anchorPrice: lock.anchorPrice, issuedAt: lock.issuedAt
       } : null
@@ -621,7 +629,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     var ks = Object.keys(out);
     while (ks.length > 80) { var k0 = ks.shift(); delete out[k0]; }
     localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
-    if (SE && SE.updateRadarAccuracy && oc !== 'EXPIRED') {
+    if (SE && SE.updateRadarAccuracy && oc !== 'EXPIRED' && finalStatus !== 'BE_SAVED') {
       var acc = radarAccStore();
       var hz = hzOfTf(tf);
       acc[hz] = SE.updateRadarAccuracy(acc[hz], oc === 'TP_HIT' ? 'TP' : 'SL');
@@ -632,7 +640,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
 }
 function signalCooldownActive(symbol, tf) {
   var o = signalOutcomeStore()[signalLockId(symbol, tf)];
-  return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID' || o.status === 'EXPIRED') && (Date.now() - o.at) < outcomeCooldownMs(tf));
+  return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID' || o.status === 'EXPIRED' || o.status === 'BE_SAVED') && (Date.now() - o.at) < outcomeCooldownMs(tf));
 }
 function latestSignalOutcome(symbol, tf) {
   var o = signalOutcomeStore()[signalLockId(symbol, tf)];
@@ -713,7 +721,11 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             if (lock && lock.tf === tfA) {
               var verdict = SE.validateSignalLock(lock, closedBars0, a);
               if (verdict && verdict.status === 'ACTIVE') {
-                SE.applyLockedSignal(a, lock);
+                if (verdict.bePlusActive && !lock.bePlusActive) {
+                  lock.bePlusActive = true;
+                  saveSignalLock(symbol, tfA, lock);
+                }
+                SE.applyLockedSignal(a, lock, verdict);
               } else {
                 a.lockCleared = verdict || { status: 'GONE' };
                 recordSignalOutcome(symbol, tfA, verdict, lock); // jujur: outcome dicatat
@@ -726,7 +738,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible
                 && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
-              if (nl) { saveSignalLock(symbol, tfA, nl); SE.applyLockedSignal(a, nl); }
+              if (nl) { saveSignalLock(symbol, tfA, nl); SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false }); }
             }
           }
         } catch (e) {}
@@ -1212,9 +1224,30 @@ function gateBlockHtml(a) {
       fillTpl(T('ui.eGateLockOk', '🔒 Setup TERKUNCI di TF {tf} — {dir} • skor {s} • winrate {w}%. Angka Entry/SL/TP permanen hingga TP tersentuh, SL tembus, atau struktur penutup membatalkan Order Block.'), {
         tf: (a.lockTf || a.timeframe || state.tf), dir: dTxt,
         s: (a.lockScore || a.confluenceScore || 0), w: num(a.lockWinRate || (a.backtest ? a.backtest.winRate : 0)).toFixed(1)
-      }) + '</div>' +
-      (a.riskPlan ? '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.32);font-size:11.5px;color:#ddd6fe;">' +
-        fillTpl(T('ui.eRiskPlan', '🛡️ Rencana Master: risiko {r}% • setengah TP1 lalu SL ke Break-Even • sisanya runner TP2/TP3 • maks {m} posisi aktif.'), { r: a.riskPlan.riskPct, m: a.riskPlan.maxActivePositions }) + '</div>' : '');
+      }) + '</div>';
+
+    var tm = a.tradeManagement || {};
+    var L = (typeof effectiveLevels === 'function') ? effectiveLevels(a) : (a.levels || {});
+    var slPlusVal = tm.slPlus || (a.direction === 'LONG' ? Number(L.entry) * 1.0008 : Number(L.entry) * 0.9992);
+    var slPlusFmt = typeof formatPrice === 'function' ? formatPrice(slPlusVal, a.symbol) : String(slPlusVal);
+    if (tm.bePlusActive) {
+      out += '<div style="margin-top:6px;padding:8px 10px;border-radius:8px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.6);font-size:12px;color:#6ee7b7;font-weight:700;">' +
+        fillTpl(T('ui.eSlPlusActive', '🛡️ SARAN 0-RISK AKTIF: Harga telah mencapai zona aman ({pct}% target). SEGERA GESER SL KE {slp} (SL+ di atas entry). Posisi ini sekarang 100% BEBAS RISIKO!'), { pct: tm.progressPct || 40, slp: slPlusFmt }) +
+        '</div>';
+    } else if (tm.brain === 'SCALP') {
+      out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(245,158,11,0.09);border:1px solid rgba(245,158,11,0.35);font-size:11.5px;color:#fde68a;">' +
+        fillTpl(T('ui.eScalpAdvisor', '⚡ OTAK SCALP: Disiplin proteksi agresif — saat harga bergerak 30% ke target, sistem menyalakan instruksi SL+ ke {slp} untuk mengunci modal 0-risk.'), { slp: slPlusFmt }) +
+        '</div>';
+    } else {
+      out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.32);font-size:11.5px;color:#bae6fd;">' +
+        fillTpl(T('ui.eSniperAdvisor', '🎯 OTAK SNIPER: Kesabaran institusional ala investor — setup diberi ruang bernapas retest. Instruksi SL+ Breakeven ({slp}) aktif setelah 50% target atau konfirmasi struktur searah.'), { slp: slPlusFmt }) +
+        '</div>';
+    }
+
+    if (a.riskPlan) {
+      out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.32);font-size:11.5px;color:#ddd6fe;">' +
+        fillTpl(T('ui.eRiskPlan', '🛡️ Rencana Master: risiko {r}% • setengah TP1 lalu SL ke Break-Even • sisanya runner TP2/TP3 • maks {m} posisi aktif.'), { r: a.riskPlan.riskPct, m: a.riskPlan.maxActivePositions }) + '</div>';
+    }
   } else {
     out += '<div style="margin-top:7px;padding:7px 9px;border-radius:7px;background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.32);font-size:11.5px;color:#fca5a5;">' +
       fillTpl(T('ui.eGateForbidden', '⛔ TIMEFRAME {tf} DILARANG ENTRY (rawan loss) — gerbang institusional menolak; tidak ada angka Entry/SL/TP yang dipaksakan di TF ini.'), { tf: (a.timeframe || state.tf) }) +
@@ -1835,9 +1868,10 @@ function newsSoonFor(symbol, windowMin) {
    Rekam jejak TERVERIFIKASI perangkat: setiap komitmen tercatat sampai putusan
    akhir — TP, SL, Invalid struktur, atau Expired horison. Ini jawaban atas
    "kenapa sinyal berubah/hilang": tidak hilang, tersimpan & bisa diaudit. */
-function jnlStatusBadge(st) {
+function jnlStatusBadge(st, beActive) {
   var m = {
-    ACTIVE: ['#38bdf8', 'ui.jnlActive', '🔒 AKTIF - menunggu TP/SL'],
+    ACTIVE: beActive ? ['#10b981', 'ui.jnlBeActive', '🛡️ SL+ AKTIF (0-RISK)'] : ['#38bdf8', 'ui.jnlActive', '🔒 AKTIF - menunggu TP/SL'],
+    BE_SAVED: ['#10b981', 'ui.jnlBeSaved', '🛡️ TERSELAMATKAN SL+ (0-RISK)'],
     TP_HIT: ['#10b981', 'ui.jnlTP', '✅ TP TERSENTUH'],
     SL_HIT: ['#f43f5e', 'ui.jnlSL', '❌ SL TERSENTUH'],
     STRUCTURE_INVALID: ['#f59e0b', 'ui.jnlInvalid', '⚠️ INVALID STRUKTUR'],
@@ -1855,11 +1889,11 @@ function renderSignalJournal() {
     if (k === '__migratedV2') continue;
     var lk = locks[k];
     if (!lk || lk.status !== 'ACTIVE' || !lk.tf) continue;
-    rows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', entry: lk.entry, sl: lk.sl, tp1: lk.tp1, score: lk.score, at: lk.issuedAt || 0 });
+    rows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', bePlusActive: !!lk.bePlusActive, slPlus: lk.slPlus, entry: lk.entry, sl: lk.sl, tp1: lk.tp1, score: lk.score, at: lk.issuedAt || 0 });
   }
   for (var k2 in outs) {
     var o = outs[k2]; if (!o || !o.lock) continue;
-    rows.push({ sym: o.lock.symbol, tf: o.lock.tf, dir: o.dir, st: o.status, entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, score: o.score, at: o.at, reason: o.reason });
+    rows.push({ sym: o.lock.symbol, tf: o.lock.tf, dir: o.dir, st: o.status, bePlusActive: !!o.bePlusActive, slPlus: o.slPlus || (o.lock && o.lock.slPlus), entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, score: o.score, at: o.at, reason: o.reason });
   }
   // ringkasan per horison (akurasi adaptif + jumlah outcome)
   if (sum) {
@@ -1878,9 +1912,12 @@ function renderSignalJournal() {
   rows.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
   var html = '';
   rows.slice(0, 14).forEach(function (r) {
-    var b = jnlStatusBadge(r.st);
+    var b = jnlStatusBadge(r.st, r.bePlusActive);
     var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
     var tTxt = r.at ? new Date(r.at).toLocaleString(navigator.language || 'id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    var slPlusRow = (r.slPlus && (r.bePlusActive || r.st === 'BE_SAVED'))
+      ? ' • <b style="color:#6ee7b7;">SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (0-Risk)</b>'
+      : '';
     // v2026.66: setiap kartu jurnal (riwayat TP/SL/invalid/expired HARI LALU pun)
     // bisa diklik -> membuka kembali grafik instrumen+TF tersebut via gotoInstrument.
     html += '<div class="radar-card jnl-card" data-sym="' + r.sym + '" data-tf="' + (r.tf || '') + '" style="cursor:pointer;" title="' + escH(T('ui.jnlOpen', 'Klik untuk membuka kembali grafik instrumen ini')) + '">' +
@@ -1892,7 +1929,7 @@ function renderSignalJournal() {
         '</span>' +
       '</div>' +
       '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;word-break:break-word;">' +
-        '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + ' • TP1 ' + formatPrice(num(r.tp1), r.sym) +
+        '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + slPlusRow + ' • TP1 ' + formatPrice(num(r.tp1), r.sym) +
       '</div>' +
       (r.reason ? '<div style="font-size:10.2px;color:#64748b;margin-top:2px;">' + escH(String(r.reason)).slice(0, 90) + '</div>' : '') +
     '</div>';
@@ -2000,12 +2037,13 @@ function paintRadarItems(cfg, items, noneQualified) {
     if (oc && a.__estFeed) oc = null; // outcome di feed estimasi tidak dimunculkan
     if (oc) {
       var ocTxt = oc.status === 'TP_HIT' ? T('ui.eOutTp', 'TP tercapai — setup selesai')
+        : oc.status === 'BE_SAVED' ? T('ui.eOutBe', 'Terselamatkan SL+ (0-Risk, modal aman)')
         : oc.status === 'STRUCTURE_INVALID' ? T('ui.eOutInv', 'Dibatalkan struktur + penerimaan harga')
         : T('ui.eOutSl', 'SL tersentuh — sinyal invalid');
       var dt = new Date(oc.at);
       var hhmm = ('0' + dt.getHours()).slice(-2) + ':' + ('0' + dt.getMinutes()).slice(-2);
-      outBadge = '<span class="sig-badge ' + (oc.status === 'TP_HIT' ? 'long' : 'wait') + '" style="margin-top:4px;">'
-        + (oc.status === 'TP_HIT' ? '✓ ' : '✗ ') + ocTxt + ' • ' + hhmm + '</span>';
+      outBadge = '<span class="sig-badge ' + (oc.status === 'TP_HIT' || oc.status === 'BE_SAVED' ? 'long' : 'wait') + '" style="margin-top:4px;">'
+        + (oc.status === 'TP_HIT' ? '✓ ' : oc.status === 'BE_SAVED' ? '🛡️ ' : '✗ ') + ocTxt + ' • ' + hhmm + '</span>';
     }
     html += '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '" data-tf="' + it.tf + '">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
