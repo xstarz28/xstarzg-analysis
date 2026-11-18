@@ -188,5 +188,8 @@ chk('signal-engine mengekspor calculateDualFibonacci & menyematkan fib pada leve
 chk('banner peringatan kedaluwarsa VIP & modal pelanggan owner terpasang', /id="vipExpiryWarningBanner"/.test(html) && /id="ownerSubscribersModal"/.test(html) && /vipExpiryDaysText/.test(app));
 chk('admin overview endpoint memverifikasi owner & query D1', /vip_entitlements/.test(R('../functions/api/admin/overview.js')) && /OWNER_EMAILS/.test(R('../functions/api/admin/overview.js')));
 chk('quotaLimit & auth/me otomatis mendowngrade VIP kedaluwarsa ke FREE', /state\.user\.tier = 'FREE'/.test(app) && /out\.tier = 'FREE'/.test(R('../functions/api/auth/me.js')));
+/* SMART SIGNAL & PRICE ALARM (v2026.69) lint */
+chk('tombol alarm sinyal, chip status & toast notifikasi terpasang di HTML', /id="btnToggleSignalAlarm"/.test(html) && /id="alarmStatusChip"/.test(html) && /id="signalAlarmToast"/.test(html));
+chk('engine alarm app.js: Web Audio chime, Web Notification & checkSignalAlarm terpasang', /playAlertChime/.test(app) && /checkSignalAlarm/.test(app) && /toggleSignalAlarm/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
