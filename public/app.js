@@ -1580,6 +1580,7 @@ function renderAllVisuals(analysis) {
   try { renderNarrative(analysis); } catch (e) {}
   try { renderPillars(analysis); } catch (e) {}
   try { writeBackRadarPools(analysis); } catch (e) {}
+  try { checkSignalAlarm(analysis); } catch (e) {}
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
    TF yang sama -> kartu rekomendasi selalu mencerminkan kebenaran engine terkini. */
@@ -1656,6 +1657,9 @@ function applyLiveTick(price, changePct, silent) {
   }
   setTxt('hdrHigh', formatPrice(bar.high, state.symbol));
   setTxt('hdrLow', formatPrice(bar.low, state.symbol));
+  if (alarmState.enabled && state.lastAnalysis) {
+    try { checkSignalAlarm(state.lastAnalysis); } catch (e) {}
+  }
   scheduleLiveCanvasRepaint(); // candle canvas fallback ikut seirama tiap tick
 }
 /* v2026.60: janji banner "menyambung ulang" kini DIPENUHI — jika candle saat ini
@@ -2274,6 +2278,9 @@ function renderOpportunityRadar(force) {
       if (results[i].status === 'fulfilled' && results[i].value) {
         var it = results[i].value;
         pool[it.sym + '|' + it.tf] = { ts: Date.now(), item: it };
+        if (alarmState.enabled && alarmState.symbol && it.sym && it.sym.toUpperCase() === alarmState.symbol.toUpperCase() && it.analysis && it.analysis.signalEligible) {
+          try { checkSignalAlarm(it.analysis); } catch (e) {}
+        }
       }
     }
     var merged = [];
@@ -2361,6 +2368,195 @@ function updateRiskSizing() {
   var units = riskUsd / stopDist;
   setTxt('valCalcDollarRisk', '$' + riskUsd.toFixed(2));
   setTxt('valCalcLotSize', (units >= 100 ? units.toFixed(1) : units.toFixed(4)) + T('ui.eLotUnits', ' Unit'));
+}
+
+/* ==================== 8B. SMART SIGNAL & PRICE ALARM ENGINE (v2026.69) ====================
+   Alarm sinyal pintar & pemantau setup multi-timeframe berbasis Web Audio (chime lonceng)
+   dan Web Notification (push layar HP/laptop). Trader dapat mengaktifkan alarm pada aset
+   yang sedang dipantau (mis. GRAM/USDT, XAU/USD, BTC) lalu meninggalkan layar dengan tenang;
+   begitu setup ELITE/PRO terbuka atau harga menyentuh entry, lonceng langsung berdentang. */
+var alarmState = {
+  enabled: false,
+  symbol: null,
+  lastAlertKey: null
+};
+
+function playAlertChime() {
+  try {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    var ctx = new AudioCtx();
+    if (ctx.state === 'suspended') { ctx.resume(); }
+    var now = ctx.currentTime;
+
+    var osc1 = ctx.createOscillator();
+    var osc2 = ctx.createOscillator();
+    var gain = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(1318.5, now + 0.12);
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc1.stop(now + 1.2);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 1.2);
+  } catch (e) {}
+}
+
+function sendBrowserPushNotification(title, body, sym, tf) {
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission === 'granted') {
+    try {
+      var n = new Notification(title, {
+        body: body,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        requireInteraction: true
+      });
+      n.onclick = function () {
+        window.focus();
+        if (typeof gotoInstrument === 'function' && sym) gotoInstrument(sym, tf || 'H1');
+        this.close();
+      };
+    } catch (e) {}
+  }
+}
+
+function showAlarmToast(title, body) {
+  var t = $id('signalAlarmToast');
+  if (!t) return;
+  setTxt('alarmToastTitle', title);
+  setTxt('alarmToastBody', body);
+  t.classList.remove('hidden');
+  try {
+    if (window.__alarmToastTimer) clearTimeout(window.__alarmToastTimer);
+    window.__alarmToastTimer = setTimeout(function () {
+      t.classList.add('hidden');
+    }, 12000);
+  } catch (e) {}
+}
+
+function triggerAlarmAlert(title, body, sym, tf) {
+  playAlertChime();
+  sendBrowserPushNotification(title, body, sym, tf);
+  showAlarmToast(title, body);
+}
+
+function checkSignalAlarm(analysis) {
+  if (!alarmState.enabled || !analysis || analysis.error) return;
+  var sym = (analysis.symbol || state.symbol || '').toUpperCase();
+  var monSym = (alarmState.symbol || '').toUpperCase();
+  if (monSym && sym !== monSym) return;
+
+  // 1. Sinyal ELITE / PRO terbuka
+  if (analysis.signalEligible === true && analysis.direction && analysis.direction !== 'NEUTRAL') {
+    var tf = analysis.timeframe || state.tf || 'H1';
+    var key = 'SIG|' + sym + '|' + tf + '|' + analysis.direction + '|' + (analysis.anchorClosedTime || '');
+    if (alarmState.lastAlertKey === key) return;
+    alarmState.lastAlertKey = key;
+
+    var L = analysis.levels || {};
+    var entryTxt = L.entry ? formatPrice(L.entry, sym) : formatPrice(analysis.lastPrice, sym);
+    var tpTxt = L.tp1 ? formatPrice(L.tp1, sym) : '-';
+    var slTxt = L.sl ? formatPrice(L.sl, sym) : '-';
+
+    var title = '🔔 SETUP ' + analysis.direction + ' TERBUKA: [' + sym + '] (' + tf + ')';
+    var body = (analysis.signalTier || 'ELITE') + ' Setup • Skor ' + (analysis.convictionScore || analysis.confluenceScore || 50) + '% • Entry: ' + entryTxt + ' • TP1: ' + tpTxt + ' • SL: ' + slTxt;
+    triggerAlarmAlert(title, body, sym, tf);
+    return;
+  }
+
+  // 2. Harga live menyentuh level Entry setup aktif
+  if (analysis.levels && analysis.levels.entry && num(analysis.levels.entry) > 0) {
+    var p = num(analysis.lastPrice || state.livePrice);
+    var en = num(analysis.levels.entry);
+    if (p > 0 && Math.abs(p - en) / en <= 0.002) {
+      var touchKey = 'TOUCH|' + sym + '|' + Math.round(en) + '|' + (analysis.anchorClosedTime || '');
+      if (alarmState.lastAlertKey === touchKey) return;
+      alarmState.lastAlertKey = touchKey;
+
+      var titleTouch = '🎯 HARGA MENYENTUH ENTRY: [' + sym + ']';
+      var bodyTouch = 'Harga terkini ' + formatPrice(p, sym) + ' menyentuh titik Entry ' + formatPrice(en, sym) + ' (' + (analysis.timeframe || state.tf) + ')';
+      triggerAlarmAlert(titleTouch, bodyTouch, sym, analysis.timeframe);
+    }
+  }
+}
+
+function updateAlarmUi() {
+  var btn = $id('btnToggleSignalAlarm');
+  var icon = $id('lblAlarmIcon');
+  var txt = $id('lblAlarmText');
+  var chip = $id('alarmStatusChip');
+  var sym = alarmState.symbol || state.symbol || 'Aset Terpilih';
+
+  if (alarmState.enabled) {
+    if (icon) icon.textContent = '🔔';
+    if (txt) txt.textContent = 'Alarm Aktif (' + sym + ')';
+    if (btn) {
+      btn.style.borderColor = '#10b981';
+      btn.style.color = '#10b981';
+      btn.style.background = 'rgba(16,185,129,0.12)';
+    }
+    if (chip) {
+      chip.classList.remove('hidden');
+      setTxt('alarmMonitoredSym', sym);
+    }
+  } else {
+    if (icon) icon.textContent = '🔕';
+    if (txt) txt.textContent = T('ui.alarmBtn', 'Pasang Alarm Sinyal');
+    if (btn) {
+      btn.style.borderColor = 'rgba(56,189,248,0.4)';
+      btn.style.color = '#38bdf8';
+      btn.style.background = '';
+    }
+    if (chip) chip.classList.add('hidden');
+  }
+}
+
+function toggleSignalAlarm() {
+  alarmState.enabled = !alarmState.enabled;
+  if (alarmState.enabled) {
+    alarmState.symbol = (state.symbol || 'GRAM/USDT').toUpperCase();
+    alarmState.lastAlertKey = null;
+
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      try { Notification.requestPermission(); } catch (e) {}
+    }
+    playAlertChime();
+    showAlarmToast('🔔 ALARM AKTIF', 'XStarZG memantau setup sinyal & entry untuk [' + alarmState.symbol + ']. Lonceng & notifikasi browser akan berbunyi saat peluang terbuka.');
+  }
+  try {
+    localStorage.setItem('xstarzg_signal_alarm_v1', JSON.stringify({
+      enabled: alarmState.enabled,
+      symbol: alarmState.symbol
+    }));
+  } catch (e) {}
+  updateAlarmUi();
+}
+
+function loadPersistedAlarm() {
+  try {
+    var raw = localStorage.getItem('xstarzg_signal_alarm_v1');
+    if (raw) {
+      var d = JSON.parse(raw);
+      if (d && d.enabled) {
+        alarmState.enabled = true;
+        alarmState.symbol = d.symbol || state.symbol || 'GRAM/USDT';
+      }
+    }
+  } catch (e) {}
+  updateAlarmUi();
 }
 
 /* ==================== 9. SESI, KUOTA & ALUR LAYAR ==================== */
@@ -2983,6 +3179,15 @@ function bindUiEvents() {
     });
   });
   bind('btnRunEngine', function () { if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true); });
+  /* ---- Smart Signal & Price Alarm ---- */
+  bind('btnToggleSignalAlarm', toggleSignalAlarm);
+  bind('btnCloseAlarmToast', function () {
+    var t = $id('signalAlarmToast'); if (t) t.classList.add('hidden');
+  });
+  bind('btnTestAlarmSound', function () {
+    playAlertChime();
+    showAlarmToast('🔊 TES SUARA ALARM', 'Denting lonceng institusional aktif & jernih. Begitu sinyal [' + (alarmState.symbol || state.symbol || 'GRAM/USDT') + '] terbuka, suara ini akan berbunyi.');
+  });
   /* ---- Risk calc inputs ---- */
   ['inpCalcBalance', 'inpCalcRiskPct'].forEach(function (id) {
     var el = $id(id);
@@ -3542,6 +3747,7 @@ if (document.readyState === 'loading') {
       setInterval(function () { renderMacroMap(); }, 60 * 1000);
       renderSignalJournal();
       setInterval(function () { renderSignalJournal(); }, 60 * 1000);
+      try { loadPersistedAlarm(); } catch (e) {}
       var nfBar = $id('newsFilterBar');
       if (nfBar) nfBar.addEventListener('click', function (ev) {
         var b = ev.target && ev.target.closest ? ev.target.closest('[data-nf]') : null;
