@@ -2435,8 +2435,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
+        icon: '/assets/favicon.svg?v=2026.70',
+        badge: '/assets/favicon.svg?v=2026.70',
         requireInteraction: true
       });
       n.onclick = function () {
