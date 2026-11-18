@@ -1236,9 +1236,10 @@ function gateBlockHtml(a) {
     var L = (typeof effectiveLevels === 'function') ? effectiveLevels(a) : (a.levels || {});
     var slPlusVal = tm.slPlus || (a.direction === 'LONG' ? Number(L.entry) * 1.0008 : Number(L.entry) * 0.9992);
     var slPlusFmt = typeof formatPrice === 'function' ? formatPrice(slPlusVal, a.symbol) : String(slPlusVal);
+    var dirSlPlusTxt = a.direction === 'LONG' ? 'di atas entry' : 'di bawah entry';
     if (tm.bePlusActive) {
       out += '<div style="margin-top:6px;padding:8px 10px;border-radius:8px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.6);font-size:12px;color:#6ee7b7;font-weight:700;">' +
-        fillTpl(T('ui.eSlPlusActive', '🛡️ SARAN 0-RISK AKTIF: Harga telah mencapai zona aman ({pct}% target). SEGERA GESER SL KE {slp} (SL+ di atas entry). Posisi ini sekarang 100% BEBAS RISIKO!'), { pct: tm.progressPct || 40, slp: slPlusFmt }) +
+        fillTpl(T('ui.eSlPlusActive', '🛡️ SARAN 0-RISK AKTIF: Harga telah mencapai zona aman ({pct}% target). SEGERA GESER SL KE {slp} (SL+ {dir}). Posisi ini sekarang 100% BEBAS RISIKO!'), { pct: tm.progressPct || 40, slp: slPlusFmt, dir: dirSlPlusTxt }) +
         '</div>';
     } else if (tm.brain === 'SCALP') {
       out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(245,158,11,0.09);border:1px solid rgba(245,158,11,0.35);font-size:11.5px;color:#fde68a;">' +
@@ -1246,7 +1247,7 @@ function gateBlockHtml(a) {
         '</div>';
     } else {
       out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.32);font-size:11.5px;color:#bae6fd;">' +
-        fillTpl(T('ui.eSniperAdvisor', '🎯 OTAK SNIPER: Kesabaran institusional ala investor — setup diberi ruang bernapas retest. Instruksi SL+ Breakeven ({slp}) aktif setelah 50% target atau konfirmasi struktur searah.'), { slp: slPlusFmt }) +
+        fillTpl(T('ui.eSniperAdvisor', '🎯 OTAK SNIPER (Target Minimal 1:2 R:R): Kesabaran institusional — target penuh di TP2 (≥2R). Jika belum mencapai 1:2, sistem menyarankan geser SL ke SL+ ({slp}) {dir} untuk mengunci 0-Risk.'), { slp: slPlusFmt, dir: dirSlPlusTxt }) +
         '</div>';
     }
 
@@ -1914,11 +1915,11 @@ function renderSignalJournal() {
     if (k === '__migratedV2') continue;
     var lk = locks[k];
     if (!lk || lk.status !== 'ACTIVE' || !lk.tf) continue;
-    rows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', bePlusActive: !!lk.bePlusActive, slPlus: lk.slPlus, entry: lk.entry, sl: lk.sl, tp1: lk.tp1, score: lk.score, at: lk.issuedAt || 0 });
+    rows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', bePlusActive: !!lk.bePlusActive, slPlus: lk.slPlus, entry: lk.entry, sl: lk.sl, tp1: lk.tp1, tp2: lk.tp2, score: lk.score, at: lk.issuedAt || 0, brain: lk.brain });
   }
   for (var k2 in outs) {
     var o = outs[k2]; if (!o || !o.lock) continue;
-    rows.push({ sym: o.lock.symbol, tf: o.lock.tf, dir: o.dir, st: o.status, bePlusActive: !!o.bePlusActive, slPlus: o.slPlus || (o.lock && o.lock.slPlus), entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, score: o.score, at: o.at, reason: o.reason });
+    rows.push({ sym: o.lock.symbol, tf: o.lock.tf, dir: o.dir, st: o.status, bePlusActive: !!o.bePlusActive, slPlus: o.slPlus || (o.lock && o.lock.slPlus), entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, tp2: o.lock.tp2, score: o.score, at: o.at, reason: o.reason, brain: o.lock.brain });
   }
   // ringkasan per horison (akurasi adaptif + jumlah outcome)
   if (sum) {
@@ -1940,9 +1941,22 @@ function renderSignalJournal() {
     var b = jnlStatusBadge(r.st, r.bePlusActive);
     var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
     var tTxt = r.at ? new Date(r.at).toLocaleString(navigator.language || 'id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    var isSniper = r.brain === 'SNIPER' || (r.tf && ['M30', 'H1', 'H4', 'D1', 'W1', 'MN'].indexOf(r.tf) > -1);
     var slPlusRow = (r.slPlus && (r.bePlusActive || r.st === 'BE_SAVED'))
       ? ' • <b style="color:#6ee7b7;">SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (0-Risk)</b>'
       : '';
+    var targetLabel = isSniper
+      ? (' • <b style="color:#38bdf8;">Target 1:2 R:R (TP2) ' + formatPrice(num(r.tp2 || r.tp1), r.sym) + '</b> <span style="color:#64748b;">(TP1: ' + formatPrice(num(r.tp1), r.sym) + ')</span>')
+      : (' • TP1 ' + formatPrice(num(r.tp1), r.sym));
+    var advisorNotice = '';
+    if (isSniper && r.st === 'ACTIVE') {
+      var slPosTxt = r.dir === 'LONG' ? 'di atas entry' : 'di bawah entry';
+      if (r.bePlusActive) {
+        advisorNotice = '<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Stop Loss dinaikkan ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') menuju Target 1:2 R:R (TP2).</div>';
+      } else {
+        advisorNotice = '<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Sebelum 1:2, segera geser SL ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') saat menyentuh TP1 untuk proteksi 0-Risk!</div>';
+      }
+    }
     // v2026.66: setiap kartu jurnal (riwayat TP/SL/invalid/expired HARI LALU pun)
     // bisa diklik -> membuka kembali grafik instrumen+TF tersebut via gotoInstrument.
     html += '<div class="radar-card jnl-card" data-sym="' + r.sym + '" data-tf="' + (r.tf || '') + '" style="cursor:pointer;" title="' + escH(T('ui.jnlOpen', 'Klik untuk membuka kembali grafik instrumen ini')) + '">' +
@@ -1954,8 +1968,9 @@ function renderSignalJournal() {
         '</span>' +
       '</div>' +
       '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;word-break:break-word;">' +
-        '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + slPlusRow + ' • TP1 ' + formatPrice(num(r.tp1), r.sym) +
+        '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + slPlusRow + targetLabel +
       '</div>' +
+      advisorNotice +
       (r.reason ? '<div style="font-size:10.2px;color:#64748b;margin-top:2px;">' + escH(String(r.reason)).slice(0, 90) + '</div>' : '') +
     '</div>';
   });
@@ -3755,6 +3770,65 @@ if (document.readyState === 'loading') {
         newsState.filter = b.getAttribute('data-nf');
         nfBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
         renderNewsPanel();
+      });
+
+      // ==================== PWA INSTALL & SERVICE WORKER ====================
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (err) {
+            console.warn('SW registration failed:', err);
+          });
+        });
+      }
+
+      var deferredPwaPrompt = null;
+      var btnNavInstall = $id('btnNavInstallPwa');
+      var btnInstallPwa = $id('btnInstallPwa');
+      var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+      function updatePwaInstallUI(show) {
+        if (isStandalone) {
+          if (btnNavInstall) btnNavInstall.classList.add('hidden');
+          if (btnInstallPwa) btnInstallPwa.classList.add('hidden');
+          return;
+        }
+        if (btnNavInstall) btnNavInstall.classList.toggle('hidden', !show);
+        if (btnInstallPwa) btnInstallPwa.classList.toggle('hidden', !show);
+      }
+
+      if (!isStandalone) {
+        updatePwaInstallUI(true);
+      }
+
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredPwaPrompt = e;
+        updatePwaInstallUI(true);
+      });
+
+      function handlePwaInstallAction() {
+        if (deferredPwaPrompt) {
+          deferredPwaPrompt.prompt();
+          deferredPwaPrompt.userChoice.then(function (res) {
+            if (res && res.outcome === 'accepted') {
+              updatePwaInstallUI(false);
+            }
+            deferredPwaPrompt = null;
+          });
+        } else {
+          alert(T('ui.pwaInstallGuide', 'Instalasi Aplikasi XStarZG (Mode APK / PWA):\n\n' +
+            '• Android Chrome: Ketuk menu titik tiga (⋮) di kanan atas browser, lalu pilih "Tambahkan ke Layar Utama" / "Instal Aplikasi".\n' +
+            '• iPhone / iPad (Safari): Ketuk tombol Share (ikon kotak berpanah ke atas), lalu pilih "Tambahkan ke Layar Utama" (Add to Home Screen).\n\n' +
+            'Aplikasi terinstal langsung seperti APK tanpa biaya dan dapat dibuka offline!'));
+        }
+      }
+
+      if (btnNavInstall) btnNavInstall.addEventListener('click', handlePwaInstallAction);
+      if (btnInstallPwa) btnInstallPwa.addEventListener('click', handlePwaInstallAction);
+
+      window.addEventListener('appinstalled', function () {
+        deferredPwaPrompt = null;
+        updatePwaInstallUI(false);
       });
     }, 50);
   });
