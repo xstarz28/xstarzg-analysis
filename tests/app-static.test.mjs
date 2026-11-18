@@ -191,5 +191,17 @@ chk('quotaLimit & auth/me otomatis mendowngrade VIP kedaluwarsa ke FREE', /state
 /* SMART SIGNAL & PRICE ALARM (v2026.69) lint */
 chk('tombol alarm sinyal, chip status & toast notifikasi terpasang di HTML', /id="btnToggleSignalAlarm"/.test(html) && /id="alarmStatusChip"/.test(html) && /id="signalAlarmToast"/.test(html));
 chk('engine alarm app.js: Web Audio chime, Web Notification & checkSignalAlarm terpasang', /playAlertChime/.test(app) && /checkSignalAlarm/.test(app) && /toggleSignalAlarm/.test(app));
+
+/* PWA (PROGRESSIVE WEB APP) & 0-CLOUDFLARE CACHE LINT */
+const manifestRaw = R('../public/manifest.webmanifest');
+const swRaw = R('../public/sw.js');
+chk('manifest PWA terpasang valid (standalone, start_url, theme_color)', /"display":\s*"standalone"/.test(manifestRaw) && /"start_url"/.test(manifestRaw) && /"theme_color"/.test(manifestRaw));
+chk('service worker sw.js terpasang dengan cache bypass untuk /api/', /caches\.open/.test(swRaw) && /url\.pathname\.startsWith\('\/api\/'\)/.test(swRaw));
+chk('HTML memuat link manifest & mobile app meta tags', /<link rel="manifest" href="\/manifest\.webmanifest"/.test(html) && /name="mobile-web-app-capable"/.test(html));
+chk('app.js meregister service worker & menangani instalasi PWA', /navigator\.serviceWorker\.register\('\/sw\.js'\)/.test(app) && /beforeinstallprompt/.test(app) && /btnInstallPwa/.test(app));
+
+/* SNIPER MINIMAL 1:2 R:R TARGET & 0-RISK ADVISORY LINT */
+chk('jurnal menampilkan Target 1:2 R:R (TP2) untuk Sniper', /Target 1:2 R:R \(TP2\)/.test(app) && /isSniper/.test(app));
+chk('advisory peringatan SL+ proteksi 0-Risk untuk setup sniper', /SNIPER ADVISOR: Target penuh minimal 1:2 R:R \(TP2\)/.test(app) && /0-RISK TERKUNCI/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

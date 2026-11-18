@@ -10,6 +10,11 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="apple-touch-icon" href="/assets/favicon.svg" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="stylesheet" href="/styles.css?v=2026.68" />
   <!-- Engine chart dimuat dari file vendor lokal (anti-blokir ISP terhadap CDN unpkg/jsdelivr) -->
   <script src="/vendor/lightweight-charts.js"></script>
@@ -23,6 +28,9 @@
         <span class="brand-tag" data-i18n="ui.brandTag">INSTITUTIONAL QUANT TERMINAL 2026</span>
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
+        <button type="button" id="btnNavInstallPwa" class="btn-secondary-outline hidden" style="padding:8px 14px;font-size:12.5px;border-color:rgba(56,189,248,0.5);color:#38bdf8;">
+          📲 Pasang App di HP
+        </button>
         <select data-lang-select class="lang-select" title="Language / Bahasa / 语言"></select>
         <button type="button" id="btnNavLoginGate" class="btn-primary-glow" style="padding:9px 18px;font-size:13px;" data-i18n="ui.btnLoginNav">
           🔐 Masuk / Login Terminal
@@ -130,6 +138,9 @@
             <strong id="ddUserQuota" style="color:#10b981;">-</strong>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
+            <button type="button" id="btnInstallPwa" class="btn-secondary-outline hidden" style="width:100%;padding:8px;font-size:12px;border-color:rgba(56,189,248,0.5);color:#38bdf8;">
+              📲 Pasang Aplikasi di HP
+            </button>
             <button type="button" id="btnOpenOwnerSubscribers" class="btn-secondary-outline hidden" style="width:100%;padding:8px;font-size:12px;border-color:rgba(245,158,11,0.5);color:#fbbf24;">
               👑 Daftar Pelanggan VIP (Owner)
             </button>

@@ -1,0 +1,26 @@
+{
+  "name": "XStarZG Quantitative Analysis",
+  "short_name": "XStarZG",
+  "description": "Terminal Analisis Kuantitatif, Smart Money Concepts & Valuasi Multi-Aset Real-Time",
+  "start_url": "/?pwa=1",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "128x128 192x192 512x512 any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["finance", "productivity", "utilities"]
+}
