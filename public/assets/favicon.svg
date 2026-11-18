@@ -1,25 +1,109 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <defs>
-    <linearGradient id="bgFav" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#161c24"/>
-      <stop offset="100%" stop-color="#0b0e13"/>
+    <!-- Background Gradient: Obsidian Slate with Deep Blue Tone -->
+    <linearGradient id="bgXStar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b101b"/>
+      <stop offset="50%" stop-color="#070b14"/>
+      <stop offset="100%" stop-color="#02050a"/>
     </linearGradient>
-    <linearGradient id="metalFav" x1="0%" y1="0%" x2="0%" y2="100%">
+
+    <!-- Radiant Golden Star Gradients (StarZG) -->
+    <linearGradient id="goldStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="35%" stop-color="#dbe5f0"/>
-      <stop offset="70%" stop-color="#8b99ab"/>
-      <stop offset="100%" stop-color="#525f70"/>
+      <stop offset="25%" stop-color="#fef08a"/>
+      <stop offset="60%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
     </linearGradient>
-    <linearGradient id="darkFav" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c8b9e"/>
-      <stop offset="100%" stop-color="#2e3744"/>
+    <radialGradient id="starAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.6"/>
+      <stop offset="50%" stop-color="#f59e0b" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Electric Cyan Quant Trajectory (Bullish Trend) -->
+    <linearGradient id="cyanTrend" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="40%" stop-color="#0ea5e9"/>
+      <stop offset="80%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+
+    <!-- 3D Silver Chrome Elements -->
+    <linearGradient id="silverBright" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="35%" stop-color="#e2e8f0"/>
+      <stop offset="70%" stop-color="#94a3b8"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <linearGradient id="silverDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="50%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+
+    <!-- Border Glow -->
+    <linearGradient id="borderGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
     </linearGradient>
   </defs>
-  <rect width="128" height="128" rx="24" fill="url(#bgFav)" stroke="#38bdf8" stroke-width="3"/>
-  <!-- Upper Diamond & Star -->
-  <polygon points="52,22 78,22 90,38 65,62 40,38" fill="url(#darkFav)" stroke="#dbe5f0" stroke-width="1.5"/>
-  <polygon points="104,10 107,19 116,19 109,24 112,33 104,27 96,33 99,24 92,19 101,19" fill="url(#metalFav)"/>
-  <!-- 3D Metallic X with Rising Arrow -->
-  <polygon points="18,42 42,42 66,76 92,112 68,112 44,78" fill="url(#metalFav)" stroke="#2e3744" stroke-width="1.5"/>
-  <polygon points="18,112 42,112 94,44 104,50 112,24 86,32 94,38" fill="url(#metalFav)" stroke="#2e3744" stroke-width="1.5"/>
+
+  <!-- Base Tile: High-Tech Squircle with Gradient Rim -->
+  <rect x="2" y="2" width="124" height="124" rx="26" fill="url(#bgXStar)" stroke="url(#borderGlow)" stroke-width="2.5"/>
+
+  <!-- Subtle Cybernetic Grid / Quant Coordinates -->
+  <line x1="16" y1="96" x2="112" y2="96" stroke="#1e293b" stroke-width="1" stroke-dasharray="2 3"/>
+  <line x1="16" y1="64" x2="112" y2="64" stroke="#1e293b" stroke-width="1" stroke-dasharray="2 3"/>
+  <line x1="16" y1="32" x2="112" y2="32" stroke="#1e293b" stroke-width="1" stroke-dasharray="2 3"/>
+
+  <!-- Background Bullish Candlestick Pillars -->
+  <rect x="24" y="68" width="5" height="20" rx="1.5" fill="#10b981" fill-opacity="0.35"/>
+  <line x1="26.5" y1="62" x2="26.5" y2="92" stroke="#10b981" stroke-width="1.2" stroke-opacity="0.4"/>
+
+  <rect x="36" y="52" width="5" height="26" rx="1.5" fill="#38bdf8" fill-opacity="0.4"/>
+  <line x1="38.5" y1="46" x2="38.5" y2="82" stroke="#38bdf8" stroke-width="1.2" stroke-opacity="0.45"/>
+
+  <!-- Faceted 3D 'X' Structural Foundation (Silver & Slate) -->
+  <!-- Diagonal Bar 1: Top-Left to Bottom-Right -->
+  <polygon points="20,38 38,38 72,82 92,108 74,108 40,66" fill="url(#silverBright)" stroke="#1e293b" stroke-width="1"/>
+  <polygon points="20,38 29,38 65,86 56,86" fill="url(#silverDark)"/>
+
+  <!-- Diagonal Bar 2: Bottom-Left to Center Pivot -->
+  <polygon points="20,108 38,108 58,80 44,66" fill="url(#silverDark)" stroke="#0f172a" stroke-width="1"/>
+
+  <!-- Dynamic Bullish Surge: Cyan Arrow Launching from Center up to the Star -->
+  <polygon points="44,72 68,44 80,54 98,28 72,34 82,42 62,64" fill="url(#cyanTrend)" stroke="#0284c7" stroke-width="0.8"/>
+  <line x1="32" y1="88" x2="94" y2="30" stroke="#bae6fd" stroke-width="1.2" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Institutional Diamond Beacon behind the Star -->
+  <polygon points="98,14 110,26 98,38 86,26" fill="url(#silverDark)" stroke="#38bdf8" stroke-width="1" opacity="0.7"/>
+
+  <!-- Luminous Golden Star (The Iconic StarZG Apex) -->
+  <!-- Star Glow Aura -->
+  <circle cx="98" cy="26" r="22" fill="url(#starAura)"/>
+
+  <!-- 8-Point Diamond-Ray Star -->
+  <path d="M 98,8
+           Q 98,22 104,26
+           Q 98,30 98,44
+           Q 98,30 92,26
+           Q 98,22 98,8 Z"
+        fill="url(#goldStarGrad)"/>
+  <path d="M 80,26
+           Q 94,26 98,20
+           Q 102,26 116,26
+           Q 102,26 98,32
+           Q 94,26 80,26 Z"
+        fill="url(#goldStarGrad)"/>
+
+  <!-- Diagonal Micro-Beams -->
+  <line x1="88" y1="16" x2="108" y2="36" stroke="#fef08a" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="108" y1="16" x2="88" y2="36" stroke="#fef08a" stroke-width="1.6" stroke-linecap="round"/>
+
+  <!-- Brilliant White Star Center Flare -->
+  <circle cx="98" cy="26" r="3.2" fill="#ffffff"/>
+
+  <!-- Institutional Brand Text 'ZG' at Bottom Right -->
+  <text x="80" y="106" font-family="'Segoe UI', -apple-system, Roboto, sans-serif" font-weight="900" font-size="20" letter-spacing="1" fill="url(#cyanTrend)">ZG</text>
 </svg>
