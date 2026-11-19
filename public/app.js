@@ -1248,6 +1248,32 @@ function pillarHtml(name, val, note, sentiment) {
 }
 function renderPillars(a) {
   var tech = $id('techPillarsGrid');
+  var techHint = $id('techPillarsBrainHint');
+  var macroHint = $id('macroPillarsBrainHint');
+  var assetClass = (a && a.assetClass) || (state.currentInstrument && state.currentInstrument.assetClass) || 'forex';
+  var isId = (typeof currentLang !== 'undefined' ? currentLang : 'id') === 'id';
+  if (techHint) {
+    if (assetClass === 'crypto') {
+      techHint.innerHTML = isId ? '🪙 Otak Kripto: Prioritas SMC &amp; Orderflow (60%)' : '🪙 Crypto Brain: SMC &amp; Orderflow (60%) Priority';
+    } else if (assetClass === 'forex') {
+      techHint.innerHTML = isId ? '💱 Otak Forex: Prioritas SMC/OTE &amp; Sesi Bank (56%)' : '💱 Forex Brain: SMC/OTE &amp; Session Timing (56%) Priority';
+    } else if (assetClass === 'stocks') {
+      techHint.innerHTML = isId ? '📈 Otak Saham: Prioritas Tren MA-200 &amp; ORB Bel Pembukaan (62%)' : '📈 Equities Brain: MA-200 Trend &amp; Opening Bell ORB (62%) Priority';
+    } else {
+      techHint.innerHTML = isId ? '🌾 Otak Komoditas: Prioritas Supply/Demand Fisik &amp; SMC (58%)' : '🌾 Commodities Brain: Physical S&D &amp; SMC (58%) Priority';
+    }
+  }
+  if (macroHint) {
+    if (assetClass === 'crypto') {
+      macroHint.innerHTML = isId ? '🪙 Makro Kripto: Likuiditas M2 &amp; Dominasi Spot ETF' : '🪙 Crypto Macro: M2 Liquidity &amp; Spot ETF Dominance';
+    } else if (assetClass === 'forex') {
+      macroHint.innerHTML = isId ? '💱 Makro Forex: Suku Bunga Bank Sentral &amp; Korelasi DXY' : '💱 Forex Macro: Central Bank Rates &amp; DXY Correlation';
+    } else if (assetClass === 'stocks') {
+      macroHint.innerHTML = isId ? '📈 Makro Saham: Valuasi Intrinsik &amp; Siklus Sektoral' : '📈 Equities Macro: Intrinsic Valuation &amp; Sector Cycles';
+    } else {
+      macroHint.innerHTML = isId ? '🌾 Makro Komoditas: Laporan CFTC COT &amp; Siklus Inflasi' : '🌾 Commodities Macro: CFTC COT Report &amp; Inflation Cycles';
+    }
+  }
   if (tech) {
     var ind = a.indicators, lv = a.levels;
     var p = a.lastPrice;
@@ -1308,11 +1334,36 @@ function renderPillars(a) {
 function renderNarrative(a) {
   var box = $id('narrativeHumanBox');
   if (!box) return;
+  var assetClass = (a && a.assetClass) || (state.currentInstrument && state.currentInstrument.assetClass) || 'forex';
+  var isId = (typeof currentLang !== 'undefined' ? currentLang : 'id') === 'id';
+  var brainBadgeHtml = '';
+  if (assetClass === 'crypto') {
+    brainBadgeHtml = '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:8px;">' +
+      '<span>🪙 ' + (isId ? 'OTAK KRIPTO INSTITUSIONAL' : 'INSTITUTIONAL CRYPTO BRAIN') + '</span>' +
+      '<span style="color:#94a3b8;font-weight:500;">• ' + (isId ? 'Prioritas: SMC Liquidity Pools (34%) &amp; Orderflow Delta (26%)' : 'Priority: SMC Liquidity Pools (34%) &amp; Orderflow Delta (26%)') + '</span>' +
+      '</div>';
+  } else if (assetClass === 'forex') {
+    brainBadgeHtml = '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);font-size:11px;font-weight:700;color:#38bdf8;margin-bottom:8px;">' +
+      '<span>💱 ' + (isId ? 'OTAK FOREX INTERBANK' : 'INTERBANK FOREX BRAIN') + '</span>' +
+      '<span style="color:#94a3b8;font-weight:500;">• ' + (isId ? 'Prioritas: Retest OTE Fibo (32%) &amp; Sesi Likuiditas (24%)' : 'Priority: OTE Fibo Retest (32%) &amp; Session Timing (24%)') + '</span>' +
+      '</div>';
+  } else if (assetClass === 'stocks') {
+    brainBadgeHtml = '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.35);font-size:11px;font-weight:700;color:#c084fc;margin-bottom:8px;">' +
+      '<span>📈 ' + (isId ? 'OTAK SAHAM INSTITUSIONAL' : 'INSTITUTIONAL EQUITIES BRAIN') + '</span>' +
+      '<span style="color:#94a3b8;font-weight:500;">• ' + (isId ? 'Prioritas: Tren Makro MA-200 (34%) &amp; ORB Bel Pembukaan (28%)' : 'Priority: MA-200 Macro Trend (34%) &amp; Opening Bell ORB (28%)') + '</span>' +
+      '</div>';
+  } else {
+    brainBadgeHtml = '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);font-size:11px;font-weight:700;color:#34d399;margin-bottom:8px;">' +
+      '<span>🌾 ' + (isId ? 'OTAK KOMODITAS & LOGAM' : 'COMMODITIES & METALS BRAIN') + '</span>' +
+      '<span style="color:#94a3b8;font-weight:500;">• ' + (isId ? 'Prioritas: Supply/Demand Fisik (30%) &amp; CFTC COT Hedgers (24%)' : 'Priority: Physical S&D (30%) &amp; CFTC COT Hedgers (24%)') + '</span>' +
+      '</div>';
+  }
   var dir = a.direction === 'LONG' ? T('ui.eDirLong', '▲ BIAS LONG / BUY') : a.direction === 'SHORT' ? T('ui.eDirShort', '▼ BIAS SHORT / SELL') : T('ui.eDirNeutral', '◆ NETRAL / MENUNGGU');
   var dirCol = a.direction === 'LONG' ? '#10b981' : a.direction === 'SHORT' ? '#f43f5e' : '#f59e0b';
   var reasons = (a.reasons || []).map(function (r) { return '<div style="margin-bottom:5px;">' + localizeEngineString(r) + '</div>'; }).join('');
   var headTxt = fillTpl(T('ui.eNarrHead', '{dir} — Skor Konfluensi {s}/100 ({r})'), { dir: dir, s: a.confluenceScore, r: localizeEngineString(a.regime || '-') });
   box.innerHTML =
+    brainBadgeHtml +
     '<div style="margin-bottom:8px;font-weight:800;color:' + dirCol + ';">' + headTxt + '</div>' +
     reasons +
     gateBlockHtml(a) +
