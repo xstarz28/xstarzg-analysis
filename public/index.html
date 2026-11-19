@@ -197,6 +197,7 @@
       <div class="topbar-modes">
         <button type="button" id="btnModeTrader" class="mode-btn active" data-i18n="ui.modeTrader">⚡ TRADER MODE</button>
         <button type="button" id="btnModeInvestor" class="mode-btn" data-i18n="ui.modeInvestor">🏛️ SPOT INVESTOR (DCA & VALUASI)</button>
+        <button type="button" id="btnModeMeme" class="mode-btn" data-i18n="ui.modeMeme">🚀 MEME &amp; DEX GEMS</button>
         <div id="traderSubModeWrap" style="display:flex;gap:6px;margin-left:6px;">
           <button type="button" id="btnSubFutures" class="submode-btn active" data-i18n="ui.subFutures">📈 TRADER FUTURES (2-ARAH)</button>
           <button type="button" id="btnSubSpot" class="submode-btn" data-i18n="ui.subSpot">🪙 TRADER SPOT (1-ARAH)</button>
@@ -576,6 +577,35 @@
         <div class="inv-note" data-i18n="ui.invSecNote">Kurasi aset berkualitas untuk akumulasi bertahap (DCA) 12–36 bulan: dinilai dari valuasi (MoS vs nilai wajar), zona cicil, kesehatan tren makro &amp; kualitas emiten/aset. Tidak ada sinyal LONG/SHORT di sini — murni keputusan investasi.</div>
         <div id="macroMapBox" style="display:none;margin:8px 0 6px;padding:9px 11px;border-radius:9px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.28);"></div>
         <div id="investorPicksGrid" class="radar-grid"></div>
+      </div>
+      <!-- Rekomendasi khusus MEME COIN & DEX GEMS (Anti-Rug & Early Momentum Screener) -->
+      <div class="section-card hidden" id="memeRadarSection">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.memeSecTitle">🚀 Radar DEX Meme Coin &amp; Solana Gems — Early Momentum &amp; Anti-Rug</h3>
+            <div style="font-size:11px;color:#d8b4fe;font-weight:600;" data-i18n="ui.memeSecSub">Skrining Khusus Micin: Analisis Keamanan Kontrak On-Chain, Likuiditas Terkunci &amp; Tekanan Beli 5 Menit</div>
+          </div>
+          <span style="font-size:10.5px;padding:4px 10px;border-radius:99px;background:rgba(168,85,247,0.15);color:#d8b4fe;border:1px solid rgba(168,85,247,0.35);" data-i18n="ui.memeSecBadge">🛡️ AUDIT ON-CHAIN • ANTI-RUG &amp; ANTI-HONEYPOT</span>
+        </div>
+        <div style="margin:10px 0 8px;padding:10px 14px;border-radius:10px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);font-size:11.5px;line-height:1.5;color:#e9d5ff;" data-i18n="ui.memeSecNotice">
+          💡 <strong>Kriteria Khusus Micin:</strong> Berbeda dari analisis teknikal saham/forex, skrining koin micin wajib memeriksa 4 pilar keamanan on-chain: <strong>LP 100% Burned</strong> (anti cabut likuiditas), <strong>Mint Revoked</strong> (anti cetak suplai baru), <strong>Freeze Disabled</strong> (anti honeypot), dan <strong>Top 10 Holder &lt; 20%</strong>. Gunakan modal terukur (uang hiburan) dan selalu amankan modal (Take Profit) saat naik 2x-3x!
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">
+          <div class="radar-horizon-bar" id="memeChainBar">
+            <button type="button" class="hz-btn active" data-mc="all"><span data-i18n="ui.mcAll">🌐 SEMUA JARINGAN</span></button>
+            <button type="button" class="hz-btn" data-mc="solana"><span data-i18n="ui.mcSolana">🟣 SOLANA (RAYDIUM)</span></button>
+            <button type="button" class="hz-btn" data-mc="base"><span data-i18n="ui.mcBase">🔵 BASE (AERODROME)</span></button>
+            <button type="button" class="hz-btn" data-mc="bsc"><span data-i18n="ui.mcBsc">🟡 BSC (PANCAKE)</span></button>
+            <button type="button" class="hz-btn" data-mc="ethereum"><span data-i18n="ui.mcEth">💎 ETHEREUM (UNISWAP)</span></button>
+          </div>
+          <div class="radar-horizon-bar" id="memeSortBar">
+            <button type="button" class="hz-btn active" data-ms="momentum"><span data-i18n="ui.msMomentum">⚡ MOMENTUM 5M</span></button>
+            <button type="button" class="hz-btn" data-ms="safety"><span data-i18n="ui.msSafety">🛡️ PALING AMAN (ANTI-RUG)</span></button>
+            <button type="button" class="hz-btn" data-ms="gainers"><span data-i18n="ui.msGainers">🚀 TOP GAINERS 24H</span></button>
+            <button type="button" class="hz-btn" data-ms="volume"><span data-i18n="ui.msVolume">📊 VOLUME TERBESAR</span></button>
+          </div>
+        </div>
+        <div id="memePicksGrid" class="radar-grid" style="margin-top:12px;"></div>
       </div>
     </section>
   </div>

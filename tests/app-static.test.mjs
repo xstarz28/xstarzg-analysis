@@ -63,7 +63,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (532)', uniform && count === 532);
+chk('20 locale punya keyset ui seragam (556)', uniform && count === 556);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -267,6 +267,27 @@ chk('index.html memuat Schema.org JSON-LD WebApplication terstruktur untuk Googl
   /"@type":\s*"WebApplication"/.test(html) &&
   /"name":\s*"XStarZG Analysis"/.test(html) &&
   /"applicationCategory":\s*"FinanceApplication"/.test(html));
+
+/* ==================== MEME & DEX GEMS SCANNER LINT ==================== */
+chk('index.html memiliki tombol mode meme dan section radar DEX meme',
+  html.includes('id="btnModeMeme"') &&
+  html.includes('id="memeRadarSection"') &&
+  html.includes('id="memeChainBar"') &&
+  html.includes('id="memeSortBar"') &&
+  html.includes('id="memePicksGrid"'));
+
+const memeApi = R('../functions/api/scanner/meme.js');
+chk('functions/api/scanner/meme.js valid dan mengekspor onRequest dengan caching 30s',
+  memeApi.includes('export async function onRequest') &&
+  memeApi.includes('s-maxage=30') &&
+  /anti-rug/i.test(memeApi) &&
+  memeApi.includes('solana'));
+
+chk('app.js memuat fungsi renderMemePicks dan integrasi mode meme',
+  app.includes('renderMemePicks') &&
+  app.includes("mode === 'meme'") &&
+  app.includes('drawMemePickCards') &&
+  css.includes('.mode-chip.meme'));
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
