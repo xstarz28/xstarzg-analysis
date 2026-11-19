@@ -1588,6 +1588,7 @@ function updateModeChip() {
   if (!chip) return;
   var cls = 'futures', txt = T('ui.chipFutures', 'FUTURES • 2-ARAH + LEV');
   if (state.mode === 'investor') { cls = 'investor'; txt = T('ui.chipInvestor', 'INVESTOR • SPOT DCA'); }
+  else if (state.mode === 'meme') { cls = 'meme'; txt = T('ui.chipMeme', '🚀 DEX MEME • ANTI-RUG RADAR'); }
   else if (state.subMode === 'spot' || (getMeta(state.symbol).assetClass === 'stocks')) { cls = 'spot'; txt = T('ui.chipSpot', 'SPOT • 1-ARAH (TANPA LEV)'); }
   chip.className = 'mode-chip ' + cls;
   chip.textContent = txt;
@@ -2549,6 +2550,138 @@ function renderInvestorPicks(force) {
     drawInvestorPickCards(shown);
   }).catch(function () {});
 }
+/* ==================== MEME & DEX GEM RADAR (ANTI-RUG SCANNER) ==================== */
+var memeScanPool = [];
+var activeMemeChain = 'all';
+var activeMemeSort = 'momentum';
+
+function formatCompactNum(n) {
+  var numVal = Number(n) || 0;
+  if (numVal >= 1e9) return (numVal / 1e9).toFixed(2) + 'B';
+  if (numVal >= 1e6) return (numVal / 1e6).toFixed(2) + 'M';
+  if (numVal >= 1e3) return (numVal / 1e3).toFixed(1) + 'K';
+  return numVal.toFixed(0);
+}
+
+function drawMemePickCards(items) {
+  var grid = $id('memePicksGrid');
+  if (!grid) return;
+  if (!items || !items.length) {
+    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:16px;text-align:center;color:#94a3b8;">' +
+      T('ui.memeEmpty', 'Data DEX scanner belum tersedia — silakan coba sesaat lagi.') + '</div>';
+    return;
+  }
+  var html = '';
+  items.forEach(function (it) {
+    var c5m = num(it.change5m, 0);
+    var c1h = num(it.change1h, 0);
+    var c24h = num(it.change24h, 0);
+    var col5m = c5m >= 0 ? '#10b981' : '#f43f5e';
+    var col1h = c1h >= 0 ? '#10b981' : '#f43f5e';
+    var col24h = c24h >= 0 ? '#10b981' : '#f43f5e';
+
+    var dexUrl = 'https://dexscreener.com/' + encodeURIComponent(it.chain || 'solana') + '/' + encodeURIComponent(it.pairAddress || it.address);
+    var tradeUrl = (it.chain === 'solana')
+      ? ('https://raydium.io/swap/?outputMint=' + encodeURIComponent(it.address))
+      : (it.chain === 'base')
+        ? ('https://aerodrome.finance/swap?outputCurrency=' + encodeURIComponent(it.address))
+        : ('https://pancakeswap.finance/swap?outputCurrency=' + encodeURIComponent(it.address));
+
+    var totalTx5m = (it.txBuys5m || 0) + (it.txSells5m || 0);
+    var buyPct = totalTx5m > 0 ? Math.round((it.txBuys5m / totalTx5m) * 100) : 50;
+
+    var reasonsHtml = '';
+    if (Array.isArray(it.reasons) && it.reasons.length) {
+      reasonsHtml = '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);font-size:11px;line-height:1.45;color:#e2e8f0;">' +
+        '<div style="font-weight:700;color:#d8b4fe;margin-bottom:4px;display:flex;align-items:center;gap:4px;"><span>🧠</span> <span>Alasan Analisis Kuantitatif & Keamanan:</span></div>' +
+        '<ul style="margin:0;padding-left:16px;">' +
+        it.reasons.map(function (r) { return '<li style="margin-bottom:2px;">' + escH(r) + '</li>'; }).join('') +
+        '</ul></div>';
+    }
+
+    var safetyBadge = it.safetyScore >= 90
+      ? '<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:rgba(16,185,129,0.18);color:#34d399;font-weight:800;border:1px solid rgba(16,185,129,0.4);">🛡️ ' + it.safetyScore + '/100 AMAN</span>'
+      : '<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:rgba(245,158,11,0.18);color:#fbbf24;font-weight:800;border:1px solid rgba(245,158,11,0.4);">⚠️ ' + it.safetyScore + '/100 SPEKULATIF</span>';
+
+    html += '<div class="radar-card" style="padding:14px;border-color:rgba(168,85,247,0.25);background:rgba(15,23,42,0.75);">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
+        '<div>' +
+          '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+            '<strong style="font-size:15px;color:#f8fafc;letter-spacing:0.3px;">' + escH(it.symbol) + '</strong>' +
+            '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:#1e293b;color:#94a3b8;font-weight:700;">' + escH(it.chainLabel || it.chain) + '</span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:#94a3b8;margin-top:2px;">' + escH(it.name) + ' • <small style="color:#64748b;">' + escH(it.dex || 'DEX') + '</small></div>' +
+        '</div>' +
+        safetyBadge +
+      '</div>' +
+
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;">' +
+        '<div style="font-family:var(--font-mono);font-size:17px;font-weight:800;color:#f8fafc;">$' + (it.basePrice < 0.01 ? Number(it.basePrice).toFixed(6) : Number(it.basePrice).toFixed(3)) + '</div>' +
+        '<div style="font-family:var(--font-mono);font-size:11px;font-weight:700;display:flex;gap:6px;">' +
+          '<span>5m: <b style="color:' + col5m + ';">' + (c5m >= 0 ? '+' : '') + c5m + '%</b></span>' +
+          '<span>1h: <b style="color:' + col1h + ';">' + (c1h >= 0 ? '+' : '') + c1h + '%</b></span>' +
+          '<span>24h: <b style="color:' + col24h + ';">' + (c24h >= 0 ? '+' : '') + c24h + '%</b></span>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;font-size:11px;background:rgba(2,6,23,0.6);padding:8px;border-radius:8px;border:1px solid var(--border-subtle);">' +
+        '<div><span style="color:#94a3b8;">Market Cap:</span> <b style="color:#f8fafc;">$' + formatCompactNum(it.marketCap) + '</b></div>' +
+        '<div><span style="color:#94a3b8;">Likuiditas:</span> <b style="color:#38bdf8;">$' + formatCompactNum(it.liquidity) + '</b></div>' +
+        '<div><span style="color:#94a3b8;">Vol 5m:</span> <b style="color:#f8fafc;">$' + formatCompactNum(it.volume5m) + '</b></div>' +
+        '<div><span style="color:#94a3b8;">Buy Pressure:</span> <b style="color:#34d399;">' + buyPct + '%</b></div>' +
+      '</div>' +
+
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;font-size:10px;">' +
+        '<span style="padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:#34d399;font-weight:700;">' + (it.lpBurned ? '✓ LP 100% BURNED' : '⚠️ LP UNLOCKED') + '</span>' +
+        '<span style="padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:#34d399;font-weight:700;">' + (it.mintRevoked ? '✓ MINT REVOKED' : '⚠️ CAN MINT') + '</span>' +
+        '<span style="padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:#34d399;font-weight:700;">' + (it.freezeDisabled ? '✓ FREEZE DISABLED' : '⚠️ HONEYPOT') + '</span>' +
+        '<span style="padding:2px 6px;border-radius:4px;background:rgba(56,189,248,0.15);color:#7dd3fc;font-weight:700;">👥 TOP 10: ' + it.top10HoldersPct + '%</span>' +
+      '</div>' +
+
+      reasonsHtml +
+
+      '<div style="display:flex;gap:6px;margin-top:12px;">' +
+        '<a href="' + escH(dexUrl) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;padding:7px 10px;border-radius:7px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:#38bdf8;text-decoration:none;font-weight:700;font-size:11.5px;">' +
+          '📊 DexScreener Chart ↗' +
+        '</a>' +
+        '<a href="' + escH(tradeUrl) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;padding:7px 10px;border-radius:7px;background:rgba(168,85,247,0.18);border:1px solid rgba(168,85,247,0.45);color:#d8b4fe;text-decoration:none;font-weight:700;font-size:11.5px;">' +
+          '⚡ Beli di DEX ↗' +
+        '</a>' +
+      '</div>' +
+    '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+function renderMemePicks(force) {
+  var grid = $id('memePicksGrid');
+  if (!grid) return;
+  if (!force && memeScanPool.length) {
+    drawMemePickCards(memeScanPool);
+    return;
+  }
+  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:16px;text-align:center;"><span class="r-name" style="color:#d8b4fe;">' +
+    T('ui.memeScanning', 'Memindai koin meme DEX & verifikasi audit on-chain (LP Burned, Mint & Freeze)...') +
+    '</span></div>';
+
+  var url = '/api/scanner/meme?chain=' + encodeURIComponent(activeMemeChain) + '&sort=' + encodeURIComponent(activeMemeSort);
+  fetch(url)
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (res) {
+      if (res && res.ok && Array.isArray(res.items)) {
+        memeScanPool = res.items;
+        drawMemePickCards(memeScanPool);
+      } else {
+        grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:14px;color:#94a3b8;">' +
+          T('ui.memeEmpty', 'Data DEX scanner belum tersedia — silakan coba sesaat lagi.') + '</div>';
+      }
+    })
+    .catch(function () {
+      grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:14px;color:#fca5a5;">' +
+        T('ui.memeFail', 'Koneksi ke scanner DEX bermasalah. Mencoba kembali...') + '</div>';
+    });
+}
+
 function renderOpportunityRadar(force) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
@@ -2937,11 +3070,12 @@ function applyWorkspacePrefs(saved) {
     }
     if (tfOk) { state.tf = saved.tf; state.timeframe = saved.tf; }
   }
-  if (saved.mode === 'investor' || saved.mode === 'trader') {
+  if (saved.mode === 'investor' || saved.mode === 'trader' || saved.mode === 'meme') {
     state.mode = saved.mode;
-    var t = $id('btnModeTrader'), inv = $id('btnModeInvestor');
+    var t = $id('btnModeTrader'), inv = $id('btnModeInvestor'), mem = $id('btnModeMeme');
     if (t) t.classList.toggle('active', saved.mode === 'trader');
     if (inv) inv.classList.toggle('active', saved.mode === 'investor');
+    if (mem) mem.classList.toggle('active', saved.mode === 'meme');
     var wrap = $id('traderSubModeWrap');
     if (wrap) wrap.style.display = saved.mode === 'trader' ? 'flex' : 'none';
   }
@@ -2958,12 +3092,14 @@ function applyWorkspacePrefs(saved) {
   if (typeof updateModeChip === 'function') updateModeChip();
   if (typeof syncTfBarForMode === 'function') syncTfBarForMode();
 }
-// Sinkronkan section rekomendasi: radar trader vs kurasi portofolio investor.
+// Sinkronkan section rekomendasi: radar trader vs kurasi portofolio investor vs DEX meme radar.
 function syncModeSections() {
-  var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection');
+  var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection'), memeSec = $id('memeRadarSection');
   var isInv = state.mode === 'investor';
-  if (traderSec) traderSec.classList.toggle('hidden', isInv);
+  var isMeme = state.mode === 'meme';
+  if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme);
   if (invSec) invSec.classList.toggle('hidden', !isInv);
+  if (memeSec) memeSec.classList.toggle('hidden', !isMeme);
 }
 // Turunkan tier sesi owner yang tidak bisa dibuktikan ke server (defense-in-depth).
 function downgradeOwnerSession() {
@@ -3426,6 +3562,7 @@ function bindUiEvents() {
   /* ---- Topbar: mode & profil ---- */
   bind('btnModeTrader', function () { setMode('trader'); });
   bind('btnModeInvestor', function () { setMode('investor'); });
+  bind('btnModeMeme', function () { setMode('meme'); });
   bind('btnSubFutures', function () { setSubMode('futures'); });
   bind('btnSubSpot', function () { setSubMode('spot'); });
   var btnSess = $id('btnUserSession');
@@ -3503,6 +3640,35 @@ function bindUiEvents() {
       });
     });
   }
+  /* ---- Tab filter & sort DEX Meme Radar ---- */
+  var mcBar = $id('memeChainBar');
+  if (mcBar) {
+    Array.prototype.forEach.call(mcBar.querySelectorAll('.hz-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        var mc = btn.getAttribute('data-mc') || 'all';
+        if (mc === activeMemeChain) return;
+        activeMemeChain = mc;
+        Array.prototype.forEach.call(mcBar.querySelectorAll('.hz-btn'), function (b) {
+          b.classList.toggle('active', (b.getAttribute('data-mc') || 'all') === activeMemeChain);
+        });
+        renderMemePicks(true);
+      });
+    });
+  }
+  var msBar = $id('memeSortBar');
+  if (msBar) {
+    Array.prototype.forEach.call(msBar.querySelectorAll('.hz-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        var ms = btn.getAttribute('data-ms') || 'momentum';
+        if (ms === activeMemeSort) return;
+        activeMemeSort = ms;
+        Array.prototype.forEach.call(msBar.querySelectorAll('.hz-btn'), function (b) {
+          b.classList.toggle('active', (b.getAttribute('data-ms') || 'momentum') === activeMemeSort);
+        });
+        renderMemePicks(true);
+      });
+    });
+  }
   /* ---- Overlay toggles & recalc ---- */
   ['chkEMA', 'chkVWAP', 'chkSMC', 'chkSniper'].forEach(function (id) {
     var el = $id(id);
@@ -3533,9 +3699,10 @@ function bindUiEvents() {
 function setMode(mode) {
   state.mode = mode;
   syncTfBarForMode();
-  var t = $id('btnModeTrader'), i = $id('btnModeInvestor');
+  var t = $id('btnModeTrader'), i = $id('btnModeInvestor'), m = $id('btnModeMeme');
   if (t) t.classList.toggle('active', mode === 'trader');
   if (i) i.classList.toggle('active', mode === 'investor');
+  if (m) m.classList.toggle('active', mode === 'meme');
   var sub = $id('traderSubModeWrap');
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
   // Investor: rekomendasi diframe sebagai keputusan beli-nyata; scalping bukan untuk investor
@@ -3545,6 +3712,7 @@ function setMode(mode) {
   // Rescan paksa saat pindah mode -> kartu rekomendasi menyegarkan ke kebenaran
   // engine terbaru (anti kartu basi yg kontradiksi dengan workspace).
   if (mode === 'investor') renderInvestorPicks(true);
+  else if (mode === 'meme') renderMemePicks(true);
   else renderOpportunityRadar(true);
   renderMacroMap(); // strip peta makro hanya relevan di workspace investor
   updateModeChip();
