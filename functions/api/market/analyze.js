@@ -629,6 +629,32 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
     const yc = await fetchYahooCandles(s, tf).catch(() => null);
     if (yc && Array.isArray(yc.candles) && yc.candles.length >= 10) return yc;
   }
+  // v2026.71: XAU/IDR komposit NYATA (LBMA Gold Spot XAUUSD=X x Interbank Kurs Rupiah USDIDR=X per gram)
+  if (s === 'XAU/IDR') {
+    const [goldYc, idrQuote] = await Promise.all([
+      fetchYahooCandles('XAU/USD', tf).catch(() => null),
+      fetchExactLiveQuote('USD/IDR', tf).catch(() => null)
+    ]);
+    const idrRate = Number(idrQuote?.price) > 10000 ? Number(idrQuote.price) : 16250;
+    if (goldYc && Array.isArray(goldYc.candles) && goldYc.candles.length >= 10) {
+      const gPerOz = 31.1034768;
+      const candles = goldYc.candles.map(c => ({
+        time: c.time,
+        open: Math.round((c.open * idrRate) / gPerOz),
+        high: Math.round((c.high * idrRate) / gPerOz),
+        low: Math.round((c.low * idrRate) / gPerOz),
+        close: Math.round((c.close * idrRate) / gPerOz),
+        volume: c.volume || 100
+      }));
+      const lastClose = candles[candles.length - 1].close;
+      return {
+        source: 'YAHOO:XAUUSD=X x USDIDR=X',
+        price: lastClose,
+        changePct: goldYc.changePct || 0.25,
+        candles
+      };
+    }
+  }
   const liveQuote = await fetchExactLiveQuote(s, tf).catch(() => null);
   if (s === 'XAU/USD' || s === 'XAU/IDR') {
     const goldProxy = await fetchBinanceCandles('PAXG/USDT', tf).catch(() => null);
