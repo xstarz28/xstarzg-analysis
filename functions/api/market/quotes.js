@@ -221,6 +221,20 @@ async function handleQuotes(symbols) {
             }
           }
         } catch (e) {}
+        try {
+          const bxSymbol = s.replace('/', '-');
+          const bx = await fetch('https://open-api.bingx.com/openApi/swap/v2/quote/ticker?symbol=' + bxSymbol, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (bx.ok) {
+            const bxj = await bx.json();
+            const d = bxj && bxj.data;
+            const lp = Number(d && (d.lastPrice || d.price));
+            if (lp > 0) {
+              const chg = Number(d.priceChangePercent) || 0;
+              quotes[s] = { price: lp, changePct: chg, source: 'BINGX:' + bxSymbol };
+              return;
+            }
+          }
+        } catch (e) {}
         const y = await fetchYahooQuote(s);
         if (y && y.price > 0) quotes[s] = { price: y.price, changePct: y.changePct, source: y.source };
       }));
