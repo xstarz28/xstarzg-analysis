@@ -427,7 +427,7 @@ function catLabelOf(meta) {
 /* Helper rotasi katalog: slice stabil (hash simbol+kelas) bergilir per slot waktu
    sehingga SELURUH instrumen kebagian giliran analisis — tidak hanya aset besar. */
 function catalogSortedStable() {
-  var cat = currentCatalog().slice();
+  var cat = currentCatalog().filter(function (x) { return !x.isDynamic; }).slice();
   var fnHash = function (item) {
     var h = 0, s = item.symbol + '@' + (item.assetClass || '');
     for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
@@ -593,7 +593,8 @@ function lazyLoadCryptoPairs() {
             QC.registerDynamicInstrument({
               symbol: base + '/USDT', name: base + ' Crypto Spot (Binance Real-Time)',
               assetClass: 'crypto', provider: 'binance', providerSymbol: it.symbol,
-              isRealtime: true, delayMinutes: 0, basePrice: price, cotCategory: 'CME_CRYPTO'
+              isRealtime: true, delayMinutes: 0, basePrice: price, cotCategory: 'CME_CRYPTO',
+              isDynamic: true
             });
             added++;
           }
@@ -1836,6 +1837,7 @@ function fetchRadarCandidate(item) {
     // Kandidat berbasis feed estimasi/fabrikasi: dinonaktifkan dari rekomendasi
     // (sinyal, komitmen, dan outcome hanya lahir dari candle broker asli).
     a.__estFeed = !feedIsReal(d.source);
+    if (a.__estFeed) return null; // jangan masukkan kandidat estimasi ke pool radar rekomendasi!
     return {
       sym: item.sym, tf: item.tf, analysis: a,
       candles: Array.isArray(d.candles) ? d.candles.slice(-240) : null, // snapshot utk konsistensi klik-through
@@ -2302,7 +2304,7 @@ function paintRadarItems(cfg, items, noneQualified) {
   var activeGroup = state.radarGroup || 'all';
   if (activeGroup === 'all') {
     RADAR_GROUPS.forEach(function (grp, gIdx) {
-      var grpItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === grp.key; });
+      var grpItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === grp.key && !it.analysis.__estFeed; });
       var strongGrp = grpItems.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
       // TAMPILKAN SEMUA sinyal kuat yang lolos (jangan dipotong/disembunyikan)!
       // Jika belum ada sinyal kuat, tampilkan kandidat pantauan terdekat.
@@ -2345,7 +2347,7 @@ function paintRadarItems(cfg, items, noneQualified) {
     });
   } else {
     var selGrp = RADAR_GROUPS.find(function (g) { return g.key === activeGroup; }) || RADAR_GROUPS[0];
-    var selItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === activeGroup; });
+    var selItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === activeGroup && !it.analysis.__estFeed; });
     var strongSel = selItems.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
     var showSel = strongSel.length ? strongSel : selItems;
     var statusBadge = strongSel.length
@@ -2558,7 +2560,7 @@ function renderOpportunityRadar(force) {
   var pool = radarScanPool[cacheKey] = radarScanPool[cacheKey] || {};
   var fresh = [];
   var now = Date.now();
-  for (var k in pool) if (now - pool[k].ts < 15 * 60000) fresh.push(pool[k].item);
+  for (var k in pool) if (now - pool[k].ts < 15 * 60000 && !pool[k].item.analysis.__estFeed) fresh.push(pool[k].item);
   fresh.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
   // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
@@ -2580,7 +2582,7 @@ function renderOpportunityRadar(force) {
       if (mySeq !== radarRunSeq) return;
       var curMerged = [];
       var nNow = Date.now();
-      for (var ck in pool) if (nNow - pool[ck].ts < 15 * 60000) curMerged.push(pool[ck].item);
+      for (var ck in pool) if (nNow - pool[ck].ts < 15 * 60000 && !pool[ck].item.analysis.__estFeed) curMerged.push(pool[ck].item);
       curMerged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
       var curStrong = curMerged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
       paintRadarItems(cfg, curMerged, curStrong.length === 0);
@@ -2590,7 +2592,7 @@ function renderOpportunityRadar(force) {
 
   Promise.allSettled(batch.map(function (inst) {
     return fetchRadarCandidate({ sym: inst.symbol, tf: tfFor }).then(function (it) {
-      if (it) {
+      if (it && it.analysis && !it.analysis.__estFeed) {
         pool[it.sym + '|' + it.tf] = { ts: Date.now(), item: it };
         if (alarmState.enabled && alarmState.symbol && it.sym && it.sym.toUpperCase() === alarmState.symbol.toUpperCase() && it.analysis && it.analysis.signalEligible) {
           try { checkSignalAlarm(it.analysis); } catch (e) {}
@@ -2603,7 +2605,7 @@ function renderOpportunityRadar(force) {
     if (mySeq !== radarRunSeq) return;
     var merged = [];
     var now2 = Date.now();
-    for (var k2 in pool) if (now2 - pool[k2].ts < 15 * 60000) merged.push(pool[k2].item);
+    for (var k2 in pool) if (now2 - pool[k2].ts < 15 * 60000 && !pool[k2].item.analysis.__estFeed) merged.push(pool[k2].item);
     merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
     var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
     paintRadarItems(cfg, merged.length ? merged : (strong.length ? strong.slice(0, 12) : merged.slice(0, 4)), strong.length === 0);
