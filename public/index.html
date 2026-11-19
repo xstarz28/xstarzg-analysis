@@ -648,14 +648,21 @@
                 <strong style="font-size:14px;color:#f8fafc;" id="memeChartTitle">Grafik Real-Time DexScreener — PNUT / SOL</strong>
                 <span class="mode-chip meme" id="memeChartDexBadge">DEX LIVE</span>
               </div>
-              <div style="display:flex;gap:6px;align-items:center;">
-                <a id="memeDexOpenExternal" href="https://dexscreener.com" target="_blank" rel="noopener noreferrer" style="font-size:11.5px;color:#38bdf8;text-decoration:none;font-weight:700;padding:4px 8px;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);">
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <button type="button" id="btnMemeViewCandles" class="hz-btn active" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(168,85,247,0.25);color:#d8b4fe;border:1px solid rgba(168,85,247,0.45);font-weight:700;cursor:pointer;">
+                  🕯️ Candlestick Live (Anti-Blokir)
+                </button>
+                <button type="button" id="btnMemeViewDex" class="hz-btn" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(15,23,42,0.8);color:#94a3b8;border:1px solid rgba(148,163,184,0.3);font-weight:700;cursor:pointer;">
+                  🌐 DexScreener Embed
+                </button>
+                <a id="memeDexOpenExternal" href="https://dexscreener.com" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#38bdf8;text-decoration:none;font-weight:700;padding:4px 8px;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);">
                   Buka Penuh di DexScreener ↗
                 </a>
               </div>
             </div>
-            <div style="width:100%;height:520px;border-radius:10px;overflow:hidden;background:#090d16;position:relative;">
-              <iframe id="memeDexChartIframe" src="https://dexscreener.com/solana/AjBNVhp5U6S64XN4zYtoqE5LgGqYvK24U1P63Z9zpump?embed=1&theme=dark&trades=0&info=0" style="width:100%;height:100%;border:none;border-radius:10px;" loading="lazy"></iframe>
+            <div id="memeChartContainer" style="width:100%;height:520px;border-radius:10px;overflow:hidden;background:#090d16;position:relative;">
+              <canvas id="memeCandleCanvas" style="width:100%;height:100%;display:block;"></canvas>
+              <iframe id="memeDexChartIframe" src="https://dexscreener.com/solana/2qEHjAnGOpmjqAtwhcvxBygfAnphEpcVs2uwRN3BEAn2?embed=1&theme=dark&trades=0&info=0" style="width:100%;height:100%;border:none;border-radius:10px;display:none;" loading="lazy"></iframe>
             </div>
           </div>
 
