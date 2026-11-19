@@ -2213,11 +2213,14 @@ function radarAssetGroupOf(sym) {
   return 'stocks';
 }
 
-var RADAR_GROUPS = [
-  { key: 'crypto', label: '🪙 OTAK KRIPTO', sub: 'CRYPTO SPOT & PERP INTELLIGENCE', col: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', emptyText: 'Memindai instrumen Kripto (BTC, ETH, Altcoins)…' },
-  { key: 'fx_comm', label: '💱 OTAK FOREX & KOMODITAS', sub: 'FX, EMAS/LOGAM & ENERGI INTELLIGENCE', col: '#38bdf8', bg: 'rgba(56,189,248,0.08)', border: '#38bdf8', emptyText: 'Memindai Forex & Komoditas (Gold/XAU, Emas Gram, Silver, Oil, FX)…' },
-  { key: 'stocks', label: '📈 OTAK SAHAM', sub: 'US/GLOBAL EQUITIES & SAHAM IDX INTELLIGENCE', col: '#10b981', bg: 'rgba(16,185,129,0.08)', border: '#10b981', emptyText: 'Memindai Saham Global (NVDA, AAPL) & Saham Indonesia IDX…' }
-];
+function getRadarGroups() {
+  return [
+    { key: 'crypto', label: T('ui.rgCryptoLabel', '🪙 OTAK KRIPTO'), sub: T('ui.rgCryptoSub', 'CRYPTO SPOT & PERP INTELLIGENCE'), col: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', emptyText: T('ui.rgCryptoEmpty', 'Memindai instrumen Kripto (BTC, ETH, Altcoins)…') },
+    { key: 'fx_comm', label: T('ui.rgFxCommLabel', '💱 OTAK FOREX & KOMODITAS'), sub: T('ui.rgFxCommSub', 'FX, EMAS/LOGAM & ENERGI INTELLIGENCE'), col: '#38bdf8', bg: 'rgba(56,189,248,0.08)', border: '#38bdf8', emptyText: T('ui.rgFxCommEmpty', 'Memindai Forex & Komoditas (Gold/XAU, Emas Gram, Silver, Oil, FX)…') },
+    { key: 'stocks', label: T('ui.rgStocksLabel', '📈 OTAK SAHAM'), sub: T('ui.rgStocksSub', 'US/GLOBAL EQUITIES & SAHAM IDX INTELLIGENCE'), col: '#10b981', bg: 'rgba(16,185,129,0.08)', border: '#10b981', emptyText: T('ui.rgStocksEmpty', 'Memindai Saham Global (NVDA, AAPL) & Saham Indonesia IDX…') }
+  ];
+}
+var RADAR_GROUPS = getRadarGroups();
 
 function renderRadarCardHtml(it) {
   var a = it.analysis;
@@ -2302,19 +2305,21 @@ function paintRadarItems(cfg, items, noneQualified) {
   }
 
   var activeGroup = state.radarGroup || 'all';
+  var curGroups = getRadarGroups();
   if (activeGroup === 'all') {
-    RADAR_GROUPS.forEach(function (grp, gIdx) {
+    curGroups.forEach(function (grp, gIdx) {
       var grpItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === grp.key && !it.analysis.__estFeed; });
       var strongGrp = grpItems.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
       // TAMPILKAN SEMUA sinyal kuat yang lolos (jangan dipotong/disembunyikan)!
       // Jika belum ada sinyal kuat, tampilkan kandidat pantauan terdekat.
       var displayItems = strongGrp.length ? strongGrp : grpItems.slice(0, 4);
       var badgeText = strongGrp.length
-        ? ('<span style="font-size:10.5px;color:' + grp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + strongGrp.length + ' Sinyal Siap Eksekusi</span>')
+        ? ('<span style="font-size:10.5px;color:' + grp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + strongGrp.length + ' ' + T('ui.rSigReady', 'Sinyal Siap Eksekusi') + '</span>')
         : (grpItems.length
-          ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' Pantauan (Belum Ada Skor Tinggi)</span>'
-          : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">Memindai…</span>');
+          ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' ' + T('ui.rWatchlist', 'Pantauan (Belum Ada Skor Tinggi)') + '</span>'
+          : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
 
+      var focusTitle = T('ui.rFocusTitle', 'Fokus pada bagan {label}').replace('{label}', grp.label);
       html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + grp.bg + ';border:1px solid ' + grp.border + '44;border-left:4px solid ' + grp.col + ';margin-top:' + (gIdx > 0 ? '18px' : '4px') + ';flex-wrap:wrap;gap:8px;">' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
           '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + grp.label + '</strong>' +
@@ -2322,8 +2327,8 @@ function paintRadarItems(cfg, items, noneQualified) {
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
           badgeText +
-          '<button type="button" class="btn-group-focus hz-btn" data-focus-rg="' + grp.key + '" title="Fokus pada bagan ' + grp.label + '" style="font-size:10.5px;padding:3px 10px;border-radius:6px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#7dd3fc;cursor:pointer;font-weight:700;">' +
-            'Fokus Bagan ↗' +
+          '<button type="button" class="btn-group-focus hz-btn" data-focus-rg="' + grp.key + '" title="' + escH(focusTitle) + '" style="font-size:10.5px;padding:3px 10px;border-radius:6px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#7dd3fc;cursor:pointer;font-weight:700;">' +
+            T('ui.rFocusBtn', 'Fokus Bagan ↗') +
           '</button>' +
         '</div>' +
       '</div>';
@@ -2332,34 +2337,39 @@ function paintRadarItems(cfg, items, noneQualified) {
       } else {
         if (!strongGrp.length) {
           html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:5px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
-            '<span>💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur agar modal aman. Menampilkan kandidat pantauan terdekat:</span>' +
-            '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;text-decoration:underline;">Buka Semua Pantauan →</button>' +
+            '<span>' + T('ui.rNoticeConsolidation', '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur agar modal aman. Menampilkan kandidat pantauan terdekat:') + '</span>' +
+            '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;text-decoration:underline;">' + T('ui.rOpenAllWatch', 'Buka Semua Pantauan →') + '</button>' +
             '</div>';
         }
         displayItems.forEach(function (it) {
           html += renderRadarCardHtml(it);
         });
+        var showAllSummary = T('ui.rShowingAll', '✅ Menampilkan semua <b>{shown} dari {total}</b> instrumen {label} (lengkap, tidak ada yang disembunyikan)')
+          .replace('{shown}', displayItems.length)
+          .replace('{total}', (strongGrp.length || grpItems.length))
+          .replace('{label}', grp.label);
+        var openTabLabel = T('ui.rOpenTab', 'Buka Tab Khusus {label} →').replace('{label}', grp.label);
         html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:5px 10px;font-size:11px;color:#94a3b8;border-bottom:1px dashed rgba(148,163,184,0.2);margin-bottom:6px;flex-wrap:wrap;gap:6px;">' +
-          '<span>✅ Menampilkan semua <b>' + displayItems.length + ' dari ' + (strongGrp.length || grpItems.length) + '</b> instrumen ' + grp.label + ' (lengkap, tidak ada yang disembunyikan)</span>' +
-          '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;">Buka Tab Khusus ' + grp.label + ' →</button>' +
+          '<span>' + showAllSummary + '</span>' +
+          '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;">' + openTabLabel + '</button>' +
         '</div>';
       }
     });
   } else {
-    var selGrp = RADAR_GROUPS.find(function (g) { return g.key === activeGroup; }) || RADAR_GROUPS[0];
+    var selGrp = curGroups.find(function (g) { return g.key === activeGroup; }) || curGroups[0];
     var selItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === activeGroup && !it.analysis.__estFeed; });
     var strongSel = selItems.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
     var showSel = strongSel.length ? strongSel : selItems;
     var statusBadge = strongSel.length
-      ? '<span style="font-size:10.5px;color:' + selGrp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + strongSel.length + ' Sinyal Terverifikasi</span>'
+      ? '<span style="font-size:10.5px;color:' + selGrp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + strongSel.length + ' ' + T('ui.rSigVerified', 'Sinyal Terverifikasi') + '</span>'
       : (selItems.length
-        ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + selItems.length + ' Pantauan (Belum Ada Skor Tinggi)</span>'
-        : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">Memindai…</span>');
+        ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + selItems.length + ' ' + T('ui.rWatchlist', 'Pantauan (Belum Ada Skor Tinggi)') + '</span>'
+        : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
 
     html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + selGrp.bg + ';border:1px solid ' + selGrp.border + '44;border-left:4px solid ' + selGrp.col + ';margin-top:4px;flex-wrap:wrap;gap:8px;">' +
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
         '<button type="button" class="btn-group-focus hz-btn" data-focus-rg="all" style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.4);color:#cbd5e1;cursor:pointer;font-weight:700;">' +
-          '← Kembali ke 3 Bagan' +
+          T('ui.rBack3Groups', '← Kembali ke 3 Bagan') +
         '</button>' +
         '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + selGrp.label + '</strong>' +
         '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;">' + selGrp.sub + '</span>' +
@@ -2371,15 +2381,19 @@ function paintRadarItems(cfg, items, noneQualified) {
     } else {
       if (!strongSel.length) {
         html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:5px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;">' +
-          '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur. Menampilkan seluruh kandidat pantauan:' +
+          T('ui.rNoticeConsolidationAll', '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur. Menampilkan seluruh kandidat pantauan:') +
           '</div>';
       }
       showSel.forEach(function (it) {
         html += renderRadarCardHtml(it);
       });
+      var showSelSummary = T('ui.rShowingAll', '✅ Menampilkan semua <b>{shown} dari {total}</b> instrumen {label} (lengkap, tidak ada yang disembunyikan)')
+        .replace('{shown}', showSel.length)
+        .replace('{total}', (strongSel.length || selItems.length))
+        .replace('{label}', selGrp.label);
       html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:11px;color:#94a3b8;margin-top:8px;">' +
-        '<span>✅ Menampilkan seluruh <b>' + showSel.length + '</b> instrumen ' + selGrp.label + '</span>' +
-        '<button type="button" class="btn-group-focus" data-focus-rg="all" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;">← Kembali ke Tampilan 3 Bagan</button>' +
+        '<span>' + showSelSummary + '</span>' +
+        '<button type="button" class="btn-group-focus" data-focus-rg="all" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;">' + T('ui.rBack3GroupsFull', '← Kembali ke Tampilan 3 Bagan Lengkap') + '</button>' +
       '</div>';
     }
   }
