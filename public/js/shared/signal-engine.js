@@ -827,14 +827,27 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     else if (erValue >= 0.3) { erNote = 'Tren normal — struktur cukup bersih'; erBias = 0; }
     else { erNote = 'PASAR CHOPPY (noise tinggi) — kurangi agresi, kecilkan size'; erBias = -0.5; }
   }
-  // Skor pilar digabung dengan bobot direnormalisasi (trend/struktur tetap dominan)
+  // Skor pilar digabung dengan bobot terkalibrasi per-kelompok instrumen (Otak Kripto, Forex, Saham, Komoditas)
   let quantEdgeScore = 50;
   quantEdgeScore += orb.bias * 16;
   quantEdgeScore += thetaBias * 12;
   quantEdgeScore += vwapEntry.bias * 12;
   quantEdgeScore += erBias * 8;
   quantEdgeScore = Math.max(8, Math.min(96, Math.round(quantEdgeScore)));
-  const rawDirectional = (trendScore * 0.30) + (structureScore * 0.28) + (momentumScore * 0.19) + (volRegimeScore * 0.09) + (quantEdgeScore * 0.14);
+  let rawDirectional;
+  if (assetClass === 'crypto') {
+    // 🪙 Otak Kripto: SMC & Kolam Likuiditas (34%), Momentum & Orderflow (26%), Trend (22%), Quant Edge (18%)
+    rawDirectional = (structureScore * 0.34) + (momentumScore * 0.26) + (trendScore * 0.22) + (quantEdgeScore * 0.18);
+  } else if (assetClass === 'forex') {
+    // 💱 Otak Forex: SMC & Retest OTE (32%), Trend & Moving Average (28%), Session & VWAP (24%), Momentum (16%)
+    rawDirectional = (structureScore * 0.32) + (trendScore * 0.28) + (quantEdgeScore * 0.24) + (momentumScore * 0.16);
+  } else if (assetClass === 'stocks') {
+    // 📈 Otak Saham: Trend Following & MA200 (34%), ORB Opening Bell Breakout & VWAP (28%), Structure (24%), Momentum (14%)
+    rawDirectional = (trendScore * 0.34) + (quantEdgeScore * 0.28) + (structureScore * 0.24) + (momentumScore * 0.14);
+  } else {
+    // 🌾 Otak Komoditas & Logam: Trend & Supply/Demand (30%), Structure (28%), Makro/COT (24%), Momentum (18%)
+    rawDirectional = (trendScore * 0.30) + (structureScore * 0.28) + (quantEdgeScore * 0.24) + (momentumScore * 0.18);
+  }
   // Premium/discount dealing range (liquidity concepts): LONG di premium >62% =
   // belanja di area mahal (rawan jadi exit liquidity) -> penalti; di diskon -> bonus kecil.
   const rangeHi = modern.supplyZone.high, rangeLo = modern.demandZone.low;
@@ -1329,13 +1342,16 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     },
     riskPlan: masterProfile,
     series: {
-      ema20: closed.map((c, i) => ({ time: c.time, value: ema20Arr[i] ?? c.close })),
-      ema50: closed.map((c, i) => ({ time: c.time, value: ema50Arr[i] ?? c.close })),
-      ema200: closed.map((c, i) => ({ time: c.time, value: ma200Arr[i] ?? ema200Arr[i] ?? c.close })),
-      vwap: closed.map((c, i) => ({ time: c.time, value: vwapObj.vwap[i] ?? c.close })),
-      bbUpper: closed.map((c, i) => ({ time: c.time, value: bbObj.upper[i] ?? c.high })),
-      bbLower: closed.map((c, i) => ({ time: c.time, value: bbObj.lower[i] ?? c.low })),
-      rsi: closed.map((c, i) => ({ time: c.time, value: rsiArr[i] ?? 50 }))
+      ema20: closed.map((c, i) => (ema20Arr[i] != null ? { time: c.time, value: ema20Arr[i] } : null)).filter(Boolean),
+      ema50: closed.map((c, i) => (ema50Arr[i] != null ? { time: c.time, value: ema50Arr[i] } : null)).filter(Boolean),
+      ema200: closed.map((c, i) => {
+        const v = ma200Arr[i] ?? ema200Arr[i];
+        return v != null ? { time: c.time, value: v } : null;
+      }).filter(Boolean),
+      vwap: closed.map((c, i) => (vwapObj.vwap[i] != null ? { time: c.time, value: vwapObj.vwap[i] } : null)).filter(Boolean),
+      bbUpper: closed.map((c, i) => (bbObj.upper[i] != null ? { time: c.time, value: bbObj.upper[i] } : null)).filter(Boolean),
+      bbLower: closed.map((c, i) => (bbObj.lower[i] != null ? { time: c.time, value: bbObj.lower[i] } : null)).filter(Boolean),
+      rsi: closed.map((c, i) => (rsiArr[i] != null ? { time: c.time, value: rsiArr[i] } : null)).filter(Boolean)
     }
   };
 }
