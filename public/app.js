@@ -4704,13 +4704,24 @@ function renderOpportunityRadar(force) {
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
   var freshStrong = fresh.filter(isActionableRadarSignal);
   var freshShow = fresh.length ? fresh : (freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4));
-  if (!force && fresh.length >= 6) { paintRadarItems(cfg, freshShow, freshStrong.length === 0); return; }
+  if (!force && fresh.length >= 6 && freshStrong.length >= 2) { paintRadarItems(cfg, freshShow, false); return; }
   if (fresh.length) paintRadarItems(cfg, freshShow, freshStrong.length === 0);
   // v2026.66: batch 30 simbol / slot 4 menit (dulu 40/3) — memangkas panggilan Functions
   // ~55% per pengguna demi kuota gratis Cloudflare; rotasi tetap menutupi seluruh katalog.
   var batch = rotatingSlice(catalogSortedStable(), 30, 4);
+  var scanList = batch.slice();
+  if (freshStrong.length < 2 && cfg.list && cfg.list.length) {
+    var seen = {};
+    scanList.forEach(function (x) { if (x && x.symbol) seen[x.symbol] = true; });
+    cfg.list.forEach(function (anc) {
+      if (!seen[anc.sym]) {
+        var m = getMeta(anc.sym);
+        if (m) { scanList.push(m); seen[anc.sym] = true; }
+      }
+    });
+  }
   var mySeq = ++radarRunSeq;
-  if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', batch.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
+  if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', scanList.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
 
   var progressiveTimer = null;
   function triggerProgressiveRepaint() {
@@ -4728,7 +4739,7 @@ function renderOpportunityRadar(force) {
     }, 350);
   }
 
-  Promise.allSettled(batch.map(function (inst) {
+  Promise.allSettled(scanList.map(function (inst) {
     return fetchRadarCandidate({ sym: inst.symbol, tf: tfFor }).then(function (it) {
       if (it && it.analysis && !it.analysis.__estFeed) {
         pool[it.sym + '|' + it.tf] = { ts: Date.now(), item: it };
