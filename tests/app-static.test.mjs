@@ -213,5 +213,8 @@ chk('kalender ekonomi anti-kosong dengan fallback institusional & peringatan bro
 chk('tidak ada penyebutan merk broker tertentu di kalender', !/exness/i.test(app) && !/exness/i.test(html));
 chk('XAU/IDR komposit nyata dari XAUUSD & USDIDR', /s === 'XAU\/IDR'/.test(edgeMarket) && /YAHOO:XAUUSD=X x USDIDR=X/.test(edgeMarket));
 chk('katalog berimbang 3 kelompok saat scan (interleaved)', /crypto\.push/.test(app) && /stocks\.push/.test(app) && /interleaved\.push/.test(app));
+chk('radar bersih: feed estimasi dilarang masuk rekomendasi', /if \(a\.__estFeed\) return null/.test(app) && /!it\.analysis\.__estFeed/.test(app));
+chk('multi-exchange crypto diperluas dengan MEXC & perp fallback', /fetchMexcCandles/.test(edgeMarket) && /MEXC:\$\{pair\}/.test(edgeMarket));
+chk('radar scan eksklusif aset kurasi terverifikasi', /!x\.isDynamic/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

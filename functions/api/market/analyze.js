@@ -452,66 +452,78 @@ const EXUA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb
 async function fetchBybitCandles(symbol, tf) {
   const pair = symbol.replace('/', '').toUpperCase();
   const interval = BYBIT_TF[tf] || '60';
-  try {
-    const [kRes, tRes] = await Promise.all([
-      fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${pair}&interval=${interval}&limit=220`, { headers: EXUA }),
-      fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${pair}`, { headers: EXUA })
-    ]);
-    if (!kRes.ok) return null;
-    const kj = await kRes.json();
-    const list = kj && kj.result && Array.isArray(kj.result.list) ? kj.result.list : [];
-    if (list.length < 10) return null;
-    const candles = list.slice().reverse().map(k => ({
-      time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
-      low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
-    })).filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
-    if (candles.length < 10) return null;
-    let livePrice = candles[candles.length - 1].close; let changePct = 0;
-    if (tRes.ok) {
-      const tj = await tRes.json();
-      const row = tj && tj.result && tj.result.list && tj.result.list[0];
-      if (row && Number(row.lastPrice) > 0) { livePrice = Number(row.lastPrice); changePct = (Number(row.price24hPcnt) || 0) * 100; }
-    }
-    const last = candles[candles.length - 1];
-    last.close = livePrice;
-    if (livePrice > last.high) last.high = livePrice;
-    if (livePrice < last.low) last.low = livePrice;
-    return { source: `BYBIT:${pair}`, price: livePrice, changePct, candles };
-  } catch (e) { return null; }
+  for (const cat of ['spot', 'linear']) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 4000);
+      const [kRes, tRes] = await Promise.all([
+        fetch(`https://api.bybit.com/v5/market/kline?category=${cat}&symbol=${pair}&interval=${interval}&limit=220`, { headers: EXUA, signal: ctrl.signal }),
+        fetch(`https://api.bybit.com/v5/market/tickers?category=${cat}&symbol=${pair}`, { headers: EXUA, signal: ctrl.signal })
+      ]);
+      clearTimeout(t);
+      if (!kRes.ok) continue;
+      const kj = await kRes.json();
+      const list = kj && kj.result && Array.isArray(kj.result.list) ? kj.result.list : [];
+      if (list.length < 10) continue;
+      const candles = list.slice().reverse().map(k => ({
+        time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
+        low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
+      })).filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
+      if (candles.length < 10) continue;
+      let livePrice = candles[candles.length - 1].close; let changePct = 0;
+      if (tRes.ok) {
+        const tj = await tRes.json();
+        const row = tj && tj.result && tj.result.list && tj.result.list[0];
+        if (row && Number(row.lastPrice) > 0) { livePrice = Number(row.lastPrice); changePct = (Number(row.price24hPcnt) || 0) * 100; }
+      }
+      const last = candles[candles.length - 1];
+      last.close = livePrice;
+      if (livePrice > last.high) last.high = livePrice;
+      if (livePrice < last.low) last.low = livePrice;
+      return { source: `BYBIT:${pair}`, price: livePrice, changePct, candles };
+    } catch (e) {}
+  }
+  return null;
 }
 async function fetchOkxCandles(symbol, tf) {
-  const instId = symbol.replace('/', '-').toUpperCase();
+  const baseId = symbol.replace('/', '-').toUpperCase();
   const bar = OKX_TF[tf] || '1H';
-  try {
-    const [kRes, tRes] = await Promise.all([
-      fetch(`https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=220`, { headers: EXUA }),
-      fetch(`https://www.okx.com/api/v5/market/ticker?instId=${instId}`, { headers: EXUA })
-    ]);
-    if (!kRes.ok) return null;
-    const kj = await kRes.json();
-    const rows = kj && Array.isArray(kj.data) ? kj.data : [];
-    if (rows.length < 10) return null;
-    const candles = rows.slice().reverse().map(k => ({
-      time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
-      low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
-    })).filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
-    if (candles.length < 10) return null;
-    let livePrice = candles[candles.length - 1].close; let changePct = 0;
-    if (tRes.ok) {
-      const tj = await tRes.json();
-      const row = tj && tj.data && tj.data[0];
-      if (row && Number(row.last) > 0) {
-        livePrice = Number(row.last);
-        const o24 = Number(row.open24h);
-        if (o24 > 0) changePct = ((livePrice - o24) / o24) * 100;
+  for (const instId of [baseId, `${baseId}-SWAP`]) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 4000);
+      const [kRes, tRes] = await Promise.all([
+        fetch(`https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=220`, { headers: EXUA, signal: ctrl.signal }),
+        fetch(`https://www.okx.com/api/v5/market/ticker?instId=${instId}`, { headers: EXUA, signal: ctrl.signal })
+      ]);
+      clearTimeout(t);
+      if (!kRes.ok) continue;
+      const kj = await kRes.json();
+      const rows = kj && Array.isArray(kj.data) ? kj.data : [];
+      if (rows.length < 10) continue;
+      const candles = rows.slice().reverse().map(k => ({
+        time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
+        low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
+      })).filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
+      if (candles.length < 10) continue;
+      let livePrice = candles[candles.length - 1].close; let changePct = 0;
+      if (tRes.ok) {
+        const tj = await tRes.json();
+        const row = tj && tj.data && tj.data[0];
+        if (row && Number(row.last) > 0) {
+          livePrice = Number(row.last);
+          const o24 = Number(row.open24h);
+          if (o24 > 0) changePct = ((livePrice - o24) / o24) * 100;
+        }
       }
-    }
-    const last = candles[candles.length - 1];
-    last.close = livePrice;
-    if (livePrice > last.high) last.high = livePrice;
-    if (livePrice < last.low) last.low = livePrice;
-    return { source: `OKX:${instId}`, price: livePrice, changePct, candles };
-  } catch (e) { return null; }
+      const last = candles[candles.length - 1];
+      last.close = livePrice;
+      if (livePrice > last.high) last.high = livePrice;
+      if (livePrice < last.low) last.low = livePrice;
+      return { source: `OKX:${instId}`, price: livePrice, changePct, candles };
+    } catch (e) {}
+  }
+  return null;
 }
 async function fetchBinanceCandles(symbol, tf) {
   const pair = symbol.replace('/', '').toUpperCase();
@@ -520,37 +532,50 @@ async function fetchBinanceCandles(symbol, tf) {
     'H1': '1h', 'H4': '4h', 'D1': '1d', 'W1': '1w', 'MN': '1M', '1Y': '1M'
   };
   const interval = tfMap[tf] || '1h';
-  try {
-    const [kRes, tRes] = await Promise.all([
-      fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${pair}&interval=${interval}&limit=220`),
-      fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${pair}`)
-    ]);
-    if (!kRes.ok) return null;
-    const klines = await kRes.json();
-    if (!Array.isArray(klines) || klines.length < 10) return null;
-    const candles = klines.map(k => ({
-      time: Math.floor(Number(k[0]) / 1000),
-      open: Number(k[1]),
-      high: Number(k[2]),
-      low: Number(k[3]),
-      close: Number(k[4]),
-      volume: Number(k[5]) || 100
-    }));
-    let livePrice = candles[candles.length - 1].close;
-    let changePct = 0;
-    if (tRes.ok) {
-      const td = await tRes.json();
-      if (Number(td.lastPrice) > 0) livePrice = Number(td.lastPrice);
-      changePct = Number(td.priceChangePercent) || 0;
-    }
-    const last = candles[candles.length - 1];
-    last.close = livePrice;
-    if (livePrice > last.high) last.high = livePrice;
-    if (livePrice < last.low) last.low = livePrice;
-    return { source: `BINANCE:${pair}`, price: livePrice, changePct, candles };
-  } catch (e) {
-    return null;
+  const urls = [
+    `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=220`,
+    `https://data-api.binance.vision/api/v3/klines?symbol=${pair}&interval=${interval}&limit=220`,
+    `https://fapi.binance.com/fapi/v1/klines?symbol=${pair}&interval=${interval}&limit=220`
+  ];
+  for (const u of urls) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 4000);
+      const isFapi = u.includes('fapi');
+      const tUrl = isFapi
+        ? `https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${pair}`
+        : `https://api.binance.com/api/v3/ticker/24hr?symbol=${pair}`;
+      const [kRes, tRes] = await Promise.all([
+        fetch(u, { signal: ctrl.signal }),
+        fetch(tUrl, { signal: ctrl.signal }).catch(() => null)
+      ]);
+      clearTimeout(t);
+      if (!kRes.ok) continue;
+      const klines = await kRes.json();
+      if (!Array.isArray(klines) || klines.length < 10) continue;
+      const candles = klines.map(k => ({
+        time: Math.floor(Number(k[0]) / 1000),
+        open: Number(k[1]),
+        high: Number(k[2]),
+        low: Number(k[3]),
+        close: Number(k[4]),
+        volume: Number(k[5]) || 100
+      }));
+      let livePrice = candles[candles.length - 1].close;
+      let changePct = 0;
+      if (tRes && tRes.ok) {
+        const td = await tRes.json();
+        if (Number(td.lastPrice) > 0) livePrice = Number(td.lastPrice);
+        changePct = Number(td.priceChangePercent) || 0;
+      }
+      const last = candles[candles.length - 1];
+      last.close = livePrice;
+      if (livePrice > last.high) last.high = livePrice;
+      if (livePrice < last.low) last.low = livePrice;
+      return { source: `BINANCE:${pair}`, price: livePrice, changePct, candles };
+    } catch (e) {}
   }
+  return null;
 }
 function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
   const s = (symbol || 'XAU/USD').toUpperCase().trim();
@@ -610,6 +635,42 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
     candles
   };
 }
+async function fetchMexcCandles(symbol, tf) {
+  const pair = symbol.replace('/', '').toUpperCase();
+  const tfMap = {
+    'M1': '1m', 'M5': '5m', 'M15': '15m', 'M30': '30m',
+    'H1': '60m', 'H4': '4h', 'D1': '1d', 'W1': '1W', 'MN': '1M', '1Y': '1M'
+  };
+  const interval = tfMap[tf] || '60m';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 4000);
+    const [kRes, tRes] = await Promise.all([
+      fetch(`https://api.mexc.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=220`, { headers: EXUA, signal: ctrl.signal }),
+      fetch(`https://api.mexc.com/api/v3/ticker/24hr?symbol=${pair}`, { headers: EXUA, signal: ctrl.signal }).catch(() => null)
+    ]);
+    clearTimeout(t);
+    if (!kRes.ok) return null;
+    const list = await kRes.json();
+    if (!Array.isArray(list) || list.length < 10) return null;
+    const candles = list.map(k => ({
+      time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
+      low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
+    })).filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
+    if (candles.length < 10) return null;
+    let livePrice = candles[candles.length - 1].close; let changePct = 0;
+    if (tRes && tRes.ok) {
+      const td = await tRes.json();
+      if (Number(td.lastPrice) > 0) livePrice = Number(td.lastPrice);
+      changePct = Number(td.priceChangePercent) || 0;
+    }
+    const last = candles[candles.length - 1];
+    last.close = livePrice;
+    if (livePrice > last.high) last.high = livePrice;
+    if (livePrice < last.low) last.low = livePrice;
+    return { source: `MEXC:${pair}`, price: livePrice, changePct, candles };
+  } catch (e) { return null; }
+}
 async function fetchSynchronizedMarketCandles(symbol, tf) {
   const s = symbol.toUpperCase().trim();
   if (s.endsWith('/USDT')) {
@@ -620,6 +681,8 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
     if (bybData) return bybData;
     const okxData = await fetchOkxCandles(s, tf).catch(() => null);
     if (okxData) return okxData;
+    const mexcData = await fetchMexcCandles(s, tf).catch(() => null);
+    if (mexcData) return mexcData;
   }
   // v2026.53: candle NYATA Yahoo Finance diutamakan untuk semua kelas aset non-crypto
   // (adaptif ke hari kerja/weekend: Yahoo mengikuti jam bursa masing-masing pasar).
