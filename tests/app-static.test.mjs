@@ -203,5 +203,10 @@ chk('app.js meregister service worker & menangani instalasi PWA', /navigator\.se
 /* SNIPER MINIMAL 1:2 R:R TARGET & 0-RISK ADVISORY LINT */
 chk('jurnal menampilkan Target 1:2 R:R (TP2) untuk Sniper', /Target 1:2 R:R \(TP2\)/.test(app) && /isSniper/.test(app));
 chk('advisory peringatan SL+ proteksi 0-Risk untuk setup sniper', /SNIPER ADVISOR: Target penuh minimal 1:2 R:R \(TP2\)/.test(app) && /0-RISK TERKUNCI/.test(app));
+
+/* 3 BAGAN OTAK REKOMENDASI RADAR (KRIPTO, FOREX & KOMODITAS, SAHAM) lint */
+chk('HTML memuat radarGroupBar dengan 3 kelompok instrumen', /id="radarGroupBar"/.test(html) && /data-rg="crypto"/.test(html) && /data-rg="fx_comm"/.test(html) && /data-rg="stocks"/.test(html));
+chk('app.js memisahkan kelompok radarAssetGroupOf & render 3 otak bagan', /function radarAssetGroupOf/.test(app) && /RADAR_GROUPS/.test(app) && /renderRadarCardHtml/.test(app));
+chk('kartu radar menampilkan SL, TP, Entry & Skor lengkap', /r-entry/.test(app) && /r-score/.test(app) && /tgtLbl \+ ':/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
