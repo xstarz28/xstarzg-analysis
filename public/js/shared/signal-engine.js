@@ -1062,7 +1062,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const dirVetoes = softBias === 'LONG' ? vetoes.long : softBias === 'SHORT' ? vetoes.short : [];
   const vetoFree = dirVetoes.length === 0;
   const seqOk = softBias === 'LONG' ? seqOkLong : softBias === 'SHORT' ? seqOkShort : false;
-  const erOk = erValue >= 0.22;
+  const erOk = brain === 'SCALP' ? (erValue >= 0.17 || volImpulse) : (erValue >= 0.22);
   // GERBANG PER-OTAK (v2026.51): SCALP dilarang melawan tape (tekanan orderflow
   // berlawanan arah); SNIPER dilarang beli di premium/jual di diskon & wajib BOS/HTF searah.
   const scalpPressureVeto = brain === 'SCALP' && ((softBias === 'LONG' && imbPct <= 38) || (softBias === 'SHORT' && imbPct >= 62));
@@ -1075,7 +1075,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // (sinyal reversal ICT); FOMO zone = harga >2.2 ATR di luar zona OTE searah.
   const cisdCounterVeto = !!(ict && ict.cisd && softBias !== 'NEUTRAL'
     && ((softBias === 'LONG' && ict.cisd.dir === -1) || (softBias === 'SHORT' && ict.cisd.dir === 1)));
-  const fomoPad = brain === 'SCALP' ? 3.0 : 2.2; // scalp toleran jarak lebih lebar
+  const hasBos = (modern.smcStatus || '').toUpperCase().includes('BOS') || bosDir !== 0;
+  const fomoPad = brain === 'SCALP' ? 3.0 : (hasBos ? 3.2 : 2.2); // scalp & breakout tren toleran jarak lebih lebar
   const fomoVeto = !!(ict && ict.ote && softBias !== 'NEUTRAL'
     && ((softBias === 'LONG' && lastPrice > ict.ote.longZone.top + fomoPad * atr)
       || (softBias === 'SHORT' && lastPrice < ict.ote.shortZone.bottom - fomoPad * atr)));
