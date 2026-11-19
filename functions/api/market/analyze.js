@@ -671,6 +671,71 @@ async function fetchMexcCandles(symbol, tf) {
     return { source: `MEXC:${pair}`, price: livePrice, changePct, candles };
   } catch (e) { return null; }
 }
+async function fetchBingxCandles(symbol, tf) {
+  const pair = symbol.replace('/', '-').toUpperCase();
+  const tfMap = {
+    'M1': '1m', 'M5': '5m', 'M15': '15m', 'M30': '30m',
+    'H1': '1h', 'H4': '4h', 'D1': '1d', 'W1': '1w', 'MN': '1M', '1Y': '1M'
+  };
+  const interval = tfMap[tf] || '1h';
+  const urls = [
+    `https://open-api.bingx.com/openApi/swap/v2/quote/klines?symbol=${pair}&interval=${interval}&limit=220`,
+    `https://open-api.bingx.com/openApi/spot/v1/market/kline?symbol=${pair}&interval=${interval}&limit=220`
+  ];
+  for (const u of urls) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 4000);
+      const isSwap = u.includes('swap');
+      const tUrl = isSwap
+        ? `https://open-api.bingx.com/openApi/swap/v2/quote/ticker?symbol=${pair}`
+        : `https://open-api.bingx.com/openApi/spot/v1/ticker/24hr?symbol=${pair}`;
+      const [kRes, tRes] = await Promise.all([
+        fetch(u, { headers: EXUA, signal: ctrl.signal }),
+        fetch(tUrl, { headers: EXUA, signal: ctrl.signal }).catch(() => null)
+      ]);
+      clearTimeout(t);
+      if (!kRes.ok) continue;
+      const kj = await kRes.json();
+      let list = kj && kj.data ? (Array.isArray(kj.data) ? kj.data : (kj.data.list || [])) : [];
+      if (!Array.isArray(list) || list.length < 10) continue;
+      let candles = [];
+      for (const k of list) {
+        if (Array.isArray(k)) {
+          candles.push({
+            time: Math.floor(Number(k[0]) / 1000), open: Number(k[1]), high: Number(k[2]),
+            low: Number(k[3]), close: Number(k[4]), volume: Number(k[5]) || 100
+          });
+        } else if (k && typeof k === 'object') {
+          candles.push({
+            time: Math.floor(Number(k.time || k.timestamp) / 1000),
+            open: Number(k.open), high: Number(k.high), low: Number(k.low), close: Number(k.close),
+            volume: Number(k.volume) || 100
+          });
+        }
+      }
+      candles = candles.filter(c => Number.isFinite(c.time) && c.time > 0 && c.close > 0);
+      if (candles.length < 10) continue;
+      if (candles[0].time > candles[candles.length - 1].time) candles.reverse();
+      let livePrice = candles[candles.length - 1].close; let changePct = 0;
+      if (tRes && tRes.ok) {
+        const td = await tRes.json();
+        const d = td && td.data;
+        if (d) {
+          const lp = Number(d.lastPrice || d.last || d.price);
+          if (lp > 0) livePrice = lp;
+          changePct = Number(d.priceChangePercent || d.price24hPcnt) || 0;
+        }
+      }
+      const last = candles[candles.length - 1];
+      last.close = livePrice;
+      if (livePrice > last.high) last.high = livePrice;
+      if (livePrice < last.low) last.low = livePrice;
+      return { source: `BINGX:${pair}`, price: livePrice, changePct, candles };
+    } catch (e) {}
+  }
+  return null;
+}
 async function fetchSynchronizedMarketCandles(symbol, tf) {
   const s = symbol.toUpperCase().trim();
   if (s.endsWith('/USDT')) {
@@ -683,6 +748,8 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
     if (okxData) return okxData;
     const mexcData = await fetchMexcCandles(s, tf).catch(() => null);
     if (mexcData) return mexcData;
+    const bingxData = await fetchBingxCandles(s, tf).catch(() => null);
+    if (bingxData) return bingxData;
   }
   // v2026.53: candle NYATA Yahoo Finance diutamakan untuk semua kelas aset non-crypto
   // (adaptif ke hari kerja/weekend: Yahoo mengikuti jam bursa masing-masing pasar).
