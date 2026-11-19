@@ -352,6 +352,22 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
 .mode-chip.spot { color: #34d399; background: rgba(16, 185, 129, 0.13); border: 1px solid rgba(16, 185, 129, 0.5); }
 .mode-chip.investor { color: #7dd3fc; background: rgba(56, 189, 248, 0.13); border: 1px solid rgba(56, 189, 248, 0.5); }
 .mode-chip.meme { color: #d8b4fe; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.5); }
+/* ---------- Dedicated Meme & DEX Hunter Suite ---------- */
+.meme-inspect-header-bar {
+  max-width: 1640px; margin: 16px auto 0; padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 14px; backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;
+}
+.meme-workspace-grid {
+  max-width: 1640px; margin: 14px auto 20px; padding: 0 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; align-items: start;
+}
+.radar-card.active {
+  border-color: #c084fc !important;
+  box-shadow: 0 0 16px rgba(192, 132, 252, 0.35) !important;
+  background: rgba(88, 28, 135, 0.22) !important;
+}
 .sig-badge {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 7px;
   font-size: 11px; font-weight: 900; letter-spacing: 0.4px;
@@ -417,6 +433,7 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
 /* ==================== RESPONSIVE BREAKPOINTS ==================== */
 @media (max-width: 1180px) {
   .workspace-main-grid { grid-template-columns: 1fr; }
+  .meme-workspace-grid { grid-template-columns: 1fr; }
   .control-bar { position: static; }
 }
 @media (max-width: 760px) {
@@ -434,6 +451,8 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
   .mode-btn, .submode-btn { font-size: 10.5px; padding: 6px 9px; flex: 1 1 auto; text-align: center; }
   .topbar-right { width: 100%; justify-content: flex-end; gap: 6px; }
   .workspace-main-grid { padding: 0 10px; max-width: 100%; overflow-x: hidden; }
+  .meme-workspace-grid { padding: 0 10px; max-width: 100%; overflow-x: hidden; }
+  .meme-inspect-header-bar { margin: 10px 10px 0; padding: 12px; }
   .tv-chart-box { height: 320px; }
   .live-price-big { font-size: 20px; }
   .asset-title-block h2 { font-size: 14px; }

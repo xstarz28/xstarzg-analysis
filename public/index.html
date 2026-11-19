@@ -264,6 +264,8 @@
       </div>
       <button type="button" id="btnCloseAlarmToast" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0;">&times;</button>
     </div>
+    <!-- WORKSPACE 1: TRADER & INVESTOR (SAHAM, FOREX, KRIPTO UTAMA, METALS) -->
+    <div id="traderInvestorWorkspaceWrap">
     <section class="control-bar">
       <div class="control-group">
         <select id="selCategory" class="ctrl-select" title="Filter Kategori Aset">
@@ -578,8 +580,128 @@
         <div id="macroMapBox" style="display:none;margin:8px 0 6px;padding:9px 11px;border-radius:9px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.28);"></div>
         <div id="investorPicksGrid" class="radar-grid"></div>
       </div>
-      <!-- Rekomendasi khusus MEME COIN & DEX GEMS (Anti-Rug & Early Momentum Screener) -->
-      <div class="section-card hidden" id="memeRadarSection">
+    </section>
+    </div><!-- /#traderInvestorWorkspaceWrap -->
+
+    <!-- ================= WORKSPACE 2: DEDICATED MEME COIN & DEX GEMS SUITE ================= -->
+    <div id="memeWorkspaceWrap" class="hidden">
+      <!-- Top Token Inspection Header Bar -->
+      <div class="meme-inspect-header-bar" id="memeInspectHeader">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h2 id="memeInspectSymbol" style="margin:0;font-size:22px;font-weight:900;color:#f8fafc;letter-spacing:0.5px;">PNUT</h2>
+              <span id="memeInspectName" style="font-size:13px;color:#94a3b8;font-weight:600;">Peanut the Squirrel</span>
+              <span id="memeInspectChainBadge" class="brand-tag" style="background:#581c87;color:#d8b4fe;border-color:rgba(168,85,247,0.4);">🟣 SOLANA</span>
+              <span id="memeInspectSafetyBadge" class="mode-chip meme">🛡️ 96/100 AMAN</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11.5px;color:#94a3b8;">
+              <span>CA: <code id="memeInspectCaShort" style="color:#7dd3fc;background:rgba(2,6,23,0.7);padding:2px 7px;border-radius:4px;border:1px solid #1e293b;">2qEH...An2</code></span>
+              <button type="button" id="memeBtnCopyCa" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-size:11.5px;padding:0;font-weight:700;">📋 Salin CA</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:11px;color:#94a3b8;">Harga DEX Live:</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span id="memeInspectPrice" class="live-price-big" style="color:#f8fafc;font-size:22px;">$1.1200</span>
+              <span id="memeInspectChg5m" style="font-size:12px;font-weight:800;color:#10b981;">5m: +3.4%</span>
+              <span id="memeInspectChg1h" style="font-size:12px;font-weight:800;color:#10b981;">1h: +12.8%</span>
+              <span id="memeInspectChg24h" style="font-size:12px;font-weight:800;color:#10b981;">24h: +38.5%</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:11.5px;background:rgba(2,6,23,0.6);padding:8px 12px;border-radius:10px;border:1px solid rgba(168,85,247,0.2);">
+            <div><span style="color:#94a3b8;display:block;">Market Cap:</span> <strong id="memeInspectMcap" style="color:#f8fafc;">$1.12B</strong></div>
+            <div><span style="color:#94a3b8;display:block;">Likuiditas:</span> <strong id="memeInspectLiq" style="color:#38bdf8;">$4.85M</strong></div>
+            <div><span style="color:#94a3b8;display:block;">Vol 5m:</span> <strong id="memeInspectVol5m" style="color:#f8fafc;">$185K</strong></div>
+            <div><span style="color:#94a3b8;display:block;">Tekanan Beli:</span> <strong id="memeInspectBuyPressure" style="color:#34d399;">78.9% BUY</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Inspection Grid (Live Chart + 6 Meme Fundamental Pillars + DEX Technical) -->
+      <div class="meme-workspace-grid">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+          <!-- Live Interactive DEX Chart Card -->
+          <div class="chart-card" id="memeDexChartCard">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">📈</span>
+                <strong style="font-size:14px;color:#f8fafc;" id="memeChartTitle">Grafik Real-Time DexScreener — PNUT / SOL</strong>
+                <span class="mode-chip meme" id="memeChartDexBadge">DEX LIVE</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <a id="memeDexOpenExternal" href="https://dexscreener.com" target="_blank" rel="noopener noreferrer" style="font-size:11.5px;color:#38bdf8;text-decoration:none;font-weight:700;padding:4px 8px;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);">
+                  Buka Penuh di DexScreener ↗
+                </a>
+              </div>
+            </div>
+            <div style="width:100%;height:520px;border-radius:10px;overflow:hidden;background:#090d16;position:relative;">
+              <iframe id="memeDexChartIframe" src="https://dexscreener.com/solana/AjBNVhp5U6S64XN4zYtoqE5LgGqYvK24U1P63Z9zpump?embed=1&theme=dark&trades=0&info=0" style="width:100%;height:100%;border:none;border-radius:10px;" loading="lazy"></iframe>
+            </div>
+          </div>
+
+          <!-- 🔬 6 Pilar Analisis Fundamental Khusus Memecoin -->
+          <div class="section-card" id="memeFundamentalCard">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+              <div>
+                <h3 style="margin:0;font-size:15px;color:#d8b4fe;">🔬 6 Pilar Fundamental Khusus Koin Micin / DEX</h3>
+                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Analisis On-Chain: Narasi Viral, Dev Tracking, Tokenomics &amp; Distribusi Suplai (Bukan PE Ratio / Lapkeu Saham!)</div>
+              </div>
+              <span style="font-size:10.5px;padding:3px 9px;border-radius:99px;background:rgba(168,85,247,0.18);color:#d8b4fe;border:1px solid rgba(168,85,247,0.4);font-weight:700;">ON-CHAIN FUNDAMENTALS</span>
+            </div>
+            <div id="memeFundGrid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:10px;">
+              <!-- 6 pillars rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Technical DEX + Golden Rules + Swap Actions -->
+        <aside style="display:flex;flex-direction:column;gap:14px;">
+          <!-- ⚡ Analisis Teknikal & Likuiditas Khusus DEX -->
+          <div class="side-panel-card" id="memeTechnicalCard">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:12.5px;background:rgba(168,85,247,0.2);color:#d8b4fe;">
+                ⚡ TEKNIKAL &amp; LIKUIDITAS DEX
+              </span>
+              <span id="memeTechSafetyBadge" style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.4);">
+                🛡️ 95/100 AMAN
+              </span>
+            </div>
+            <div id="memeTechBody" style="display:flex;flex-direction:column;gap:10px;font-size:12px;color:#e2e8f0;">
+              <!-- Technical metrics rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- 🎯 Golden Rules & Panduan Risiko Micin -->
+          <div class="side-panel-card" id="memeRiskCard" style="border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.04);">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:800;color:#fbbf24;margin-bottom:8px;">
+              <span>⚠️</span> <span>GOLDEN RULES TRADING MICIN</span>
+            </div>
+            <div style="font-size:11.5px;line-height:1.55;color:#fef3c7;display:flex;flex-direction:column;gap:8px;">
+              <div><strong>1. Amankan Modal Awal:</strong> Selalu tarik modal (Take Profit 100%) saat koin naik 2x–3x. Jangan serakah menunggu 1000x tanpa amankan modal pokok!</div>
+              <div><strong>2. Skor 90+ ≠ Jaminan Naik:</strong> Skor 90+ hanya mengonfirmasi <em>kontrak aman dari scam/rug pull dev</em>, bukan kepastian harga akan dipompa!</div>
+              <div><strong>3. Pantau Likuiditas:</strong> Jika volume 5m mati dan likuiditas pool mulai tergerus, segera amankan sisa saldo / cut loss.</div>
+              <div><strong>4. Gunakan Modal Hiburan (1–5%):</strong> Jangan pernah memakai uang beras atau tabungan pokok untuk koin micin!</div>
+            </div>
+          </div>
+
+          <!-- Tombol Eksekusi Cepat -->
+          <div class="side-panel-card" style="display:flex;flex-direction:column;gap:8px;">
+            <a id="btnMemeTradeDex" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary-glow" style="text-align:center;text-decoration:none;padding:10px;font-size:13px;font-weight:800;">
+              ⚡ Beli di Raydium / DEX ↗
+            </a>
+            <a id="btnMemeOpenRugCheck" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary-outline" style="text-align:center;text-decoration:none;padding:8px;font-size:12px;color:#38bdf8;border-color:rgba(56,189,248,0.4);">
+              🛡️ Verifikasi Audit di RugCheck.xyz ↗
+            </a>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Scanner Radar DEX Meme Coin & Solana Gems -->
+      <div class="section-card" id="memeRadarSection" style="max-width:1640px;margin:0 auto 40px;padding:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
           <div>
             <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.memeSecTitle">🚀 Radar DEX Meme Coin &amp; Solana Gems — Early Momentum &amp; Anti-Rug</h3>
@@ -607,7 +729,7 @@
         </div>
         <div id="memePicksGrid" class="radar-grid" style="margin-top:12px;"></div>
       </div>
-    </section>
+    </div>
   </div>
   <!-- ================= MODAL 1: GOOGLE LOGIN POPUP ================= -->
   <div id="googleAuthModal" class="modal-backdrop hidden">

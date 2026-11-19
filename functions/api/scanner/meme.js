@@ -22,6 +22,8 @@ const CORS_HEADERS = {
 const CURATED_MEME_DATABASE = [
   {
     symbol: 'PNUT',
+    metaNarrative: "Viral Squirrel Martyr & Free Speech Symbol — gelombang viralitas global pasca pemilu AS.",
+    devStatus: "100% Community Takeover (CTO) — Dev awal telah keluar penuh, dikelola komunitas murni.",
     name: 'Peanut the Squirrel',
     chain: 'solana',
     chainLabel: '🟣 Solana',
@@ -54,6 +56,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'GOAT',
+    metaNarrative: "Autonomous AI Terminal Agent (Truth Terminal) — pelopor narasi AI Memecoin otonom Solana.",
+    devStatus: "AI Agent & Open Community — Likuiditas di pool Raydium 100% dibakar permanen.",
     name: 'Goatseus Maximus',
     chain: 'solana',
     chainLabel: '🟣 Solana',
@@ -86,6 +90,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'ACT',
+    metaNarrative: "Multi-Agent AI Collaboration Network — narasi riset agen AI desentralisasi.",
+    devStatus: "Community Takeover (CTO) — Dev dump di awal lalu diambil alih komunitas secara desentralisasi.",
     name: 'Act I : The AI Prophecy',
     chain: 'solana',
     chainLabel: '🟣 Solana',
@@ -118,6 +124,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'MOODENG',
+    metaNarrative: "Viral Thai Pygmy Hippo Internet Phenomenon — tren meme satwa global terpopuler di Solana.",
+    devStatus: "Community Driven — Dev keluar di menit-menit awal, LP 100% burned permanen.",
     name: 'Moo Deng',
     chain: 'solana',
     chainLabel: '🟣 Solana',
@@ -150,6 +158,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'BRETT',
+    metaNarrative: "Mascot Terbesar Ekosistem Base — Karakter Boys Club karya Matt Furie (sahabat Pepe).",
+    devStatus: "OG Base Builder Community — Terkoneksi kuat dengan ekosistem Layer-2 Base Coinbase.",
     name: 'Brett (Base Mascot)',
     chain: 'base',
     chainLabel: '🔵 Base',
@@ -182,6 +192,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'VIRTUAL',
+    metaNarrative: "Base AI Agent Launchpad Protocol — infrastruktur penciptaan dan monetisasi agen AI otonom.",
+    devStatus: "Public Based Team — Tim pengembang protokol aktif dan transparan.",
     name: 'Virtuals Protocol',
     chain: 'base',
     chainLabel: '🔵 Base',
@@ -214,6 +226,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'FARTCOIN',
+    metaNarrative: "AI Humor & Internet Satire — hasil percakapan tanpa filter model AI Truth Terminal.",
+    devStatus: "CTO / Full Community — Suplai 100% beredar bebas tanpa kepemilikan orang dalam.",
     name: 'Fartcoin AI',
     chain: 'solana',
     chainLabel: '🟣 Solana',
@@ -246,6 +260,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'SPX',
+    metaNarrative: "SPX6900 — Gerakan satire pasar saham finansial tradisional dengan target market cap $69T.",
+    devStatus: "Cult Community Movement — Komunitas HODL militan di Ethereum & Base.",
     name: 'SPX6900',
     chain: 'ethereum',
     chainLabel: '💎 Ethereum',
@@ -278,6 +294,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'POPCAT',
+    metaNarrative: "OG Cat Mascot Solana — meme legendaris kucing mulut terbuka dari web clicker 2020.",
+    devStatus: "100% Community Takeover — LP terkunci permanen, suplai terdesentralisasi sehat.",
     name: 'Popcat',
     chain: 'solana',
     chainLabel: '🟣 Solana',
@@ -310,6 +328,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'AI16Z',
+    metaNarrative: "Marc AIndreessen AI Venture DAO — DAO investasi otonom pertama yang dikelola kecerdasan buatan.",
+    devStatus: "Eliza Framework Open-Source Developers — Ekosistem AI agent terdepan di Web3.",
     name: 'ai16z DAO',
     chain: 'solana',
     chainLabel: '🟣 Solana',
@@ -342,6 +362,8 @@ const CURATED_MEME_DATABASE = [
   },
   {
     symbol: 'FOUR',
+    metaNarrative: "Binance Smart Chain (BSC) Meme Mascot — parodi gesture 4 CZ Binance (Ignore FUD).",
+    devStatus: "Community Driven — Pool PancakeSwap LP 100% burned permanen.",
     name: 'Four Meme (BSC Launch)',
     chain: 'bsc',
     chainLabel: '🟡 BSC (BEP-20)',
