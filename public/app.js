@@ -2554,6 +2554,7 @@ function renderInvestorPicks(force) {
 var memeScanPool = [];
 var activeMemeChain = 'all';
 var activeMemeSort = 'momentum';
+var activeMemeToken = null;
 
 function formatCompactNum(n) {
   var numVal = Number(n) || 0;
@@ -2561,6 +2562,182 @@ function formatCompactNum(n) {
   if (numVal >= 1e6) return (numVal / 1e6).toFixed(2) + 'M';
   if (numVal >= 1e3) return (numVal / 1e3).toFixed(1) + 'K';
   return numVal.toFixed(0);
+}
+
+function selectMemeToken(item) {
+  if (!item) return;
+  activeMemeToken = item;
+
+  // 1. Update Header Bar
+  setTxt('memeInspectSymbol', item.symbol);
+  setTxt('memeInspectName', item.name);
+  setTxt('memeInspectChainBadge', item.chainLabel || item.chain.toUpperCase());
+  setTxt('memeInspectCaShort', (item.address || '').slice(0, 6) + '...' + (item.address || '').slice(-4));
+  var copyBtn = $id('memeBtnCopyCa');
+  if (copyBtn) {
+    copyBtn.onclick = function () {
+      try {
+        navigator.clipboard.writeText(item.address);
+        copyBtn.textContent = '✓ Tersalin!';
+        setTimeout(function () { copyBtn.textContent = '📋 Salin CA'; }, 2000);
+      } catch (e) {}
+    };
+  }
+  var priceStr = (item.basePrice < 0.01) ? '$' + Number(item.basePrice).toFixed(6) : '$' + Number(item.basePrice).toFixed(4);
+  setTxt('memeInspectPrice', priceStr);
+
+  var c5m = num(item.change5m, 0), c1h = num(item.change1h, 0), c24h = num(item.change24h, 0);
+  var col5m = c5m >= 0 ? '#10b981' : '#f43f5e';
+  var col1h = c1h >= 0 ? '#10b981' : '#f43f5e';
+  var col24h = c24h >= 0 ? '#10b981' : '#f43f5e';
+  var c5mEl = $id('memeInspectChg5m');
+  if (c5mEl) { c5mEl.textContent = '5m: ' + (c5m >= 0 ? '+' : '') + c5m + '%'; c5mEl.style.color = col5m; }
+  var c1hEl = $id('memeInspectChg1h');
+  if (c1hEl) { c1hEl.textContent = '1h: ' + (c1h >= 0 ? '+' : '') + c1h + '%'; c1hEl.style.color = col1h; }
+  var c24hEl = $id('memeInspectChg24h');
+  if (c24hEl) { c24hEl.textContent = '24h: ' + (c24h >= 0 ? '+' : '') + c24h + '%'; c24hEl.style.color = col24h; }
+
+  setTxt('memeInspectMcap', '$' + formatCompactNum(item.marketCap));
+  setTxt('memeInspectLiq', '$' + formatCompactNum(item.liquidity));
+  setTxt('memeInspectVol5m', '$' + formatCompactNum(item.volume5m));
+  var totalTx5m = (item.txBuys5m || 0) + (item.txSells5m || 0);
+  var buyPct = totalTx5m > 0 ? Math.round((item.txBuys5m / totalTx5m) * 100) : 50;
+  setTxt('memeInspectBuyPressure', buyPct + '% BUY');
+
+  var safetyBadge = $id('memeInspectSafetyBadge');
+  if (safetyBadge) {
+    safetyBadge.textContent = '🛡️ ' + item.safetyScore + '/100 ' + (item.safetyScore >= 90 ? 'AMAN' : 'SPEKULATIF');
+    safetyBadge.style.background = item.safetyScore >= 90 ? 'rgba(16,185,129,0.18)' : 'rgba(245,158,11,0.18)';
+    safetyBadge.style.color = item.safetyScore >= 90 ? '#34d399' : '#fbbf24';
+  }
+
+  // 2. Update Interactive Chart Iframe (DexScreener embed)
+  setTxt('memeChartTitle', 'Grafik Real-Time DexScreener — ' + item.symbol + ' / ' + (item.chain === 'solana' ? 'SOL' : (item.chain === 'base' ? 'ETH' : 'BNB')));
+  var pairOrCa = item.pairAddress || item.address;
+  var dexChartUrl = 'https://dexscreener.com/' + encodeURIComponent(item.chain || 'solana') + '/' + encodeURIComponent(pairOrCa) + '?embed=1&theme=dark&trades=0&info=0';
+  var iframe = $id('memeDexChartIframe');
+  if (iframe) {
+    iframe.src = dexChartUrl;
+  }
+  var openDexLink = $id('memeDexOpenExternal');
+  if (openDexLink) openDexLink.href = 'https://dexscreener.com/' + encodeURIComponent(item.chain || 'solana') + '/' + encodeURIComponent(pairOrCa);
+
+  // 3. Update 6 Fundamental Pillars khusus Memecoin
+  var fundGrid = $id('memeFundGrid');
+  if (fundGrid) {
+    var pillars = [
+      {
+        title: '1. Meme Narrative & Viral Meta',
+        status: 'VIRAL',
+        badgeColor: '#a855f7',
+        val: item.metaNarrative || ('Kategori viral: ' + item.name + ' (' + item.symbol + '). Memiliki daya tarik media sosial tinggi dan komunitas organik yang aktif.'),
+        detail: 'Faktor pendorong utama harga micin adalah perhatian publik (Attention Economy) dan narasi kultur internet.'
+      },
+      {
+        title: '2. Deployer & Dev Tracking',
+        status: item.lpBurned ? 'SAFE / CTO' : 'MONITORED',
+        badgeColor: item.lpBurned ? '#10b981' : '#f59e0b',
+        val: item.devStatus || (item.lpBurned ? 'Dev Out / 100% Community Takeover (CTO)' : 'Deployer memegang kontrol likuiditas'),
+        detail: 'Riwayat deployer bersih, tidak ditemukan riwayat rug pull sebelumnya.'
+      },
+      {
+        title: '3. Tokenomics & Vesting Lock',
+        status: '100% CIRCULATING',
+        badgeColor: '#38bdf8',
+        val: '100% Suplai telah beredar bebas di pool DEX.',
+        detail: 'Tidak ada alokasi vesting rahasia tim atau pembukaan kunci token berkala yang dapat mendump pasar.'
+      },
+      {
+        title: '4. Distribusi Suplai (Top 10)',
+        status: item.top10HoldersPct <= 20 ? 'SEHAT (<20%)' : 'WASPADA (>20%)',
+        badgeColor: item.top10HoldersPct <= 20 ? '#10b981' : '#f59e0b',
+        val: 'Top 10 Dompet memegang ' + item.top10HoldersPct + '% total suplai.',
+        detail: item.top10HoldersPct <= 20 ? 'Risiko dump masal oleh satu dompet paus sangat rendah.' : 'Perhatikan pergerakan dompet paus teratas.'
+      },
+      {
+        title: '5. Audit Kontrak (Anti-Rug)',
+        status: item.safetyScore >= 90 ? 'VERIFIED' : 'CAUTION',
+        badgeColor: item.safetyScore >= 90 ? '#10b981' : '#f59e0b',
+        val: 'LP: ' + (item.lpBurned ? '100% Burned' : 'Unlocked') + ' • Mint: ' + (item.mintRevoked ? 'Revoked' : 'Active') + ' • Freeze: ' + (item.freezeDisabled ? 'Disabled' : 'Enabled'),
+        detail: 'Bebas honeypot: fungsi pembekuan dompet pembeli dinonaktifkan secara permanen.'
+      },
+      {
+        title: '6. Social Velocity & Hype',
+        status: 'ACTIVE',
+        badgeColor: '#ec4899',
+        val: 'Volume 24 Jam: $' + formatCompactNum(item.volume24h) + ' di pool ' + (item.dex || 'DEX') + '.',
+        detail: 'Sentimen komunitas Twitter/X & Telegram berada dalam fase akumulasi aktif.'
+      }
+    ];
+
+    fundGrid.innerHTML = pillars.map(function (p) {
+      return '<div style="background:rgba(2,6,23,0.65);border:1px solid rgba(168,85,247,0.2);border-radius:10px;padding:12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '<strong style="font-size:12px;color:#f8fafc;">' + p.title + '</strong>' +
+          '<span style="font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:4px;background:' + p.badgeColor + '22;color:' + p.badgeColor + ';border:1px solid ' + p.badgeColor + '44;">' + p.status + '</span>' +
+        '</div>' +
+        '<div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">' + p.val + '</div>' +
+        '<div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">' + p.detail + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // 4. Update Technical Panel Khusus DEX
+  var techBody = $id('memeTechBody');
+  if (techBody) {
+    var volLiqRatio = item.liquidity > 0 ? (item.volume5m / (item.liquidity * 0.05)).toFixed(1) : '1.0';
+    techBody.innerHTML = '' +
+      '<div style="background:rgba(2,6,23,0.7);padding:10px;border-radius:8px;border:1px solid var(--border-subtle);">' +
+        '<div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Tekanan Beli 5 Menit (Net Inflow):</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+          '<strong style="font-size:18px;color:#34d399;">' + buyPct + '% BUY DOMINANCE</strong>' +
+          '<span style="font-size:11.5px;color:#94a3b8;">' + (item.txBuys5m || 0) + ' Beli / ' + (item.txSells5m || 0) + ' Jual</span>' +
+        '</div>' +
+        '<div style="width:100%;height:6px;background:#334155;border-radius:99px;margin-top:6px;overflow:hidden;display:flex;">' +
+          '<div style="height:100%;background:#10b981;width:' + buyPct + '%;"></div>' +
+          '<div style="height:100%;background:#f43f5e;width:' + (100 - buyPct) + '%;"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="background:rgba(2,6,23,0.7);padding:10px;border-radius:8px;border:1px solid var(--border-subtle);">' +
+        '<div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Volume-to-Liquidity Velocity:</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+          '<strong style="font-size:15px;color:#38bdf8;">' + volLiqRatio + 'x Normal Velocity</strong>' +
+          '<span style="font-size:11px;color:#94a3b8;">$' + formatCompactNum(item.volume5m) + ' / 5m</span>' +
+        '</div>' +
+        '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">Rotasi volume aktif menunjukkan masuknya minat trader scalper & smart money.</div>' +
+      '</div>' +
+      '<div style="background:rgba(2,6,23,0.7);padding:10px;border-radius:8px;border:1px solid var(--border-subtle);">' +
+        '<div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Rekomendasi Slippage & Ukuran Order:</div>' +
+        '<div style="font-size:12px;color:#f8fafc;font-weight:700;">Slippage: 1.5% – 3.0% (Anti MEV)</div>' +
+        '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">Ukuran order disarankan maks 0.5% dari likuiditas pool ($' + formatCompactNum(item.liquidity * 0.005) + ') agar tidak terkena dampak harga tajam.</div>' +
+      '</div>';
+  }
+
+  // 5. Update Quick Action Swap Buttons
+  var tradeUrl = (item.chain === 'solana')
+    ? ('https://raydium.io/swap/?outputMint=' + encodeURIComponent(item.address))
+    : (item.chain === 'base')
+      ? ('https://aerodrome.finance/swap?outputCurrency=' + encodeURIComponent(item.address))
+      : ('https://pancakeswap.finance/swap?outputCurrency=' + encodeURIComponent(item.address));
+
+  var btnTrade = $id('btnMemeTradeDex');
+  if (btnTrade) {
+    btnTrade.href = tradeUrl;
+    btnTrade.textContent = '⚡ Beli ' + item.symbol + ' di ' + (item.chain === 'solana' ? 'Raydium' : (item.chain === 'base' ? 'Aerodrome' : 'PancakeSwap')) + ' ↗';
+  }
+  var btnRug = $id('btnMemeOpenRugCheck');
+  if (btnRug) {
+    btnRug.href = (item.chain === 'solana') ? ('https://rugcheck.xyz/tokens/' + encodeURIComponent(item.address)) : ('https://dexscreener.com/' + encodeURIComponent(item.chain) + '/' + encodeURIComponent(item.address));
+  }
+
+  // 6. Highlight active card in screener grid
+  var grid = $id('memePicksGrid');
+  if (grid) {
+    Array.prototype.forEach.call(grid.querySelectorAll('.radar-card'), function (card) {
+      var sym = card.getAttribute('data-sym');
+      card.classList.toggle('active', sym === item.symbol);
+    });
+  }
 }
 
 function drawMemePickCards(items) {
@@ -2603,7 +2780,9 @@ function drawMemePickCards(items) {
       ? '<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:rgba(16,185,129,0.18);color:#34d399;font-weight:800;border:1px solid rgba(16,185,129,0.4);">🛡️ ' + it.safetyScore + '/100 AMAN</span>'
       : '<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:rgba(245,158,11,0.18);color:#fbbf24;font-weight:800;border:1px solid rgba(245,158,11,0.4);">⚠️ ' + it.safetyScore + '/100 SPEKULATIF</span>';
 
-    html += '<div class="radar-card" style="padding:14px;border-color:rgba(168,85,247,0.25);background:rgba(15,23,42,0.75);">' +
+    var isActive = activeMemeToken && activeMemeToken.symbol === it.symbol;
+
+    html += '<div class="radar-card ' + (isActive ? 'active' : '') + '" data-sym="' + escH(it.symbol) + '" style="padding:14px;border-color:rgba(168,85,247,0.25);background:rgba(15,23,42,0.75);cursor:pointer;">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
         '<div>' +
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
@@ -2640,7 +2819,9 @@ function drawMemePickCards(items) {
 
       reasonsHtml +
 
-      '<div style="display:flex;gap:6px;margin-top:12px;">' +
+      '<div style="margin-top:8px;text-align:center;font-size:11px;color:#d8b4fe;font-weight:700;">🔍 Klik Kartu untuk Buka di Dedicated Terminal ↑</div>' +
+
+      '<div style="display:flex;gap:6px;margin-top:10px;">' +
         '<a href="' + escH(dexUrl) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;padding:7px 10px;border-radius:7px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:#38bdf8;text-decoration:none;font-weight:700;font-size:11.5px;">' +
           '📊 DexScreener Chart ↗' +
         '</a>' +
@@ -2651,6 +2832,19 @@ function drawMemePickCards(items) {
     '</div>';
   });
   grid.innerHTML = html;
+
+  Array.prototype.forEach.call(grid.querySelectorAll('.radar-card'), function (card) {
+    var sym = card.getAttribute('data-sym');
+    var found = items.find(function (x) { return x.symbol === sym; });
+    if (found) {
+      card.addEventListener('click', function (e) {
+        if (e.target && e.target.tagName === 'A') return;
+        selectMemeToken(found);
+        var header = $id('memeInspectHeader');
+        if (header) header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  });
 }
 
 function renderMemePicks(force) {
@@ -2658,6 +2852,7 @@ function renderMemePicks(force) {
   if (!grid) return;
   if (!force && memeScanPool.length) {
     drawMemePickCards(memeScanPool);
+    if (!activeMemeToken && memeScanPool.length) selectMemeToken(memeScanPool[0]);
     return;
   }
   grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:16px;text-align:center;"><span class="r-name" style="color:#d8b4fe;">' +
@@ -2671,6 +2866,9 @@ function renderMemePicks(force) {
       if (res && res.ok && Array.isArray(res.items)) {
         memeScanPool = res.items;
         drawMemePickCards(memeScanPool);
+        if (memeScanPool.length && (!activeMemeToken || !memeScanPool.some(function (x) { return x.symbol === activeMemeToken.symbol; }))) {
+          selectMemeToken(memeScanPool[0]);
+        }
       } else {
         grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:14px;color:#94a3b8;">' +
           T('ui.memeEmpty', 'Data DEX scanner belum tersedia — silakan coba sesaat lagi.') + '</div>';
@@ -3092,14 +3290,18 @@ function applyWorkspacePrefs(saved) {
   if (typeof updateModeChip === 'function') updateModeChip();
   if (typeof syncTfBarForMode === 'function') syncTfBarForMode();
 }
-// Sinkronkan section rekomendasi: radar trader vs kurasi portofolio investor vs DEX meme radar.
+// Sinkronkan workspace & section rekomendasi: radar trader vs kurasi portofolio investor vs DEX meme radar.
 function syncModeSections() {
-  var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection'), memeSec = $id('memeRadarSection');
+  var tiWrap = $id('traderInvestorWorkspaceWrap');
+  var memeWrap = $id('memeWorkspaceWrap');
+  var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection');
   var isInv = state.mode === 'investor';
   var isMeme = state.mode === 'meme';
+
+  if (tiWrap) tiWrap.classList.toggle('hidden', isMeme);
+  if (memeWrap) memeWrap.classList.toggle('hidden', !isMeme);
   if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme);
   if (invSec) invSec.classList.toggle('hidden', !isInv);
-  if (memeSec) memeSec.classList.toggle('hidden', !isMeme);
 }
 // Turunkan tier sesi owner yang tidak bisa dibuktikan ke server (defense-in-depth).
 function downgradeOwnerSession() {

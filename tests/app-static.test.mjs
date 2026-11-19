@@ -289,5 +289,16 @@ chk('app.js memuat fungsi renderMemePicks dan integrasi mode meme',
   app.includes('drawMemePickCards') &&
   css.includes('.mode-chip.meme'));
 
+chk('ruang tersendiri meme coin terisolasi total dari workspace trader/investor',
+  html.includes('id="traderInvestorWorkspaceWrap"') &&
+  html.includes('id="memeWorkspaceWrap"') &&
+  html.includes('id="memeInspectHeader"') &&
+  html.includes('id="memeDexChartIframe"') &&
+  html.includes('id="memeFundGrid"') &&
+  html.includes('id="memeTechnicalCard"') &&
+  app.includes('selectMemeToken') &&
+  memeApi.includes('metaNarrative') &&
+  memeApi.includes('devStatus'));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
