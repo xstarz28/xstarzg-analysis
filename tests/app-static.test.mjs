@@ -326,5 +326,22 @@ chk('ticker komoditas kapas COTTON terpetakan lengkap di TradingView dan Yahoo',
   edgeAnalyze.includes("'COTTON': ['ICEUS:CT1!', 'NYBOT:CT1!', 'TVC:COTTON']") &&
   edgeAnalyze.includes("'COTTON': ['CT=F', 'TT=F', 'BAL']"));
 
+chk('anti-dot spread floor & validasi skala harga di analyze.js dan app.js',
+  edgeAnalyze.includes('flatCount > candles.length * 0.35') &&
+  edgeAnalyze.includes('minSpread = Math.max(c.close * 0.0016, 0.0001)') &&
+  edgeAnalyze.includes('live > expectedP * 3.5 || live < expectedP * 0.28') &&
+  app.includes('var minSp = Math.max(cl * 0.0016, 0.0001);') &&
+  app.includes('baseP = (meta && Number(meta.basePrice) > 0) ? Number(meta.basePrice) : (SEED_PRICES[sym] || 100);'));
+
+chk('COTTON M5 masuk daftar radar scalping & dipantau aktif',
+  app.includes("{ sym: 'COTTON', tf: 'M5' }") &&
+  app.includes("monitorLiveSignalProgress(state.symbol, state.tf, price, bar.high, bar.low);"));
+
+chk('lokalisasi jurnal sinyal bebas bahasa Indonesia saat English aktif',
+  app.includes('function localizeJournalReason(reason)') &&
+  app.includes("Saved by SL+ protection (0-Risk, capital safe)") &&
+  app.includes("isEn ? '🛡️ SL+ ACTIVE (0-RISK)' : '🛡️ SL+ AKTIF (0-RISK)'") &&
+  app.includes("isEn ? 'towards TP' : 'menuju TP'"));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

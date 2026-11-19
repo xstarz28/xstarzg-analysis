@@ -305,8 +305,8 @@ var RADAR_CONFIG = {
     infoInvestor: 'Horizon scalping bukan untuk akumulasi — investor disarankan memakai tab SWING.',
     list: [
       { sym: 'BTC/USDT', tf: 'M5' }, { sym: 'ETH/USDT', tf: 'M5' }, { sym: 'SOL/USDT', tf: 'M5' },
-      { sym: 'XAU/USD', tf: 'M15' }, { sym: 'EUR/USD', tf: 'M5' }, { sym: 'GBP/JPY', tf: 'M15' },
-      { sym: 'USD/JPY', tf: 'M15' }, { sym: 'NVDA', tf: 'M15' }
+      { sym: 'XAU/USD', tf: 'M15' }, { sym: 'COTTON', tf: 'M5' }, { sym: 'EUR/USD', tf: 'M5' },
+      { sym: 'GBP/JPY', tf: 'M15' }, { sym: 'USD/JPY', tf: 'M15' }, { sym: 'NVDA', tf: 'M15' }
     ]
   },
   intraday: {
@@ -965,7 +965,21 @@ function fetchRealMarketCandles(symbol, tf) {
     }).then(function (d) {
       if (d && Array.isArray(d.candles) && d.candles.length >= 5) {
         var candles = d.candles
-          .map(function (c) { return { time: num(c.time), open: num(c.open), high: num(c.high), low: num(c.low), close: num(c.close), volume: num(c.volume, 0) }; })
+          .map(function (c) {
+            var o = num(c.open);
+            var h = num(c.high);
+            var l = num(c.low);
+            var cl = num(c.close);
+            var minSp = Math.max(cl * 0.0016, 0.0001);
+            var maxP = Math.max(h, o, cl);
+            var minP = Math.min(l, o, cl);
+            if ((maxP - minP) < minSp) {
+              var pad = (minSp - (maxP - minP)) * 0.5;
+              maxP = Math.max(o, cl) + pad;
+              minP = Math.max(0.000001, Math.min(o, cl) - pad);
+            }
+            return { time: num(c.time), open: o, high: maxP, low: minP, close: cl, volume: num(c.volume, 0) };
+          })
           .filter(function (c) { return c.time > 0 && c.close > 0; })
           .sort(function (a, b) { return a.time - b.time; });
         if (candles.length >= 5) {
@@ -998,8 +1012,9 @@ function fetchRealMarketCandles(symbol, tf) {
         var arr = []; var cur = base;
         for (i = 199; i >= 0; i--) {
           var o = cur; var cl = Math.max(base * 0.4, o + (rnd() - 0.496) * base * 0.005);
-          var h = Math.max(o, cl) + rnd() * base * 0.002;
-          var l = Math.min(o, cl) - rnd() * base * 0.002;
+          var minSp = Math.max(cl * 0.0016, 0.0001);
+          var h = Math.max(o, cl) + Math.max(rnd() * base * 0.002, minSp * 0.5);
+          var l = Math.max(0.000001, Math.min(o, cl) - Math.max(rnd() * base * 0.002, minSp * 0.5));
           arr.push({ time: now - i * step, open: o, high: h, low: l, close: cl, volume: Math.round(200 + rnd() * 700) });
           cur = cl;
         }
@@ -2143,15 +2158,33 @@ function newsSoonFor(symbol, windowMin) {
    akhir — TP, SL, Invalid struktur, atau Expired horison. Ini jawaban atas
    "kenapa sinyal berubah/hilang": tidak hilang, tersimpan & bisa diaudit. */
 function jnlStatusBadge(st, beActive) {
+  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
   var m = {
-    ACTIVE: beActive ? ['#10b981', 'ui.jnlBeActive', '🛡️ SL+ AKTIF (0-RISK)'] : ['#38bdf8', 'ui.jnlActive', '🔒 AKTIF - menunggu TP/SL'],
-    BE_SAVED: ['#10b981', 'ui.jnlBeSaved', '🛡️ TERSELAMATKAN SL+ (0-RISK)'],
-    TP_HIT: ['#10b981', 'ui.jnlTP', '✅ TP TERSENTUH'],
-    SL_HIT: ['#f43f5e', 'ui.jnlSL', '❌ SL TERSENTUH'],
-    STRUCTURE_INVALID: ['#f59e0b', 'ui.jnlInvalid', '⚠️ INVALID STRUKTUR'],
-    EXPIRED: ['#a8a29e', 'ui.jnlExpired', '⏳ KEDALUWARSA (horison lewat)']
+    ACTIVE: beActive
+      ? ['#10b981', 'ui.jnlBeActive', isEn ? '🛡️ SL+ ACTIVE (0-RISK)' : '🛡️ SL+ AKTIF (0-RISK)']
+      : ['#38bdf8', 'ui.jnlActive', isEn ? '🔒 ACTIVE - awaiting TP/SL' : '🔒 AKTIF - menunggu TP/SL'],
+    BE_SAVED: ['#10b981', 'ui.jnlBeSaved', isEn ? '🛡️ SAVED BY SL+ (0-RISK)' : '🛡️ TERSELAMATKAN SL+ (0-RISK)'],
+    TP_HIT: ['#10b981', 'ui.jnlTP', isEn ? '✅ TP HIT' : '✅ TP TERSENTUH'],
+    SL_HIT: ['#f43f5e', 'ui.jnlSL', isEn ? '❌ SL HIT' : '❌ SL TERSENTUH'],
+    STRUCTURE_INVALID: ['#f59e0b', 'ui.jnlInvalid', isEn ? '⚠️ STRUCTURE INVALID' : '⚠️ INVALID STRUKTUR'],
+    EXPIRED: ['#a8a29e', 'ui.jnlExpired', isEn ? '⏳ EXPIRED (horizon elapsed)' : '⏳ KEDALUWARSA (horison lewat)']
   }[st] || ['#64748b', null, st];
   return { col: m[0], txt: m[2] ? T(m[1], m[2]) : st };
+}
+function localizeJournalReason(reason) {
+  if (!reason) return '';
+  var s = String(reason);
+  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
+  if (isEn) {
+    s = s.replace(/Terselamatkan oleh proteksi SL\+ \(0-Risk, modal aman\)/g, 'Saved by SL+ protection (0-Risk, capital safe)');
+    s = s.replace(/TP tersentuh — setup selesai/g, 'TP hit — setup completed');
+    s = s.replace(/TP tersentuh pada pemantauan harga langsung/g, 'TP hit on live price stream');
+    s = s.replace(/SL tersentuh pada pemantauan harga langsung/g, 'SL hit on live price stream');
+    s = s.replace(/SL tersentuh pada candle closed/g, 'SL hit on closed candle');
+    s = s.replace(/Horison setup berakhir tanpa TP\/SL \((\d+) candle berlalu\)/g, 'Setup horizon expired without TP/SL ($1 bars passed)');
+    s = s.replace(/Struktur berbalik \+ harga diterima melawan trade \(>=50% risiko\) — Order Block batal/g, 'Structure flip + price accepted against trade (>=50% risk) — Order Block invalid');
+  }
+  return s;
 }
 function renderSignalJournal() {
   var list = $id('signalJournalList'); var sum = $id('journalSummary');
@@ -2184,11 +2217,14 @@ function renderSignalJournal() {
     return;
   }
   rows.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id';
+  var dateLocale = isEn ? 'en-US' : 'id-ID';
   var html = '';
   rows.slice(0, 14).forEach(function (r) {
     var b = jnlStatusBadge(r.st, r.bePlusActive);
     var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
-    var tTxt = r.at ? new Date(r.at).toLocaleString(navigator.language || 'id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    var tTxt = r.at ? new Date(r.at).toLocaleString(dateLocale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
     var isSniper = r.brain === 'SNIPER' || (r.tf && ['M30', 'H1', 'H4', 'D1', 'W1', 'MN'].indexOf(r.tf) > -1);
     var slPlusRow = (r.slPlus && (r.bePlusActive || r.st === 'BE_SAVED'))
       ? ' • <b style="color:#6ee7b7;">SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (0-Risk)</b>'
@@ -2198,11 +2234,17 @@ function renderSignalJournal() {
       : (' • TP1 ' + formatPrice(num(r.tp1), r.sym));
     var advisorNotice = '';
     if (isSniper && r.st === 'ACTIVE') {
-      var slPosTxt = r.dir === 'LONG' ? 'di atas entry' : 'di bawah entry';
+      var slPosTxt = r.dir === 'LONG' ? T('ui.jnlAboveEntry', 'di atas entry') : T('ui.jnlBelowEntry', 'di bawah entry');
       if (r.bePlusActive) {
-        advisorNotice = '<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Stop Loss dinaikkan ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') menuju Target 1:2 R:R (TP2).</div>';
+        advisorNotice = '<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">' +
+          T('ui.jnlAdvLocked', '🛡️ 0-RISK TERKUNCI: Stop Loss dinaikkan ke SL+ {sl} ({pos}) menuju Target 1:2 R:R (TP2).')
+            .replace('{sl}', formatPrice(num(r.slPlus), r.sym))
+            .replace('{pos}', slPosTxt) + '</div>';
       } else {
-        advisorNotice = '<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Sebelum 1:2, segera geser SL ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') saat menyentuh TP1 untuk proteksi 0-Risk!</div>';
+        advisorNotice = '<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">' +
+          T('ui.jnlAdvWarn', '⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Sebelum 1:2, segera geser SL ke SL+ {sl} ({pos}) saat menyentuh TP1 untuk proteksi 0-Risk!')
+            .replace('{sl}', formatPrice(num(r.slPlus), r.sym))
+            .replace('{pos}', slPosTxt) + '</div>';
       }
     }
     var liveMonitorInfo = '';
@@ -2220,11 +2262,13 @@ function renderSignalJournal() {
         var progPct = Math.round((gainDist / targetDist) * 100);
         var progCol = progPct >= 0 ? '#34d399' : '#fb7185';
         var progSign = progPct >= 0 ? '+' : '';
-        var progLabel = progPct >= 0 ? (progSign + progPct + '% ' + T('ui.jnlTowardsTp', 'menuju TP')) : (progPct + '% ' + T('ui.jnlNearSl', 'mendekati SL'));
+        var progLabel = progPct >= 0
+          ? (progSign + progPct + '% ' + (isEn ? 'towards TP' : 'menuju TP'))
+          : (progPct + '% ' + (isEn ? 'near SL' : 'mendekati SL'));
         var distToTpTxt = formatPrice(Math.abs(curP - tp1N), r.sym);
         var distToSlTxt = formatPrice(Math.abs(curP - slN), r.sym);
         liveMonitorInfo = '<div style="font-size:10.5px;color:#cbd5e1;margin-top:4px;padding:3px 8px;border-radius:6px;background:rgba(15,23,42,0.55);border:1px solid rgba(56,189,248,0.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">' +
-          '<span>📡 <b style="color:#38bdf8;">' + T('ui.jnlLivePrice', 'Live:') + '</b> ' + formatPrice(curP, r.sym) + ' <span style="color:#64748b;font-size:9.5px;">(Δ TP: ' + distToTpTxt + ' • Δ SL: ' + distToSlTxt + ')</span></span>' +
+          '<span>📡 <b style="color:#38bdf8;">' + (isEn ? 'Live:' : 'Live:') + '</b> ' + formatPrice(curP, r.sym) + ' <span style="color:#64748b;font-size:9.5px;">(Δ TP: ' + distToTpTxt + ' • Δ SL: ' + distToSlTxt + ')</span></span>' +
           '<span style="color:' + progCol + ';font-weight:700;">' + progLabel + '</span>' +
         '</div>';
       }
@@ -2244,7 +2288,7 @@ function renderSignalJournal() {
       '</div>' +
       advisorNotice +
       liveMonitorInfo +
-      (r.reason ? '<div style="font-size:10.2px;color:#64748b;margin-top:2px;">' + escH(String(r.reason)).slice(0, 90) + '</div>' : '') +
+      (r.reason ? '<div style="font-size:10.2px;color:#64748b;margin-top:2px;">' + escH(localizeJournalReason(r.reason)).slice(0, 110) + '</div>' : '') +
     '</div>';
   });
   list.innerHTML = html;
@@ -5731,11 +5775,12 @@ function bootCore() {
       renderInstrumentCatalog();
       updateUserUi();
       updateModeChip();
-  syncTfBarForMode();
+      syncTfBarForMode();
       syncHorizonTabs();
       // force=false: gunakan cache radar/kurasi bila ada (tidak memicu fetch ulang)
       if (state.mode === 'investor') renderInvestorPicks(false);
       else renderOpportunityRadar(false);
+      try { renderSignalJournal(); } catch (e) {}
       // Narasi analisis terakhir tetap — jalankan ulang analisis agar panel sisi ikut bahasa baru
       if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
     } catch (e) {}
@@ -5855,7 +5900,8 @@ if (document.readyState === 'loading') {
   };
   function generateSeedCandles(symbol, tf) {
     const sym = (symbol || 'XAU/USD').toUpperCase();
-    const baseP = SEED_PRICES[sym] || 100;
+    const meta = (typeof getMeta === 'function' ? getMeta(sym) : null) || (typeof QC !== 'undefined' && QC && QC.getInstrumentMeta ? QC.getInstrumentMeta(sym) : null);
+    const baseP = (meta && Number(meta.basePrice) > 0) ? Number(meta.basePrice) : (SEED_PRICES[sym] || 100);
     const tfSecMap = { 'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800, 'H1': 3600, 'H4': 14400, 'D1': 86400, 'W1': 604800, 'MN': 2592000, '1Y': 7776000 };
     const step = tfSecMap[tf] || 3600;
     const nowBucket = Math.floor(Date.now() / 1000 / step) * step;
@@ -5878,8 +5924,10 @@ if (document.readyState === 'loading') {
       const t = nowBucket - (count - 1 - i) * step;
       const o = i === 0 ? closes[0] * 0.999 : closes[i - 1];
       const c = closes[i];
-      const h = Math.max(o, c) + (0.2 + rand() * 0.5) * atr * 0.6;
-      const l = Math.min(o, c) - (0.2 + rand() * 0.5) * atr * 0.6;
+      const wickUp = Math.max((0.2 + rand() * 0.5) * atr * 0.65, c * 0.0012);
+      const wickDn = Math.max((0.2 + rand() * 0.5) * atr * 0.65, c * 0.0012);
+      const h = Math.max(o, c) + wickUp;
+      const l = Math.max(0.000001, Math.min(o, c) - wickDn);
       out.push({ time: t, open: o, high: h, low: l, close: c, volume: Math.round(120 + rand() * 800) });
     }
     return { price: baseP, candles: out };
