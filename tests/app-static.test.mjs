@@ -306,5 +306,25 @@ chk('dashboard depan menampilkan mode meme coin berdampingan dengan trader dan i
   html.includes('ui.feat5Desc') &&
   html.includes('Radar Khusus Koin Micin & DEX Gems'));
 
+/* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
+chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
+  app.includes('function monitorLiveSignalProgress(') &&
+  app.includes('liveMonitorInfo') &&
+  app.includes('scheduleLiveJournalUpdate') &&
+  app.includes('monitorLiveSignalProgress(state.symbol, state.tf, price, bar.high, bar.low);'));
+
+chk('sinyal workspace trader terdaftar ke siklus kunci jurnal walau feed cadangan',
+  app.includes("scope === 'create' || getSignalLock(symbol, tfA)") &&
+  app.includes('if (a.feedUnverified) nl.feedUnverified = true;') &&
+  app.includes('saveSignalLock(symbol, tfA, nl);'));
+
+chk('saveSignalLock dan renderAllVisuals memicu pembaruan jurnal seketika',
+  app.includes('localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));\n  } catch (e) {}\n  try { renderSignalJournal(); } catch (e) {}') &&
+  app.includes('try { renderSignalJournal(); } catch (e) {}\n}'));
+
+chk('ticker komoditas kapas COTTON terpetakan lengkap di TradingView dan Yahoo',
+  edgeAnalyze.includes("'COTTON': ['ICEUS:CT1!', 'NYBOT:CT1!', 'TVC:COTTON']") &&
+  edgeAnalyze.includes("'COTTON': ['CT=F', 'TT=F', 'BAL']"));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
