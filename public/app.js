@@ -333,6 +333,46 @@ var RADAR_CONFIG = {
 };
 var radarCache = {};
 var radarScanPool = {}; // hz -> sym|tf -> { ts, item } (cache scan bergilir katalog)
+var RADAR_STORAGE_KEY = 'xstarzg_radar_pool_v1';
+function loadPersistedRadarPool() {
+  try {
+    var raw = sessionStorage.getItem(RADAR_STORAGE_KEY);
+    if (!raw) return;
+    var parsed = JSON.parse(raw);
+    var now = Date.now();
+    for (var hz in parsed) {
+      radarScanPool[hz] = radarScanPool[hz] || {};
+      for (var k in parsed[hz]) {
+        if (now - parsed[hz][k].ts < 15 * 60000) {
+          radarScanPool[hz][k] = parsed[hz][k];
+        }
+      }
+    }
+  } catch (e) {}
+}
+function persistRadarPool() {
+  try {
+    var copy = {};
+    for (var hz in radarScanPool) {
+      copy[hz] = {};
+      for (var k in radarScanPool[hz]) {
+        var it = radarScanPool[hz][k];
+        if (it && it.item) {
+          copy[hz][k] = {
+            ts: it.ts,
+            item: {
+              sym: it.item.sym, tf: it.item.tf, price: it.item.price,
+              changePct: it.item.changePct, source: it.item.source,
+              analysis: it.item.analysis
+            }
+          };
+        }
+      }
+    }
+    sessionStorage.setItem(RADAR_STORAGE_KEY, JSON.stringify(copy));
+  } catch (e) {}
+}
+try { loadPersistedRadarPool(); } catch (e) {}
 var FALLBACK_CATALOG = [
   { symbol: 'XAU/USD', name: 'Gold Spot / Emas Dunia (USD)', assetClass: 'metals', region: 'GLOBAL' },
   { symbol: 'XAU/IDR', name: 'Emas Spot / Gram (IDR Proxy)', assetClass: 'metals', region: 'ID' },
@@ -2149,17 +2189,30 @@ function paintRadarItems(cfg, items, noneQualified) {
   if (activeGroup === 'all') {
     RADAR_GROUPS.forEach(function (grp, gIdx) {
       var grpItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === grp.key; });
+      var strongGrp = grpItems.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
+      var displayItems = strongGrp.length ? strongGrp.slice(0, 6) : grpItems.slice(0, 3);
+      var badgeText = strongGrp.length
+        ? ('<span style="font-size:10.5px;color:' + grp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + strongGrp.length + ' Sinyal Siap Eksekusi</span>')
+        : (grpItems.length
+          ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' Pantauan (Belum Ada Skor Tinggi)</span>'
+          : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">Memindai…</span>');
+
       html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + grp.bg + ';border:1px solid ' + grp.border + '44;border-left:4px solid ' + grp.col + ';margin-top:' + (gIdx > 0 ? '16px' : '4px') + ';">' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
           '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + grp.label + '</strong>' +
           '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;">' + grp.sub + '</span>' +
         '</div>' +
-        '<span style="font-size:10.5px;color:' + grp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' Sinyal</span>' +
+        badgeText +
       '</div>';
       if (!grpItems.length) {
-        html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:12px;font-size:11.5px;color:#64748b;">' + grp.emptyText + '</div>';
+        html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:12px;font-size:11.5px;color:#94a3b8;">' + grp.emptyText + '</div>';
       } else {
-        grpItems.slice(0, 6).forEach(function (it) {
+        if (!strongGrp.length) {
+          html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:4px 8px;background:rgba(245,158,11,0.08);border-radius:6px;">' +
+            '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur agar modal aman. Menampilkan kandidat pantauan terdekat:' +
+            '</div>';
+        }
+        displayItems.forEach(function (it) {
           html += renderRadarCardHtml(it);
         });
       }
@@ -2167,17 +2220,30 @@ function paintRadarItems(cfg, items, noneQualified) {
   } else {
     var selGrp = RADAR_GROUPS.find(function (g) { return g.key === activeGroup; }) || RADAR_GROUPS[0];
     var selItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === activeGroup; });
+    var strongSel = selItems.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
+    var showSel = strongSel.length ? strongSel.slice(0, 12) : selItems.slice(0, 6);
+    var statusBadge = strongSel.length
+      ? '<span style="font-size:10.5px;color:' + selGrp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + strongSel.length + ' Sinyal Terverifikasi</span>'
+      : (selItems.length
+        ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + selItems.length + ' Pantauan (Belum Ada Skor Tinggi)</span>'
+        : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">Memindai…</span>');
+
     html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + selGrp.bg + ';border:1px solid ' + selGrp.border + '44;border-left:4px solid ' + selGrp.col + ';margin-top:4px;">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
         '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + selGrp.label + '</strong>' +
         '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;">' + selGrp.sub + '</span>' +
       '</div>' +
-      '<span style="font-size:10.5px;color:' + selGrp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + selItems.length + ' Sinyal Terverifikasi</span>' +
+      statusBadge +
     '</div>';
     if (!selItems.length) {
-      html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:14px;font-size:12px;color:#64748b;">' + selGrp.emptyText + ' Belum ada setup yang lolos gerbang ketat untuk kelompok ini saat ini.</div>';
+      html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:14px;font-size:12px;color:#94a3b8;">' + selGrp.emptyText + '</div>';
     } else {
-      selItems.slice(0, 12).forEach(function (it) {
+      if (!strongSel.length) {
+        html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:4px 8px;background:rgba(245,158,11,0.08);border-radius:6px;">' +
+          '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur. Menampilkan kandidat pantauan terdekat:' +
+          '</div>';
+      }
+      showSel.forEach(function (it) {
         html += renderRadarCardHtml(it);
       });
     }
@@ -2355,31 +2421,51 @@ function renderOpportunityRadar(force) {
   // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
   var freshStrong = fresh.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
-  var freshShow = freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4);
-  if (!force && fresh.length >= 12) { paintRadarItems(cfg, freshShow, freshStrong.length === 0); return; }
+  var freshShow = fresh.length ? fresh : (freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4));
+  if (!force && fresh.length >= 6) { paintRadarItems(cfg, freshShow, freshStrong.length === 0); return; }
   if (fresh.length) paintRadarItems(cfg, freshShow, freshStrong.length === 0);
   // v2026.66: batch 30 simbol / slot 4 menit (dulu 40/3) — memangkas panggilan Functions
   // ~55% per pengguna demi kuota gratis Cloudflare; rotasi tetap menutupi seluruh katalog.
   var batch = rotatingSlice(catalogSortedStable(), 30, 4);
   var mySeq = ++radarRunSeq;
   if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', batch.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
-  Promise.allSettled(batch.map(function (inst) { return fetchRadarCandidate({ sym: inst.symbol, tf: tfFor }); })).then(function (results) {
-    if (mySeq !== radarRunSeq) return;
-    for (var i = 0; i < results.length; i++) {
-      if (results[i].status === 'fulfilled' && results[i].value) {
-        var it = results[i].value;
+
+  var progressiveTimer = null;
+  function triggerProgressiveRepaint() {
+    if (progressiveTimer) return;
+    progressiveTimer = setTimeout(function () {
+      progressiveTimer = null;
+      if (mySeq !== radarRunSeq) return;
+      var curMerged = [];
+      var nNow = Date.now();
+      for (var ck in pool) if (nNow - pool[ck].ts < 15 * 60000) curMerged.push(pool[ck].item);
+      curMerged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
+      var curStrong = curMerged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
+      paintRadarItems(cfg, curMerged, curStrong.length === 0);
+      persistRadarPool();
+    }, 350);
+  }
+
+  Promise.allSettled(batch.map(function (inst) {
+    return fetchRadarCandidate({ sym: inst.symbol, tf: tfFor }).then(function (it) {
+      if (it) {
         pool[it.sym + '|' + it.tf] = { ts: Date.now(), item: it };
         if (alarmState.enabled && alarmState.symbol && it.sym && it.sym.toUpperCase() === alarmState.symbol.toUpperCase() && it.analysis && it.analysis.signalEligible) {
           try { checkSignalAlarm(it.analysis); } catch (e) {}
         }
+        triggerProgressiveRepaint();
       }
-    }
+      return it;
+    });
+  })).then(function (results) {
+    if (mySeq !== radarRunSeq) return;
     var merged = [];
     var now2 = Date.now();
     for (var k2 in pool) if (now2 - pool[k2].ts < 15 * 60000) merged.push(pool[k2].item);
     merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
     var strong = merged.filter(function (it) { return num(it.analysis.convictionScore, 0) >= 55 && !it.analysis.__estFeed; });
-    paintRadarItems(cfg, strong.length ? strong.slice(0, 12) : merged.slice(0, 4), strong.length === 0);
+    paintRadarItems(cfg, merged.length ? merged : (strong.length ? strong.slice(0, 12) : merged.slice(0, 4)), strong.length === 0);
+    persistRadarPool();
   }).catch(function () {});
 }
 /* Kon-sistensi klik-through: hasil yang tampil di kartu rekomendasi (trader &
