@@ -653,6 +653,7 @@ function saveSignalLock(symbol, tf, lock) {
     while (ks.length > 60) { var k0 = ks.shift(); delete all[k0]; }
     localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
   } catch (e) {}
+  try { renderSignalJournal(); } catch (e) {}
 }
 /* --- Outcome tercatat & akurasi radar terukur (loop umpan-balik jujur) --- */
 function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(SIGNAL_OUTCOME_KEY) || '{}') || {}; } catch (e) { return {}; } }
@@ -773,9 +774,13 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
            badge TP/SL maupun komitmen baru — itulah sumber badge dusta AMDB. */
         var feedReal = typeof feedIsReal === 'function' ? feedIsReal(feedSource) : !!feedSource;
         if (!feedReal) a.feedUnverified = true;
+        // v2026.72: Sinyal yang tampil di workspace utama (scope === 'create') atau
+        // lock aktif yang sedang dipantau trader (mis. komoditas Kapas/COTTON M5 scalping)
+        // WAJIB diikutkan ke siklus pemantauan jurnal sinyal menuju TP/SL.
+        var tfA = a.timeframe || tf;
+        if (scope === 'create' || getSignalLock(symbol, tfA)) feedReal = true;
         try {
           if (feedReal && typeof SE.validateSignalLock === 'function') {
-            var tfA = a.timeframe || tf;
             var closedBars0 = SE.trimClosedCandles(candles, a.tfSeconds || 3600);
             reconcileSignalOutcome(symbol, tfA, closedBars0);
             var lock = getSignalLock(symbol, tfA);
@@ -799,7 +804,11 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible
                 && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
-              if (nl) { saveSignalLock(symbol, tfA, nl); SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false }); }
+              if (nl) {
+                if (a.feedUnverified) nl.feedUnverified = true;
+                saveSignalLock(symbol, tfA, nl);
+                SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false });
+              }
             }
           }
         } catch (e) {}
@@ -1659,6 +1668,7 @@ function renderAllVisuals(analysis) {
   try { renderPillars(analysis); } catch (e) {}
   try { writeBackRadarPools(analysis); } catch (e) {}
   try { checkSignalAlarm(analysis); } catch (e) {}
+  try { renderSignalJournal(); } catch (e) {}
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
    TF yang sama -> kartu rekomendasi selalu mencerminkan kebenaran engine terkini. */
@@ -1738,7 +1748,72 @@ function applyLiveTick(price, changePct, silent) {
   if (alarmState.enabled && state.lastAnalysis) {
     try { checkSignalAlarm(state.lastAnalysis); } catch (e) {}
   }
+  try { monitorLiveSignalProgress(state.symbol, state.tf, price, bar.high, bar.low); } catch (e) {}
   scheduleLiveCanvasRepaint(); // candle canvas fallback ikut seirama tiap tick
+}
+
+/* ==================== MONITORING SINYAL AKTIF REAL-TIME ====================
+   Memantau pergerakan harga tick/bar berjalan terhadap TP/SL sinyal terkunci.
+   Jika TP/SL tersentuh langsung pada tick atau candle berjalan, outcome dicatat
+   dan status di Jurnal Sinyal segera diperbarui tanpa menunggu candle closed. */
+var liveJournalTimer = null;
+function scheduleLiveJournalUpdate() {
+  if (liveJournalTimer) return;
+  liveJournalTimer = setTimeout(function () {
+    liveJournalTimer = null;
+    try { renderSignalJournal(); } catch (e) {}
+  }, 800);
+}
+
+function monitorLiveSignalProgress(symbol, tf, price, high, low) {
+  var lock = getSignalLock(symbol, tf);
+  if (!lock || lock.status !== 'ACTIVE') return;
+  price = num(price);
+  high = num(high, price);
+  low = num(low, price);
+  if (!price || price <= 0) return;
+
+  var isLong = lock.direction === 'LONG';
+  var entry = num(lock.entry);
+  var sl = num(lock.sl);
+  var tp1 = num(lock.tp1);
+  var risk = Math.max(Math.abs(entry - sl), 1e-12);
+  var targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
+  var brain = lock.brain || (['M1', 'M5', 'M15'].indexOf(tf) > -1 ? 'SCALP' : 'SNIPER');
+  var beTriggerRatio = brain === 'SCALP' ? 0.30 : 0.50;
+
+  var tpHit = isLong ? (high >= tp1) : (low <= tp1);
+  var slHit = isLong ? (low <= sl) : (high >= sl);
+
+  if (tpHit) {
+    var verdict = { status: 'TP_HIT', reason: T('ui.jnlTpHitReason', 'TP tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(price, symbol) + ')', at: Date.now() };
+    if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
+    recordSignalOutcome(symbol, tf, verdict, lock);
+    saveSignalLock(symbol, tf, null);
+    try { renderSignalJournal(); } catch (e) {}
+    return;
+  }
+
+  if (slHit) {
+    var verdict = { status: 'SL_HIT', reason: T('ui.jnlSlHitReason', 'SL tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(price, symbol) + ')', at: Date.now(), beProtected: !!lock.bePlusActive, slPlus: lock.slPlus };
+    if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
+    recordSignalOutcome(symbol, tf, verdict, lock);
+    saveSignalLock(symbol, tf, null);
+    try { renderSignalJournal(); } catch (e) {}
+    return;
+  }
+
+  var favDist = isLong ? (high - entry) : (entry - low);
+  if (!lock.bePlusActive && favDist >= beTriggerRatio * targetDist) {
+    lock.bePlusActive = true;
+    saveSignalLock(symbol, tf, lock);
+    if (state.lastAnalysis && state.lastAnalysis.lockedSignal) {
+      state.lastAnalysis.bePlusActive = true;
+      renderAllVisuals(state.lastAnalysis);
+    }
+  } else {
+    scheduleLiveJournalUpdate();
+  }
 }
 /* v2026.60: janji banner "menyambung ulang" kini DIPENUHI — jika candle saat ini
    ESTIMASI, klien mencoba lagi feed broker asli tiap 45 detik dan langsung menukar
@@ -2088,7 +2163,7 @@ function renderSignalJournal() {
     if (k === '__migratedV2') continue;
     var lk = locks[k];
     if (!lk || lk.status !== 'ACTIVE' || !lk.tf) continue;
-    rows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', bePlusActive: !!lk.bePlusActive, slPlus: lk.slPlus, entry: lk.entry, sl: lk.sl, tp1: lk.tp1, tp2: lk.tp2, score: lk.score, at: lk.issuedAt || 0, brain: lk.brain });
+    rows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', bePlusActive: !!lk.bePlusActive, slPlus: lk.slPlus, entry: lk.entry, sl: lk.sl, tp1: lk.tp1, tp2: lk.tp2, score: lk.score, at: lk.issuedAt || 0, brain: lk.brain, feedUnverified: !!lk.feedUnverified });
   }
   for (var k2 in outs) {
     var o = outs[k2]; if (!o || !o.lock) continue;
@@ -2130,6 +2205,30 @@ function renderSignalJournal() {
         advisorNotice = '<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Sebelum 1:2, segera geser SL ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') saat menyentuh TP1 untuk proteksi 0-Risk!</div>';
       }
     }
+    var liveMonitorInfo = '';
+    if (r.st === 'ACTIVE') {
+      var curP = (state.symbol && state.symbol.toUpperCase() === (r.sym || '').toUpperCase() && state.livePrice > 0)
+        ? state.livePrice
+        : null;
+      if (curP) {
+        var isL = r.dir === 'LONG';
+        var entryN = num(r.entry);
+        var tp1N = num(r.tp1);
+        var slN = num(r.sl);
+        var targetDist = Math.max(Math.abs(tp1N - entryN), 1e-12);
+        var gainDist = isL ? (curP - entryN) : (entryN - curP);
+        var progPct = Math.round((gainDist / targetDist) * 100);
+        var progCol = progPct >= 0 ? '#34d399' : '#fb7185';
+        var progSign = progPct >= 0 ? '+' : '';
+        var progLabel = progPct >= 0 ? (progSign + progPct + '% ' + T('ui.jnlTowardsTp', 'menuju TP')) : (progPct + '% ' + T('ui.jnlNearSl', 'mendekati SL'));
+        var distToTpTxt = formatPrice(Math.abs(curP - tp1N), r.sym);
+        var distToSlTxt = formatPrice(Math.abs(curP - slN), r.sym);
+        liveMonitorInfo = '<div style="font-size:10.5px;color:#cbd5e1;margin-top:4px;padding:3px 8px;border-radius:6px;background:rgba(15,23,42,0.55);border:1px solid rgba(56,189,248,0.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">' +
+          '<span>📡 <b style="color:#38bdf8;">' + T('ui.jnlLivePrice', 'Live:') + '</b> ' + formatPrice(curP, r.sym) + ' <span style="color:#64748b;font-size:9.5px;">(Δ TP: ' + distToTpTxt + ' • Δ SL: ' + distToSlTxt + ')</span></span>' +
+          '<span style="color:' + progCol + ';font-weight:700;">' + progLabel + '</span>' +
+        '</div>';
+      }
+    }
     // v2026.66: setiap kartu jurnal (riwayat TP/SL/invalid/expired HARI LALU pun)
     // bisa diklik -> membuka kembali grafik instrumen+TF tersebut via gotoInstrument.
     html += '<div class="radar-card jnl-card" data-sym="' + r.sym + '" data-tf="' + (r.tf || '') + '" style="cursor:pointer;" title="' + escH(T('ui.jnlOpen', 'Klik untuk membuka kembali grafik instrumen ini')) + '">' +
@@ -2144,6 +2243,7 @@ function renderSignalJournal() {
         '<b style="color:' + dcol + ';">' + (r.dir || '—') + '</b> • ' + tTxt + ' • ' + T('ui.jnlEntry', 'Entry') + ' ' + formatPrice(num(r.entry), r.sym) + ' • SL ' + formatPrice(num(r.sl), r.sym) + slPlusRow + targetLabel +
       '</div>' +
       advisorNotice +
+      liveMonitorInfo +
       (r.reason ? '<div style="font-size:10.2px;color:#64748b;margin-top:2px;">' + escH(String(r.reason)).slice(0, 90) + '</div>' : '') +
     '</div>';
   });

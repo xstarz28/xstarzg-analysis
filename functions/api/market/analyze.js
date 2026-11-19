@@ -143,7 +143,7 @@ const SPECIAL_TV_TICKERS = {
   'COFFEE': ['ICEUS:KC1!'],
   'COCOA': ['ICEUS:CC1!'],
   'SUGAR': ['ICEUS:SB1!'],
-  'COTTON': ['ICEUS:CT1!'],
+  'COTTON': ['ICEUS:CT1!', 'NYBOT:CT1!', 'TVC:COTTON'],
   'CATTLE': ['CME:LE1!'],
   'LUMBER': ['CME:LBR1!'],
   'CPO': ['MYX:FCPO1!'],
@@ -174,7 +174,7 @@ const YAHOO_SYMBOLS = {
   'NATGAS': ['NG=F'], 'NATGAS/USD': ['NG=F'], 'HEATOIL': ['HO=F'], 'GASOLINE': ['RB=F'],
   'WHEAT': ['ZW=F'], 'WHEAT/USD': ['ZW=F'], 'CORN': ['ZC=F'], 'CORN/USD': ['ZC=F'],
   'SOYBEAN': ['ZS=F'], 'SOYBEAN/USD': ['ZS=F'], 'COFFEE': ['KC=F'], 'COFFEE/USD': ['KC=F'],
-  'COCOA': ['CC=F'], 'COCOA/USD': ['CC=F'], 'SUGAR': ['SB=F'], 'COTTON': ['CT=F'], 'CATTLE': ['LE=F'],
+  'COCOA': ['CC=F'], 'COCOA/USD': ['CC=F'], 'SUGAR': ['SB=F'], 'COTTON': ['CT=F', 'TT=F', 'BAL'], 'CATTLE': ['LE=F'],
   'USD/IDR': ['USDIDR=X', 'IDR=X']
 };
 function yahooSymbolsFor(s) {
