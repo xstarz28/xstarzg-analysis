@@ -62,6 +62,17 @@ export const DEFAULT_INSTRUMENTS = [
   mkCrypto('GRT', 'The Graph', 0.14), mkCrypto('SAND', 'The Sandbox', 0.38), mkCrypto('MANA', 'Decentraland', 0.34),
   mkCrypto('AXS', 'Axie Infinity', 4.40), mkCrypto('GALA', 'Gala Games', 0.023), mkCrypto('JASMY', 'JasmyCoin', 0.022),
   mkCrypto('TRUMP', 'Official Trump', 17.50),
+  // BINGX & MEXC EXPANSION GEMS & HIGH-VOLUME PAIRS (20 Aset Baru)
+  mkCrypto('KAS', 'Kaspa PoW Network', 0.15), mkCrypto('SUPER', 'SuperVerse Gaming & NFT', 1.15),
+  mkCrypto('POPCAT', 'Popcat Solana Meme', 1.20), mkCrypto('BRETT', 'Brett Base Meme Leader', 0.12),
+  mkCrypto('VIRTUAL', 'Virtuals Protocol AI Agent', 1.85), mkCrypto('SPX', 'SPX6900 Cult Meme', 0.75),
+  mkCrypto('RAY', 'Raydium Solana DEX', 5.20), mkCrypto('OM', 'MANTRA RWA Chain', 3.80),
+  mkCrypto('MEW', 'cat in a dogs world', 0.009), mkCrypto('NEIRO', 'First Neiro on Ethereum', 0.0018),
+  mkCrypto('MOODENG', 'Moo Deng Viral Meme', 0.45), mkCrypto('GOAT', 'Goatseus Maximus AI Meme', 0.78),
+  mkCrypto('PNUT', 'Peanut the Squirrel', 1.10), mkCrypto('ACT', 'Act I The AI Prophecy', 0.48),
+  mkCrypto('AERO', 'Aerodrome Finance Base DEX', 1.35), mkCrypto('TURBO', 'Turbo AI Meme Coin', 0.0085),
+  mkCrypto('AI16Z', 'ai16z Decentralized AI DAO', 0.42), mkCrypto('FARTCOIN', 'Fartcoin AI Agent', 0.38),
+  mkCrypto('KCS', 'KuCoin Token', 11.50), mkCrypto('PENGU', 'Pudgy Penguins Web3', 0.035),
   // FOREX (28 Pairs: Majors, Minors, Crosses & Asia/IDR)
   mkForex('EUR/USD', 'Euro / US Dollar', 1.0485), mkForex('GBP/USD', 'British Pound / US Dollar', 1.2590),
   mkForex('USD/JPY', 'US Dollar / Japanese Yen', 151.40), mkForex('USD/IDR', 'US Dollar / Rupiah Indonesia', 16285),
