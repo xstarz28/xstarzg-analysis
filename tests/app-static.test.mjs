@@ -63,7 +63,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (502)', uniform && count === 502);
+chk('20 locale punya keyset ui seragam (532)', uniform && count === 532);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -217,6 +217,12 @@ chk('radar bersih: feed estimasi dilarang masuk rekomendasi', /if \(a\.__estFeed
 chk('multi-exchange crypto diperluas dengan MEXC & perp fallback', /fetchMexcCandles/.test(edgeMarket) && /MEXC:\$\{pair\}/.test(edgeMarket));
 chk('dukungan multi-exchange BingX untuk spot & swap futures', /fetchBingxCandles/.test(edgeMarket) && /BINGX:\$\{pair\}/.test(edgeMarket) && /open-api\.bingx\.com/.test(edgeQuotes));
 chk('radar scan eksklusif aset kurasi terverifikasi', /!x\.isDynamic/.test(app));
+chk('i18n radarGroupBar & 3 otak multibahasa terpasang',
+  /data-i18n="ui\.rgAll"/.test(html) &&
+  /data-i18n="ui\.rgCrypto"/.test(html) &&
+  /ui\.rShowingAll/.test(app) &&
+  /ui\.rOpenTab/.test(app) &&
+  /getRadarGroups/.test(app));
 
 /* SEO, SEARCH ENGINE & AI BOT DISCOVERY (GOOGLE, BING, PERPLEXITY, OPENAI) LINT */
 const robotsTxt = R('../public/robots.txt');
