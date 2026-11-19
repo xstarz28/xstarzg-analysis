@@ -240,7 +240,7 @@ chk('index.html memuat meta SEO, canonical, OpenGraph, Twitter Card & Google ver
   /property="og:title"/.test(html) &&
   /property="og:image"/.test(html) &&
   /name="twitter:card"/.test(html) &&
-  /name="google-site-verification"/.test(html));
+  /content="QK9_DVUmbva2pfdj4DWK_qWRlyWfKnrXWvYizARwA-o"/.test(html));
 
 chk('index.html memuat Schema.org JSON-LD WebApplication terstruktur untuk Google & AI Knowledge Graph',
   /<script type="application\/ld\+json">/.test(html) &&
