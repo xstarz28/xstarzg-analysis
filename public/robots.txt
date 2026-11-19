@@ -1,0 +1,46 @@
+# robots.txt for XStarZG Analysis (https://xstarzganalysis.pages.dev)
+User-agent: *
+Allow: /
+Disallow: /api/admin/
+
+# Major Search Engine Crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+# AI Search & Verification Crawlers (OpenAI, Perplexity, Anthropic, Apple, Google)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# XML Sitemaps
+Sitemap: https://xstarzganalysis.pages.dev/sitemap.xml
+Sitemap: https://xstarzg-analysis.pages.dev/sitemap.xml

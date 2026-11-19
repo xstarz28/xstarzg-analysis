@@ -217,5 +217,36 @@ chk('radar bersih: feed estimasi dilarang masuk rekomendasi', /if \(a\.__estFeed
 chk('multi-exchange crypto diperluas dengan MEXC & perp fallback', /fetchMexcCandles/.test(edgeMarket) && /MEXC:\$\{pair\}/.test(edgeMarket));
 chk('dukungan multi-exchange BingX untuk spot & swap futures', /fetchBingxCandles/.test(edgeMarket) && /BINGX:\$\{pair\}/.test(edgeMarket) && /open-api\.bingx\.com/.test(edgeQuotes));
 chk('radar scan eksklusif aset kurasi terverifikasi', /!x\.isDynamic/.test(app));
+
+/* SEO, SEARCH ENGINE & AI BOT DISCOVERY (GOOGLE, BING, PERPLEXITY, OPENAI) LINT */
+const robotsTxt = R('../public/robots.txt');
+const sitemapXml = R('../public/sitemap.xml');
+chk('robots.txt mengizinkan Googlebot, Bingbot & AI bots (GPTBot, PerplexityBot)',
+  /User-agent:\s*Googlebot/i.test(robotsTxt) &&
+  /User-agent:\s*Bingbot/i.test(robotsTxt) &&
+  /User-agent:\s*GPTBot/i.test(robotsTxt) &&
+  /User-agent:\s*PerplexityBot/i.test(robotsTxt) &&
+  /Sitemap:\s*https:\/\/xstarzganalysis\.pages\.dev\/sitemap\.xml/.test(robotsTxt));
+
+chk('sitemap.xml valid XML dengan URL halaman utama produksi',
+  /xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/.test(sitemapXml) &&
+  /<loc>https:\/\/xstarzganalysis\.pages\.dev\/<\/loc>/.test(sitemapXml));
+
+chk('index.html memuat meta SEO, canonical, OpenGraph, Twitter Card & Google verification',
+  /name="description"/.test(html) &&
+  /name="keywords"/.test(html) &&
+  /rel="canonical"/.test(html) &&
+  /name="robots"\s+content="index,\s*follow/.test(html) &&
+  /property="og:title"/.test(html) &&
+  /property="og:image"/.test(html) &&
+  /name="twitter:card"/.test(html) &&
+  /name="google-site-verification"/.test(html));
+
+chk('index.html memuat Schema.org JSON-LD WebApplication terstruktur untuk Google & AI Knowledge Graph',
+  /<script type="application\/ld\+json">/.test(html) &&
+  /"@type":\s*"WebApplication"/.test(html) &&
+  /"name":\s*"XStarZG Analysis"/.test(html) &&
+  /"applicationCategory":\s*"FinanceApplication"/.test(html));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
