@@ -653,9 +653,9 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
   for (let i = count - 2; i >= 0; i--) {
     const progress = i / count;
     const wave = Math.sin(i * 0.19) * (atr * 0.32) + Math.cos(i * 0.07) * (atr * 0.22);
-    const noise = (nextRand() - 0.495) * (atr * 0.72);
-    const drift = (trendDiff / 85) * (progress > 0.4 ? 1 : -0.4);
-    cur = Math.max(endPrice * 0.5, cur - drift - noise - wave * 0.15);
+    const noise = (nextRand() - 0.495) * (atr * 0.52);
+    const pull = (cur - endPrice) * 0.02;
+    cur = Math.max(endPrice * 0.6, cur - pull - noise - wave * 0.15);
     closes[i] = cur;
   }
   const candles = [];
