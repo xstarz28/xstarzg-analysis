@@ -100,7 +100,23 @@ const DEFAULT_PRICES = {
   // Crypto majors
   'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
   'XRP/USDT': 2.55, 'ADA/USDT': 0.82, 'DOGE/USDT': 0.26, 'AVAX/USDT': 26.40, 'LINK/USDT': 18.90,
-  'TON/USDT': 3.85, 'SUI/USDT': 3.42, 'DOT/USDT': 5.20, 'PEPE/USDT': 0.0000105, 'SHIB/USDT': 0.0000162
+  'TON/USDT': 3.85, 'SUI/USDT': 3.42, 'DOT/USDT': 5.20, 'PEPE/USDT': 0.0000105, 'SHIB/USDT': 0.0000162,
+  'NEAR/USDT': 3.6, 'APT/USDT': 6.4, 'ARB/USDT': 0.49, 'OP/USDT': 1.15, 'LTC/USDT': 124, 'BCH/USDT': 345,
+  'UNI/USDT': 9.8, 'AAVE/USDT': 255, 'INJ/USDT': 15.8, 'RENDER/USDT': 4.65, 'FET/USDT': 0.78, 'TAO/USDT': 415,
+  'ONDO/USDT': 1.22, 'TIA/USDT': 3.9, 'SEI/USDT': 0.28, 'JUP/USDT': 0.84, 'BONK/USDT': 0.000018, 'WIF/USDT': 0.72,
+  'FLOKI/USDT': 0.000098, 'ATOM/USDT': 4.95, 'FIL/USDT': 3.45, 'ICP/USDT': 7.2, 'HBAR/USDT': 0.23, 'ALGO/USDT': 0.29,
+  'VET/USDT': 0.034, 'FTM/USDT': 0.62, 'MKR/USDT': 1420, 'LDO/USDT': 1.68, 'CRV/USDT': 0.54, 'PENDLE/USDT': 3.65,
+  'ENA/USDT': 0.48, 'WLD/USDT': 1.28, 'STX/USDT': 0.96, 'IMX/USDT': 0.85, 'GRT/USDT': 0.14, 'SAND/USDT': 0.38,
+  'MANA/USDT': 0.34, 'AXS/USDT': 4.4, 'GALA/USDT': 0.023, 'JASMY/USDT': 0.022, 'TRUMP/USDT': 17.5, 'KAS/USDT': 0.15,
+  'SUPER/USDT': 1.15, 'POPCAT/USDT': 1.2, 'BRETT/USDT': 0.12, 'VIRTUAL/USDT': 1.85, 'SPX/USDT': 0.75, 'RAY/USDT': 5.2,
+  'OM/USDT': 3.8, 'MEW/USDT': 0.009, 'NEIRO/USDT': 0.0018, 'MOODENG/USDT': 0.45, 'GOAT/USDT': 0.78, 'PNUT/USDT': 1.1,
+  'ACT/USDT': 0.48, 'AERO/USDT': 1.35, 'TURBO/USDT': 0.0085, 'AI16Z/USDT': 0.42, 'FARTCOIN/USDT': 0.38, 'KCS/USDT': 11.5,
+  'PENGU/USDT': 0.035,
+  // Saham AS Tambahan
+  'SMCI': 32.5, 'ARM': 142, 'INTC': 24.5, 'MU': 108, 'QCOM': 165, 'ORCL': 188, 'HOOD': 36.8, 'PYPL': 84.5,
+  'SQ': 88, 'SOFI': 15.2, 'UBER': 76.5, 'ABNB': 138, 'RIVN': 12.8, 'BA': 158, 'LMT': 475, 'RTX': 124,
+  'WMT': 92.5, 'COST': 965, 'DIS': 112, 'NKE': 78.5, 'SBUX': 98, 'PFE': 26.5, 'MRK': 102, 'UNH': 580,
+  'CVX': 158, 'CAT': 395
 };
 const US_EXCHANGE_MAP = {
   'SPY': 'AMEX:SPY', 'QQQ': 'NASDAQ:QQQ', 'DIA': 'AMEX:DIA', 'IWM': 'AMEX:IWM',
@@ -186,6 +202,7 @@ function yahooSymbolsFor(s) {
 }
 async function fetchYahooQuote(symbol) {
   const list = yahooSymbolsFor(symbol);
+  const expectedP = DEFAULT_PRICES[symbol] || 0;
   for (const y of list) {
     try {
       const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y) + '?interval=1m&range=1d', {
@@ -196,6 +213,7 @@ async function fetchYahooQuote(symbol) {
       const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
       const price = meta ? Number(meta.regularMarketPrice) : 0;
       if (price > 0) {
+        if (expectedP > 0 && (price > expectedP * 3.5 || price < expectedP * 0.28)) continue;
         const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || price;
         return { price, changePct: prev > 0 ? ((price - prev) / prev) * 100 : 0, source: 'YAHOO:' + y };
       }
@@ -228,6 +246,7 @@ function resampleCandles(candles, bucketSec) {
 }
 async function fetchYahooCandles(symbol, tf) {
   const cfg = YAHOO_TF[tf] || YAHOO_TF['H1'];
+  const expectedP = DEFAULT_PRICES[symbol] || 0;
   for (const y of yahooSymbolsFor(symbol)) {
     try {
       const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y)
@@ -241,18 +260,44 @@ async function fetchYahooCandles(symbol, tf) {
       if (!ts || !q || !Array.isArray(q.close)) continue;
       let candles = [];
       for (let k = 0; k < ts.length; k++) {
-        const c = q.close[k], o = q.open[k], h = q.high[k], l = q.low[k];
-        if (c == null || o == null || h == null || l == null) continue;
-        candles.push({ time: ts[k], open: Number(o), high: Number(h), low: Number(l), close: Number(c), volume: Number(q.volume && q.volume[k]) || 100 });
+        const c = Number(q.close[k]), o = Number(q.open[k]), h = Number(q.high[k]), l = Number(q.low[k]);
+        if (!Number.isFinite(c) || !Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(l) || c <= 0) continue;
+        candles.push({ time: ts[k], open: o, high: Math.max(h, o, c), low: Math.min(l, o, c), close: c, volume: Number(q.volume && q.volume[k]) || 100 });
       }
       if (cfg.resampleSec) candles = resampleCandles(candles, cfg.resampleSec);
       candles = candles.slice(-220);
       if (candles.length < 10) continue;
+
       const meta = node.meta || {};
       const live = Number(meta.regularMarketPrice) > 0 ? Number(meta.regularMarketPrice) : candles[candles.length - 1].close;
+
+      // Validasi skala harga: tolak ticker yang menyimpang ekstrem dari harga aset (mis. ETN BAL $10 vs Cotton 68.4)
+      if (expectedP > 0 && (live > expectedP * 3.5 || live < expectedP * 0.28)) continue;
+
+      // Audit candlestick: jika > 35% candle flat tanpa spread (high === low), feed illiquid/mati -> lewati agar tidak jadi titik-titik
+      const flatCount = candles.filter(c => Math.abs(c.high - c.low) < c.close * 0.0004).length;
+      if (flatCount > candles.length * 0.35) continue;
+
+      // Garansi anti-dot: setiap candle dipastikan memiliki wick & body yang proporsional
+      candles = candles.map(c => {
+        let maxP = Math.max(c.high, c.open, c.close);
+        let minP = Math.min(c.low, c.open, c.close);
+        const minSpread = Math.max(c.close * 0.0016, 0.0001);
+        if ((maxP - minP) < minSpread) {
+          const pad = (minSpread - (maxP - minP)) * 0.5;
+          maxP = Math.max(c.open, c.close) + pad;
+          minP = Math.max(0.000001, Math.min(c.open, c.close) - pad);
+        }
+        return { time: c.time, open: c.open, high: maxP, low: minP, close: c.close, volume: c.volume };
+      });
+
       const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || candles[0].close;
       const last = candles[candles.length - 1];
-      if (!cfg.resampleSec && live > 0) { last.close = live; if (live > last.high) last.high = live; if (live < last.low) last.low = live; }
+      if (!cfg.resampleSec && live > 0 && Math.abs(live - last.close) < last.close * 0.15) {
+        last.close = live;
+        if (live > last.high) last.high = live;
+        if (live < last.low) last.low = live;
+      }
       return { source: 'YAHOO_CANDLES:' + y, price: live, changePct: prev > 0 ? ((live - prev) / prev) * 100 : 0, candles };
     } catch (e) {}
   }
@@ -586,8 +631,13 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
   const stepSec = tfSecMap[tf] || 3600;
   const nowBucket = Math.floor(Date.now() / 1000 / stepSec) * stepSec;
   const count = 200;
-  const endPrice = Number(liveQuote?.price) > 0 ? Number(liveQuote.price) : (DEFAULT_PRICES[s] || 100);
-  const atr = Number(liveQuote?.atr) > 0 ? Number(liveQuote.atr) : (endPrice * 0.0032);
+  const expectedP = DEFAULT_PRICES[s] || 100;
+  let endPrice = Number(liveQuote?.price) > 0 ? Number(liveQuote.price) : expectedP;
+  // Validasi skala harga: jika kuotasi broker menyimpang ekstrem dari harga aset, pakai harga jangkar wajar
+  if (expectedP > 0 && (endPrice > expectedP * 3.5 || endPrice < expectedP * 0.28)) {
+    endPrice = expectedP;
+  }
+  const atr = Number(liveQuote?.atr) > (endPrice * 0.0008) ? Number(liveQuote.atr) : (endPrice * 0.0032);
   const ema50 = Number(liveQuote?.ema50) > 0 ? Number(liveQuote.ema50) : (endPrice * 0.994);
   const trendDiff = endPrice - ema50;
   let seed = 0;
@@ -613,8 +663,8 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
     const t = nowBucket - (count - 1 - i) * stepSec;
     const o = i === 0 ? closes[0] * (1 - 0.0008) : closes[i - 1];
     const c = closes[i];
-    const wickUp = (0.15 + nextRand() * 0.55) * atr * 0.65;
-    const wickDn = (0.15 + nextRand() * 0.55) * atr * 0.65;
+    const wickUp = Math.max((0.20 + nextRand() * 0.60) * atr * 0.70, c * 0.0012);
+    const wickDn = Math.max((0.20 + nextRand() * 0.60) * atr * 0.70, c * 0.0012);
     const h = Math.max(o, c) + wickUp;
     const l = Math.max(0.000001, Math.min(o, c) - wickDn);
     const v = Math.round(100 + nextRand() * 950);
@@ -622,9 +672,19 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
   }
   const last = candles[candles.length - 1];
   last.close = endPrice;
-  if (Number(liveQuote?.tfOpen) > 0) last.open = Number(liveQuote.tfOpen);
-  last.high = Math.max(last.open, last.close, Number(liveQuote?.tfHigh) || endPrice);
-  last.low = Math.min(last.open, last.close, Number(liveQuote?.tfLow) || endPrice);
+  if (Number(liveQuote?.tfOpen) > 0 && Math.abs(liveQuote.tfOpen - endPrice) < endPrice * 0.15) last.open = Number(liveQuote.tfOpen);
+  const maxAllowedHigh = endPrice + atr * 2.2;
+  const minAllowedLow = Math.max(0.000001, endPrice - atr * 2.2);
+  const rawH = Number(liveQuote?.tfHigh);
+  const rawL = Number(liveQuote?.tfLow);
+  last.high = Math.max(last.open, last.close, (rawH > 0 && rawH <= maxAllowedHigh && rawH > endPrice) ? rawH : (endPrice + atr * 0.45));
+  last.low = Math.min(last.open, last.close, (rawL > 0 && rawL >= minAllowedLow && rawL < endPrice) ? rawL : (endPrice - atr * 0.45));
+  const minSpread = Math.max(endPrice * 0.0016, 0.0001);
+  if ((last.high - last.low) < minSpread) {
+    const pad = (minSpread - (last.high - last.low)) * 0.5;
+    last.high = Math.max(last.open, last.close) + pad;
+    last.low = Math.max(0.000001, Math.min(last.open, last.close) - pad);
+  }
   return {
     // v2026.48: candle di fungsi ini DIFABRIKASI (anchored random path) — provenance
     // WAJIB dicap jujur agar hilir (gerbang siklus hidup sinyal) tidak mempercayainya
@@ -768,14 +828,28 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
     const idrRate = Number(idrQuote?.price) > 10000 ? Number(idrQuote.price) : 16250;
     if (goldYc && Array.isArray(goldYc.candles) && goldYc.candles.length >= 10) {
       const gPerOz = 31.1034768;
-      const candles = goldYc.candles.map(c => ({
-        time: c.time,
-        open: Math.round((c.open * idrRate) / gPerOz),
-        high: Math.round((c.high * idrRate) / gPerOz),
-        low: Math.round((c.low * idrRate) / gPerOz),
-        close: Math.round((c.close * idrRate) / gPerOz),
-        volume: c.volume || 100
-      }));
+      const candles = goldYc.candles.map(c => {
+        let op = Math.round((c.open * idrRate) / gPerOz);
+        let hi = Math.round((c.high * idrRate) / gPerOz);
+        let lo = Math.round((c.low * idrRate) / gPerOz);
+        let cl = Math.round((c.close * idrRate) / gPerOz);
+        let maxP = Math.max(hi, op, cl);
+        let minP = Math.min(lo, op, cl);
+        const minSpread = Math.max(Math.round(cl * 0.0016), 500);
+        if ((maxP - minP) < minSpread) {
+          const pad = Math.round((minSpread - (maxP - minP)) * 0.5);
+          maxP = Math.max(op, cl) + pad;
+          minP = Math.max(1, Math.min(op, cl) - pad);
+        }
+        return {
+          time: c.time,
+          open: op,
+          high: maxP,
+          low: minP,
+          close: cl,
+          volume: c.volume || 100
+        };
+      });
       const lastClose = candles[candles.length - 1].close;
       return {
         source: 'YAHOO:XAUUSD=X x USDIDR=X',
