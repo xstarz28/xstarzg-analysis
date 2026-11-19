@@ -1236,8 +1236,16 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
         : `[Institutional Gate] LULUS ✅ (PRO) — Skor ${qualityScore} ≥ ${PRO_MIN_SCORE} | Urutan Sweep→MSS terkonfirmasi | Veto bersih | Entry presisi zona mitigasi.`)
       : `[Institutional Gate] DITOLAK ✖ — ${gateReasons.map(g => VETO_LABELS[g] || g).join(' • ') || 'Menunggu konfirmasi'} — tidak ada Entry yang dipaksakan di TF ini.`)
     : null;
+  const brainAssetLabel = assetClass === 'crypto'
+    ? '[Otak Kripto Institusional] Prioritas: SMC Liquidity Pools (34%) • Orderflow Delta (26%) • Trend (22%) • Quant Edge (18%).'
+    : (assetClass === 'forex'
+      ? '[Otak Forex Interbank] Prioritas: Retest OTE Fibo (32%) • Trend MA Stack (28%) • Sesi Likuiditas (24%) • Momentum (16%).'
+      : (assetClass === 'stocks'
+        ? '[Otak Saham Institusional] Prioritas: MA-200 Macro Trend (34%) • Opening Range Breakout ORB (28%) • Struktur SMC (24%) • Momentum (14%).'
+        : '[Otak Komoditas & Logam] Prioritas: Supply/Demand Fisik (30%) • Struktur SMC (28%) • Makro & CFTC COT (24%) • Momentum (18%).'));
   const reasons = [
     ...(gateLine ? [gateLine] : []),
+    brainAssetLabel,
     `[SMC & Struktur ${timeframe}] ${modern.smcStatus} | ${modern.liquiditySweep}.`,
     `[VWAP, VPVR & TPO] Harga terhadap VWAP (${formatSmartPrice(vwap)}), VPVR POC (${formatSmartPrice(vp.poc)}), dan TPO POC (${formatSmartPrice(vp.tpoPoc)}).`,
     `[FVG & Supply/Demand] ${fvgNote} | Zona Demand: ${formatSmartPrice(modern.demandZone.low)} | Zona Supply: ${formatSmartPrice(modern.supplyZone.high)}.`,

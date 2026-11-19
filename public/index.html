@@ -157,8 +157,8 @@
     </div>
     <div class="front-features-grid">
       <div class="feature-card">
-        <h3 data-i18n="ui.feat1Title">📊 28-Pillar High-IQ Confluence</h3>
-        <p data-i18n="ui.feat1Desc">Menggabungkan 18 Pilar Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, BSL/SSL Sweep, <strong>Dual Fibonacci Matrix (Retracement & Ekstensi)</strong>, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Entry Institusional di VWAP</strong>, dan Efficiency Ratio Kualitas Tren) ditambah 10 Pilar Makro/Fundamental.</p>
+        <h3 data-i18n="ui.feat1Title">📊 28-Pillar High-IQ Confluence (4 Otak Spesialis Pasar)</h3>
+        <p data-i18n="ui.feat1Desc">Sintesis 28 pilar institusional dengan 4 Otak Spesialis (🪙 Kripto, 💱 Forex, 📈 Saham, 🌾 Komoditas). Memadukan 18 Pilar Teknikal &amp; SMC plus 10 Pilar Makro/COT dengan bobot psikologi pasar yang disesuaikan secara dinamis untuk setiap kelompok instrumen.</p>
       </div>
       <div class="feature-card">
         <h3 data-i18n="ui.feat2Title">🔒 Locked Sniper Setup & Anti-Stop Hunt</h3>
@@ -357,7 +357,7 @@
         <div class="section-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <h3 style="margin:0;font-size:15px;color:#38bdf8;" data-i18n="ui.narrTitle">🧠 Ringkasan Alasan Analisis:</h3>
-            <span style="font-size:11px;color:#94a3b8;" data-i18n="ui.narrSub">28-Pillar Quantitative & Smart Money Synthesis</span>
+            <span style="font-size:11px;color:#94a3b8;" id="narrSubText" data-i18n="ui.narrSub">28-Pillar Asset-Calibrated Brain Synthesis</span>
           </div>
           <div id="narrativeHumanBox" style="font-size:13px;color:#e2e8f0;line-height:1.65;"></div>
         </div>
@@ -533,18 +533,24 @@
     </main>
     <section style="max-width:1640px;width:100%;margin:0 auto 40px;padding:0 16px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box;min-width:0;">
       <div class="section-card">
-        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.secTech">🔬 18 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC + Dual-Fibonacci + ORB/Theta/VWAP-Entry)</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          <h3 style="margin:0;font-size:15px;color:#f8fafc;" data-i18n="ui.secTech">🔬 18 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC + Dual-Fibonacci + ORB/Theta/VWAP-Entry)</h3>
+          <span id="techPillarsBrainHint" style="font-size:11px;color:#38bdf8;font-weight:600;"></span>
+        </div>
         <div id="techPillarsGrid" class="pillars-grid"></div>
       </div>
       <div class="section-card">
-        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.secMacro">🌍 10 Pilar Makroekonomi, Likuiditas Global & Institusional</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          <h3 style="margin:0;font-size:15px;color:#f8fafc;" data-i18n="ui.secMacro">🌍 10 Pilar Makroekonomi, Likuiditas Global & Institusional</h3>
+          <span id="macroPillarsBrainHint" style="font-size:11px;color:#34d399;font-weight:600;"></span>
+        </div>
         <div id="macroPillarsGrid" class="pillars-grid"></div>
       </div>
       <div class="section-card" id="traderRadarSection">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
           <div>
             <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.radarTitle">📡 Radar Rekomendasi Aset Multi-Aset Real-Time</h3>
-            <div style="font-size:11px;color:#38bdf8;font-weight:600;">3 Bagan Screening Terfokus: Kripto • Forex &amp; Komoditas • Saham</div>
+            <div style="font-size:11px;color:#38bdf8;font-weight:600;">Screening Terfokus Sesuai Otak Spesialis: Kripto (Orderflow/SMC) • Forex &amp; Komoditas (Session/COT) • Saham (ORB/MA-200)</div>
           </div>
           <div class="radar-horizon-bar" id="radarHorizonBar">
             <button type="button" class="hz-btn" data-hz="scalping"><span data-i18n="ui.hzScalp">⚡ SCALPING</span> <small>M1–M15</small></button>
