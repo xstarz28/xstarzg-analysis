@@ -434,15 +434,26 @@
       </div>
       <div class="section-card" id="traderRadarSection">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.radarTitle">📡 Radar Rekomendasi Aset Multi-Aset Real-Time</h3>
+          <div>
+            <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.radarTitle">📡 Radar Rekomendasi Aset Multi-Aset Real-Time</h3>
+            <div style="font-size:11px;color:#38bdf8;font-weight:600;">3 Bagan Screening Terfokus: Kripto • Forex &amp; Komoditas • Saham</div>
+          </div>
           <div class="radar-horizon-bar" id="radarHorizonBar">
             <button type="button" class="hz-btn" data-hz="scalping"><span data-i18n="ui.hzScalp">⚡ SCALPING</span> <small>M1–M15</small></button>
             <button type="button" class="hz-btn active" data-hz="intraday"><span data-i18n="ui.hzIntraday">🎯 INTRADAY</span> <small>M15–H1</small></button>
             <button type="button" class="hz-btn" data-hz="swing"><span data-i18n="ui.hzSwing">🌊 SWING</span> <small>H4–W1</small></button>
           </div>
         </div>
-        <div id="radarHorizonInfo" style="font-size:11px;color:#94a3b8;margin:6px 0 2px;"></div>
-        <div id="opportunityRadarGrid" class="radar-grid"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:8px 0 2px;">
+          <div class="radar-horizon-bar" id="radarGroupBar">
+            <button type="button" class="hz-btn active" data-rg="all"><span>🌐 SEMUA (3 BAGAN)</span></button>
+            <button type="button" class="hz-btn" data-rg="crypto"><span>🪙 KRIPTO</span></button>
+            <button type="button" class="hz-btn" data-rg="fx_comm"><span>💱 FOREX &amp; KOMODITAS</span></button>
+            <button type="button" class="hz-btn" data-rg="stocks"><span>📈 SAHAM (GLOBAL &amp; IDX)</span></button>
+          </div>
+          <div id="radarHorizonInfo" style="font-size:11px;color:#94a3b8;"></div>
+        </div>
+        <div id="opportunityRadarGrid" class="radar-grid" style="margin-top:10px;"></div>
       </div>
       <!-- Kalender Ekonomi & Berita (bias arah per instrumen) -->
       <div class="section-card" id="newsPanelSection">

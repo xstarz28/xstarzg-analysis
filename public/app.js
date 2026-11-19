@@ -270,6 +270,7 @@ var state = {
   subMode: 'futures',        // 'futures' | 'spot'
   chartType: 'candles',      // 'candles' | 'bars' | 'line' | 'area' (ala TradingView)
   radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
+  radarGroup: 'all',         // 'all' | 'crypto' | 'fx_comm' | 'stocks' (3 bagan terpisah)
   bestTfBoard: null,         // papan hasil scan multi-TF (engine), diisi async
   candles: [],
   lastAnalysis: null,
@@ -2043,6 +2044,89 @@ function gateShortLabel(code) {
   };
   return m[code] || T('ui.gVeto', 'Veto struktur/likuiditas aktif (anti jebakan)');
 }
+function radarAssetGroupOf(sym) {
+  var meta = getMeta(sym);
+  var c = meta.assetClass;
+  if (c === 'crypto') return 'crypto';
+  if (c === 'forex' || c === 'metals' || c === 'commodities') return 'fx_comm';
+  if (c === 'stocks') return 'stocks';
+  var s = String(sym || '').toUpperCase();
+  if (s.indexOf('/USDT') > -1 || s.indexOf('BTC') > -1 || s.indexOf('ETH') > -1 || s.indexOf('SOL') > -1) return 'crypto';
+  if (s.slice(-3) === '.JK') return 'stocks';
+  if (s.indexOf('/') > -1 || s.indexOf('XAU') === 0 || s.indexOf('XAG') === 0 || s === 'WTI' || s === 'BRENT' || s === 'NATGAS') return 'fx_comm';
+  return 'stocks';
+}
+
+var RADAR_GROUPS = [
+  { key: 'crypto', label: '🪙 OTAK KRIPTO', sub: 'CRYPTO SPOT & PERP INTELLIGENCE', col: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', emptyText: 'Memindai instrumen Kripto (BTC, ETH, Altcoins)…' },
+  { key: 'fx_comm', label: '💱 OTAK FOREX & KOMODITAS', sub: 'FX, EMAS/LOGAM & ENERGI INTELLIGENCE', col: '#38bdf8', bg: 'rgba(56,189,248,0.08)', border: '#38bdf8', emptyText: 'Memindai Forex & Komoditas (Gold/XAU, Emas Gram, Silver, Oil, FX)…' },
+  { key: 'stocks', label: '📈 OTAK SAHAM', sub: 'US/GLOBAL EQUITIES & SAHAM IDX INTELLIGENCE', col: '#10b981', bg: 'rgba(16,185,129,0.08)', border: '#10b981', emptyText: 'Memindai Saham Global (NVDA, AAPL) & Saham Indonesia IDX…' }
+];
+
+function renderRadarCardHtml(it) {
+  var a = it.analysis;
+  var meta = getMeta(it.sym);
+  var badge = radarBadgeFor(a);
+  if (a.__estFeed) badge = { cls: 'wait', txt: T('ui.eEstFeed', '○ Data estimasi — sinyal nonaktif') };
+  var chg = num(it.changePct, num(a.changePct));
+  var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
+  var sc = num(a.convictionScore, a.confluenceScore);
+  var entryRef = state.mode === 'investor' ? (a.levels && a.levels.dcaZone1 ? a.levels.dcaZone1 : a.lastPrice) : (a.levels ? a.levels.entry : a.lastPrice);
+  var isActive = it.sym === state.symbol && it.tf === state.tf;
+  var outBadge = '';
+  var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(it.sym, it.tf) : null;
+  if (oc && a.__estFeed) oc = null;
+  if (oc) {
+    var ocTxt = oc.status === 'TP_HIT' ? T('ui.eOutTp', 'TP tercapai — setup selesai')
+      : oc.status === 'BE_SAVED' ? T('ui.eOutBe', 'Terselamatkan SL+ (0-Risk, modal aman)')
+      : oc.status === 'STRUCTURE_INVALID' ? T('ui.eOutInv', 'Dibatalkan struktur + penerimaan harga')
+      : T('ui.eOutSl', 'SL tersentuh — sinyal invalid');
+    var dt = new Date(oc.at);
+    var hhmm = ('0' + dt.getHours()).slice(-2) + ':' + ('0' + dt.getMinutes()).slice(-2);
+    outBadge = '<span class="sig-badge ' + (oc.status === 'TP_HIT' || oc.status === 'BE_SAVED' ? 'long' : 'wait') + '" style="margin-top:4px;">'
+      + (oc.status === 'TP_HIT' ? '✓ ' : oc.status === 'BE_SAVED' ? '🛡️ ' : '✗ ') + ocTxt + ' • ' + hhmm + '</span>';
+  }
+  var tpSlRow = '';
+  if (a.levels && a.levels.sl && a.levels.tp1 && state.mode !== 'investor') {
+    var isSniper = a.brain === 'SNIPER' || (it.tf && ['M30', 'H1', 'H4', 'D1', 'W1', 'MN'].indexOf(it.tf) > -1);
+    var tgtVal = (isSniper && a.levels.tp2) ? a.levels.tp2 : a.levels.tp1;
+    var tgtLbl = isSniper ? 'TP2 (1:2)' : 'TP1';
+    tpSlRow = '<div style="display:flex;justify-content:space-between;gap:4px;margin-top:3px;font-size:10px;color:#94a3b8;font-family:var(--font-mono);">' +
+      '<span>SL: <b style="color:#fca5a5;">' + formatPrice(a.levels.sl, it.sym) + '</b></span>' +
+      '<span>' + tgtLbl + ': <b style="color:#6ee7b7;">' + formatPrice(tgtVal, it.sym) + '</b></span>' +
+    '</div>';
+  }
+  return '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '" data-tf="' + it.tf + '">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
+      '<span class="r-sym">' + it.sym + ' <small style="color:#64748b;font-weight:700;">' + it.tf + '</small></span>' +
+      '<span class="r-live">' + (feedIsEstimate(it.source) ? '○ EST' : '● LIVE') + '</span>' +
+    '</div>' +
+    '<span class="r-name">' + (meta.name || it.sym) + '</span>' +
+    '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
+      '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
+      '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
+    '</div>' +
+    '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' + outBadge +
+    (state.mode === 'trader' && !a.signalEligible && !a.lockedSignal && !a.__estFeed && a.gating && a.gating.active && a.gating.active.length
+      ? '<div style="font-size:10.5px;color:#f59e0b;margin-top:3px;line-height:1.35;">⛔ ' + gateShortLabel(a.gating.active[0]) + '</div>' : '') +
+    (function () { var nw = newsSoonFor(it.sym, 120); return nw ? '<div style="font-size:10.5px;color:#7dd3fc;margin-top:3px;">⏰ ' + escH(nw.title).slice(0, 34) + ' • ' + newsFmtTime(nw.ts) + '</div>' : ''; })() +
+    '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
+      '<span class="r-entry">' + (state.mode === 'investor' ? T('ui.cDcaShort', 'Zona DCA 1: ') : T('ui.cEntry', 'Entry: ')) + formatPrice(entryRef, it.sym) + '</span>' +
+      '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
+    '</div>' +
+    tpSlRow +
+  '</div>';
+}
+
+function syncRadarGroupTabs() {
+  var bar = $id('radarGroupBar');
+  if (!bar) return;
+  var g = state.radarGroup || 'all';
+  Array.prototype.forEach.call(bar.querySelectorAll('.hz-btn'), function (b) {
+    b.classList.toggle('active', (b.getAttribute('data-rg') || 'all') === g);
+  });
+}
+
 function paintRadarItems(cfg, items, noneQualified) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
@@ -2050,6 +2134,7 @@ function paintRadarItems(cfg, items, noneQualified) {
     grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarFeedEmpty', 'Feed radar belum tersedia — coba lagi sebentar.') + '</span></div>';
     return;
   }
+  syncRadarGroupTabs();
   var html = '';
   /* Kejujuran daftar: bila TIDAK ADA yang lolos gerbang, tampilkan banner tegas —
      daftar di bawahnya hanyalah pantauan (kandidat terbaik yang tersedia), bukan
@@ -2059,54 +2144,45 @@ function paintRadarItems(cfg, items, noneQualified) {
       T('ui.eRadarNone', '⚠️ Belum ada sinyal yang lolos gerbang ketat saat ini. Daftar di bawah = PANTAUAN saja (bukan rekomendasi) — lazim saat pasar sepi/akhir pekan & feed estimasi. Rekomendasi kembali begitu setup nyata matang.') +
       '</span></div>';
   }
-  for (var i = 0; i < items.length; i++) {
-    var it = items[i];
-    var a = it.analysis;
-    var meta = getMeta(it.sym);
-    var badge = radarBadgeFor(a);
-    if (a.__estFeed) badge = { cls: 'wait', txt: T('ui.eEstFeed', '○ Data estimasi — sinyal nonaktif') };
-    var chg = num(it.changePct, num(a.changePct));
-    var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
-    var sc = num(a.convictionScore, a.confluenceScore);
-    var entryRef = state.mode === 'investor' ? (a.levels && a.levels.dcaZone1 ? a.levels.dcaZone1 : a.lastPrice) : (a.levels ? a.levels.entry : a.lastPrice);
-    var isActive = it.sym === state.symbol && it.tf === state.tf;
-    // Badge outcome jujur: sinyal yang gugur/selesai TIDAK hilang diam-diam —
-    // kartu menampilkan hasil akhirnya (TP/SL/dibatalkan struktur) + jamnya.
-    var outBadge = '';
-    var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(it.sym, it.tf) : null;
-    if (oc && a.__estFeed) oc = null; // outcome di feed estimasi tidak dimunculkan
-    if (oc) {
-      var ocTxt = oc.status === 'TP_HIT' ? T('ui.eOutTp', 'TP tercapai — setup selesai')
-        : oc.status === 'BE_SAVED' ? T('ui.eOutBe', 'Terselamatkan SL+ (0-Risk, modal aman)')
-        : oc.status === 'STRUCTURE_INVALID' ? T('ui.eOutInv', 'Dibatalkan struktur + penerimaan harga')
-        : T('ui.eOutSl', 'SL tersentuh — sinyal invalid');
-      var dt = new Date(oc.at);
-      var hhmm = ('0' + dt.getHours()).slice(-2) + ':' + ('0' + dt.getMinutes()).slice(-2);
-      outBadge = '<span class="sig-badge ' + (oc.status === 'TP_HIT' || oc.status === 'BE_SAVED' ? 'long' : 'wait') + '" style="margin-top:4px;">'
-        + (oc.status === 'TP_HIT' ? '✓ ' : oc.status === 'BE_SAVED' ? '🛡️ ' : '✗ ') + ocTxt + ' • ' + hhmm + '</span>';
-    }
-    html += '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '" data-tf="' + it.tf + '">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
-        '<span class="r-sym">' + it.sym + ' <small style="color:#64748b;font-weight:700;">' + it.tf + '</small></span>' +
-        '<span class="r-live">' + (feedIsEstimate(it.source) ? '○ EST' : '● LIVE') + '</span>' +
+
+  var activeGroup = state.radarGroup || 'all';
+  if (activeGroup === 'all') {
+    RADAR_GROUPS.forEach(function (grp, gIdx) {
+      var grpItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === grp.key; });
+      html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + grp.bg + ';border:1px solid ' + grp.border + '44;border-left:4px solid ' + grp.col + ';margin-top:' + (gIdx > 0 ? '16px' : '4px') + ';">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + grp.label + '</strong>' +
+          '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;">' + grp.sub + '</span>' +
+        '</div>' +
+        '<span style="font-size:10.5px;color:' + grp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' Sinyal</span>' +
+      '</div>';
+      if (!grpItems.length) {
+        html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:12px;font-size:11.5px;color:#64748b;">' + grp.emptyText + '</div>';
+      } else {
+        grpItems.slice(0, 6).forEach(function (it) {
+          html += renderRadarCardHtml(it);
+        });
+      }
+    });
+  } else {
+    var selGrp = RADAR_GROUPS.find(function (g) { return g.key === activeGroup; }) || RADAR_GROUPS[0];
+    var selItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === activeGroup; });
+    html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + selGrp.bg + ';border:1px solid ' + selGrp.border + '44;border-left:4px solid ' + selGrp.col + ';margin-top:4px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + selGrp.label + '</strong>' +
+        '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;">' + selGrp.sub + '</span>' +
       '</div>' +
-      '<span class="r-name">' + (meta.name || it.sym) + '</span>' +
-      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
-        '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
-        '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
-      '</div>' +
-      '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' + outBadge +
-      // Alasan gerbang di kartu: kartu non-eligible menyebut yang masih ditunggu
-      // (koheren dengan WR besar di panel — WR masa lalu, izin entry = konfirmasi kini)
-      (state.mode === 'trader' && !a.signalEligible && !a.lockedSignal && !a.__estFeed && a.gating && a.gating.active && a.gating.active.length
-        ? '<div style="font-size:10.5px;color:#f59e0b;margin-top:3px;line-height:1.35;">⛔ ' + gateShortLabel(a.gating.active[0]) + '</div>' : '') +
-      (function () { var nw = newsSoonFor(it.sym, 120); return nw ? '<div style="font-size:10.5px;color:#7dd3fc;margin-top:3px;">⏰ ' + escH(nw.title).slice(0, 34) + ' • ' + newsFmtTime(nw.ts) + '</div>' : ''; })() +
-      '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
-        '<span class="r-entry">' + (state.mode === 'investor' ? T('ui.cDcaShort', 'Zona DCA 1: ') : T('ui.cEntry', 'Entry: ')) + formatPrice(entryRef, it.sym) + '</span>' +
-        '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
-      '</div>' +
+      '<span style="font-size:10.5px;color:' + selGrp.col + ';font-weight:800;background:rgba(0,0,0,0.35);padding:2px 9px;border-radius:99px;">' + selItems.length + ' Sinyal Terverifikasi</span>' +
     '</div>';
+    if (!selItems.length) {
+      html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:14px;font-size:12px;color:#64748b;">' + selGrp.emptyText + ' Belum ada setup yang lolos gerbang ketat untuk kelompok ini saat ini.</div>';
+    } else {
+      selItems.slice(0, 12).forEach(function (it) {
+        html += renderRadarCardHtml(it);
+      });
+    }
   }
+
   grid.innerHTML = html;
   Array.prototype.forEach.call(grid.querySelectorAll('.radar-card[data-sym]'), function (card) {
     card.addEventListener('click', function () {
@@ -3770,6 +3846,15 @@ if (document.readyState === 'loading') {
         newsState.filter = b.getAttribute('data-nf');
         nfBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
         renderNewsPanel();
+      });
+
+      var rgBar = $id('radarGroupBar');
+      if (rgBar) rgBar.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('[data-rg]') : null;
+        if (!b) return;
+        state.radarGroup = b.getAttribute('data-rg') || 'all';
+        rgBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
+        renderOpportunityRadar(false);
       });
 
       // ==================== PWA INSTALL & SERVICE WORKER ====================
