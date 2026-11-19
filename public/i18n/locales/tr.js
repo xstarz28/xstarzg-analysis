@@ -82,7 +82,7 @@ export default {
     "brandTag": "KURUMSAL QUANT TERMİNALİ 2026",
     "btnLoginNav": "🔐 Terminale Giriş",
     "heroPill": "⚡ GERÇEK ZAMANLI ÇOK-VARLIKLI KANTİTATİF VE SMART MONEY MOTORU",
-    "heroTitle": "Tek Terminalde Hassas Kantitatif Analiz, Smart Money Concepts ve Yatırımcı Değerlemesi",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "",
     "heroP2": " küresel enstrümanı (Spot Altın XAU/USD, IDR Fiziki Altın, 28 Forex Paritesi, 30 Endonezya IDX Hisse Senedi, 40 ABD ve Küresel Hisse, 16 Dünya Emtiası ve ",
     "heroP3": " gerçek zamanlı Kripto Spot USDT paritesi) gerçek zamanlı aracı kurum kotasyonları, 26 Konfluen Sütunu ve yapısal stop-avına karşı korumalı Stop Loss ile izleyin.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "16 Teknik Sütunu (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG ve Order Block, BSL/SSL Sweep, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>VWAP’ta Kurumsal Giriş</strong> ve Efficiency Ratio Trend Kalitesi) artı 10 Makro/Temel Sütunu birleştirir.",
     "feat2Title": "🔒 Kilitli Sniper Kurulumu ve Anti-Stop Hunt",
     "feat2Desc": "Fiyat grafikte her saniye gerçek zamanlı hareket eder, yenileme gerekmez; Giriş noktası, Yapısal Stop Loss ve TP1/TP2/TP3 aktif mum süresince sabit kilitli kalır.",
-    "feat3Title": "⚡ Trader Modu ve 🏛️ Spot Yatırımcı Modu",
-    "feat3Desc": "Çift yönlü Vadeli Traderlar (likidasyon ve pozisyon büyüklüğü hesaplayıcıyla), tek yönlü Spot Traderlar ve uzun vadeli DCA Yatırımcıları için özel çalışma alanları.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ Gerçek Walk-Forward ile Doğrulanmış",
     "feat4Desc": "Her sinyal, ilgili enstrümanın 200+ gerçek tarihî barında doğrudan test edilir ve Win Rate, Profit Factor ve Maksimum Drawdown şeffaf şekilde gösterilir.",
     "gateTitle": "Terminal Erişim Doğrulaması",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

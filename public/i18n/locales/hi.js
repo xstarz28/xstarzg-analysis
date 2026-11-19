@@ -82,7 +82,7 @@ export default {
     "brandTag": "संस्थागत क्वांट टर्मिनल 2026",
     "btnLoginNav": "🔐 टर्मिनल में लॉग इन करें",
     "heroPill": "⚡ रीयल-टाइम मल्टी-एसेट क्वांटिटेटिव और स्मार्ट मनी इंजन",
-    "heroTitle": "एक ही टर्मिनल में सटीक क्वांटिटेटिव विश्लेषण, स्मार्ट मनी कॉन्सेप्ट्स और निवेशक वैल्यूएशन",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "",
     "heroP2": " वैश्विक इंस्ट्रूमेंट्स (स्पॉट गोल्ड XAU/USD, IDR में फिज़िकल गोल्ड, 28 फॉरेक्स पेयर, 30 इंडोनेशियाई IDX शेयर, 40 अमेरिकी व वैश्विक शेयर, 16 विश्व कमोडिटी और ",
     "heroP3": " रीयल-टाइम क्रिप्टो स्पॉट USDT पेयर) को रीयल-टाइम ब्रोकर कोट्स, 26 कॉन्फ्लुएंस पिलर और संरचनात्मक एंटी-स्टॉप हंट स्टॉप लॉस सुरक्षा के साथ मॉनिटर करें।",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "16 तकनीकी पिलर (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG व ऑर्डर ब्लॉक, BSL/SSL स्वीप, <strong>ORB ब्रेकआउट</strong>, <strong>Theta Index डिके मोमेंटम</strong>, <strong>VWAP पर संस्थागत एंट्री</strong> और Efficiency Ratio ट्रेंड क्वालिटी) और 10 मैक्रो/फंडामेंटल पिलर का संयोजन।",
     "feat2Title": "🔒 लॉक्ड स्नाइपर सेटअप और एंटी-स्टॉप हंट",
     "feat2Desc": "कीमत चार्ट पर हर सेकंड रीयल-टाइम में चलती है बिना रिफ्रेश के, जबकि एंट्री पॉइंट, संरचनात्मक स्टॉप लॉस और TP1/TP2/TP3 सक्रिय कैंडल अवधि में स्थिर लॉक रहते हैं।",
-    "feat3Title": "⚡ ट्रेडर मोड और 🏛️ स्पॉट इन्वेस्टर मोड",
-    "feat3Desc": "दो-तरफ़ा फ्यूचर्स ट्रेडर्स (लिक्विडेशन व पोज़िशन साइज़ कैलकुलेटर सहित), एक-तरफ़ा स्पॉट ट्रेडर्स और दीर्घकालिक DCA निवेशकों के लिए अलग-अलग वर्कस्पेस।",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ वास्तविक Walk-Forward से सत्यापित",
     "feat4Desc": "हर सिग्नल संबंधित इंस्ट्रूमेंट के 200+ वास्तविक ऐतिहासिक बार पर सीधे परखा जाता है और Win Rate, Profit Factor तथा Maximum Drawdown पारदर्शी रूप से दिखाता है।",
     "gateTitle": "टर्मिनल एक्सेस प्रमाणीकरण",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

@@ -82,7 +82,7 @@ export default {
     "brandTag": "TERMINAL KUANT INSTITUSI 2026",
     "btnLoginNav": "🔐 Log Masuk Terminal",
     "heroPill": "⚡ ENJIN KUANTITATIF & SMART MONEY PELBAGAI ASET MASA NYATA",
-    "heroTitle": "Ketepatan Analisis Kuantitatif, Smart Money Concepts & Penilaian Pelabur dalam Satu Terminal",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "Pantau ",
     "heroP2": " instrumen global (Emas Spot XAU/USD, Emas Fizikal IDR, 28 Pasangan Forex, 30 Saham IDX Indonesia, 40 Saham AS & Global, 16 Komoditi Dunia dan ",
     "heroP3": " pasangan Kripto Spot USDT masa nyata) dengan sebut harga broker masa nyata, 26 Tunjang Konfluen dan perlindungan Stop Loss struktur anti Stop-Hunt.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "Menggabungkan 16 Tunjang Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, sapuan BSL/SSL, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Kemasukan Institusi di VWAP</strong> dan Kualiti Aliran Efficiency Ratio) ditambah 10 Tunjang Makro/Asas.",
     "feat2Title": "🔒 Setup Sniper Berkunci & Anti-Stop Hunt",
     "feat2Desc": "Harga bergerak masa nyata setiap saat pada carta tanpa perlu segar semula, manakala titik Kemasukan, Stop Loss Struktur dan TP1/TP2/TP3 terkunci stabil sepanjang tempoh lilin aktif.",
-    "feat3Title": "⚡ Mod Pedagang & 🏛️ Mod Pelabur Spot",
-    "feat3Desc": "Ruang kerja khusus untuk Pedagang Futures 2-hala (dengan kalkulator pembubaran & saiz kedudukan), Pedagang Spot 1-hala dan Pelabur DCA jangka panjang.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ Disahkan Walk-Forward Sebenar",
     "feat4Desc": "Setiap isyarat diuji terus pada 200+ bar sejarah sebenar instrumen berkaitan untuk memaparkan Win Rate, Profit Factor dan Maximum Drawdown secara telus.",
     "gateTitle": "Pengesahan Akses Terminal",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

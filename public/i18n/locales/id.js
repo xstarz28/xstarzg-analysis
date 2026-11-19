@@ -82,7 +82,7 @@ export default {
     "brandTag": "TERMINAL QUANT INSTITUSIONAL 2026",
     "btnLoginNav": "🔐 Masuk / Login Terminal",
     "heroPill": "⚡ MESIN QUANTITATIF & SMART MONEY MULTI-ASET REAL-TIME",
-    "heroTitle": "Presisi Analisis Kuantitatif, Smart Money Concepts & Valuasi Investor dalam Satu Terminal",
+    "heroTitle": "Presisi Analisis Kuantitatif Trader, Valuasi Investor & Radar Pemburu Meme Coin DEX",
     "heroP1": "Pantau ",
     "heroP2": " instrumen global (Emas Spot XAU/USD, Emas Fisik IDR, 28 Pair Forex, 30 Saham IDX Indonesia, 40 Saham AS & Global, 16 Komoditas Dunia, dan ",
     "heroP3": " Crypto Spot USDT real-time) dengan kuotasi broker real-time, 26 Pilar Konfluensi, serta proteksi Stop Loss struktural anti-Stop Hunt.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "Menggabungkan 16 Pilar Teknikal (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, BSL/SSL Sweep, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Entry Institusional di VWAP</strong>, dan Efficiency Ratio Kualitas Tren) ditambah 10 Pilar Makro/Fundamental.",
     "feat2Title": "🔒 Locked Sniper Setup & Anti-Stop Hunt",
     "feat2Desc": "Harga bergerak real-time setiap detik di grafik tanpa perlu refresh, sedangkan titik Entry, Stop Loss Struktural, serta TP1/TP2/TP3 terkunci stabil selama periode candle aktif.",
-    "feat3Title": "⚡ Trader Mode & 🏛️ Spot Investor Mode",
-    "feat3Desc": "Pemisahan ruang kerja khusus untuk Trader Futures 2-Arah (beserta kalkulator likuidasi & ukuran posisi), Trader Spot 1-Arah, serta Investor DCA Jangka Panjang.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Pemisahan 3 ruang kerja khusus terisolasi: Trader Futures 2-Arah (dengan kalkulator likuidasi & ukuran posisi), Investor DCA Jangka Panjang, serta Pemburu Koin Micin DEX On-Chain (Solana, Base, BSC).",
     "feat4Title": "✅ Terverifikasi Real Walk-Forward",
     "feat4Desc": "Setiap sinyal diuji langsung pada 200+ bar historis riil instrumen terkait untuk menampilkan Win Rate, Profit Factor, dan Maximum Drawdown secara transparan.",
     "gateTitle": "Otentikasi Akses Terminal",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Rasio Vol/Liq",
     "memeTopHolders": "Top 10 Holder",
     "memeBtnDex": "📊 Buka Chart di DexScreener ↗",
-    "memeRuleWarn": "⚠️ Aturan Micin: Amankan modal saat naik 2x-3x. Jangan hold jika likuiditas turun!"
+    "memeRuleWarn": "⚠️ Aturan Micin: Amankan modal saat naik 2x-3x. Jangan hold jika likuiditas turun!",
+    "feat5Title": "🚀 Radar DEX Meme Coin & Solana Gems (Anti-Rug)",
+    "feat5Desc": "Terminal mandiri khusus koin micin dengan chart DexScreener live, audit on-chain 4 pilar (LP 100% Burned, Mint Revoked, Freeze Disabled, Top 10 Holder < 20%), dan indikator buy pressure 5 menit tanpa tercampur analisis saham/forex."
   }
 };

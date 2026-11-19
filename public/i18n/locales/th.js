@@ -82,7 +82,7 @@ export default {
     "brandTag": "เทอร์มินัลเชิงปริมาณระดับสถาบัน 2026",
     "btnLoginNav": "🔐 เข้าสู่ระบบเทอร์มินัล",
     "heroPill": "⚡ เอนจินเชิงปริมาณและสมาร์ทมันนี่หลายสินทรัพย์แบบเรียลไทม์",
-    "heroTitle": "การวิเคราะห์เชิงปริมาณที่แม่นยำ Smart Money Concepts และการประเมินมูลค่าสำหรับนักลงทุน ในเทอร์มินัลเดียว",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "เฝ้าติดตาม ",
     "heroP2": " ตราสารทั่วโลก (ทองคำสปอต XAU/USD ทองคำแท่งแบบ IDR คู่สกุลเงิน Forex 28 คู่ หุ้น IDX อินโดนีเซีย 30 ตัว หุ้นสหรัฐฯ และทั่วโลก 40 ตัว สินค้าโภคภัณฑ์โลก 16 รายการ และ ",
     "heroP3": " คู่คริปโตสปอต USDT แบบเรียลไทม์) ด้วยราคาโบรกเกอร์เรียลไทม์ เสาหลักคอนฟลูเอนซ์ 26 ตัว และการป้องกัน Stop Loss เชิงโครงสร้างกันล่าสต็อป",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "ผสาน 16 เสาหลักทางเทคนิค (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG และ Order Block, การกวาด BSL/SSL, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>จุดเข้าสถาบันที่ VWAP</strong> และคุณภาพเทรนด์ด้วย Efficiency Ratio) กับ 10 เสาหลักมหภาค/พื้นฐาน",
     "feat2Title": "🔒 สนัยเปอร์เซ็ตอัพแบบล็อก และกันล่าสต็อป",
     "feat2Desc": "ราคาเคลื่อนไหวเรียลไทม์ทุกวินาทีบนกราฟโดยไม่ต้องรีเฟรช ขณะที่จุดเข้า Stop Loss เชิงโครงสร้าง และ TP1/TP2/TP3 ถูกล็อกคงที่ตลอดช่วงแท่งเทียนปัจจุบัน",
-    "feat3Title": "⚡ โหมดเทรดเดอร์ และ 🏛️ โหมดนักลงทุนสปอต",
-    "feat3Desc": "พื้นที่ทำงานเฉพาะสำหรับเทรดเดอร์ฟิวเจอร์สสองทาง (พร้อมเครื่องคำนวณการลิควิเดตและขนาดสถานะ) เทรดเดอร์สปอตทางเดียว และนักลงทุน DCA ระยะยาว",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ ยืนยันด้วย Walk-Forward จริง",
     "feat4Desc": "ทุกสัญญาณถูกทดสอบบนแท่งประวัติศาสตร์จริง 200+ แท่งของตราสารนั้น เพื่อแสดง Win Rate, Profit Factor และ Maximum Drawdown อย่างโปร่งใส",
     "gateTitle": "การยืนยันตัวตนเพื่อเข้าใช้เทอร์มินัล",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

@@ -82,7 +82,7 @@ export default {
     "brandTag": "محطة التحليل الكمي المؤسسي 2026",
     "btnLoginNav": "🔐 تسجيل الدخول إلى المحطة",
     "heroPill": "⚡ محرك كمي متعدد الأصول وذكي للأموال الذكية في الوقت الحقيقي",
-    "heroTitle": "تحليل كمي دقيق ومفاهيم الأموال الذكية وتقييم المستثمرين في محطة واحدة",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "راقب ",
     "heroP2": " أداة عالمية (الذهب الفوري XAU/USD، الذهب العيني بالروبية، 28 زوج فوركس، 30 سهماً إندونيسياً IDX، 40 سهماً أمريكياً وعالمياً، 16 سلعة عالمية، و ",
     "heroP3": " زوج عملات رقمية فورية USDT في الوقت الحقيقي) بأسعار وسطاء لحظية، و22 ركيزة توافق، وحماية وقف خسارة هيكلية ضد صيد الوقف.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "يجمع 16 ركيزة تقنية (EMA Ribbon، VWAP ±2σ، POC/VAH/VAL، BOS/CHoCH، ICT FVG وكتل الأوامر، كسور BSL/SSL، <strong>اختراق ORB</strong>، <strong>زخم اضمحلال مؤشر Theta</strong>، <strong>دخول مؤسسي عند VWAP</strong>، وجودة الاتجاه بنسبة الكفاءة) مع 10 ركائز كلية/أساسية.",
     "feat2Title": "🔒 إعداد قنّاص مقفل وحماية من صيد الوقف",
     "feat2Desc": "تتحرك الأسعار لحظياً كل ثانية على الرسم دون تحديث، بينما نقطة الدخول ووقف الخسارة الهيكلي وTP1/TP2/TP3 تبقى مقفلة ومستقرة خلال فترة الشمعة النشطة.",
-    "feat3Title": "⚡ وضع المتداول و 🏛️ وضع مستثمر السبوت",
-    "feat3Desc": "مساحات عمل مخصصة لمتداولي العقود الآجلة ثنائية الاتجاه (مع حاسبة التصفية وحجم الصفقة)، ومتداولي السبوت أحاديي الاتجاه، ومستثمري DCA طويلي الأجل.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ موثّق باختبار Walk-Forward حقيقي",
     "feat4Desc": "تُختبر كل إشارة مباشرة على أكثر من 200 شمعة تاريخية حقيقية للأداة نفسها لعرض معدل الفوز ومعامل الربح وأقصى تراجع بشفافية.",
     "gateTitle": "مصادقة الوصول إلى المحطة",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

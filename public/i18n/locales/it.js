@@ -82,7 +82,7 @@ export default {
     "brandTag": "TERMINALE QUANT ISTITUZIONALE 2026",
     "btnLoginNav": "🔐 Accedi al Terminale",
     "heroPill": "⚡ MOTORE QUANTITATIVO E SMART MONEY MULTI-ASSET IN TEMPO REALE",
-    "heroTitle": "Precisione nell’analisi quantitativa, Smart Money Concepts e valutazione per investitori in un unico terminale",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "Monitora ",
     "heroP2": " strumenti globali (Oro Spot XAU/USD, Oro Fisico in IDR, 28 Coppie Forex, 30 Azioni IDX Indonesia, 40 Azioni USA e Globali, 16 Materie Prime Mondiali e ",
     "heroP3": " coppie Crypto Spot USDT in tempo reale) con quotazioni broker real-time, 26 Pilastri di Confluenza e protezione Stop Loss strutturale anti stop-hunt.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "Combina 16 Pilastri Tecnici (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG e Order Block, sweep BSL/SSL, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Entrata Istituzionale su VWAP</strong> e Qualità del Trend con Efficiency Ratio) più 10 Pilastri Macro/Fondamentali.",
     "feat2Title": "🔒 Setup Cecchino Bloccato e Anti-Stop Hunt",
     "feat2Desc": "Il prezzo si muove in tempo reale ogni secondo sul grafico senza refresh, mentre punto di Entrata, Stop Loss Strutturale e TP1/TP2/TP3 restano bloccati e stabili durante la candela attiva.",
-    "feat3Title": "⚡ Modalità Trader e 🏛️ Modalità Investitore Spot",
-    "feat3Desc": "Spazi di lavoro dedicati per Trader Futures bidirezionali (con calcolatore di liquidazione e size posizione), Trader Spot unidirezionali e Investitori DCA di lungo periodo.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ Verificato con Walk-Forward Reale",
     "feat4Desc": "Ogni segnale è testato su oltre 200 barre storiche reali dello strumento per mostrare in modo trasparente Win Rate, Profit Factor e Maximum Drawdown.",
     "gateTitle": "Autenticazione di Accesso al Terminale",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };
