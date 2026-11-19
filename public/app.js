@@ -569,7 +569,7 @@ function updateLandingCounts() {
     var floor10 = function (v) { return Math.floor(v / 10) * 10; };
     elTotal.textContent = floor10(cat.length) + '+';
     var elCrypto = $id('heroCryptoCount');
-    if (elCrypto) elCrypto.textContent = cryptoN > 55 ? floor10(cryptoN) + '+' : '400+';
+    if (elCrypto) elCrypto.textContent = cryptoN > 75 ? floor10(cryptoN) + '+' : '500+';
   } catch (e) {}
 }
 function lazyLoadCryptoPairs() {
@@ -3165,7 +3165,7 @@ function ensureQuotaFor(symbol) {
     if (gm) gm.classList.remove('hidden');
   } else {
     var reason = $id('vipModalReasonText');
-    if (reason) reason.textContent = T('ui.quotaFull', 'Kuota {limit} instrumen akun FREE Anda sudah penuh ({list}). Upgrade VIP $29 USDT untuk membuka seluruh 650+ instrumen tanpa batas.').replace('{limit}', limit).replace('{list}', unlocked.join(', '));
+    if (reason) reason.textContent = T('ui.quotaFull', 'Kuota {limit} instrumen akun FREE Anda sudah penuh ({list}). Upgrade VIP $29 USDT untuk membuka seluruh 700+ instrumen tanpa batas.').replace('{limit}', limit).replace('{list}', unlocked.join(', '));
     var pm = $id('paymentModal');
     if (pm) pm.classList.remove('hidden');
   }
@@ -3317,7 +3317,7 @@ function bindVipFlow() {
     });
   });
   bind('btnRenewVipFromBanner', function () {
-    open('Perpanjang masa aktif lisensi VIP Anda agar akses 650+ instrumen tidak terputus.');
+    open('Perpanjang masa aktif lisensi VIP Anda agar akses 700+ instrumen tidak terputus.');
   });
   var osm = $id('ownerSubscribersModal');
   bind('btnOpenOwnerSubscribers', function () {

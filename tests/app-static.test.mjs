@@ -224,6 +224,20 @@ chk('i18n radarGroupBar & 3 otak multibahasa terpasang',
   /ui\.rOpenTab/.test(app) &&
   /getRadarGroups/.test(app));
 
+/* MULTI-EXCHANGE EXPANSION (BINGX & MEXC) GEMS & HERO STATS LINT */
+chk('katalog crypto memuat token unggulan BingX & MEXC (KAS, SUPER, POPCAT, BRETT, VIRTUAL, SPX, RAY, OM)',
+  /mkCrypto\('KAS'/.test(R('../public/js/shared/quant-core.js')) &&
+  /mkCrypto\('SUPER'/.test(R('../public/js/shared/quant-core.js')) &&
+  /mkCrypto\('POPCAT'/.test(R('../public/js/shared/quant-core.js')) &&
+  /mkCrypto\('BRETT'/.test(R('../public/js/shared/quant-core.js')) &&
+  /mkCrypto\('VIRTUAL'/.test(R('../public/js/shared/quant-core.js')));
+
+chk('dashboard depan & bar pilihan menampilkan 700+ instrumen dan 500+ pair crypto',
+  /id="heroTotalInstruments">700\+<\/span>/.test(html) &&
+  /id="heroCryptoCount">500\+<\/span>/.test(html) &&
+  /700\+\s*Aset Aktif/.test(html) &&
+  /75 Utama \+ 500\+ Pair/.test(html));
+
 /* SEO, SEARCH ENGINE & AI BOT DISCOVERY (GOOGLE, BING, PERPLEXITY, OPENAI) LINT */
 const robotsTxt = R('../public/robots.txt');
 const sitemapXml = R('../public/sitemap.xml');
