@@ -209,6 +209,9 @@ chk('HTML memuat radarGroupBar dengan 3 kelompok instrumen', /id="radarGroupBar"
 chk('app.js memisahkan kelompok radarAssetGroupOf & render 3 otak bagan', /function radarAssetGroupOf/.test(app) && /RADAR_GROUPS/.test(app) && /renderRadarCardHtml/.test(app));
 chk('kartu radar menampilkan SL, TP, Entry & Skor lengkap', /r-entry/.test(app) && /r-score/.test(app) && /tgtLbl \+ ':/.test(app));
 chk('tombol fokus bagan & render lengkap tanpa potongan 6 kartu', /data-focus-rg/.test(app) && /Menampilkan semua/.test(app));
-chk('kalender ekonomi anti-kosong dengan fallback institusional & peringatan broker Exness', /getClientInstitutionalEvents/.test(app) && /generateInstitutionalEvents/.test(edgeNews) && /Peringatan Broker/.test(app));
+chk('kalender ekonomi anti-kosong dengan fallback institusional & peringatan broker', /getClientInstitutionalEvents/.test(app) && /generateInstitutionalEvents/.test(edgeNews) && /Peringatan Broker/.test(app));
+chk('tidak ada penyebutan merk broker tertentu di kalender', !/exness/i.test(app) && !/exness/i.test(html));
+chk('XAU/IDR komposit nyata dari XAUUSD & USDIDR', /s === 'XAU\/IDR'/.test(edgeMarket) && /YAHOO:XAUUSD=X x USDIDR=X/.test(edgeMarket));
+chk('katalog berimbang 3 kelompok saat scan (interleaved)', /crypto\.push/.test(app) && /stocks\.push/.test(app) && /interleaved\.push/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

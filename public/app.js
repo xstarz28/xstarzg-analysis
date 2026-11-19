@@ -428,13 +428,32 @@ function catLabelOf(meta) {
    sehingga SELURUH instrumen kebagian giliran analisis — tidak hanya aset besar. */
 function catalogSortedStable() {
   var cat = currentCatalog().slice();
-  cat.sort(function (a, b) {
-    var ha = 0, hb = 0, i, sa = a.symbol + '@' + (a.assetClass || ''), sb = b.symbol + '@' + (b.assetClass || '');
-    for (i = 0; i < sa.length; i++) ha = (ha * 31 + sa.charCodeAt(i)) >>> 0;
-    for (i = 0; i < sb.length; i++) hb = (hb * 31 + sb.charCodeAt(i)) >>> 0;
-    return ha - hb;
-  });
-  return cat;
+  var fnHash = function (item) {
+    var h = 0, s = item.symbol + '@' + (item.assetClass || '');
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h;
+  };
+  var crypto = [], fx = [], stocks = [];
+  for (var i = 0; i < cat.length; i++) {
+    var it = cat[i];
+    var grp = (typeof radarAssetGroupOf === 'function') ? radarAssetGroupOf(it.symbol) : (it.assetClass === 'crypto' ? 'crypto' : (it.assetClass === 'stocks' ? 'stocks' : 'fx_comm'));
+    if (grp === 'crypto') crypto.push(it);
+    else if (grp === 'stocks') stocks.push(it);
+    else fx.push(it);
+  }
+  crypto.sort(function (a, b) { return fnHash(a) - fnHash(b); });
+  fx.sort(function (a, b) { return fnHash(a) - fnHash(b); });
+  stocks.sort(function (a, b) { return fnHash(a) - fnHash(b); });
+
+  // Interleave 1 Crypto, 1 Forex/Komoditas, 1 Saham agar rotasi radar selalu berimbang rata
+  var maxLen = Math.max(crypto.length, fx.length, stocks.length);
+  var interleaved = [];
+  for (var j = 0; j < maxLen; j++) {
+    if (j < crypto.length) interleaved.push(crypto[j]);
+    if (j < fx.length) interleaved.push(fx[j]);
+    if (j < stocks.length) interleaved.push(stocks[j]);
+  }
+  return interleaved;
 }
 function rotatingSlice(arr, n, slotMinutes) {
   if (arr.length <= n) return arr.slice();
@@ -1988,7 +2007,7 @@ function renderNewsPanel() {
     }
     var brokerAlert = ev.impact === 'HIGH'
       ? '<div style="font-size:9.5px;color:#fb7185;margin-top:6px;padding:3px 6px;background:rgba(244,63,94,0.08);border-radius:4px;line-height:1.35;">' +
-        '⚡ <b>Peringatan Broker (Exness/Global):</b> Waspada lonjakan spread & pemotongan leverage (margin dinaikkan) 15 menit sebelum hingga 5 menit setelah rilis berita berdampak tinggi ini.' +
+        '⚡ <b>Peringatan Broker & Volatilitas Pasar:</b> Waspada lonjakan spread & penyesuaian margin 15 menit sebelum hingga 5 menit setelah rilis berita berdampak tinggi ini.' +
         '</div>'
       : '';
     html += '<div class="radar-card" style="cursor:default;' + (done ? 'opacity:0.78;' : '') + '">' +
