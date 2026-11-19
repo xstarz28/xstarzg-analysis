@@ -209,5 +209,6 @@ chk('HTML memuat radarGroupBar dengan 3 kelompok instrumen', /id="radarGroupBar"
 chk('app.js memisahkan kelompok radarAssetGroupOf & render 3 otak bagan', /function radarAssetGroupOf/.test(app) && /RADAR_GROUPS/.test(app) && /renderRadarCardHtml/.test(app));
 chk('kartu radar menampilkan SL, TP, Entry & Skor lengkap', /r-entry/.test(app) && /r-score/.test(app) && /tgtLbl \+ ':/.test(app));
 chk('tombol fokus bagan & render lengkap tanpa potongan 6 kartu', /data-focus-rg/.test(app) && /Menampilkan semua/.test(app));
+chk('kalender ekonomi anti-kosong dengan fallback institusional & peringatan broker Exness', /getClientInstitutionalEvents/.test(app) && /generateInstitutionalEvents/.test(edgeNews) && /Peringatan Broker/.test(app));
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

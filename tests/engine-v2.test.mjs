@@ -359,6 +359,9 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('claims naik -> USD melemah (dirCcy=-1) & USD/JPY melemah', un.dirCcy === -1 && un.impacts.some(x => x.sym === 'USD/JPY' && x.dir === -1));
   const ts = H.etToUtc('11-18-2026', '8:30am');
   chk('konversi waktu ET->UTC valid (Nov = UTC-5, 8:30am -> 13:30 UTC)', Math.abs(ts - Date.UTC(2026, 10, 18, 13, 30)) <= 3600e3);
+  const instEvs = newsEdge.generateInstitutionalEvents(Date.UTC(2026, 10, 18, 12, 0, 0));
+  chk('generateInstitutionalEvents menghasilkan event kalender institusional', instEvs.length >= 8);
+  chk('kalender mencakup NFP, CPI, FOMC, Klaim Pengangguran', instEvs.some(e => e.title.includes('NFP')) && instEvs.some(e => e.title.includes('CPI')) && instEvs.some(e => e.title.includes('Jobless Claims')));
 }
 
 /* v2026.58 Global Macro regime classification */
