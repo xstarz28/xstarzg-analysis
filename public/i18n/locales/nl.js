@@ -82,7 +82,7 @@ export default {
     "brandTag": "INSTITUTIONELE QUANT-TERMINAL 2026",
     "btnLoginNav": "🔐 Inloggen op Terminal",
     "heroPill": "⚡ REALTIME MULTI-ASSET KWANTITATIEVE & SMART MONEY-ENGINE",
-    "heroTitle": "Precieze kwantitatieve analyse, Smart Money Concepts en beleggerswaardering in één terminal",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "Volg ",
     "heroP2": " wereldwijde instrumenten (Spotgoud XAU/USD, fysiek goud in IDR, 28 forexparen, 30 Indonesische IDX-aandelen, 40 Amerikaanse en wereldaandelen, 16 wereldgrondstoffen en ",
     "heroP3": " realtime crypto-spot USDT-paren) met realtime brokerquotes, 26 confluentiepijlers en structurele anti-stop-hunt stoploss-bescherming.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "Combineert 16 technische pijlers (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & orderblocks, BSL/SSL-sweeps, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>institutionele VWAP-instap</strong> en Efficiency Ratio-trendkwaliteit) plus 10 macro/f fundamentele pijlers.",
     "feat2Title": "🔒 Vergrendelde sniper-setup & anti-stop hunt",
     "feat2Desc": "Koersen bewegen elke seconde realtime op de grafiek zonder te verversen, terwijl instappunt, structurele stop loss en TP1/TP2/TP3 stabiel vergrendeld blijven gedurende de actieve candle.",
-    "feat3Title": "⚡ Tradermodus & 🏛️ Spot-investeerdermodus",
-    "feat3Desc": "Speciale werkruimten voor tweerichtings-futurestraders (met liquidatie- & positiegroottecalculator), eenrichtings-spottraders en langetermijn-DCA-beleggers.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ Geverifieerd met echte walk-forward",
     "feat4Desc": "Elk signaal wordt direct getest op 200+ echte historische bars van het instrument en toont transparant winrate, profit factor en maximale drawdown.",
     "gateTitle": "Authenticatie voor terminaltoegang",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

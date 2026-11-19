@@ -82,7 +82,7 @@ export default {
     "brandTag": "ИНСТИТУЦИОНАЛЬНЫЙ КВАНТ-ТЕРМИНАЛ 2026",
     "btnLoginNav": "🔐 Войти в терминал",
     "heroPill": "⚡ МУЛЬТИАКТИВНЫЙ КВАНТОВЫЙ И SMART MONEY ДВИЖОК В РЕАЛЬНОМ ВРЕМЕНИ",
-    "heroTitle": "Точный количественный анализ, Smart Money Concepts и оценка для инвесторов в одном терминале",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "Следите за ",
     "heroP2": " мировыми инструментами (спотовое золото XAU/USD, физическое золото в IDR, 28 валютных пар, 30 акций биржи IDX, 40 акций США и мира, 16 мировых товаров и ",
     "heroP3": " криптовалютными спотовыми парами USDT в реальном времени) с котировками брокеров в реальном времени, 26 столпами конвергенции и структурной защитой стоп-лосса от охоты за стопами.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "Объединяет 16 технических столпов (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG и ордер-блоки, снятие BSL/SSL, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>институциональный вход по VWAP</strong> и качество тренда по Efficiency Ratio) плюс 10 макро/фундаментальных столпов.",
     "feat2Title": "🔒 Заблокированный снайперский сетап и Anti-Stop Hunt",
     "feat2Desc": "Цена движется в реальном времени каждую секунду без обновления страницы, а точка входа, структурный стоп-лосс и TP1/TP2/TP3 стабильно зафиксированы на период активной свечи.",
-    "feat3Title": "⚡ Режим трейдера и 🏛️ Режим спот-инвестора",
-    "feat3Desc": "Отдельные рабочие пространства для фьючерс-трейдеров с двусторонней торговлей (с калькулятором ликвидации и размера позиции), спот-трейдеров односторонней торговли и долгосрочных DCA-инвесторов.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ Проверено реальным Walk-Forward",
     "feat4Desc": "Каждый сигнал тестируется на 200+ реальных исторических барах конкретного инструмента и прозрачно показывает Win Rate, Profit Factor и максимальную просадку.",
     "gateTitle": "Аутентификация доступа к терминалу",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

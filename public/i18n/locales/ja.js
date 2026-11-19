@@ -82,7 +82,7 @@ export default {
     "brandTag": "機関投資家向けクオンツ・ターミナル 2026",
     "btnLoginNav": "🔐 ターミナルにログイン",
     "heroPill": "⚡ リアルタイム・マルチアセット定量＆スマートマネー・エンジン",
-    "heroTitle": "精密な定量分析、スマートマネー・コンセプト、投資家バリュエーションを1つのターミナルに",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "",
     "heroP2": " のグローバル商品（現物金 XAU/USD、IDR建て物理金、28のFX通貨ペア、30のインドネシアIDX株式、40の米国・世界株式、16の世界コモディティ、そして ",
     "heroP3": " のリアルタイム暗号資産現物USDTペア）をリアルタイム・ブローカー気配値、26のコンフルエンス・ピラー、構造的ストップハント対策の損切り保護で監視。",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "16のテクニカル・ピラー（EMAリボン、VWAP ±2σ、POC/VAH/VAL、BOS/CHoCH、ICT FVG＆オーダーブロック、BSL/SSLスイープ、<strong>ORBブレイクアウト</strong>、<strong>Theta Index減衰モメンタム</strong>、<strong>機関のVWAPエントリー</strong>、効率レシオによるトレンド品質）と10つのマクロ/ファンダメンタル・ピラーを統合。",
     "feat2Title": "🔒 ロック式スナイパー・セットアップ＆アンチ・ストップハント",
     "feat2Desc": "価格はチャート上で毎秒リアルタイムに動き更新不要。エントリー、構造的損切り、TP1/TP2/TP3は現在のローソク足期間中、安定してロックされます。",
-    "feat3Title": "⚡ トレーダーモード ＆ 🏛️ 現物投資家モード",
-    "feat3Desc": "双方向先物トレーダー（清算・ポジションサイズ計算機付き）、単方向現物トレーダー、長期DCA投資家のための専用ワークスペース。",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ 実データ Walk-Forward 検証済み",
     "feat4Desc": "すべてのシグナルは対象商品の200以上の実ヒストリカルバーで直接テストされ、勝率、プロフィットファクター、最大ドローダウンを透明に表示。",
     "gateTitle": "ターミナル・アクセス認証",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

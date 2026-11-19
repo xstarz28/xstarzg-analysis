@@ -82,7 +82,7 @@ export default {
     "brandTag": "机构级量化终端 2026",
     "btnLoginNav": "🔐 登录交易终端",
     "heroPill": "⚡ 实时多资产量化与聪明钱引擎",
-    "heroTitle": "一个终端集齐精准量化分析、聪明钱概念与投资者估值",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "实时监控 ",
     "heroP2": " 个全球品种（现货黄金 XAU/USD、印尼盾实物金、28 个外汇货币对、30 只印尼 IDX 股票、40 只美国及全球股票、16 种全球大宗商品，以及 ",
     "heroP3": " 个实时加密现货 USDT 交易对），基于实时经纪商报价、26 个共振支柱，以及结构性防猎杀止损保护。",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "融合 16 个技术支柱（EMA 带、VWAP ±2σ、POC/VAH/VAL、BOS/CHoCH、ICT FVG 与订单块、BSL/SSL 扫流动性、<strong>ORB 突破</strong>、<strong>Theta 指数衰减动量</strong>、<strong>VWAP 机构入场</strong>及效率系数趋势质量）外加 10 个宏观/基本面支柱。",
     "feat2Title": "🔒 锁定狙击布局与防猎杀止损",
     "feat2Desc": "价格每秒实时跳动无需刷新，而入点、结构性止损及 TP1/TP2/TP3 在当前K线周期内保持稳定锁定。",
-    "feat3Title": "⚡ 交易员模式 与 🏛️ 现货投资者模式",
-    "feat3Desc": "为双向合约交易员（含强平与仓位计算器）、单向现货交易员以及长期 DCA 投资者提供独立工作区。",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ 真实走前验证（Walk-Forward）",
     "feat4Desc": "每个信号均在相关品种 200+ 根真实历史K线上直接回测，透明展示胜率、盈亏比与最大回撤。",
     "gateTitle": "终端访问身份验证",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };

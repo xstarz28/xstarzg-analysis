@@ -63,7 +63,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (556)', uniform && count === 556);
+chk('20 locale punya keyset ui seragam (558)', uniform && count === 558);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -299,6 +299,12 @@ chk('ruang tersendiri meme coin terisolasi total dari workspace trader/investor'
   app.includes('selectMemeToken') &&
   memeApi.includes('metaNarrative') &&
   memeApi.includes('devStatus'));
+
+chk('dashboard depan menampilkan mode meme coin berdampingan dengan trader dan investor',
+  html.includes('MEME &amp; DEX GEMS (ANTI-RUG SCANNER)') &&
+  html.includes('ui.feat5Title') &&
+  html.includes('ui.feat5Desc') &&
+  html.includes('Radar Khusus Koin Micin & DEX Gems'));
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

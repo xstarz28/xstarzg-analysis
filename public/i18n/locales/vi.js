@@ -82,7 +82,7 @@ export default {
     "brandTag": "TERMINAL ĐỊNH LƯỢNG TỔ CHỨC 2026",
     "btnLoginNav": "🔐 Đăng nhập Terminal",
     "heroPill": "⚡ CÔNG CỤ ĐỊNH LƯỢNG & SMART MONEY ĐA TÀI SẢN THỜI GIAN THỰC",
-    "heroTitle": "Phân tích định lượng chính xác, Smart Money Concepts và định giá nhà đầu tư trong một terminal",
+    "heroTitle": "Precision Quantitative Analysis for Traders, Investor Valuation & DEX Meme Coin Radar",
     "heroP1": "Theo dõi ",
     "heroP2": " tài sản toàn cầu (Vàng Spot XAU/USD, Vàng vật chất quy IDR, 28 cặp Forex, 30 cổ phiếu IDX Indonesia, 40 cổ phiếu Mỹ & toàn cầu, 16 hàng hóa thế giới và ",
     "heroP3": " cặp Crypto Spot USDT thời gian thực) với báo giá môi giới thời gian thực, 26 Trụ cột Hội tụ và bảo vệ Stop Loss cấu trúc chống Stop-Hunt.",
@@ -92,8 +92,8 @@ export default {
     "feat1Desc": "Kết hợp 16 Trụ cột Kỹ thuật (EMA Ribbon, VWAP ±2σ, POC/VAH/VAL, BOS/CHoCH, ICT FVG & Order Block, quét BSL/SSL, <strong>ORB Breakout</strong>, <strong>Theta Index Decay Momentum</strong>, <strong>Điểm vào Tổ chức tại VWAP</strong> và Chất lượng Xu hướng theo Efficiency Ratio) cùng 10 Trụ cột Vĩ mô/Cơ bản.",
     "feat2Title": "🔒 Sniper Setup Khóa Chặt & Chống Stop Hunt",
     "feat2Desc": "Giá chuyển động thời gian thực từng giây trên biểu đồ không cần tải lại, trong khi điểm Vào lệnh, Stop Loss Cấu trúc và TP1/TP2/TP3 được khóa ổn định suốt kỳ nến đang hoạt động.",
-    "feat3Title": "⚡ Chế độ Trader & 🏛️ Chế độ Nhà đầu tư Spot",
-    "feat3Desc": "Không gian làm việc riêng cho Trader Futures hai chiều (kèm máy tính thanh lý & khối lượng vị thế), Trader Spot một chiều và Nhà đầu tư DCA dài hạn.",
+    "feat3Title": "⚡ Trader Mode, 🏛️ Spot Investor & 🚀 Meme Coin Hunter",
+    "feat3Desc": "Three isolated workspaces: 2-Way Futures Traders (with liquidation & position sizing calculator), Long-Term DCA Investors, and On-Chain DEX Meme Coin Hunters (Solana, Base, BSC).",
     "feat4Title": "✅ Đã xác minh Walk-Forward Thực",
     "feat4Desc": "Mọi tín hiệu được kiểm thử trực tiếp trên 200+ thanh lịch sử thực của chính tài sản đó để minh bạch Win Rate, Profit Factor và Maximum Drawdown.",
     "gateTitle": "Xác thực Quyền truy cập Terminal",
@@ -634,6 +634,8 @@ export default {
     "memeVolLiq": "Vol/Liq Ratio",
     "memeTopHolders": "Top 10 Holders",
     "memeBtnDex": "📊 Open DexScreener Chart ↗",
-    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!"
+    "memeRuleWarn": "⚠️ Meme Golden Rule: Secure profit at 2x-3x. Never hold if liquidity begins dropping!",
+    "feat5Title": "🚀 DEX Meme Coin & Solana Gems Anti-Rug Hunter",
+    "feat5Desc": "Dedicated memecoin terminal featuring live DexScreener charts, 4-pillar on-chain contract audits (LP Burned, Mint Revoked, Freeze Disabled, Top 10 Holders < 20%), and 5-minute buy pressure analytics completely separate from traditional stock/forex models."
   }
 };
