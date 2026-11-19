@@ -457,12 +457,12 @@ export function detectMomentumDivergence(candles, macdHist, swings) {
   if (highs.length >= 2) {
     const h2 = highs[highs.length - 1], h1 = highs[highs.length - 2];
     const m2 = macdHist[h2.index] || 0, m1 = macdHist[h1.index] || 0;
-    if (h2.price > h1.price && m2 < m1 && len - 1 - h2.confirmedAtIndex <= 14) bearish = true;
+    if (h2.price > h1.price && m1 > 0 && (m2 <= 0 || m2 < m1 * 0.45) && len - 1 - h2.confirmedAtIndex <= 14) bearish = true;
   }
   if (lows.length >= 2) {
     const l2 = lows[lows.length - 1], l1 = lows[lows.length - 2];
     const m2 = macdHist[l2.index] || 0, m1 = macdHist[l1.index] || 0;
-    if (l2.price < l1.price && m2 > m1 && len - 1 - l2.confirmedAtIndex <= 14) bullish = true;
+    if (l2.price < l1.price && m1 < 0 && (m2 >= 0 || m2 > m1 * 0.45) && len - 1 - l2.confirmedAtIndex <= 14) bullish = true;
   }
   return { bearish, bullish };
 }
@@ -476,18 +476,15 @@ export function evaluateHardVetoes(ctx) {
   // Catatan desain (v2026.50): "kejar kereta" (overextended) bukan lagi hard-veto —
   // entry kita SELALU limit di zona mitigasi (retest), jadi anti-chase terjamin by design;
   // overextension kini menjadi penalti skor, menjaga XSTARZG tetap mampu memberi sinyal.
-  // Veto 2: LIQUIDITY WALL — hanya kolam likuiditas MAYOR (VAH/EQH/sesi lama/old high/OB),
-  // dan hanya bila tabrakan nyata (< 0.8x ATR) sehingga RR matematis mustahil.
-  // VAH/VAL sengaja TIDAK dipakai di sini: kontur profil selalu berdekatan dengan
-  // harga sehingga bukan "dinding" yang membatalkan sinyal. Yang membatalkan hanya
-  // kolam likuiditas struktural (equal highs/lows, sesi sebelumnya, old high/low, OB)
-  // yang berada sangat dekat (tabrakan nyata < 0.8x ATR -> RR mustahil).
-  const overhead = [eqHigh, prevSessHigh, oldHigh, bearOb && bearOb.top]
+  // Veto 2: LIQUIDITY WALL — hanya Order Block berlawanan yang sangat dekat (< 0.5x ATR)
+  // sehingga rasio RR menuju TP1 matematis terbentur dinding order jual/beli institusional.
+  // Kolam likuiditas (EQH/EQL/sesi lama) adalah target penarikan likuiditas, bukan pembatal.
+  const overhead = [bearOb && bearOb.top]
     .filter(v => typeof v === 'number' && v > price).sort((x, y) => x - y);
-  if (overhead.length && (overhead[0] - price) < 0.8 * a) long.push('LIQUIDITY_WALL');
-  const underfoot = [eqLow, prevSessLow, oldLow, bullOb && bullOb.bottom]
+  if (overhead.length && (overhead[0] - price) < 0.5 * a) long.push('LIQUIDITY_WALL');
+  const underfoot = [bullOb && bullOb.bottom]
     .filter(v => typeof v === 'number' && v < price).sort((x, y) => y - x);
-  if (underfoot.length && (price - underfoot[0]) < 0.8 * a) short.push('LIQUIDITY_WALL');
+  if (underfoot.length && (price - underfoot[0]) < 0.5 * a) short.push('LIQUIDITY_WALL');
   // Veto 3: EXHAUSTION MOMENTUM — hanya ekstrem sejati (RSI>74 / RSI<26) atau divergensi
   if (rsi > 74) long.push('EXHAUST_RSI');
   if (div.bearish) long.push('DIVERGENCE_MACD');
@@ -737,7 +734,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // 4. Volatility Regime
   let volRegimeScore = 66;
   let regimeLabel = 'NORMAL EXPANSION';
-  if (bbWidth < 1.25) { volRegimeScore = 58; regimeLabel = 'BOLLINGER SQUEEZE (Siap Breakout)'; }
+  const assetClass = meta.assetClass || 'forex';
+  const squeezeThresh = assetClass === 'crypto' ? 1.25 : (assetClass === 'forex' ? 0.20 : 0.32);
+  if (bbWidth < squeezeThresh) { volRegimeScore = 58; regimeLabel = 'BOLLINGER SQUEEZE (Siap Breakout)'; }
   else if (atrPct > 3.8) { volRegimeScore = 50; regimeLabel = 'HIGH VOLATILITY (Lebarkan Stop)'; }
   else if (trendScore > 65 || trendScore < 35) { volRegimeScore = 82; regimeLabel = 'INSTITUTIONAL TREND FLOW'; }
   // ================= PILAR (ORBIT IQ 2026) =================
@@ -1038,15 +1037,15 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const vols20 = closed.slice(-21).map(c => Number(c.volume) || 0);
   const volAvg20 = vols20.length > 1 ? vols20.slice(0, -1).reduce((a, b) => a + b, 0) / (vols20.length - 1) : 0;
   const volRecent = Math.max(Number(closed[lastIdx].volume) || 0, Number(closed[lastIdx - 1] && closed[lastIdx - 1].volume) || 0, Number(closed[lastIdx - 2] && closed[lastIdx - 2].volume) || 0);
-  const volImpulse = volAvg20 > 0 ? volRecent >= 1.25 * volAvg20 : true;
-  // SQUEEZE wajib RESOLUSI: "siap breakout" bukan izin entry. LONG baru sah bila harga
-  // sudah ditutup di atas Bollinger atas dengan momentum; SHORT sebaliknya.
-  const squeezeOn = bbWidth < 1.25;
-  const squeezeBreakLong = !squeezeOn || (lastPrice > bbUpper && macdHist > 0);
-  const squeezeBreakShort = !squeezeOn || (lastPrice < bbLower && macdHist < 0);
+  const volImpulse = volAvg20 > 0 ? (volRecent >= 1.05 * volAvg20 || (meta.assetClass !== 'crypto' && volRecent >= 0.90 * volAvg20)) : true;
+  // SQUEEZE wajib RESOLUSI: "siap breakout" bukan izin entry.
+  // Ambang batas diselaraskan per kelas aset (forex 0.20%, komoditas/logam 0.32%, kripto 1.25%).
+  const squeezeOn = bbWidth < squeezeThresh;
+  const squeezeBreakLong = !squeezeOn || (lastPrice > bbUpper && macdHist > 0) || (lastPrice > ema20 && macdHist > 0 && rsi > 48);
+  const squeezeBreakShort = !squeezeOn || (lastPrice < bbLower && macdHist < 0) || (lastPrice < ema20 && macdHist < 0 && rsi < 52);
   const squeezeBlockedDir = softBias === 'LONG' ? !squeezeBreakLong : softBias === 'SHORT' ? !squeezeBreakShort : false;
-  const seqOkLong = modern.smcBias > 0 && (modern.sweepBias > 0 || modern.smcStatus.indexOf('BULLISH') === 0) && volImpulse;
-  const seqOkShort = modern.smcBias < 0 && (modern.sweepBias < 0 || modern.smcStatus.indexOf('BEARISH') === 0) && volImpulse;
+  const seqOkLong = modern.smcBias > 0 && (modern.sweepBias > 0 || modern.smcStatus.toUpperCase().includes('BULLISH')) && volImpulse;
+  const seqOkShort = modern.smcBias < 0 && (modern.sweepBias < 0 || modern.smcStatus.toUpperCase().includes('BEARISH')) && volImpulse;
   const dirVetoes = softBias === 'LONG' ? vetoes.long : softBias === 'SHORT' ? vetoes.short : [];
   const vetoFree = dirVetoes.length === 0;
   const seqOk = softBias === 'LONG' ? seqOkLong : softBias === 'SHORT' ? seqOkShort : false;
