@@ -9,6 +9,38 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
+    // Sinkronisasi otomatis token bot dari GitHub Actions jika disertakan
+    const headerBotToken = request.headers.get('X-Bot-Token');
+    if (headerBotToken && env && env.DB) {
+      try {
+        const cleanTok = String(headerBotToken).trim().replace(/^bot/i, '');
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        `).run();
+        await env.DB.prepare(`
+          INSERT INTO system_settings (key, value, updated_at)
+          VALUES ('telegram_bot_token', ?1, ?2)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+        `).bind(cleanTok, Date.now()).run();
+
+        const meRes = await fetch(`https://api.telegram.org/bot${cleanTok}/getMe`);
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData && meData.ok && meData.result && meData.result.username) {
+            await env.DB.prepare(`
+              INSERT INTO system_settings (key, value, updated_at)
+              VALUES ('telegram_bot_username', ?1, ?2)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            `).bind(meData.result.username, Date.now()).run();
+          }
+        }
+      } catch (e) {}
+    }
+
     let subscribers = [];
     if (env && env.DB) {
       const now = Date.now();

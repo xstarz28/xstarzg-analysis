@@ -6926,6 +6926,12 @@ function bindUiEvents() {
   var inpTgUid = $id('inpTgVipChatId');
   var btnSaveTgUid = $id('btnSaveTgVipChatId');
   var msgTgUidStatus = $id('msgTgVipStatus');
+  var boxOwnerBot = $id('tgOwnerBotConfigBox');
+  var inpOwnerBotUser = $id('inpTgOfficialBotUsername');
+  var btnSaveOwnerBotUser = $id('btnSaveOfficialBotUsername');
+  var msgOwnerBotStatus = $id('msgTgOfficialBotStatus');
+
+  var currentDeepLinkUrl = null;
 
   function openTelegramVipModal() {
     var curUser = state.user;
@@ -6934,6 +6940,8 @@ function bindUiEvents() {
     var isVip = isOwner || isAffiliate || (curUser && curUser.tier === 'VIP' && (!curUser.vipUntil || curUser.vipUntil > Date.now()));
 
     if (msgTgUidStatus) msgTgUidStatus.textContent = '';
+    if (msgOwnerBotStatus) msgOwnerBotStatus.textContent = '';
+    currentDeepLinkUrl = null;
 
     if (!isVip) {
       // User FREE / GUEST -> Tampilkan Paywall Gating dengan tombol upgrade VIP!
@@ -6948,9 +6956,12 @@ function bindUiEvents() {
         badgeUser.textContent = isOwner ? '👑 OWNER / DEVELOPER' : (isAffiliate ? '🤝 AFFILIATE PARTNER' : '💎 VIP PRO MEMBER');
       }
 
+      if (boxOwnerBot) {
+        boxOwnerBot.classList.toggle('hidden', !isOwner);
+      }
+
       // Ambil deep-link aktivasi terenkripsi dari server
       if (linkStart) {
-        linkStart.setAttribute('target', '_blank');
         linkStart.style.opacity = '0.7';
       }
 
@@ -6960,14 +6971,20 @@ function bindUiEvents() {
           headers: { 'Authorization': 'Bearer ' + token }
         }).then(function (r) { return r.json(); }).then(function (d) {
           if (linkStart) linkStart.style.opacity = '1';
-          if (d && d.ok && d.deepLink && linkStart) {
-            linkStart.href = d.deepLink;
-          }
-          if (d && d.linkedChatId && inpTgUid) {
-            inpTgUid.value = d.linkedChatId;
-            if (msgTgUidStatus) {
-              msgTgUidStatus.style.color = '#10b981';
-              msgTgUidStatus.textContent = '✅ HP Anda sudah terhubung (ID: ' + d.linkedChatId + ')';
+          if (d && d.ok) {
+            if (d.deepLink) {
+              currentDeepLinkUrl = d.deepLink;
+              if (linkStart) linkStart.href = d.deepLink;
+            }
+            if (d.botUsername && inpOwnerBotUser && !inpOwnerBotUser.value) {
+              inpOwnerBotUser.value = '@' + d.botUsername;
+            }
+            if (d.linkedChatId && inpTgUid) {
+              inpTgUid.value = d.linkedChatId;
+              if (msgTgUidStatus) {
+                msgTgUidStatus.style.color = '#10b981';
+                msgTgUidStatus.textContent = '✅ HP Anda sudah terhubung (ID: ' + d.linkedChatId + ')';
+              }
             }
           }
         });
@@ -6977,6 +6994,78 @@ function bindUiEvents() {
     }
 
     if (modalTgVip) modalTgVip.classList.remove('hidden');
+  }
+
+  // Intersep klik linkStart jika bot belum disetel
+  if (linkStart) {
+    linkStart.addEventListener('click', function (e) {
+      if (!currentDeepLinkUrl) {
+        e.preventDefault();
+        var curUser = state.user;
+        var isOwner = curUser && (curUser.tier === 'OWNER_VIP' || (curUser.email && (curUser.email === 'sevenfoldarmy2822@gmail.com' || curUser.email === 'gilfanputra@gmail.com')));
+        if (isOwner) {
+          if (msgOwnerBotStatus) {
+            msgOwnerBotStatus.style.color = '#f59e0b';
+            msgOwnerBotStatus.textContent = '⚠️ Masukkan username bot Telegram Anda di atas sekali saja, lalu klik Simpan!';
+          }
+          if (inpOwnerBotUser) inpOwnerBotUser.focus();
+        } else {
+          if (msgTgUidStatus) {
+            msgTgUidStatus.style.color = '#38bdf8';
+            msgTgUidStatus.textContent = '💡 Hubungkan Chat ID Telegram Anda pada kolom di bawah untuk langsung mengaktifkan notifikasi!';
+          }
+          if (inpTgUid) inpTgUid.focus();
+        }
+      }
+    });
+  }
+
+  // Handler simpan username bot resmi khusus Owner
+  if (btnSaveOwnerBotUser) {
+    btnSaveOwnerBotUser.addEventListener('click', function () {
+      var botVal = inpOwnerBotUser ? inpOwnerBotUser.value.trim().replace(/^@/, '') : '';
+      if (!botVal) {
+        if (msgOwnerBotStatus) {
+          msgOwnerBotStatus.style.color = '#f43f5e';
+          msgOwnerBotStatus.textContent = '⚠️ Masukkan username bot Anda dari @BotFather!';
+        }
+        return;
+      }
+      if (msgOwnerBotStatus) {
+        msgOwnerBotStatus.style.color = '#38bdf8';
+        msgOwnerBotStatus.textContent = '⏳ Menyimpan pengaturan bot resmi...';
+      }
+      btnSaveOwnerBotUser.disabled = true;
+
+      ensureAuthToken().then(function (token) {
+        return fetch('/api/notify/telegram-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ action: 'set_bot_config', botUsername: botVal })
+        }).then(function (r) { return r.json(); });
+      }).then(function (d) {
+        if (d && d.ok) {
+          if (msgOwnerBotStatus) {
+            msgOwnerBotStatus.style.color = '#10b981';
+            msgOwnerBotStatus.textContent = '✅ Berhasil! Bot @' + botVal + ' sekarang aktif untuk semua pengguna.';
+          }
+          // Refresh deep-link seketika
+          openTelegramVipModal();
+        } else {
+          if (msgOwnerBotStatus) {
+            msgOwnerBotStatus.style.color = '#f43f5e';
+            msgOwnerBotStatus.textContent = '❌ ' + ((d && d.error) || 'Gagal menyimpan.');
+          }
+        }
+      }).catch(function (e) {
+        if (msgOwnerBotStatus) {
+          msgOwnerBotStatus.style.color = '#f43f5e';
+          msgOwnerBotStatus.textContent = '❌ Error: ' + e.message;
+        }
+      }).finally(function () {
+        btnSaveOwnerBotUser.disabled = false;
+      });
+    });
   }
 
   function closeTelegramVipModal() {
