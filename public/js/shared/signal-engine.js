@@ -1402,6 +1402,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
    (localStorage di app.js); fungsi-fungsi di sini murni/deterministik. */
 export function createSignalLock(a, symbol, mode, subMode) {
   if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return null;
+  const symTarget = String(symbol || a.symbol || '').toUpperCase();
+  const aSym = String(a.symbol || '').toUpperCase();
+  if (symTarget && aSym && symTarget !== aSym) return null; // Mismatch simbol antara analisis dan target lock!
   const entry = Number(a.levels.entry), sl = Number(a.levels.sl), tp1 = Number(a.levels.tp1);
   const tfSec = a.tfSeconds || TF_SECS[a.timeframe] || 3600;
   const brain = tfSec <= 900 ? 'SCALP' : 'SNIPER';
@@ -1435,6 +1438,17 @@ export function validateSignalLock(lock, closedCandles, fresh) {
     // Deteksi level terbalik / inkonsisten matematis (mis. TP di bawah harga jangkar LONG)
     if (isLong ? (tp1 <= entry || tp1 <= anchorP || sl >= entry) : (tp1 >= entry || tp1 >= anchorP || sl <= entry)) {
       return { status: 'STRUCTURE_INVALID', reason: 'Level sinyal terbalik / tidak konsisten dengan arah posisi' };
+    }
+    // Deteksi kontaminasi skala harga antar-pair (mis. lock EUR/USD ~1.0972 divalidasi terhadap candle NZD/JPY ~87.35)
+    if (closedCandles && closedCandles.length) {
+      const lastClosedBar = closedCandles[closedCandles.length - 1];
+      const lastC = lastClosedBar ? Number(lastClosedBar.close) : 0;
+      if (lastC > 0 && entry > 0) {
+        const ratio = entry / lastC;
+        if (ratio < 0.2 || ratio > 5.0) {
+          return { status: 'STRUCTURE_INVALID', reason: 'Skala harga sinyal tidak cocok dengan candle pair (kontaminasi silang antar pair)' };
+        }
+      }
     }
     const risk = Math.max(Math.abs(entry - sl), 1e-12);
     const targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
@@ -1543,6 +1557,9 @@ export function validateSignalLock(lock, closedCandles, fresh) {
 }
 export function applyLockedSignal(a, lock, verdict) {
   if (!a || a.error || !lock) return a;
+  const aSym = String(a.symbol || '').toUpperCase();
+  const lSym = String(lock.symbol || '').toUpperCase();
+  if (aSym && lSym && aSym !== lSym) return a; // Simbol tidak cocok — tolak penerapan lock dari pair lain!
   a.direction = lock.direction;
   a.signalEligible = true;
   a.lockedSignal = true;

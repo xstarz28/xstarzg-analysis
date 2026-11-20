@@ -425,6 +425,85 @@ function catLabelOf(meta) {
   return meta.region === 'ID' ? 'IDX STOCKS' : 'GLOBAL STOCKS';
 }
 
+/* ==================== 0. VALIDASI INTEGRITAS HARGA & INSTRUMEN ====================
+   Mencegah bug fatal "harga pair sebelumnya menempel ke pair yang baru dikunjungi":
+   memvalidasi kesesuaian orde/skala harga candlestick, sinyal, dan lock storage
+   terhadap instrumen aktif (misal kurs JPY 20-600 tidak boleh terisi harga EUR/USD ~1.08). */
+var REFERENCE_PRICES = {
+  // Forex Majors & Crosses
+  'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
+  'NZD/USD': 0.5980, 'USD/IDR': 16550, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50, 'EUR/GBP': 0.8328, 'AUD/JPY': 100.25,
+  'CAD/JPY': 109.60, 'CHF/JPY': 176.10, 'NZD/JPY': 87.35, 'NZDJPY': 87.35, 'EUR/AUD': 1.6470, 'GBP/AUD': 1.9780, 'EUR/CAD': 1.4880,
+  'GBP/CAD': 1.7860, 'EUR/CHF': 0.9415, 'GBP/CHF': 1.1305, 'AUD/CAD': 0.9030, 'AUD/NZD': 1.1085, 'USD/SGD': 1.3420,
+  'USD/CNH': 7.2650, 'USD/THB': 33.85, 'USD/MXN': 20.35, 'USD/ZAR': 18.00,
+  // Metals & Commodities
+  'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 50.00, 'XPT/USD': 1580.00, 'XPD/USD': 1050.00, 'XCU/USD': 5.10, 'HG/USD': 5.10,
+  'WTI': 70.50, 'BRENT': 74.20, 'NATGAS': 2.85, 'CPO': 5100, 'COAL': 145.0,
+  // Crypto Major
+  'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00, 'XRP/USDT': 2.55, 'ADA/USDT': 0.82,
+  'DOGE/USDT': 0.26, 'AVAX/USDT': 26.4, 'LINK/USDT': 18.9, 'TON/USDT': 3.85, 'SUI/USDT': 3.42, 'DOT/USDT': 5.20,
+  'NEAR/USDT': 3.60, 'APT/USDT': 6.40, 'LTC/USDT': 124, 'BCH/USDT': 345, 'SEI/USDT': 0.28, 'KAS/USDT': 0.15,
+  // Equities
+  'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880, 'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620,
+  'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00, 'TSLA': 262.00, 'SPY': 590.0, 'QQQ': 510.0
+};
+
+function getSymbolReferencePrice(symbol) {
+  var s = (symbol || '').toUpperCase().trim();
+  if (!s) return 0;
+  if (REFERENCE_PRICES[s]) return REFERENCE_PRICES[s];
+  var clean = s.replace('/', '');
+  if (REFERENCE_PRICES[clean]) return REFERENCE_PRICES[clean];
+  try {
+    var meta = (typeof getMeta === 'function' ? getMeta(s) : null) ||
+               (typeof QC !== 'undefined' && QC && QC.getInstrumentMeta ? QC.getInstrumentMeta(s) : null);
+    if (meta && Number(meta.basePrice) > 0) return Number(meta.basePrice);
+  } catch (e) {}
+  return 0;
+}
+
+function isPriceCompatibleWithSymbol(price, symbol) {
+  var p = Number(price);
+  if (!Number.isFinite(p) || p <= 0) return false;
+  var s = (symbol || '').toUpperCase().trim();
+  if (!s) return false;
+
+  // 1. Pasangan mata uang JPY (seperti NZD/JPY, USD/JPY, EUR/JPY, GBP/JPY, AUD/JPY, CAD/JPY, CHF/JPY)
+  // Kurs JPY berada pada rentang 20 s/d 600, mustahil bernilai ~1.00 atau 0.00xxx
+  var isJpyPair = (s.indexOf('/JPY') > -1 || s.endsWith('JPY'));
+  if (isJpyPair) {
+    if (p < 20 || p > 600) return false;
+  }
+
+  // 2. Forex non-JPY standar (misal EUR/USD, GBP/USD, AUD/USD, NZD/USD, USD/CAD, USD/CHF)
+  // Kurs normal berada di rentang 0.20 s/d 50.0, tidak mungkin ratusan atau ribuan
+  var isStandardFx = (s.indexOf('/') > -1 && s.indexOf('/USDT') === -1 && s.indexOf('XAU') === -1 && s.indexOf('XAG') === -1 && !isJpyPair && s.indexOf('IDR') === -1);
+  if (isStandardFx) {
+    if (p > 50) return false;
+  }
+
+  // 3. Emas, Perak & Bitcoin
+  if (s === 'XAU/USD' || s === 'XAUUSD') {
+    if (p < 1000 || p > 15000) return false;
+  }
+  if (s === 'BTC/USDT' || s === 'BTCUSDT' || s === 'BTC') {
+    if (p < 5000) return false;
+  }
+  if (s.slice(-3) === '.JK') {
+    if (p < 20) return false;
+  }
+
+  // 4. Verifikasi terhadap harga referensi terkalibrasi
+  var ref = getSymbolReferencePrice(s);
+  if (ref && ref > 0) {
+    var ratio = p / ref;
+    if (ratio < 0.2 || ratio > 5.0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /* ==================== 1. KATALOG INSTRUMEN & SELECT ==================== */
 /* Helper rotasi katalog: slice stabil (hash simbol+kelas) bergilir per slot waktu
    sehingga SELURUH instrumen kebagian giliran analisis — tidak hanya aset besar. */
@@ -643,14 +722,25 @@ function signalLockId(symbol, tf) {
   return (symbol || '').toUpperCase() + '|' + (state.mode || 'trader') + '|' + (state.mode === 'investor' ? 'spot' : (state.subMode || 'futures')) + '|' + String(tf || state.tf || '');
 }
 function getSignalLock(symbol, tf) {
-  var l = signalLockStore()[signalLockId(symbol, tf)];
-  return (l && l.status === 'ACTIVE') ? l : null;
+  var id = signalLockId(symbol, tf);
+  var l = signalLockStore()[id];
+  if (!l || l.status !== 'ACTIVE') return null;
+  var expectedSym = (symbol || '').toUpperCase();
+  var lockSym = (l.symbol || '').toUpperCase();
+  if ((lockSym && lockSym !== expectedSym) || !isPriceCompatibleWithSymbol(l.entry, expectedSym)) {
+    saveSignalLock(symbol, tf, null);
+    return null;
+  }
+  return l;
 }
 function saveSignalLock(symbol, tf, lock) {
   try {
     var all = signalLockStore();
     var id = signalLockId(symbol, tf);
     if (lock) {
+      if (!isPriceCompatibleWithSymbol(lock.entry, symbol)) {
+        return;
+      }
       all[id] = lock;
       try {
         var outs = signalOutcomeStore();
@@ -676,6 +766,7 @@ function outcomeBadgeWindowMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping
 function radarAccStore() { try { return JSON.parse(localStorage.getItem(RADAR_ACC_KEY) || '{}') || {}; } catch (e) { return {}; } }
 function recordSignalOutcome(symbol, tf, verdict, lock) {
   try {
+    if (lock && !isPriceCompatibleWithSymbol(lock.entry, symbol)) return;
     var oc = String((verdict && verdict.status) || '');
     // v2026.65: EXPIRED dicatat juga ke jurnal (transparansi penuh) namun TIDAK
     // memengaruhi winrate adaptif (bukan kemenangan/kekalahan — netral usia setup).
@@ -718,8 +809,20 @@ function signalCooldownActive(symbol, tf) {
   return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID' || o.status === 'EXPIRED' || o.status === 'BE_SAVED') && (Date.now() - o.at) < outcomeCooldownMs(tf));
 }
 function latestSignalOutcome(symbol, tf) {
-  var o = signalOutcomeStore()[signalLockId(symbol, tf)];
-  return (o && (Date.now() - o.at) < outcomeBadgeWindowMs(tf)) ? o : null;
+  var id = signalLockId(symbol, tf);
+  var outs = signalOutcomeStore();
+  var o = outs[id];
+  if (!o || (Date.now() - o.at) >= outcomeBadgeWindowMs(tf)) return null;
+  var expectedSym = (symbol || '').toUpperCase();
+  if (o.lock) {
+    var lockSym = (o.lock.symbol || '').toUpperCase();
+    if ((lockSym && lockSym !== expectedSym) || !isPriceCompatibleWithSymbol(o.lock.entry, expectedSym)) {
+      delete outs[id];
+      try { localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(outs)); } catch (e) {}
+      return null;
+    }
+  }
+  return o;
 }
 function adaptiveMinScore(tf) {
   try {
@@ -735,9 +838,12 @@ function auditAndCleanseCorruptedStorage() {
       var o = outs[k];
       if (!o || !o.lock) continue;
       var L = o.lock, isL = L.direction === 'LONG';
+      var sym = (L.symbol || k.split('|')[0] || '').toUpperCase();
       var tp1 = Number(L.tp1), entry = Number(L.entry), sl = Number(L.sl), anc = Number(L.anchorPrice || entry);
       var inv = isL ? (tp1 <= entry || tp1 <= anc || sl >= entry) : (tp1 >= entry || tp1 >= anc || sl <= entry);
-      if (inv || L.feedUnverified) {
+      var badPrice = !isPriceCompatibleWithSymbol(entry, sym) || !isPriceCompatibleWithSymbol(anc, sym);
+      var symMismatch = (L.symbol && k.indexOf(L.symbol) !== 0);
+      if (inv || L.feedUnverified || badPrice || symMismatch) {
         delete outs[k];
         outsMod = true;
       }
@@ -751,9 +857,12 @@ function auditAndCleanseCorruptedStorage() {
       var lk = lks[k2];
       if (!lk) continue;
       var isL2 = lk.direction === 'LONG';
+      var sym2 = (lk.symbol || k2.split('|')[0] || '').toUpperCase();
       var tp12 = Number(lk.tp1), entry2 = Number(lk.entry), sl2 = Number(lk.sl), anc2 = Number(lk.anchorPrice || entry2);
       var inv2 = isL2 ? (tp12 <= entry2 || tp12 <= anc2 || sl2 >= entry2) : (tp12 >= entry2 || tp12 >= anc2 || sl2 <= entry2);
-      if (inv2 || lk.feedUnverified) {
+      var badPrice2 = !isPriceCompatibleWithSymbol(entry2, sym2) || !isPriceCompatibleWithSymbol(anc2, sym2);
+      var symMismatch2 = (lk.symbol && k2.indexOf(lk.symbol) !== 0);
+      if (inv2 || lk.feedUnverified || badPrice2 || symMismatch2) {
         delete lks[k2];
         lksMod = true;
       }
@@ -826,6 +935,12 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
 /* ==================== 2. MESIN ANALISIS QUANT (computeQuantEngine) ==================== */
 function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSource) {
   try {
+    if (Array.isArray(candles) && candles.length >= 5) {
+      var lastC = candles[candles.length - 1];
+      if (lastC && !isPriceCompatibleWithSymbol(lastC.close, symbol)) {
+        candles = (typeof generateSeedCandles === 'function') ? generateSeedCandles(symbol, tf).candles : [];
+      }
+    }
     if (SE && SE.runFullAnalysis && Array.isArray(candles) && candles.length >= 30) {
       var a = SE.runFullAnalysis({
         symbol: symbol, timeframe: tf || 'H1',
@@ -893,7 +1008,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible && !a.__estFeed
                 && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
-              if (nl) {
+              if (nl && isPriceCompatibleWithSymbol(nl.entry, symbol)) {
                 if (a.feedUnverified) nl.feedUnverified = true;
                 saveSignalLock(symbol, tfA, nl);
                 SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false });
@@ -911,6 +1026,12 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
 /* Fallback ringan (self-contained) jika shared module belum termuat */
 function computeQuickAnalysis(candles, symbol, tf) {
   candles = Array.isArray(candles) && candles.length >= 5 ? candles : [];
+  if (candles.length) {
+    var lastC0 = candles[candles.length - 1];
+    if (lastC0 && !isPriceCompatibleWithSymbol(lastC0.close, symbol)) {
+      candles = (typeof generateSeedCandles === 'function') ? generateSeedCandles(symbol, tf).candles : [];
+    }
+  }
   var n = candles.length;
   var last = n ? candles[n - 1] : { open: 100, high: 100, low: 100, close: 100, time: Math.floor(Date.now() / 1000) };
   var price = last.close;
@@ -1079,7 +1200,9 @@ function fetchRealMarketCandles(symbol, tf) {
             candles: candles,
             price: num(d.price, candles[candles.length - 1].close),
             changePct: num(d.changePct, 0),
-            source: d.source || 'LIVE_BROKER'
+            source: d.source || 'LIVE_BROKER',
+            symbol: symbol,
+            tf: tf
           });
           return;
         }
@@ -1116,7 +1239,7 @@ function fetchRealMarketCandles(symbol, tf) {
         local = arr;
       }
       var lc = local[local.length - 1];
-      resolve({ candles: local, price: lc.close, changePct: 0.1, source: 'EDGE_SYNTHETIC_CALIBRATED' });
+      resolve({ candles: local, price: lc.close, changePct: 0.1, source: 'EDGE_SYNTHETIC_CALIBRATED', symbol: symbol, tf: tf });
     });
   });
 }
@@ -1642,23 +1765,25 @@ function effectiveLevels(a) {
   if (!a.lockedSignal) {
     var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(a.symbol, a.timeframe || state.tf) : null;
     if (oc && oc.lock && (oc.status === 'TP_HIT' || oc.status === 'SL_HIT' || oc.status === 'BE_SAVED')) {
-      return {
-        entry: oc.lock.entry,
-        sl: oc.lock.sl,
-        tp1: oc.lock.tp1,
-        tp2: oc.lock.tp2,
-        tp3: oc.lock.tp3,
-        rrRatio: oc.lock.rrRatio,
-        poc: L.poc,
-        swingHigh: L.swingHigh,
-        swingLow: L.swingLow,
-        fib: L.fib,
-        dcaZone1: L.dcaZone1,
-        dcaZone2: L.dcaZone2,
-        dcaZone3: L.dcaZone3,
-        invTarget1: L.invTarget1,
-        invTarget2: L.invTarget2
-      };
+      if (isPriceCompatibleWithSymbol(oc.lock.entry, a.symbol)) {
+        return {
+          entry: oc.lock.entry,
+          sl: oc.lock.sl,
+          tp1: oc.lock.tp1,
+          tp2: oc.lock.tp2,
+          tp3: oc.lock.tp3,
+          rrRatio: oc.lock.rrRatio,
+          poc: L.poc,
+          swingHigh: L.swingHigh,
+          swingLow: L.swingLow,
+          fib: L.fib,
+          dcaZone1: L.dcaZone1,
+          dcaZone2: L.dcaZone2,
+          dcaZone3: L.dcaZone3,
+          invTarget1: L.invTarget1,
+          invTarget2: L.invTarget2
+        };
+      }
     }
   }
   // Trader SPOT 1-arah: tampilkan level HANYA jika ada sinyal_LONG yang lolos
@@ -2025,6 +2150,10 @@ function renderAllVisuals(analysis) {
 function writeBackRadarPools(analysis) {
   if (!analysis || analysis.error || !analysis.symbol || !analysis.timeframe) return;
   var sym = analysis.symbol, tf = analysis.timeframe;
+  if (state.symbol !== sym) return;
+  if (!state.candles || !state.candles.length) return;
+  var lastBar = state.candles[state.candles.length - 1];
+  if (!lastBar || !isPriceCompatibleWithSymbol(lastBar.close, sym)) return;
   var item = {
     sym: sym, tf: tf, analysis: analysis,
     candles: (state.candles || []).slice(-240),
@@ -2052,6 +2181,7 @@ function scheduleLiveCanvasRepaint() {
 function applyLiveTick(price, changePct, silent) {
   price = num(price);
   if (!price || price <= 0) return;
+  if (!isPriceCompatibleWithSymbol(price, state.symbol)) return;
   if (!state.candles || !state.candles.length) {
     state.livePrice = price;
     setTxt('hdrLivePrice', formatPrice(price, state.symbol)); // tampilan harga tidak boleh tertinggal
@@ -2218,13 +2348,19 @@ function scheduleFeedReconnect() {
   feedReconnectTimer = setInterval(function () {
     try {
       if (!feedIsEstimate(state.feedSource)) { clearInterval(feedReconnectTimer); feedReconnectTimer = null; return; }
-      fetchRealMarketCandles(state.symbol, state.tf).then(function (data) {
+      var targetSym = state.symbol;
+      var targetTf = state.tf;
+      fetchRealMarketCandles(targetSym, targetTf).then(function (data) {
+        if (state.symbol !== targetSym || state.tf !== targetTf) return;
         if (data && Array.isArray(data.candles) && data.candles.length >= 5 && !feedIsEstimate(data.source)) {
+          var lastC = data.candles[data.candles.length - 1];
+          if (!isPriceCompatibleWithSymbol(lastC.close, targetSym)) return;
           state.candles = data.candles;
-          state.livePrice = Number(data.price) > 0 ? Number(data.price) : data.candles[data.candles.length - 1].close;
+          state.livePrice = Number(data.price) > 0 ? Number(data.price) : lastC.close;
           state.liveChangePct = Number(data.changePct) || 0;
           state.feedSource = data.source;
           var analysis = computeQuantEngine(state.candles, state.symbol, state.tf, true, 'create', data.source);
+          if (state.symbol !== targetSym) return;
           renderAllVisuals(analysis, true);
           try { drawCanvasFallbackChart(state.candles, analysis); } catch (e) {}
           if (chartInstance) chartInstance.timeScale().fitContent();
@@ -5341,7 +5477,10 @@ function primeFromRadarPool(sym, tf) {
     for (var key in pool) {
       var rec = pool[key];
       if (rec && rec.item && rec.item.sym === sym && (!tf || rec.item.tf === tf) && rec.item.candles && (now - rec.ts) < 180000) {
-        return { candles: rec.item.candles, source: rec.item.source || 'BROKER FEED' };
+        var lastBar = rec.item.candles[rec.item.candles.length - 1];
+        if (lastBar && isPriceCompatibleWithSymbol(lastBar.close, sym)) {
+          return { candles: rec.item.candles, source: rec.item.source || 'BROKER FEED' };
+        }
       }
     }
   }
@@ -5364,6 +5503,7 @@ function gotoInstrument(sym, tf) {
   if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') {
     setMode('trader');
   }
+  if (feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
   state.symbol = sym;
   if (tf && TF_SECONDS[tf]) {
     state.tf = tf;
@@ -5375,20 +5515,22 @@ function gotoInstrument(sym, tf) {
       });
     }
   }
+  try { auditAndCleanseCorruptedStorage(); } catch (e) {}
   var primed = primeFromRadarPool(sym, tf);
   state.candles = primed ? primed.candles.slice() : [];
   var primedSource = primed ? primed.source : null;
   state.lastAnalysis = null;
   state.bestTfBoard = null;
+  state.feedSource = primedSource || '-';
   renderInstrumentCatalog();
   saveSession();
   // Render instan dari snapshot kartu (skor/entry identik dengan yang diklik user),
   // sekaligus scope 'create' agar sinyal yang tampil langsung TERKUNCI permanen —
   // refresh/kalkulasi ulang berikutnya tidak bisa mengubahnya sampai TP/SL/invalidasi.
-  if (primed) {
+  if (primed && state.candles.length) {
     try {
       var primeAnalysis = computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource);
-      if (primeAnalysis && !primeAnalysis.error) renderAllVisuals(primeAnalysis, true);
+      if (primeAnalysis && !primeAnalysis.error && primeAnalysis.symbol === sym) renderAllVisuals(primeAnalysis, true);
     } catch (e) {}
   }
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(false);
@@ -6517,10 +6659,13 @@ function selectSymbol(sym) {
     renderInstrumentCatalog();
     return;
   }
+  if (feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
   state.symbol = sym;
   state.candles = [];
   state.lastAnalysis = null;
   state.bestTfBoard = null;
+  state.feedSource = '-';
+  try { auditAndCleanseCorruptedStorage(); } catch (e) {}
   renderInstrumentCatalog();
   saveSession(); // preferensi ikut tersimpan agar refresh tidak keluar
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
@@ -6979,31 +7124,50 @@ if (document.readyState === 'loading') {
   }
     // Expose untuk heartbeat live-tick (anti-desync chart vs harga saat CDN diblokir)
   window.drawCanvasFallbackChart = drawCanvasFallbackChart;
+  let analysisRequestSeq = 0;
   // Override runFullAnalysis agar 100% langsung menggambar data & chart dalam 0 detik lalu menyinkronkan harga live
   window.runFullAnalysis = async function (forceRecalc = false) {
+    const mySeq = ++analysisRequestSeq;
+    const reqSymbol = state.symbol;
+    const reqTf = state.tf;
     try {
       if (!chartInstance && typeof initChart === 'function') initChart();
+      try { auditAndCleanseCorruptedStorage(); } catch (e) {}
       // 1. Jika state.candles masih kosong atau berganti simbol, langsung tampilkan seed terkalibrasi (0ms delay)
       if (!state.candles || state.candles.length === 0 || (state.lastAnalysis && state.lastAnalysis.symbol !== state.symbol)) {
         const seeded = generateSeedCandles(state.symbol, state.tf);
+        if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
         state.candles = seeded.candles;
         state.livePrice = seeded.price;
         state.liveChangePct = 0.25;
         const instantAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc, 'create', 'LOCAL_SEED');
+        if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol) return;
         renderAllVisuals(instantAnalysis, true);
         drawCanvasFallbackChart(state.candles, instantAnalysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
         renderOpportunityRadar();
       }
       // 2. Ambil kuotasi & candlestick broker real-time dari server
-      const data = await fetchRealMarketCandles(state.symbol, state.tf);
+      const data = await fetchRealMarketCandles(reqSymbol, reqTf);
+      // Validasi ketat anti balap (race condition) saat user berganti pair bolak-balik:
+      if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) {
+        return; // Response kadaluwarsa dari pair sebelumnya — abaikan langsung!
+      }
+      if (data && data.symbol && data.symbol !== reqSymbol) {
+        return; // Simbol response tidak cocok dengan simbol aktif
+      }
       if (data && Array.isArray(data.candles) && data.candles.length >= 5) {
+        const lastBar = data.candles[data.candles.length - 1];
+        if (!isPriceCompatibleWithSymbol(lastBar.close, reqSymbol)) {
+          return; // Harga candlestick tidak kompatibel dengan pair aktif — cegah kontaminasi!
+        }
         state.candles = data.candles;
-        state.livePrice = Number(data.price) || data.candles[data.candles.length - 1].close;
+        state.livePrice = Number(data.price) || lastBar.close;
         state.liveChangePct = Number(data.changePct) || 0.25;
         state.feedSource = data.source || 'LIVE_BROKER';
         if (!feedIsEstimate(state.feedSource) && feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
         const analysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc, 'create', data.source || 'LIVE_BROKER');
+        if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
         renderAllVisuals(analysis, true);
         drawCanvasFallbackChart(state.candles, analysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
@@ -7013,10 +7177,12 @@ if (document.readyState === 'loading') {
       scheduleBestTfScan();
       if (feedIsEstimate(state.feedSource)) scheduleFeedReconnect();
     } catch (err) {
+      if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
       state.livePrice = seeded.price;
       const fallbackAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'create', 'LOCAL_SEED');
+      if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol) return;
       renderAllVisuals(fallbackAnalysis, true);
       drawCanvasFallbackChart(state.candles, fallbackAnalysis);
       renderOpportunityRadar();
