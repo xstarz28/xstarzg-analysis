@@ -18,11 +18,43 @@ async function getD1VipUntil(env, email) {
   }
 }
 
-// Otomatis daftarkan webhook ke Telegram jika belum terpasang (100% Zero Manual Configuration!)
-async function ensureWebhookRegistered(request, env) {
-  if (!env || !env.TELEGRAM_BOT_TOKEN) return;
+async function getSystemSetting(env, key) {
   try {
-    const cleanToken = String(env.TELEGRAM_BOT_TOKEN).trim().replace(/^bot/i, '');
+    if (!env || !env.DB) return null;
+    const row = await env.DB.prepare('SELECT value FROM system_settings WHERE key = ?1').bind(key).first();
+    return row && row.value ? String(row.value).trim() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function setSystemSetting(env, key, value) {
+  try {
+    if (!env || !env.DB) return false;
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `).run();
+    await env.DB.prepare(`
+      INSERT INTO system_settings (key, value, updated_at)
+      VALUES (?1, ?2, ?3)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).bind(key, value, Date.now()).run();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Otomatis daftarkan webhook ke Telegram jika belum terpasang (100% Zero Manual Configuration!)
+async function ensureWebhookRegistered(request, env, botToken) {
+  const token = botToken || (env && env.TELEGRAM_BOT_TOKEN);
+  if (!token) return;
+  try {
+    const cleanToken = String(token).trim().replace(/^bot/i, '');
     const requestUrl = new URL(request.url);
     const expectedWebhookUrl = `${requestUrl.origin}/api/notify/telegram-webhook`;
 
@@ -65,23 +97,36 @@ export async function onRequest(context) {
     }, { status: 403, headers: CORS });
   }
 
-  // Otomatis sinkronkan webhook di latar belakang
-  try { await ensureWebhookRegistered(request, env); } catch (e) {}
-
+  // Resolusi bot username & token secara cerdas
   let botUsername = (env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
-  if (!botUsername && env.TELEGRAM_BOT_TOKEN) {
+  let botToken = (env.TELEGRAM_BOT_TOKEN || '').trim().replace(/^bot/i, '');
+
+  if (!botUsername && env && env.DB) {
+    botUsername = (await getSystemSetting(env, 'telegram_bot_username')) || '';
+  }
+  if (!botToken && env && env.DB) {
+    botToken = (await getSystemSetting(env, 'telegram_bot_token')) || '';
+  }
+
+  if (!botUsername && botToken) {
     try {
-      const cleanToken = String(env.TELEGRAM_BOT_TOKEN).trim().replace(/^bot/i, '');
-      const meRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`);
+      const meRes = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
       if (meRes.ok) {
         const meData = await meRes.json();
         if (meData && meData.ok && meData.result && meData.result.username) {
           botUsername = meData.result.username;
+          if (env && env.DB) {
+            await setSystemSetting(env, 'telegram_bot_username', botUsername);
+          }
         }
       }
     } catch (e) {}
   }
-  if (!botUsername) botUsername = 'xstarzg_alert_bot';
+
+  // Otomatis sinkronkan webhook jika token tersedia
+  if (botToken) {
+    try { await ensureWebhookRegistered(request, env, botToken); } catch (e) {}
+  }
 
   // Pastikan tabel database siap
   if (env && env.DB) {
@@ -106,6 +151,13 @@ export async function onRequest(context) {
           is_owner      INTEGER DEFAULT 0,
           is_affiliate  INTEGER DEFAULT 0,
           expires_at    INTEGER NOT NULL
+        )
+      `).run();
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS system_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
         )
       `).run();
     } catch (e) {}
@@ -143,7 +195,6 @@ export async function onRequest(context) {
       } catch (e) {}
     }
 
-    // Token JWT cadangan untuk integrasi
     const activationToken = await signJwt({
       email: user.email,
       tier,
@@ -152,15 +203,18 @@ export async function onRequest(context) {
       expDays: isOwner ? 3650 : 35
     }, env.JWT_SECRET || 'xstarzg-2026-quant-secret');
 
-    const deepLink = `https://t.me/${botUsername}?start=${activationCode}`;
+    // Deep link hanya jika botUsername sah (bukan dummy agar tidak error "Username not found")
+    const deepLink = botUsername ? `https://t.me/${botUsername}?start=${activationCode}` : null;
 
     return Response.json({
       ok: true,
       isVip: true,
       vip: true,
+      isOwner,
       email: user.email,
       tier,
-      botUsername,
+      botUsername: botUsername || null,
+      botConfigured: !!botUsername,
       deepLink,
       authToken: activationToken,
       activationCode,
@@ -169,11 +223,51 @@ export async function onRequest(context) {
     }, { status: 200, headers: CORS });
   }
 
-  // POST: Menghubungkan manual chat_id atau memutuskan koneksi
+  // POST: Menghubungkan manual chat_id, set_bot_config (khusus owner), atau putus koneksi
   if (request.method === 'POST') {
     try {
       const body = await request.json();
       const action = body.action || 'link';
+
+      // Jalur khusus Owner: Konfigurasi Bot Resmi langsung dari UI
+      if (action === 'set_bot_config') {
+        if (!isOwner) {
+          return Response.json({ ok: false, error: 'Hanya Owner yang dapat mengatur bot resmi.' }, { status: 403, headers: CORS });
+        }
+        const newBotUsername = String(body.botUsername || '').trim().replace(/^@/, '');
+        const newBotToken = String(body.botToken || '').trim().replace(/^bot/i, '');
+
+        if (!newBotUsername && !newBotToken) {
+          return Response.json({ ok: false, error: 'Masukkan username bot atau bot token.' }, { status: 400, headers: CORS });
+        }
+
+        let resolvedUsername = newBotUsername;
+        if (newBotToken) {
+          await setSystemSetting(env, 'telegram_bot_token', newBotToken);
+          // Cek username dari getMe
+          try {
+            const meRes = await fetch(`https://api.telegram.org/bot${newBotToken}/getMe`);
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              if (meData && meData.ok && meData.result && meData.result.username) {
+                resolvedUsername = meData.result.username;
+              }
+            }
+          } catch (e) {}
+          // Setel webhook otomatis jika token baru disimpan
+          await ensureWebhookRegistered(request, env, newBotToken);
+        }
+
+        if (resolvedUsername) {
+          await setSystemSetting(env, 'telegram_bot_username', resolvedUsername);
+        }
+
+        return Response.json({
+          ok: true,
+          botUsername: resolvedUsername,
+          message: 'Pengaturan bot resmi berhasil disimpan!'
+        }, { status: 200, headers: CORS });
+      }
 
       if (action === 'unlink') {
         if (env && env.DB) {
@@ -213,9 +307,10 @@ export async function onRequest(context) {
       }
 
       // Kirim pesan sambutan langsung ke Telegram pengguna jika bot token terpasang
-      if (env && env.TELEGRAM_BOT_TOKEN) {
+      const activeBotToken = botToken || (env && env.TELEGRAM_BOT_TOKEN);
+      if (activeBotToken) {
         try {
-          const cleanToken = String(env.TELEGRAM_BOT_TOKEN).trim().replace(/^bot/i, '');
+          const cleanToken = String(activeBotToken).trim().replace(/^bot/i, '');
           await fetch(`https://api.telegram.org/bot${cleanToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

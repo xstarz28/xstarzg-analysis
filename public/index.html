@@ -985,12 +985,24 @@
           </div>
         </div>
 
+        <!-- PENGATURAN BOT KHUSUS OWNER (Hanya tampil untuk Owner) -->
+        <div id="tgOwnerBotConfigBox" class="hidden" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:10px;margin-bottom:12px;font-size:11.5px;">
+          <div style="font-weight:700;color:#fde68a;margin-bottom:6px;">👑 Pengaturan Bot Telegram Resmi (Khusus Owner):</div>
+          <div style="display:flex;gap:8px;margin-bottom:6px;">
+            <input type="text" id="inpTgOfficialBotUsername" class="ctrl-input" placeholder="Username bot Anda (misal: @sinyalku_bot)" style="flex:1;font-size:11.5px;padding:7px 10px;" />
+            <button type="button" id="btnSaveOfficialBotUsername" class="btn-primary-glow" style="padding:7px 12px;font-size:11.5px;">
+              💾 Simpan
+            </button>
+          </div>
+          <div id="msgTgOfficialBotStatus" style="font-size:11px;min-height:14px;"></div>
+        </div>
+
         <p style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-bottom:12px;" data-i18n="ui.tgVipActiveDesc">
           Robot cloud XStarZG memantau pasar 24 jam nonstop. Begitu sinyal skor besar (≥ 75%) atau SL+ (0-Risk) terdeteksi, HP Anda akan otomatis berdering lewat bot resmi Telegram kami tanpa perlu membuka website!
         </p>
 
         <!-- Tombol Buka Bot 1-Klik -->
-        <a id="linkTgVipStart" href="https://t.me/xstarzg_alert_bot" target="_blank" class="btn-primary-glow" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:13px;text-decoration:none;border-radius:10px;margin-bottom:14px;">
+        <a id="linkTgVipStart" href="javascript:void(0)" target="_blank" class="btn-primary-glow" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:13px;text-decoration:none;border-radius:10px;margin-bottom:14px;">
           <span>📲</span> <span data-i18n="ui.tgBtnOpenBot">Buka Bot di Telegram &amp; Tekan START</span>
         </a>
 
