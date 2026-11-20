@@ -321,6 +321,9 @@
         <button type="button" id="btnToggleSignalAlarm" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(56,189,248,0.4);color:#38bdf8;" title="Bunyikan lonceng & notifikasi browser saat setup sinyal/entry terbuka" data-i18n-title="ui.alarmTitle">
           <span id="lblAlarmIcon">🔔</span> <span id="lblAlarmText" data-i18n="ui.alarmBtn">Pasang Alarm Sinyal</span>
         </button>
+        <button type="button" id="btnOpenTelegramModal" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(14,165,233,0.4);color:#38bdf8;" title="Kirim notifikasi darurat SL+ dan Sinyal Skor Besar langsung ke Telegram di HP">
+          <span id="lblTelegramIcon">✈️</span> <span id="lblTelegramText">Notif Telegram (HP)</span>
+        </button>
       </div>
     </section>
     <main class="workspace-main-grid">
@@ -830,6 +833,9 @@
             <button type="button" id="btnToggleSlPlusNotify" class="hz-btn active" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(16,185,129,0.18);color:#6ee7b7;border:1px solid rgba(16,185,129,0.45);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Pemberitahuan otomatis lonceng & push notifikasi untuk menggeser Stop Loss ke BE (SL+) saat posisi aman">
               <span id="slPlusNotifyIcon">🔔</span> <span id="slPlusNotifyTxt">Notif SL+ Aktif (0-Risk Alert)</span>
             </button>
+            <button type="button" id="btnOpenTelegramModalJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(14,165,233,0.18);color:#38bdf8;border:1px solid rgba(14,165,233,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Pengaturan notifikasi bot Telegram ke HP saat SL+ terpicu">
+              <span>✈️</span> <span>Notif Telegram (HP)</span>
+            </button>
           </div>
         </div>
         <div id="signalJournalList" class="radar-grid" style="max-height:800px;overflow-y:auto;padding-right:4px;"></div>
@@ -938,6 +944,91 @@
       <div style="margin-top:12px;font-size:11px;color:#64748b;">
         Data diambil langsung dari Cloudflare D1 Database (Tabel: <code>vip_entitlements</code> &amp; <code>vip_tx</code>).
       </div>
+    </div>
+  </div>
+  <!-- ================= MODAL 4: TELEGRAM NOTIFICATION SETTINGS ================= -->
+  <div id="telegramConfigModal" class="modal-backdrop hidden">
+    <div class="modal-box" style="max-width:540px;width:95%;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:22px;">✈️</span>
+          <h3 style="margin:0;font-size:16px;color:#38bdf8;">Notifikasi Telegram Instan (Layar HP)</h3>
+        </div>
+        <button type="button" id="btnCloseTelegramModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
+      </div>
+
+      <div style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-bottom:14px;background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.25);border-radius:8px;padding:10px 12px;">
+        <strong style="color:#38bdf8;">⚡ HP Tetap Adem &amp; 0 Kuota Cloudflare:</strong><br/>
+        Notifikasi dikirim langsung ke server Telegram API (sama sekali tidak memotong kuota Cloudflare Anda). Buka tab XStarZG di Laptop/PC Anda, dan notifikasi <b>SL+</b> serta <b>Sinyal Skor Besar</b> akan langsung berdering di HP Anda via Telegram!
+      </div>
+
+      <!-- Input Token & Chat ID -->
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;">1. Bot Token Telegram (Buat gratis di <a href="https://t.me/BotFather" target="_blank" style="color:#38bdf8;text-decoration:underline;">@BotFather</a>):</label>
+          <input type="text" id="inpTelegramBotToken" class="ctrl-input" placeholder="Contoh: 123456789:ABCdefGhIJKlmNoPQRstuVWXyz..." style="width:100%;font-size:12px;padding:8px 10px;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;">2. Chat ID Telegram Anda (Cek di <a href="https://t.me/userinfobot" target="_blank" style="color:#38bdf8;text-decoration:underline;">@userinfobot</a>):</label>
+          <input type="text" id="inpTelegramChatId" class="ctrl-input" placeholder="Contoh: 987654321" style="width:100%;font-size:12px;padding:8px 10px;" />
+        </div>
+      </div>
+
+      <!-- Opsi & Label Notifikasi -->
+      <div style="background:rgba(15,23,42,0.65);border:1px solid rgba(51,65,85,0.6);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:800;color:#f8fafc;margin-bottom:8px;">PILIHAN JENIS NOTIFIKASI KE TELEGRAM:</div>
+
+        <!-- Opsi Live SL+ -->
+        <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;cursor:pointer;font-size:12px;">
+          <input type="checkbox" id="chkTelegramSlPlus" checked style="margin-top:2px;" />
+          <div>
+            <strong style="color:#10b981;">🛡️ Notifikasi Live SL+ (0-Risk Alert)</strong>
+            <div style="font-size:11px;color:#94a3b8;">Kirim pesan darurat saat posisi aktif menyentuh SL+ agar Anda segera geser SL ke BE+ di MT5 HP.</div>
+          </div>
+        </label>
+
+        <!-- Opsi High Score Setup -->
+        <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;cursor:pointer;font-size:12px;">
+          <input type="checkbox" id="chkTelegramHighScore" checked style="margin-top:2px;" />
+          <div>
+            <strong style="color:#38bdf8;">🚀 Sinyal Peluang Baru Skor Besar (Institutional Setup)</strong>
+            <div style="font-size:11px;color:#94a3b8;">Kirim rincian Entry, SL, dan TP saat radar mendeteksi peluang ber-skor tinggi di pasar.</div>
+          </div>
+        </label>
+
+        <!-- Ambang Skor Minimum -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid rgba(51,65,85,0.4);font-size:11.5px;">
+          <span style="color:#94a3b8;font-weight:700;">Ambang Minimum Skor Sinyal:</span>
+          <select id="selTelegramMinScore" class="ctrl-select" style="padding:4px 8px;font-size:11.5px;width:auto;">
+            <option value="70">Skor ≥ 70% (Setup Valid)</option>
+            <option value="75" selected>Skor ≥ 75% (PRO Setup - Rekomendasi)</option>
+            <option value="80">Skor ≥ 80% (High Confidence)</option>
+            <option value="85">Skor ≥ 85% (ELITE Institutional Setup)</option>
+          </select>
+        </div>
+
+        <!-- Pilihan Horison -->
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(51,65,85,0.4);font-size:11.5px;">
+          <span style="color:#94a3b8;font-weight:700;">Filter Horison Waktu Sinyal:</span>
+          <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap;">
+            <label style="cursor:pointer;"><input type="checkbox" id="chkTelegramScalp" checked /> ⚡ Scalping (M1-M15)</label>
+            <label style="cursor:pointer;"><input type="checkbox" id="chkTelegramIntra" checked /> 🎯 Intraday (M15-H1)</label>
+            <label style="cursor:pointer;"><input type="checkbox" id="chkTelegramSwing" checked /> 🌊 Swing (H4-W1)</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button type="button" id="btnTestTelegram" class="btn-secondary-outline" style="padding:8px 14px;font-size:12px;">
+          📩 Kirim Pesan Uji Coba
+        </button>
+        <button type="button" id="btnSaveTelegramConfig" class="btn-primary" style="padding:8px 18px;font-size:12px;background:#0ea5e9;">
+          💾 Simpan Pengaturan
+        </button>
+      </div>
+
+      <div id="telegramStatusMsg" style="font-size:11.5px;margin-top:8px;text-align:center;"></div>
     </div>
   </div>
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
