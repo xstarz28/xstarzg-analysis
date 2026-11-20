@@ -414,6 +414,17 @@ chk('sistem notifikasi otomatis SL+ 0-risk (Web Notification + audio chime + vis
   app.includes('sendBrowserPushNotification') &&
   app.includes('xstarzg_slplus_notify_v1'));
 
+chk('proteksi kontaminasi silang harga antar-pair (anti-terjebak harga pair sebelumnya)',
+  app.includes('function isPriceCompatibleWithSymbol(') &&
+  app.includes('getSymbolReferencePrice(') &&
+  app.includes('analysisRequestSeq') &&
+  app.includes('mySeq !== analysisRequestSeq || state.symbol !== reqSymbol') &&
+  app.includes('!isPriceCompatibleWithSymbol(lastBar.close, reqSymbol)') &&
+  app.includes('saveSignalLock(symbol, tf, null);') &&
+  eng.includes('Skala harga sinyal tidak cocok dengan candle pair (kontaminasi silang antar pair)') &&
+  eng.includes('const aSym = String(a.symbol || \'\').toUpperCase();') &&
+  eng.includes('if (aSym && lSym && aSym !== lSym) return a;'));
+
 let syntaxOk = false;
 try {
   execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js', { stdio: 'pipe' });

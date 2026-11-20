@@ -602,5 +602,28 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('Scalp mencapai TP1 (1:2 R:R) sah TP_HIT', vFull.status === 'TP_HIT');
   chk('Scalp TP_HIT membawa exitPrice yang presisi sama dengan lock.tp1', vFull.exitPrice === lock.tp1);
 }
+
+{
+  // Test proteksi kontaminasi silang antar pair:
+  // 1. Lock EUR/USD (entry 1.0972) divalidasi terhadap candle NZD/JPY (harga ~87.35) -> wajib STRUCTURE_INVALID
+  const foreignLock = {
+    v: 3, symbol: 'NZD/JPY', tf: 'M5', tfSeconds: 300, brain: 'SCALP',
+    direction: 'SHORT', entry: 1.0972, sl: 1.0982, tp1: 1.0947, tp2: 1.0925, tp3: 1.0917,
+    anchorPrice: 1.0972, anchorClosedTime: 1000, issuedAt: Date.now(), status: 'ACTIVE'
+  };
+  const nzdCandle = { time: 1300, open: 87.30, high: 87.45, low: 87.25, close: 87.35, volume: 500 };
+  const vCross = SE.validateSignalLock(foreignLock, [nzdCandle], null);
+  chk('validateSignalLock menolak lock yang harga entry-nya tidak cocok dengan skala candle (kontaminasi pair lain)', vCross.status === 'STRUCTURE_INVALID');
+
+  // 2. applyLockedSignal menolak jika simbol lock berbeda dari simbol analisis
+  const fakeAnalysis = { symbol: 'NZD/JPY', timeframe: 'M5', direction: 'LONG', levels: { entry: 87.35, sl: 87.10, tp1: 87.80 } };
+  const mismatchedLock = { symbol: 'EUR/USD', direction: 'SHORT', entry: 1.0972, sl: 1.0982, tp1: 1.0947 };
+  const applied = SE.applyLockedSignal(fakeAnalysis, mismatchedLock, { status: 'ACTIVE' });
+  chk('applyLockedSignal menolak menerapkan lock dari simbol berbeda (EUR/USD ke NZD/JPY)', applied.direction === 'LONG' && applied.levels.entry === 87.35);
+
+  // 3. createSignalLock menolak jika simbol target berbeda dari simbol analisis
+  const badTargetLock = SE.createSignalLock({ symbol: 'EUR/USD', signalEligible: true, direction: 'SHORT', levels: { entry: 1.0972, sl: 1.0982, tp1: 1.0947 } }, 'NZD/JPY');
+  chk('createSignalLock menolak pembuatan lock jika simbol analisis berbeda dari target', badTargetLock === null);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
