@@ -7,11 +7,11 @@ export async function onRequestPost({ request }) {
     if (!token || !chatId || !text) {
       return Response.json({ ok: false, error: 'Parameter token, chatId, atau text tidak lengkap' }, { status: 400 });
     }
-    const cleanToken = String(token).trim();
-    const cleanChatId = String(chatId).trim();
+    const cleanToken = String(token).trim().replace(/^bot/i, '');
+    const cleanChatId = String(chatId).trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
     const cleanText = String(text).slice(0, 4000);
 
-    const tgRes = await fetch(`https://api.telegram.org/bot${encodeURIComponent(cleanToken)}/sendMessage`, {
+    const tgRes = await fetch(`https://api.telegram.org/bot${cleanToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -21,6 +21,10 @@ export async function onRequestPost({ request }) {
       })
     });
     const data = await tgRes.json();
+    if (!tgRes.ok || !data.ok) {
+      const errMsg = (data && (data.description || data.error)) || `HTTP ${tgRes.status}`;
+      return Response.json({ ok: false, error: errMsg, description: data && data.description, error_code: data && data.error_code });
+    }
     return Response.json(data);
   } catch (err) {
     return Response.json({ ok: false, error: (err && err.message) || 'Gagal mengirim pesan Telegram' }, { status: 500 });

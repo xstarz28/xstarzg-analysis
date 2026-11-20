@@ -470,6 +470,15 @@ chk('panduan tutorial pembuatan bot telegram & integrasi sistem multi-bahasa (i1
   app.includes('SL+ TRIGGERED — 0-RISK ALERT') &&
   app.includes('NEW HIGH-SCORE OPPORTUNITY'));
 
+chk('validasi input token/chatId & penanganan error spesifik telegram (anti-encodeURIComponent colon)',
+  app.includes('function formatTelegramError(') &&
+  app.includes('function validateTelegramInputs(') &&
+  app.includes("replace(/^bot/i, '')") &&
+  !app.includes("encodeURIComponent(token)") &&
+  !tgRelay.includes("encodeURIComponent(cleanToken)") &&
+  app.includes("https://api.telegram.org/bot' + token + '/sendMessage") &&
+  tgRelay.includes("https://api.telegram.org/bot${cleanToken}/sendMessage"));
+
 let syntaxOk = false;
 try {
   execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js functions/api/notify/telegram.js', { stdio: 'pipe' });
