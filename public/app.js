@@ -839,13 +839,15 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
            HANYA boleh berjalan di atas candle yang PROVENANSINYA asli (klines broker).
            Feed fabrikasi/estimasi (anchored/seed/synthetic) TIDAK boleh melahirkan
            badge TP/SL maupun komitmen baru — itulah sumber badge dusta AMDB. */
-        var feedReal = typeof feedIsReal === 'function' ? feedIsReal(feedSource) : !!feedSource;
+        var isFeedEstimate = typeof feedIsEstimate === 'function' ? feedIsEstimate(feedSource) : false;
+        a.__estFeed = isFeedEstimate;
+        var feedReal = typeof feedIsReal === 'function' ? feedIsReal(feedSource) : (!isFeedEstimate && !!feedSource);
         if (!feedReal) a.feedUnverified = true;
         // v2026.72: Sinyal yang tampil di workspace utama (scope === 'create') atau
         // lock aktif yang sedang dipantau trader (mis. komoditas Kapas/COTTON M5 scalping)
-        // WAJIB diikutkan ke siklus pemantauan jurnal sinyal menuju TP/SL.
+        // WAJIB diikutkan ke siklus pemantauan jurnal sinyal menuju TP/SL HANYA bila feed bukan estimasi.
         var tfA = a.timeframe || tf;
-        if (scope === 'create' || getSignalLock(symbol, tfA)) feedReal = true;
+        if ((scope === 'create' || getSignalLock(symbol, tfA)) && !isFeedEstimate) feedReal = true;
         try {
           if (feedReal && typeof SE.validateSignalLock === 'function') {
             var closedBars0 = SE.trimClosedCandles(candles, a.tfSeconds || 3600);
@@ -885,7 +887,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             /* Kartu yang TAMPIL (create/apply) = komitmen terlacak. Penerbitan baru
                dihormati 3 penjaga: feed asli + cooldown pasca-SL/invalidasi + ambang
                adaptif dari akurasi terukur horizon (mengetat otomatis saat radar buruk). */
-            if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible
+            if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible && !a.__estFeed
                 && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
               if (nl) {
@@ -1055,6 +1057,9 @@ function fetchRealMarketCandles(symbol, tf) {
             var l = num(c.low);
             var cl = num(c.close);
             var minSp = Math.max(cl * 0.0016, 0.0001);
+            if (symbol && symbol.indexOf('/') > -1 && symbol.indexOf('/USDT') === -1 && symbol.indexOf('XAU/') === -1 && symbol.indexOf('XAG/') === -1) {
+              minSp = Math.max(cl * 0.00008, 0.00004);
+            }
             var maxP = Math.max(h, o, cl);
             var minP = Math.min(l, o, cl);
             if ((maxP - minP) < minSp) {
@@ -1097,6 +1102,9 @@ function fetchRealMarketCandles(symbol, tf) {
         for (i = 199; i >= 0; i--) {
           var o = cur; var cl = Math.max(base * 0.4, o + (rnd() - 0.496) * base * 0.005);
           var minSp = Math.max(cl * 0.0016, 0.0001);
+          if (symbol && symbol.indexOf('/') > -1 && symbol.indexOf('/USDT') === -1 && symbol.indexOf('XAU/') === -1 && symbol.indexOf('XAG/') === -1) {
+            minSp = Math.max(cl * 0.00008, 0.00004);
+          }
           var h = Math.max(o, cl) + Math.max(rnd() * base * 0.002, minSp * 0.5);
           var l = Math.max(0.000001, Math.min(o, cl) - Math.max(rnd() * base * 0.002, minSp * 0.5));
           arr.push({ time: now - i * step, open: o, high: h, low: l, close: cl, volume: Math.round(200 + rnd() * 700) });
@@ -1701,6 +1709,7 @@ function renderPanels(a) {
     return;
   }
   // ---- Trader panel ----
+  var isEst = a.__estFeed || (state.feedSource && feedIsEstimate(state.feedSource));
   var dir = a.direction;
   var isSpot = state.subMode === 'spot';
   var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(a.symbol, a.timeframe || state.tf) : null;
@@ -1708,7 +1717,10 @@ function renderPanels(a) {
   var dirBox = $id('valSignalDirection');
   if (dirBox) {
     var txt, col;
-    if (oc && oc.status === 'TP_HIT') {
+    if (isEst) {
+      txt = T('ui.eEstFeed', '○ Data estimasi — sinyal nonaktif');
+      col = '#f59e0b';
+    } else if (oc && oc.status === 'TP_HIT') {
       txt = T('ui.eDirTpHit', '✅ TP TERCAPAI — SETUP SELESAI');
       col = '#10b981';
     } else if (oc && oc.status === 'BE_SAVED') {
@@ -1729,7 +1741,8 @@ function renderPanels(a) {
     dirBox.style.background = col === '#10b981' ? 'rgba(16,185,129,0.18)' : col === '#f43f5e' ? 'rgba(244,63,94,0.18)' : 'rgba(245,158,11,0.16)';
   }
   var lockBadge;
-  if (oc && oc.status === 'TP_HIT') lockBadge = '✅ TP COMPLETED';
+  if (isEst) lockBadge = '○ FEED ESTIMASI';
+  else if (oc && oc.status === 'TP_HIT') lockBadge = '✅ TP COMPLETED';
   else if (oc && oc.status === 'BE_SAVED') lockBadge = '🛡️ SL+ 0-RISK';
   else if (oc && oc.status === 'SL_HIT') lockBadge = '❌ SL HIT';
   else if (a.lockedSignal) lockBadge = fillTpl(T('ui.eLocked', '🔒 LOCKED {tf}'), { tf: (a.lockTf || a.timeframe || state.tf) }) + (a.signalTier === 'ELITE' ? ' ★' : '');
@@ -1740,15 +1753,15 @@ function renderPanels(a) {
   setTxt('valConfidenceScore', scoreToShow + '%');
   setTxt('valRegime', localizeEngineString(a.regime || '-'));
   var L = effectiveLevels(a);
-  setTxt('valEntry', formatPrice(L.entry, a.symbol));
-  setTxt('valSL', formatPrice(L.sl, a.symbol));
-  setTxt('valSLDesc', fillTpl(isSpot ? T('ui.eSlSpot', 'Proteksi LONG spot di luar swing wick + buffer ATR {p}%') : T('ui.eSlFutures', 'Di luar swing wick + buffer ATR {p}%'), { p: num(a.indicators.atrPct).toFixed(2) }));
-  if (window.__calcWidget && window.__calcWidget.elBalance) {
+  setTxt('valEntry', isEst ? '--' : formatPrice(L.entry, a.symbol));
+  setTxt('valSL', isEst ? '--' : formatPrice(L.sl, a.symbol));
+  setTxt('valSLDesc', isEst ? T('ui.eEstFeed', 'Data estimasi — sinyal nonaktif') : fillTpl(isSpot ? T('ui.eSlSpot', 'Proteksi LONG spot di luar swing wick + buffer ATR {p}%') : T('ui.eSlFutures', 'Di luar swing wick + buffer ATR {p}%'), { p: num(a.indicators.atrPct).toFixed(2) }));
+  if (window.__calcWidget && window.__calcWidget.elBalance && !isEst) {
     try { window.__calcWidget.setLevelsFromSignal({ entry: L.entry, stopLoss: L.sl }); } catch (e) {}
   }
-  setTxt('valTP1', formatPrice(L.tp1, a.symbol));
-  setTxt('valTP2', formatPrice(L.tp2, a.symbol));
-  setTxt('valTP3', formatPrice(L.tp3, a.symbol));
+  setTxt('valTP1', isEst ? '--' : formatPrice(L.tp1, a.symbol));
+  setTxt('valTP2', isEst ? '--' : formatPrice(L.tp2, a.symbol));
+  setTxt('valTP3', isEst ? '--' : formatPrice(L.tp3, a.symbol));
   if (L.fib && L.fib.retracement && L.fib.extension) {
     setTxt('valFibo500', formatPrice(L.fib.retracement.r500, a.symbol));
     setTxt('valFibo618', formatPrice(L.fib.retracement.r618, a.symbol));

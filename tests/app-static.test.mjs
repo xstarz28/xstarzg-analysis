@@ -386,6 +386,13 @@ chk('institutional confluence matrix & sentiment flow terminal widgets',
   app.includes('function renderConfluenceMatrix(a)') &&
   app.includes('function renderSentimentFlow(a)'));
 
+chk('integritas feed forex real-time EUR/USD M5 & proteksi sinyal anti-estimasi',
+  edgeAnalyze.includes('flatThresh = isForex ? 0.000005 : (c.close * 0.0004)') &&
+  edgeAnalyze.includes("s === 'EUR/USD' || s === 'GBP/USD'") &&
+  edgeAnalyze.includes("query2.finance.yahoo.com") &&
+  app.includes("isEst ? '--' : formatPrice(L.entry, a.symbol)") &&
+  app.includes("if ((scope === 'create' || getSignalLock(symbol, tfA)) && !isFeedEstimate) feedReal = true;"));
+
 let syntaxOk = false;
 try {
   execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js', { stdio: 'pipe' });
