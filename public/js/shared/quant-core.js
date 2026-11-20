@@ -81,7 +81,7 @@ export const DEFAULT_INSTRUMENTS = [
   mkForex('EUR/JPY', 'Euro / Japanese Yen', 158.75), mkForex('GBP/JPY', 'British Pound / Japanese Yen', 190.60),
   mkForex('EUR/GBP', 'Euro / British Pound', 0.8328), mkForex('AUD/JPY', 'Australian Dollar / Yen', 96.35),
   mkForex('CAD/JPY', 'Canadian Dollar / Yen', 106.70), mkForex('CHF/JPY', 'Swiss Franc / Yen', 168.60),
-  mkForex('NZD/JPY', 'New Zealand Dollar / Yen', 86.90), mkForex('EUR/AUD', 'Euro / Australian Dollar', 1.6470),
+  mkForex('NZD/JPY', 'New Zealand Dollar / Yen', 87.35), mkForex('EUR/AUD', 'Euro / Australian Dollar', 1.6470),
   mkForex('GBP/AUD', 'British Pound / Australian Dollar', 1.9780), mkForex('EUR/CAD', 'Euro / Canadian Dollar', 1.4880),
   mkForex('GBP/CAD', 'British Pound / Canadian Dollar', 1.7860), mkForex('EUR/CHF', 'Euro / Swiss Franc', 0.9415),
   mkForex('GBP/CHF', 'British Pound / Swiss Franc', 1.1305), mkForex('AUD/CAD', 'Australian Dollar / Canadian Dollar', 0.9030),

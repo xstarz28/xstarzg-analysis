@@ -584,18 +584,20 @@ export function buildInstitutionalLevels(dir, ctx) {
     sl = (Number.isFinite(slBase) ? slBase : ctx.impulseLow) - slBuf;
     if (sl >= entry) sl = entry - risk.min;
     const r = entry - sl;
+    const minTargetBase = Math.max(entry, ctx.price);
     const pool = [ctx.recentHigh, ctx.vah, ctx.r1, ctx.r2, ctx.t1Sup, ctx.impulseHigh, ctx.eqHigh, ctx.prevSessHigh, ctx.oldHigh, ctx.pdh, ctx.pwh]
-      .filter(v => typeof v === 'number' && Number.isFinite(v) && v > entry + 0.05 * a).sort((x, y) => x - y);
+      .filter(v => typeof v === 'number' && Number.isFinite(v) && v > minTargetBase + 0.05 * a).sort((x, y) => x - y);
     const p1 = pool.find(v => (v - entry) / r >= minTp1R);
-    tp1 = p1 ? p1 : entry + tp1Pad * r;
+    tp1 = p1 ? p1 : minTargetBase + Math.max(minTp1R * r, tp1Pad * r);
     const p2 = pool.find(v => (v - entry) / r >= rrMin2 && v > tp1 + 0.1 * r);
-    tp2 = p2 ? p2 : Math.max(tp1 + Math.max(0.5 * r, (rrMin2 - minTp1R) * r), entry + rrMin2 * r);
+    tp2 = p2 ? p2 : Math.max(tp1 + Math.max(0.5 * r, (rrMin2 - minTp1R) * r), minTargetBase + rrMin2 * r);
     const p3 = pool.filter(v => v > tp2 + 0.1 * r).pop();
-    tp3 = p3 ? p3 : Math.max(tp2 + 0.8 * r, entry + distPoint * r);
-    // Garansi mutlak urutan matematis: entry < tp1 < tp2 < tp3
-    if (tp1 <= entry) tp1 = entry + Math.max(tp1Pad * r, 0.5 * a);
-    if (tp2 <= tp1) tp2 = tp1 + Math.max(0.5 * r, 0.5 * a);
-    if (tp3 <= tp2) tp3 = tp2 + Math.max(0.8 * r, 0.5 * a);
+    tp3 = p3 ? p3 : Math.max(tp2 + 0.8 * r, minTargetBase + distPoint * r);
+    // Garansi mutlak urutan matematis: max(entry, ctx.price) < tp1 < tp2 < tp3
+    const floor1 = Math.max(entry, ctx.price);
+    if (tp1 <= floor1) tp1 = floor1 + Math.max(tp1Pad * r, 0.4 * a);
+    if (tp2 <= tp1) tp2 = tp1 + Math.max(0.5 * r, 0.4 * a);
+    if (tp3 <= tp2) tp3 = tp2 + Math.max(0.8 * r, 0.4 * a);
     return { dir, entry, sl, tp1, tp2, tp3, rrRatio: (tp2 - entry) / r };
   }
   // SHORT (cermin)
@@ -607,18 +609,20 @@ export function buildInstitutionalLevels(dir, ctx) {
   sl = (Number.isFinite(slBase) && slBase > 0 ? slBase : ctx.impulseHigh) + slBuf;
   if (sl <= entry) sl = entry + risk.min;
   const r = sl - entry;
+  const maxTargetBase = Math.min(entry, ctx.price);
   const pool = [ctx.recentLow, ctx.val, ctx.s1, ctx.s2, ctx.impulseLow, ctx.eqLow, ctx.prevSessLow, ctx.oldLow, ctx.pdl, ctx.pwl]
-    .filter(v => typeof v === 'number' && Number.isFinite(v) && v < entry - 0.05 * a && v > 0).sort((x, y) => y - x);
+    .filter(v => typeof v === 'number' && Number.isFinite(v) && v < maxTargetBase - 0.05 * a && v > 0).sort((x, y) => y - x);
   const p1 = pool.find(v => (entry - v) / r >= minTp1R);
-  tp1 = p1 ? p1 : entry - tp1Pad * r;
+  tp1 = p1 ? p1 : maxTargetBase - Math.max(minTp1R * r, tp1Pad * r);
   const p2 = pool.find(v => (entry - v) / r >= rrMin2 && v < tp1 - 0.1 * r);
-  tp2 = p2 ? p2 : Math.min(tp1 - Math.max(0.5 * r, (rrMin2 - minTp1R) * r), entry - rrMin2 * r);
+  tp2 = p2 ? p2 : Math.min(tp1 - Math.max(0.5 * r, (rrMin2 - minTp1R) * r), maxTargetBase - rrMin2 * r);
   const p3 = pool.filter(v => v < tp2 - 0.1 * r && v > 0).pop();
-  tp3 = p3 ? p3 : Math.min(tp2 - 0.8 * r, entry - distPoint * r);
-  // Garansi mutlak urutan matematis: entry > tp1 > tp2 > tp3 > 0
-  if (tp1 >= entry) tp1 = entry - Math.max(tp1Pad * r, 0.5 * a);
-  if (tp2 >= tp1) tp2 = tp1 - Math.max(0.5 * r, 0.5 * a);
-  if (tp3 >= tp2) tp3 = tp2 - Math.max(0.8 * r, 0.5 * a);
+  tp3 = p3 ? p3 : Math.min(tp2 - 0.8 * r, maxTargetBase - distPoint * r);
+  // Garansi mutlak urutan matematis: min(entry, ctx.price) > tp1 > tp2 > tp3 > 0
+  const ceiling1 = Math.min(entry, ctx.price);
+  if (tp1 >= ceiling1) tp1 = ceiling1 - Math.max(tp1Pad * r, 0.4 * a);
+  if (tp2 >= tp1) tp2 = tp1 - Math.max(0.5 * r, 0.4 * a);
+  if (tp3 >= tp2) tp3 = tp2 - Math.max(0.8 * r, 0.4 * a);
   if (tp3 <= 0) tp3 = Math.max(entry * 0.1, tp2 * 0.95);
   return { dir, entry, sl, tp1, tp2, tp3, rrRatio: (entry - tp2) / r };
 }
@@ -1415,6 +1419,11 @@ export function validateSignalLock(lock, closedCandles, fresh) {
   try {
     const isLong = lock.direction === 'LONG';
     const entry = Number(lock.entry), sl = Number(lock.sl), tp1 = Number(lock.tp1);
+    const anchorP = Number.isFinite(Number(lock.anchorPrice)) ? Number(lock.anchorPrice) : entry;
+    // Deteksi level terbalik / inkonsisten matematis (mis. TP di bawah harga jangkar LONG)
+    if (isLong ? (tp1 <= entry || tp1 <= anchorP || sl >= entry) : (tp1 >= entry || tp1 >= anchorP || sl <= entry)) {
+      return { status: 'STRUCTURE_INVALID', reason: 'Level sinyal terbalik / tidak konsisten dengan arah posisi' };
+    }
     const risk = Math.max(Math.abs(entry - sl), 1e-12);
     const targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
     const brain = lock.brain || (lock.tfSeconds <= 900 ? 'SCALP' : 'SNIPER');
@@ -1426,11 +1435,40 @@ export function validateSignalLock(lock, closedCandles, fresh) {
     let newBars = 0;
     let maxFavorableDist = 0;
     let bePlusActive = !!lock.bePlusActive;
+    let filled = lock.filled === true;
+    if (!filled) {
+      if (isLong && entry >= anchorP - 1e-6) filled = true;
+      if (!isLong && entry <= anchorP + 1e-6) filled = true;
+    }
 
     for (let i = 0; i < closedCandles.length; i++) {
       const c = closedCandles[i];
       if (!c || c.time <= lock.anchorClosedTime) continue;
       newBars++;
+
+      // Verifikasi pengisian order (order limit vs market)
+      if (!filled) {
+        if (isLong && Number(c.low) <= entry) filled = true;
+        if (!isLong && Number(c.high) >= entry) filled = true;
+      }
+
+      if (!filled) {
+        // Target tersentuh sebelum order limit terjemput -> setup terlewat (unfilled)
+        if (isLong && Number(c.high) >= lock.tp1) {
+          return { status: 'MISSED', reason: 'Target tercapai sebelum order limit terjemput (unfilled)', at: c.time };
+        }
+        if (!isLong && Number(c.low) <= lock.tp1) {
+          return { status: 'MISSED', reason: 'Target tercapai sebelum order limit terjemput (unfilled)', at: c.time };
+        }
+        // SL tersentuh sebelum order limit terjemput -> dibatalkan
+        if (isLong && Number(c.low) <= lock.sl) {
+          return { status: 'CANCELLED', reason: 'SL tersentuh sebelum order limit terjemput', at: c.time };
+        }
+        if (!isLong && Number(c.high) >= lock.sl) {
+          return { status: 'CANCELLED', reason: 'SL tersentuh sebelum order limit terjemput', at: c.time };
+        }
+        continue;
+      }
 
       // Ukur pergerakan positif maksimum
       const favorableDist = isLong ? (Number(c.high) - entry) : (entry - Number(c.low));
@@ -1481,6 +1519,7 @@ export function validateSignalLock(lock, closedCandles, fresh) {
     const progressPct = Math.min(100, Math.max(0, Math.round((maxFavorableDist / targetDist) * 100)));
     return {
       status: 'ACTIVE',
+      filled: filled,
       bePlusActive: bePlusActive,
       slPlus: lock.slPlus,
       brain: brain,

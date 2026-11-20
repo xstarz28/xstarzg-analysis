@@ -343,5 +343,12 @@ chk('lokalisasi jurnal sinyal bebas bahasa Indonesia saat English aktif',
   app.includes("isEn ? '🛡️ SL+ ACTIVE (0-RISK)' : '🛡️ SL+ AKTIF (0-RISK)'") &&
   app.includes("isEn ? 'towards TP' : 'menuju TP'"));
 
+chk('integritas anti-fake TP: harga NZD/JPY 2026, verifikasi keterisian limit & audit outcome',
+  app.includes("'NZD/JPY': 87.35") &&
+  edgeAnalyze.includes("'NZD/JPY': 87.35") &&
+  app.includes('lock.feedUnverified && isCurrentFeedReal') &&
+  app.includes('Target tercapai sebelum order limit terjemput (unfilled)') &&
+  app.includes('auditAndCleanseCorruptedStorage'));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
