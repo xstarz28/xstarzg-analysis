@@ -1,4 +1,4 @@
-import { verifyJwt } from '../../lib/auth.js';
+import { verifyJwt, isOwnerEmail } from '../../lib/auth.js';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -128,7 +128,73 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // 2. Jika user hanya ketik /start biasa atau pesan lain, cek apakah chat_id sudah ada di D1
+    // 2. Cek apakah pengguna mengirim alamat email (aktivasi instan via email terdaftar)
+    const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    if (emailMatch) {
+      const email = emailMatch[1].toLowerCase().trim();
+      let isVip = false;
+      let tier = 'VIP';
+      let vipUntil = 0;
+      let isOwner = false;
+
+      if (isOwnerEmail(email)) {
+        isVip = true;
+        isOwner = true;
+        tier = 'OWNER';
+        vipUntil = 9999999999999;
+      } else if (env && env.DB) {
+        try {
+          const row = await env.DB.prepare('SELECT vip_until FROM vip_entitlements WHERE email = ?1').bind(email).first();
+          if (row && row.vip_until && Number(row.vip_until) > Date.now()) {
+            isVip = true;
+            tier = 'VIP';
+            vipUntil = Number(row.vip_until);
+          }
+        } catch (e) {}
+      }
+
+      if (isVip) {
+        if (env && env.DB) {
+          try {
+            await env.DB.prepare(`
+              INSERT INTO telegram_subscribers (chat_id, email, tier, vip_until, is_owner, is_affiliate, registered_at)
+              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+              ON CONFLICT(chat_id) DO UPDATE SET
+                email = excluded.email,
+                tier = excluded.tier,
+                vip_until = excluded.vip_until,
+                is_owner = excluded.is_owner,
+                is_affiliate = excluded.is_affiliate,
+                registered_at = excluded.registered_at
+            `).bind(chatId, email, tier, vipUntil, isOwner ? 1 : 0, 0, new Date().toISOString()).run();
+          } catch (e) {}
+        }
+
+        await sendReply(
+          `👑 <b>SELAMAT! AKUN TELEGRAM ANDA BERHASIL TERVERIFIKASI</b>\n\n` +
+          `Email Terhubung: <b>${email}</b>\n` +
+          `Hak Akses: <b>${tier} MEMBER</b>\n` +
+          `Status: <b>✅ AKTIF 24/7</b>\n\n` +
+          `🛡️ <b>Layanan Notifikasi Terpasang:</b>\n` +
+          `• Sinyal Skor Besar Institusional (≥ 75% ELITE/PRO)\n` +
+          `• Live SL+ 0-Risk Alert (Pengingat geser Stop Loss ke BE+)\n\n` +
+          `📱 <i>HP Anda akan otomatis berdering begitu radar cloud mendeteksi peluang di pasar. Anda tidak perlu membuka website lagi!</i>`
+        );
+        return Response.json({ ok: true, registered: true });
+      } else {
+        await sendReply(
+          `⛔ <b>AKSES DITOLAK — KHUSUS MEMBER VIP XSTARZG</b>\n\n` +
+          `Email <code>${email}</code> belum memiliki paket <b>Member VIP yang sudah berlangganan</b> aktif di sistem XStarZG.\n\n` +
+          `👉 <b>Langkah untuk Mengaktifkan:</b>\n` +
+          `1. Buka website: https://xstarzg.com\n` +
+          `2. Upgrade akun Anda ke <b>VIP Pro ($29 USDT / 30 Hari)</b>\n` +
+          `3. Setelah transaksi selesai, bot akan otomatis langsung aktif untuk akun Anda!`
+        );
+        return Response.json({ ok: true, rejected: true });
+      }
+    }
+
+    // 3. Jika user hanya ketik /start biasa atau pesan lain, cek apakah chat_id sudah ada di D1
     let subscriber = null;
     if (env && env.DB) {
       try {
@@ -145,15 +211,14 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, existing: true });
     }
 
-    // 3. User luar / asing / belum bayar VIP -> BLOKIR DENGAN AMAN!
+    // 4. User belum terdaftar / orang luar / belum bayar VIP
     await sendReply(
       `⛔ <b>AKSES DITOLAK — KHUSUS MEMBER VIP XSTARZG</b>\n\n` +
       `Mohon maaf, bot ini diproteksi eksklusif untuk <b>Member VIP yang sudah berlangganan</b>, Owner, dan Affiliate resmi.\n\n` +
-      `Akun Telegram Anda belum terhubung dengan lisensi VIP aktif.\n\n` +
-      `👉 <b>Cara Aktivasi Resmi:</b>\n` +
-      `1. Buka terminal XStarZG: https://xstarzg.com\n` +
-      `2. Upgrade akun Anda ke <b>VIP Pro ($29 USDT)</b>\n` +
-      `3. Klik tombol <b>"✈️ Notif Telegram 24/7 (VIP)"</b> di dashboard untuk mendapatkan tautan aktivasi resmi bot Anda.`
+      `💡 <b>Sudah Berlangganan VIP di Website?</b>\n` +
+      `Cukup <b>balas dan ketikkan alamat email akun XStarZG Anda</b> ke bot ini (contoh: <code>nama@gmail.com</code>). Bot akan langsung memverifikasi status Anda dalam 1 detik!\n\n` +
+      `👉 <b>Belum Berlangganan?</b>\n` +
+      `Buka https://xstarzg.com dan upgrade ke VIP Pro ($29 USDT) untuk membuka bot ini.`
     );
     return Response.json({ ok: true, rejected: true });
   } catch (err) {
