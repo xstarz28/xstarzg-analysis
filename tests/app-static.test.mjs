@@ -400,6 +400,20 @@ chk('radar rekomendasi saham IDX & global lancar tanpa freeze atau memuat abadi'
   app.includes("{ sym: 'BBCA.JK', tf: 'H1' }") &&
   app.includes("{ sym: 'BBCA.JK', tf: 'D1' }"));
 
+chk('pencarian manual jurnal sinyal (filter instan tanpa scroll panjang)',
+  html.includes('id="inpJournalSearch"') &&
+  html.includes('id="btnJournalClearSearch"') &&
+  app.includes("$id('inpJournalSearch')") &&
+  app.includes("$id('btnJournalClearSearch')") &&
+  app.includes('filteredRows = rows.filter('));
+
+chk('sistem notifikasi otomatis SL+ 0-risk (Web Notification + audio chime + visual toast)',
+  html.includes('id="btnToggleSlPlusNotify"') &&
+  app.includes('notifySlPlusTriggered') &&
+  app.includes('toggleSlPlusNotification') &&
+  app.includes('sendBrowserPushNotification') &&
+  app.includes('xstarzg_slplus_notify_v1'));
+
 let syntaxOk = false;
 try {
   execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js', { stdio: 'pipe' });

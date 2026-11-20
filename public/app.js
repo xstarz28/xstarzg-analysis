@@ -871,6 +871,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
                 if (verdict.bePlusActive && !lock.bePlusActive) {
                   lock.bePlusActive = true;
                   lockModified = true;
+                  try { notifySlPlusTriggered(symbol, tfA, lock); } catch (e) {}
                 }
                 if (verdict.filled && !lock.filled) {
                   lock.filled = true;
@@ -2198,6 +2199,7 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var favDist = isLong ? (high - entry) : (entry - low);
   if (!lock.bePlusActive && favDist >= beTriggerRatio * targetDist) {
     lock.bePlusActive = true;
+    try { notifySlPlusTriggered(symbol, tf, lock); } catch (e) {}
     saveSignalLock(symbol, tf, lock);
     if (state.lastAnalysis && state.lastAnalysis.lockedSignal) {
       state.lastAnalysis.bePlusActive = true;
@@ -2600,11 +2602,43 @@ function renderSignalJournal() {
     return;
   }
   rows.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+
+  var searchInput = $id('inpJournalSearch');
+  var clearBtn = $id('btnJournalClearSearch');
+  var q = (searchInput && searchInput.value) ? searchInput.value.trim().toLowerCase() : '';
+  if (clearBtn) clearBtn.style.display = q ? 'inline-block' : 'none';
+
+  var filteredRows = rows;
+  if (q) {
+    filteredRows = rows.filter(function (r) {
+      var sym = (r.sym || '').toLowerCase();
+      var tf = (r.tf || '').toLowerCase();
+      var dir = (r.dir || '').toLowerCase();
+      var st = (r.st || '').toLowerCase();
+      return sym.indexOf(q) > -1 || tf.indexOf(q) > -1 || dir.indexOf(q) > -1 || st.indexOf(q) > -1;
+    });
+  }
+
+  if (!filteredRows.length) {
+    list.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:24px 8px;text-align:center;">' +
+      T('ui.jnlNoMatch', 'Tidak ditemukan sinyal yang cocok dengan pencarian "{q}".').replace('{q}', escH(searchInput ? searchInput.value : '')) +
+      '<br/><button type="button" id="btnJournalResetFilter" style="margin-top:8px;background:none;border:none;color:#38bdf8;cursor:pointer;text-decoration:underline;font-size:12px;font-weight:700;">' +
+      T('ui.jnlResetSearch', '✕ Hapus filter pencarian') + '</button></div>';
+    var resetBtn = $id('btnJournalResetFilter');
+    if (resetBtn && searchInput) {
+      resetBtn.addEventListener('click', function () {
+        searchInput.value = '';
+        renderSignalJournal();
+      });
+    }
+    return;
+  }
+
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
   var isEn = curLang !== 'id';
   var dateLocale = isEn ? 'en-US' : 'id-ID';
   var html = '';
-  rows.slice(0, 80).forEach(function (r) {
+  filteredRows.slice(0, 100).forEach(function (r) {
     var b = jnlStatusBadge(r.st, r.bePlusActive);
     var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
     var tTxt = r.at ? new Date(r.at).toLocaleString(dateLocale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -5572,6 +5606,111 @@ function loadPersistedAlarm() {
   updateAlarmUi();
 }
 
+/* ---- SL+ (0-Risk Break-Even Plus) Automatic Alert System ---- */
+var slPlusNotifyState = {
+  enabled: true,
+  lastNotifiedMap: {}
+};
+
+function sendBrowserPushNotification(title, body, iconUrl) {
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body: body,
+        icon: iconUrl || '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: 'xstarzg-slplus-alert'
+      });
+    } catch (e) {}
+  }
+}
+
+function updateSlPlusNotifyUi() {
+  var btn = $id('btnToggleSlPlusNotify');
+  if (!btn) return;
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id';
+
+  if (slPlusNotifyState.enabled) {
+    btn.innerHTML = '🛡️ ' + (isEn ? 'SL+ Alert: ON' : 'Notif SL+: AKTIF');
+    btn.style.borderColor = '#10b981';
+    btn.style.color = '#10b981';
+    btn.style.background = 'rgba(16,185,129,0.12)';
+    btn.title = isEn ? 'Auto alert active: chime & push reminder when SL+ triggers' : 'Notifikasi otomatis aktif: lonceng & notif browser saat SL+ aktif';
+  } else {
+    btn.innerHTML = '🛡️ ' + (isEn ? 'SL+ Alert: OFF' : 'Notif SL+: NONAKTIF');
+    btn.style.borderColor = 'rgba(148,163,184,0.3)';
+    btn.style.color = '#94a3b8';
+    btn.style.background = 'rgba(15,23,42,0.6)';
+    btn.title = isEn ? 'Click to enable SL+ alerts' : 'Klik untuk mengaktifkan notifikasi SL+';
+  }
+}
+
+function toggleSlPlusNotification() {
+  slPlusNotifyState.enabled = !slPlusNotifyState.enabled;
+  if (slPlusNotifyState.enabled) {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      try { Notification.requestPermission(); } catch (e) {}
+    }
+    try { playAlertChime(); } catch (e) {}
+    var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+    var isEn = curLang !== 'id';
+    showAlarmToast(
+      isEn ? '🛡️ SL+ ALERT ENABLED (0-RISK)' : '🛡️ NOTIFIKASI SL+ AKTIF (0-RISK)',
+      isEn ? 'Chime & browser push notification will sound immediately when trade reaches SL+ trigger so you can adjust stop loss to break-even plus.' :
+             'Lonceng & notifikasi browser akan langsung berbunyi ketika posisi menyentuh trigger SL+ agar Anda segera memindahkan stop loss ke BE+ di terminal broker.'
+    );
+  }
+  savePersistedSlPlusNotify();
+  updateSlPlusNotifyUi();
+}
+
+function savePersistedSlPlusNotify() {
+  try {
+    localStorage.setItem('xstarzg_slplus_notify_v1', JSON.stringify({
+      enabled: !!slPlusNotifyState.enabled
+    }));
+  } catch (e) {}
+}
+
+function loadPersistedSlPlusNotify() {
+  try {
+    var raw = localStorage.getItem('xstarzg_slplus_notify_v1');
+    if (raw) {
+      var d = JSON.parse(raw);
+      if (typeof d.enabled === 'boolean') {
+        slPlusNotifyState.enabled = d.enabled;
+      }
+    } else {
+      slPlusNotifyState.enabled = true;
+    }
+  } catch (e) {}
+  updateSlPlusNotifyUi();
+}
+
+function notifySlPlusTriggered(symbol, tf, lock) {
+  if (!slPlusNotifyState.enabled) return;
+  if (!symbol || !lock) return;
+
+  var key = symbol + ':' + (tf || '') + ':' + (lock.issuedAt || lock.at || 0);
+  if (slPlusNotifyState.lastNotifiedMap[key]) return;
+  slPlusNotifyState.lastNotifiedMap[key] = Date.now();
+
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id';
+
+  var slPriceFormatted = lock.slPlus ? formatPrice(lock.slPlus, symbol) : (lock.entry ? formatPrice(lock.entry, symbol) : '');
+  var title = isEn ? '🛡️ SL+ TRIGGERED (0-RISK): ' + symbol : '🛡️ SL+ TERPICU (0-RISK): ' + symbol;
+  var body = isEn ?
+    ('[' + (tf || 'M5') + '] ' + (lock.direction || '') + ' reached 0-risk zone! Move SL to ' + (slPriceFormatted || 'BE+') + ' on your broker now.') :
+    ('[' + (tf || 'M5') + '] ' + (lock.direction || '') + ' mencapai zona 0-risk! Geser SL Anda ke ' + (slPriceFormatted || 'BE+') + ' di broker sekarang.');
+
+  try { playAlertChime(); } catch (e) {}
+  try { showAlarmToast(title, body); } catch (e) {}
+  try { sendBrowserPushNotification(title, body); } catch (e) {}
+}
+
 /* ==================== 9. SESI, KUOTA & ALUR LAYAR ==================== */
 function saveSession() {
   if (!state.user) return;
@@ -6297,6 +6436,24 @@ function bindUiEvents() {
     playAlertChime();
     showAlarmToast('🔊 TES SUARA ALARM', 'Denting lonceng institusional aktif & jernih. Begitu sinyal [' + (alarmState.symbol || state.symbol || 'GRAM/USDT') + '] terbuka, suara ini akan berbunyi.');
   });
+  /* ---- Signal Journal search & SL+ alerts ---- */
+  var inpJnlSearch = $id('inpJournalSearch');
+  if (inpJnlSearch) {
+    inpJnlSearch.addEventListener('input', function () { renderSignalJournal(); });
+    inpJnlSearch.addEventListener('change', function () { renderSignalJournal(); });
+  }
+  bind('btnJournalClearSearch', function () {
+    if (inpJnlSearch) {
+      inpJnlSearch.value = '';
+      inpJnlSearch.focus();
+    }
+    renderSignalJournal();
+  });
+  bind('btnToggleSlPlusNotify', function () {
+    toggleSlPlusNotification();
+  });
+  loadPersistedSlPlusNotify();
+  updateSlPlusNotifyUi();
   /* ---- Risk calc inputs ---- */
   ['inpCalcBalance', 'inpCalcRiskPct'].forEach(function (id) {
     var el = $id(id);
@@ -6455,6 +6612,7 @@ function bootCore() {
       if (state.mode === 'investor') renderInvestorPicks(false);
       else renderOpportunityRadar(false);
       try { renderSignalJournal(); } catch (e) {}
+      try { updateSlPlusNotifyUi(); } catch (e) {}
       // Narasi analisis terakhir tetap — jalankan ulang analisis agar panel sisi ikut bahasa baru
       if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
     } catch (e) {}
