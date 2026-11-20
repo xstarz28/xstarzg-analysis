@@ -321,6 +321,9 @@
         <button type="button" id="btnToggleSignalAlarm" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(56,189,248,0.4);color:#38bdf8;" title="Bunyikan lonceng & notifikasi browser saat setup sinyal/entry terbuka" data-i18n-title="ui.alarmTitle">
           <span id="lblAlarmIcon">🔔</span> <span id="lblAlarmText" data-i18n="ui.alarmBtn">Pasang Alarm Sinyal</span>
         </button>
+        <button type="button" id="btnTelegramVipAccess" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(14,165,233,0.4);color:#38bdf8;" title="Notifikasi otomatis Sinyal Skor Besar & Live SL+ 24/7 langsung ke HP (Khusus Member VIP, Owner & Affiliate)" data-i18n-title="ui.tgBtnTitle">
+          <span id="lblTelegramVipIcon">✈️</span> <span id="lblTelegramVipText" data-i18n="ui.tgBtn">Notif Telegram 24/7 (VIP)</span>
+        </button>
       </div>
     </section>
     <main class="workspace-main-grid">
@@ -830,6 +833,9 @@
             <button type="button" id="btnToggleSlPlusNotify" class="hz-btn active" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(16,185,129,0.18);color:#6ee7b7;border:1px solid rgba(16,185,129,0.45);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Pemberitahuan otomatis lonceng & push notifikasi untuk menggeser Stop Loss ke BE (SL+) saat posisi aman">
               <span id="slPlusNotifyIcon">🔔</span> <span id="slPlusNotifyTxt">Notif SL+ Aktif (0-Risk Alert)</span>
             </button>
+            <button type="button" id="btnTelegramVipAccessJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(14,165,233,0.18);color:#38bdf8;border:1px solid rgba(14,165,233,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Notifikasi otomatis SL+ ke Telegram HP 24/7 (Khusus VIP & Owner)" data-i18n-title="ui.tgBtnTitle">
+              <span>✈️</span> <span data-i18n="ui.tgBtn">Notif Telegram 24/7 (VIP)</span>
+            </button>
           </div>
         </div>
         <div id="signalJournalList" class="radar-grid" style="max-height:800px;overflow-y:auto;padding-right:4px;"></div>
@@ -937,6 +943,68 @@
       </div>
       <div style="margin-top:12px;font-size:11px;color:#64748b;">
         Data diambil langsung dari Cloudflare D1 Database (Tabel: <code>vip_entitlements</code> &amp; <code>vip_tx</code>).
+      </div>
+    </div>
+  </div>
+  <!-- ================= MODAL 4: TELEGRAM VIP / PREMIUM NOTIFICATION ACCESS ================= -->
+  <div id="telegramVipModal" class="modal-backdrop hidden">
+    <div class="modal-box" style="max-width:520px;width:95%;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:22px;">✈️</span>
+          <h3 id="hdrTgVipModalTitle" style="margin:0;font-size:16px;color:#38bdf8;" data-i18n="ui.tgVipModalTitle">Notifikasi Telegram 24/7 di HP</h3>
+        </div>
+        <button type="button" id="btnCloseTgVipModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
+      </div>
+
+      <!-- TAMPILAN 1: PAYWALL JIKA USER MASIH FREE / GUEST -->
+      <div id="tgVipPaywallBlock" class="hidden">
+        <div style="text-align:center;padding:12px 8px;">
+          <div style="font-size:38px;margin-bottom:8px;">👑</div>
+          <h4 style="margin:0 0 8px;font-size:15px;color:#f59e0b;" data-i18n="ui.tgVipLockTitle">Fitur Eksklusif Member VIP / Premium</h4>
+          <p style="font-size:12px;color:#cbd5e1;line-height:1.6;margin-bottom:14px;" data-i18n="ui.tgVipLockDesc">
+            Notifikasi Telegram otomatis 24 jam nonstop (<b>Sinyal Skor Besar ≥ 75%</b> dan <b>Live SL+ 0-Risk Alert</b> langsung ke HP tanpa perlu membuka web) adalah fasilitas eksklusif bagi <b>Member VIP XStarZG yang aktif</b>, Owner, dan Affiliate resmi.
+          </p>
+          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:10px;font-size:11.5px;color:#fde68a;margin-bottom:14px;text-align:left;" data-i18n="ui.tgVipLockNotice">
+            💡 <strong>Status Akun Anda:</strong> FREE / Belum Berlangganan VIP.<br/>
+            Tingkatkan akun ke VIP Pro ($29 USDT / 30 Hari) untuk membuka seluruh 700+ instrumen dan otomatis mengaktifkan bot notifikasi Telegram 24/7 di HP Anda.
+          </div>
+          <button type="button" id="btnUpgradeToVipForTg" class="btn-primary-glow" style="width:100%;padding:11px;font-size:13px;" data-i18n="ui.tgBtnUpgrade">
+            💎 Upgrade ke VIP Sekarang ($29 USDT)
+          </button>
+        </div>
+      </div>
+
+      <!-- TAMPILAN 2: AKTIVASI 1-KLIK UNTUK VIP / OWNER / AFFILIATE -->
+      <div id="tgVipActiveBlock" class="hidden">
+        <div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#a7f3d0;display:flex;align-items:center;gap:8px;">
+          <span>✅</span>
+          <div>
+            <strong data-i18n="ui.tgVipVerified">Lisensi Terverifikasi:</strong>
+            <span id="lblTgVipUserBadge" style="color:#ffffff;font-weight:bold;">VIP MEMBER</span>
+          </div>
+        </div>
+
+        <p style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-bottom:12px;" data-i18n="ui.tgVipActiveDesc">
+          Robot cloud XStarZG memantau pasar 24 jam nonstop. Begitu sinyal skor besar (≥ 75%) atau SL+ (0-Risk) terdeteksi, HP Anda akan otomatis berdering lewat bot resmi Telegram kami tanpa perlu membuka website!
+        </p>
+
+        <!-- Tombol Buka Bot 1-Klik -->
+        <a id="linkTgVipStart" href="https://t.me/xstarzg_alert_bot" target="_blank" class="btn-primary-glow" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:13px;text-decoration:none;border-radius:10px;margin-bottom:14px;">
+          <span>📲</span> <span data-i18n="ui.tgBtnOpenBot">Buka Bot di Telegram &amp; Tekan START</span>
+        </a>
+
+        <!-- Opsi Hubungkan ID Manual -->
+        <div style="background:rgba(15,23,42,0.65);border:1px solid rgba(51,65,85,0.6);border-radius:10px;padding:12px;font-size:11.5px;">
+          <div style="font-weight:700;color:#94a3b8;margin-bottom:6px;" data-i18n="ui.tgManualUidLbl">Atau Sambungkan Chat ID / UID Telegram Anda:</div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="inpTgVipChatId" class="ctrl-input" placeholder="Salin angka ID dari @userinfobot (misal: 987654321)" data-i18n-ph="ui.tgManualUidPh" style="flex:1;font-size:11.5px;padding:7px 10px;" />
+            <button type="button" id="btnSaveTgVipChatId" class="btn-secondary-outline" style="padding:7px 12px;font-size:11.5px;" data-i18n="ui.tgBtnConnect">
+              🔗 Hubungkan
+            </button>
+          </div>
+          <div id="msgTgVipStatus" style="font-size:11px;margin-top:6px;min-height:14px;"></div>
+        </div>
       </div>
     </div>
   </div>

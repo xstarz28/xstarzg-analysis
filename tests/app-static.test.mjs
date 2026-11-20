@@ -468,9 +468,42 @@ chk('validasi input token/chatId & penanganan error spesifik telegram (anti-enco
   app.includes("https://api.telegram.org/bot' + token + '/sendMessage") &&
   tgRelay.includes("https://api.telegram.org/bot${cleanToken}/sendMessage"));
 
+const tgLinkFn = R('../functions/api/notify/telegram-link.js');
+const tgWebhookFn = R('../functions/api/notify/telegram-webhook.js');
+const tgSubsFn = R('../functions/api/notify/telegram-subscribers.js');
+const tgSql = R('../migrations/0002_telegram_subscribers.sql');
+
+chk('arsitektur 1 official bot multi-user dengan vip gating & paywall di web ui',
+  html.includes('id="btnTelegramVipAccess"') &&
+  html.includes('id="btnTelegramVipAccessJnl"') &&
+  html.includes('id="telegramVipModal"') &&
+  html.includes('id="tgVipPaywallBlock"') &&
+  html.includes('id="tgVipActiveBlock"') &&
+  html.includes('id="btnUpgradeToVipForTg"') &&
+  app.includes('openTelegramVipModal()') &&
+  app.includes('closeTelegramVipModal()') &&
+  app.includes("btnUpgradeTg.addEventListener('click'") &&
+  app.includes("isVip = isOwner || isAffiliate || (curUser && curUser.tier === 'VIP'"));
+
+chk('endpoint otentikasi & deep-link telegram vip serta webhook proteksi orang luar',
+  tgLinkFn.includes('isPrivilegedVip(user') &&
+  tgLinkFn.includes('upgradeRequired: true') &&
+  tgLinkFn.includes('https://t.me/') &&
+  tgWebhookFn.includes('AKSES DITOLAK — KHUSUS MEMBER VIP XSTARZG') &&
+  tgWebhookFn.includes('SELAMAT! AKUN TELEGRAM ANDA BERHASIL TERVERIFIKASI') &&
+  tgWebhookFn.includes('INSERT INTO telegram_subscribers') &&
+  tgSubsFn.includes('SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate') &&
+  tgSql.includes('CREATE TABLE IF NOT EXISTS telegram_subscribers'));
+
+chk('market sentinel broadcast multi-user ke seluruh subscriber vip dari d1',
+  sentinelScript.includes('getActiveSubscribers()') &&
+  sentinelScript.includes('sendTelegramMessage(') &&
+  sentinelScript.includes('/api/notify/telegram-subscribers') &&
+  sentinelScript.includes('X-Sentinel-Key'));
+
 let syntaxOk = false;
 try {
-  execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js functions/api/notify/telegram.js', { stdio: 'pipe' });
+  execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js functions/api/notify/telegram.js functions/api/notify/telegram-link.js functions/api/notify/telegram-webhook.js functions/api/notify/telegram-subscribers.js scripts/market-sentinel.mjs tests/telegram-vip.test.mjs', { stdio: 'pipe' });
   syntaxOk = true;
 } catch (e) {
   syntaxOk = false;
