@@ -1187,9 +1187,11 @@ function drawChartLevels(analysis) {
   var showSniper = $id('chkSniper') ? $id('chkSniper').checked : true;
   var L = effectiveLevels(analysis);
   var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(analysis.symbol, analysis.timeframe || state.tf) : null;
+  var curP = (state.candles && state.candles.length) ? state.candles[state.candles.length - 1].close : (analysis.lastPrice || 0);
   var add = function (price, color, title, style) {
     var p = num(price);
     if (!p || p <= 0) return;
+    if (curP > 0 && (p > curP * 4 || p < curP * 0.25)) return; // anti-scale blowout (cegah chart hilang)
     try {
       var pl = candleSeries.createPriceLine({
         price: p, color: color, lineWidth: 1,
@@ -1220,9 +1222,12 @@ function drawChartLevels(analysis) {
         add(rp.liq, 'rgba(168,85,247,0.9)', 'EST. LIQ ' + rp.lev + 'x', 3);
       }
       if (oc && oc.status === 'TP_HIT') {
-        add(L.tp1, '#10b981', 'TP1 REACHED ✓', 0);
-        add(L.entry, 'rgba(56,189,248,0.45)', 'ENTRY (DONE)', 2);
-        add(L.sl, 'rgba(244,63,94,0.3)', 'SL (CLOSED)', 2);
+        var tpP = (oc.lock && num(oc.lock.tp1) > 0) ? num(oc.lock.tp1) : L.tp1;
+        var entryP = (oc.lock && num(oc.lock.entry) > 0) ? num(oc.lock.entry) : L.entry;
+        var slP = (oc.lock && num(oc.lock.sl) > 0) ? num(oc.lock.sl) : L.sl;
+        add(tpP, '#10b981', 'TP1 REACHED ✓', 0);
+        add(entryP, 'rgba(56,189,248,0.45)', 'ENTRY (DONE)', 2);
+        add(slP, 'rgba(244,63,94,0.3)', 'SL (CLOSED)', 2);
       } else if (oc && oc.status === 'BE_SAVED') {
         add(L.entry, '#10b981', 'SL+ HIT (0-RISK) ✓', 0);
         add(L.sl, 'rgba(244,63,94,0.25)', 'SL (SAFE)', 2);
@@ -2305,8 +2310,8 @@ function renderSignalJournal() {
     var slPlusRow = (r.slPlus && (r.bePlusActive || r.st === 'BE_SAVED'))
       ? ' • <b style="color:#6ee7b7;">SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (0-Risk)</b>'
       : '';
-    var targetLabel = isSniper
-      ? (' • <b style="color:#38bdf8;">Target 1:2 R:R (TP2) ' + formatPrice(num(r.tp2 || r.tp1), r.sym) + '</b> <span style="color:#64748b;">(TP1: ' + formatPrice(num(r.tp1), r.sym) + ')</span>')
+    var targetLabel = r.tp2
+      ? (' • <b style="color:#38bdf8;">Target 1:2 R:R (TP2) ' + formatPrice(num(r.tp2), r.sym) + '</b> <span style="color:#64748b;">(TP1: ' + formatPrice(num(r.tp1), r.sym) + ')</span>')
       : (' • TP1 ' + formatPrice(num(r.tp1), r.sym));
     var advisorNotice = '';
     if (isSniper && r.st === 'ACTIVE') {
@@ -2499,9 +2504,8 @@ function renderRadarCardHtml(it) {
   }
   var tpSlRow = '';
   if (a.levels && a.levels.sl && a.levels.tp1 && state.mode !== 'investor') {
-    var isSniper = a.brain === 'SNIPER' || (it.tf && ['M30', 'H1', 'H4', 'D1', 'W1', 'MN'].indexOf(it.tf) > -1);
-    var tgtVal = (isSniper && a.levels.tp2) ? a.levels.tp2 : a.levels.tp1;
-    var tgtLbl = isSniper ? 'TP2 (1:2)' : 'TP1';
+    var tgtVal = a.levels.tp2 ? a.levels.tp2 : a.levels.tp1;
+    var tgtLbl = a.levels.tp2 ? 'Target 1:2 (TP2)' : 'TP1';
     tpSlRow = '<div style="display:flex;justify-content:space-between;gap:4px;margin-top:3px;font-size:10px;color:#94a3b8;font-family:var(--font-mono);">' +
       '<span>SL: <b style="color:#fca5a5;">' + formatPrice(a.levels.sl, it.sym) + '</b></span>' +
       '<span>' + tgtLbl + ': <b style="color:#6ee7b7;">' + formatPrice(tgtVal, it.sym) + '</b></span>' +
@@ -5983,7 +5987,8 @@ if (document.readyState === 'loading') {
     'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
     'NZD/USD': 0.5980, 'USD/IDR': 16550, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880,
     'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
-    'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00
+    'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
+    'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00
   };
   function generateSeedCandles(symbol, tf) {
     const sym = (symbol || 'XAU/USD').toUpperCase();
@@ -6079,7 +6084,15 @@ if (document.readyState === 'loading') {
       ? (state.mode === 'investor' ? ['dcaZone1', 'dcaZone2', 'dcaZone3', 'invTarget1', 'invTarget2'] : ['entry', 'sl', 'tp1', 'tp2'])
       : [];
     if (showSMC) lvlKeys.push('poc', 'swingHigh', 'swingLow');
-    lvlKeys.forEach(k => { const v = Number(L[k]); if (Number.isFinite(v) && v > 0) { if (v > maxP) maxP = v; if (v < minP) minP = v; } });
+    lvlKeys.forEach(k => {
+      const v = Number(L[k]);
+      if (Number.isFinite(v) && v > 0) {
+        if (!slice.length || (maxP > 0 && v <= maxP * 3.5 && v >= minP * 0.28)) {
+          if (v > maxP) maxP = v;
+          if (v < minP) minP = v;
+        }
+      }
+    });
     if (!Number.isFinite(maxP) || !Number.isFinite(minP) || maxP <= minP) { maxP = (candles[candles.length - 1].close || 100) * 1.01; minP = maxP * 0.98; }
     const pad = (maxP - minP) * 0.06 || 1;
     maxP += pad; minP -= pad;

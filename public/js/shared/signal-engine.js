@@ -175,11 +175,11 @@ export function computeHtfBias(candles, tfId) {
   const curSec = TF_SECS[tfId] || 3600;
   if (targetSec <= curSec && htfId !== tfId) return null;
   const htf = resampleCandles(candles, targetSec);
-  if (htf.length < 55) return null; // data HTF kurang -> fallback MA200 TF aktif
+  if (htf.length < 35) return null; // data HTF cukup untuk trend slope
   const closes = htf.map(c => c.close);
-  const ema50 = calcEMA(closes, 50);
+  const ema50 = calcEMA(closes, Math.min(50, closes.length));
   const e = ema50[htf.length - 1];
-  const ePrev = ema50[htf.length - 11];
+  const ePrev = ema50[Math.max(0, htf.length - 11)];
   const c = closes[closes.length - 1];
   if (e == null || ePrev == null) return null;
   if (c > e && e >= ePrev) return 1;
@@ -485,14 +485,14 @@ export function evaluateHardVetoes(ctx) {
   const underfoot = [bullOb && bullOb.bottom]
     .filter(v => typeof v === 'number' && v < price).sort((x, y) => y - x);
   if (underfoot.length && (price - underfoot[0]) < 0.5 * a) short.push('LIQUIDITY_WALL');
-  // Veto 3: EXHAUSTION MOMENTUM — hanya ekstrem sejati (RSI>74 / RSI<26) atau divergensi
-  if (rsi > 74) long.push('EXHAUST_RSI');
+  // Veto 3: EXHAUSTION MOMENTUM — hanya ekstrem sejati (RSI>78 / RSI<22) atau divergensi
+  if (rsi > 78 || (rsi > 72 && div.bearish)) long.push('EXHAUST_RSI');
   if (div.bearish) long.push('DIVERGENCE_MACD');
-  if (rsi < 26) short.push('EXHAUST_RSI');
+  if (rsi < 22 || (rsi < 28 && div.bullish)) short.push('EXHAUST_RSI');
   if (div.bullish) short.push('DIVERGENCE_MACD');
   // Veto 4: COUNTER-HTF (melawan struktur besar timeframe atas)
-  if (htfBias === -1) long.push('COUNTER_HTF');
-  if (htfBias === 1) short.push('COUNTER_HTF');
+  if (htfBias === -1 && (!ctx.ema20 || !ctx.ema50 || ctx.ema20 <= ctx.ema50)) long.push('COUNTER_HTF');
+  if (htfBias === 1 && (!ctx.ema20 || !ctx.ema50 || ctx.ema20 >= ctx.ema50)) short.push('COUNTER_HTF');
   return { long, short, htfBias };
 }
 
@@ -559,14 +559,14 @@ export function calculateDualFibonacci(high, low, currentPrice, direction = 'LON
 export function buildInstitutionalLevels(dir, ctx) {
   const a = Math.max(ctx.atr, ctx.price * 1e-8);
   const risk = { min: a * 1.2 };
-  // Dual-Brain (v2026.51): SCALP memakai perhitungan R berat-TP1 (kejar WR tinggi,
-  // target mikro terdekat); SNIPER memakai buffer SL struktural lebih lebar & skala TP.
+  // Dual-Brain (v2026.51): SCALP memakai perhitungan R target 1:2 (kejar WR tinggi,
+  // target R:R jelas); SNIPER memakai buffer SL struktural lebih lebar & skala TP.
   const brainMode = ctx.brain || 'SNIPER';
   const slBuf = (SL_BUFFER_ATR + (brainMode === 'SCALP' ? -0.15 : 0.15)) * a;
-  const minTp1R = brainMode === 'SCALP' ? 0.55 : 1.0;
-  const tp1Pad = brainMode === 'SCALP' ? 0.65 : 1.1;
-  const rrMin2 = brainMode === 'SCALP' ? 1.25 : MIN_RR_TP2;
-  const distPoint = brainMode === 'SCALP' ? 2.3 : 3.5;
+  const minTp1R = brainMode === 'SCALP' ? 0.85 : 1.0;
+  const tp1Pad = brainMode === 'SCALP' ? 1.1 : 1.1;
+  const rrMin2 = brainMode === 'SCALP' ? 2.0 : MIN_RR_TP2;
+  const distPoint = brainMode === 'SCALP' ? 3.0 : 3.5;
   let entry, sl, tp1, tp2, tp3;
   // Mitigation candidates (zona diskon utk LONG / premium utk SHORT)
   const fib618 = ctx.impulseHigh - 0.618 * Math.max(0, ctx.impulseHigh - ctx.impulseLow);
@@ -585,12 +585,17 @@ export function buildInstitutionalLevels(dir, ctx) {
     if (sl >= entry) sl = entry - risk.min;
     const r = entry - sl;
     const pool = [ctx.recentHigh, ctx.vah, ctx.r1, ctx.r2, ctx.t1Sup, ctx.impulseHigh, ctx.eqHigh, ctx.prevSessHigh, ctx.oldHigh, ctx.pdh, ctx.pwh]
-      .filter(v => typeof v === 'number' && v > entry + 0.05 * a).sort((x, y) => x - y);
-    tp1 = pool.find(v => (v - entry) / r >= minTp1R) || entry + tp1Pad * r;
-    tp2 = pool.find(v => (v - entry) / r >= rrMin2 && v > tp1) || entry + (rrMin2 + 0.1) * r;
-    if (tp2 <= tp1) tp2 = entry + (rrMin2 + 0.1) * r;
-    tp3 = pool.filter(v => v > tp2).pop() || entry + distPoint * r;
-    if (tp3 <= tp2) tp3 = entry + distPoint * r;
+      .filter(v => typeof v === 'number' && Number.isFinite(v) && v > entry + 0.05 * a).sort((x, y) => x - y);
+    const p1 = pool.find(v => (v - entry) / r >= minTp1R);
+    tp1 = p1 ? p1 : entry + tp1Pad * r;
+    const p2 = pool.find(v => (v - entry) / r >= rrMin2 && v > tp1 + 0.1 * r);
+    tp2 = p2 ? p2 : Math.max(tp1 + Math.max(0.5 * r, (rrMin2 - minTp1R) * r), entry + rrMin2 * r);
+    const p3 = pool.filter(v => v > tp2 + 0.1 * r).pop();
+    tp3 = p3 ? p3 : Math.max(tp2 + 0.8 * r, entry + distPoint * r);
+    // Garansi mutlak urutan matematis: entry < tp1 < tp2 < tp3
+    if (tp1 <= entry) tp1 = entry + Math.max(tp1Pad * r, 0.5 * a);
+    if (tp2 <= tp1) tp2 = tp1 + Math.max(0.5 * r, 0.5 * a);
+    if (tp3 <= tp2) tp3 = tp2 + Math.max(0.8 * r, 0.5 * a);
     return { dir, entry, sl, tp1, tp2, tp3, rrRatio: (tp2 - entry) / r };
   }
   // SHORT (cermin)
@@ -603,12 +608,18 @@ export function buildInstitutionalLevels(dir, ctx) {
   if (sl <= entry) sl = entry + risk.min;
   const r = sl - entry;
   const pool = [ctx.recentLow, ctx.val, ctx.s1, ctx.s2, ctx.impulseLow, ctx.eqLow, ctx.prevSessLow, ctx.oldLow, ctx.pdl, ctx.pwl]
-    .filter(v => typeof v === 'number' && v < entry - 0.05 * a && v > 0).sort((x, y) => y - x);
-  tp1 = pool.find(v => (entry - v) / r >= minTp1R) || entry - tp1Pad * r;
-  tp2 = pool.find(v => (entry - v) / r >= rrMin2 && v < tp1) || entry - (rrMin2 + 0.1) * r;
-  if (tp2 >= tp1) tp2 = entry - (rrMin2 + 0.1) * r;
-  tp3 = pool.filter(v => v < tp2 && v > 0).pop() || entry - distPoint * r;
-  if (tp3 >= tp2 || tp3 <= 0) tp3 = Math.max(entry * 0.5, entry - 3.5 * r);
+    .filter(v => typeof v === 'number' && Number.isFinite(v) && v < entry - 0.05 * a && v > 0).sort((x, y) => y - x);
+  const p1 = pool.find(v => (entry - v) / r >= minTp1R);
+  tp1 = p1 ? p1 : entry - tp1Pad * r;
+  const p2 = pool.find(v => (entry - v) / r >= rrMin2 && v < tp1 - 0.1 * r);
+  tp2 = p2 ? p2 : Math.min(tp1 - Math.max(0.5 * r, (rrMin2 - minTp1R) * r), entry - rrMin2 * r);
+  const p3 = pool.filter(v => v < tp2 - 0.1 * r && v > 0).pop();
+  tp3 = p3 ? p3 : Math.min(tp2 - 0.8 * r, entry - distPoint * r);
+  // Garansi mutlak urutan matematis: entry > tp1 > tp2 > tp3 > 0
+  if (tp1 >= entry) tp1 = entry - Math.max(tp1Pad * r, 0.5 * a);
+  if (tp2 >= tp1) tp2 = tp1 - Math.max(0.5 * r, 0.5 * a);
+  if (tp3 >= tp2) tp3 = tp2 - Math.max(0.8 * r, 0.5 * a);
+  if (tp3 <= 0) tp3 = Math.max(entry * 0.1, tp2 * 0.95);
   return { dir, entry, sl, tp1, tp2, tp3, rrRatio: (entry - tp2) / r };
 }
 
@@ -706,7 +717,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   }
   const div = detectMomentumDivergence(closes, macdObj.hist, swings);
   const htfBiasRaw = computeHtfBias(closed, timeframe);
-  const htfBias = htfBiasRaw === null ? (lastPrice >= ma200 ? 1 : -1) : htfBiasRaw;
+  const htfBias = htfBiasRaw === null ? 0 : htfBiasRaw;
   // Combined Multi-Factor Scoring (0 - 100)
   // 1. Trend & Moving Average Stack (EMA 20/50, SMA 100, MA 200, VWAP)
   let trendScore = 50;
@@ -1051,37 +1062,35 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const volAvg20 = vols20.length > 1 ? vols20.slice(0, -1).reduce((a, b) => a + b, 0) / (vols20.length - 1) : 0;
   const volRecent = Math.max(Number(closed[lastIdx].volume) || 0, Number(closed[lastIdx - 1] && closed[lastIdx - 1].volume) || 0, Number(closed[lastIdx - 2] && closed[lastIdx - 2].volume) || 0);
   const volImpulse = volAvg20 > 0 ? (volRecent >= 1.05 * volAvg20 || (meta.assetClass !== 'crypto' && volRecent >= 0.90 * volAvg20)) : true;
-  // SQUEEZE wajib RESOLUSI: "siap breakout" bukan izin entry.
-  // Ambang batas diselaraskan per kelas aset (forex 0.20%, komoditas/logam 0.32%, kripto 1.25%).
+  const trendStrongLong = ema20 > ema50 && lastPrice > ema50;
+  const trendStrongShort = ema20 < ema50 && lastPrice < ema50;
   const squeezeOn = bbWidth < squeezeThresh;
   const squeezeBreakLong = !squeezeOn || (lastPrice > bbUpper && macdHist > 0) || (lastPrice > ema20 && macdHist > 0 && rsi > 48);
   const squeezeBreakShort = !squeezeOn || (lastPrice < bbLower && macdHist < 0) || (lastPrice < ema20 && macdHist < 0 && rsi < 52);
   const squeezeBlockedDir = softBias === 'LONG' ? !squeezeBreakLong : softBias === 'SHORT' ? !squeezeBreakShort : false;
-  const seqOkLong = modern.smcBias > 0 && (modern.sweepBias > 0 || modern.smcStatus.toUpperCase().includes('BULLISH')) && volImpulse;
-  const seqOkShort = modern.smcBias < 0 && (modern.sweepBias < 0 || modern.smcStatus.toUpperCase().includes('BEARISH')) && volImpulse;
+  const seqOkLong = (modern.smcBias > 0 || trendStrongLong) && (modern.sweepBias > 0 || modern.smcStatus.toUpperCase().includes('BULLISH') || trendStrongLong) && (volImpulse || brain === 'SNIPER');
+  const seqOkShort = (modern.smcBias < 0 || trendStrongShort) && (modern.sweepBias < 0 || modern.smcStatus.toUpperCase().includes('BEARISH') || trendStrongShort) && (volImpulse || brain === 'SNIPER');
   const dirVetoes = softBias === 'LONG' ? vetoes.long : softBias === 'SHORT' ? vetoes.short : [];
   const vetoFree = dirVetoes.length === 0;
   const seqOk = softBias === 'LONG' ? seqOkLong : softBias === 'SHORT' ? seqOkShort : false;
-  const erOk = brain === 'SCALP' ? (erValue >= 0.17 || volImpulse) : (erValue >= 0.22);
+  const erOk = brain === 'SCALP' ? (erValue >= 0.17 || volImpulse) : (erValue >= 0.18 || volImpulse || trendStrongLong || trendStrongShort);
   // GERBANG PER-OTAK (v2026.51): SCALP dilarang melawan tape (tekanan orderflow
   // berlawanan arah); SNIPER dilarang beli di premium/jual di diskon & wajib BOS/HTF searah.
   const scalpPressureVeto = brain === 'SCALP' && ((softBias === 'LONG' && imbPct <= 38) || (softBias === 'SHORT' && imbPct >= 62));
-  const trendStrongLong = ema20 > ema50 && lastPrice > ema50;
-  const trendStrongShort = ema20 < ema50 && lastPrice < ema50;
-  const premThresholdLong = trendStrongLong ? 82 : 72;
-  const discThresholdShort = trendStrongShort ? 18 : 28;
+  const premThresholdLong = trendStrongLong ? 84 : 74;
+  const discThresholdShort = trendStrongShort ? 16 : 26;
   const sniperPremiumVeto = brain === 'SNIPER' && ((softBias === 'LONG' && pos90 >= premThresholdLong && bosDir <= 0) || (softBias === 'SHORT' && pos90 <= discThresholdShort && bosDir >= 0));
-  const sniperStructVeto = brain === 'SNIPER' && ((softBias === 'LONG' && bosDir < 0 && htfBias <= 0) || (softBias === 'SHORT' && bosDir > 0 && htfBias >= 0));
+  const sniperStructVeto = brain === 'SNIPER' && ((softBias === 'LONG' && bosDir < 0 && htfBias < 0) || (softBias === 'SHORT' && bosDir > 0 && htfBias > 0));
   const brainVeto = scalpPressureVeto || sniperPremiumVeto || sniperStructVeto;
   // VETO ATLAS ICT (v2026.52): CISD lawan arah = status pengiriman sudah berbalik
-  // (sinyal reversal ICT); FOMO zone = harga >2.2 ATR di luar zona OTE searah.
-  const cisdCounterVeto = !!(ict && ict.cisd && softBias !== 'NEUTRAL'
+  // (sinyal reversal ICT); FOMO zone = harga di luar batas OTE & dealing range.
+  const cisdCounterVeto = !!(ict && ict.cisd && softBias !== 'NEUTRAL' && !trendStrongLong && !trendStrongShort
     && ((softBias === 'LONG' && ict.cisd.dir === -1) || (softBias === 'SHORT' && ict.cisd.dir === 1)));
   const hasBos = (modern.smcStatus || '').toUpperCase().includes('BOS') || bosDir !== 0;
-  const fomoPad = brain === 'SCALP' ? 3.0 : (hasBos ? 3.2 : 2.2); // scalp & breakout tren toleran jarak lebih lebar
+  const fomoPad = brain === 'SCALP' ? 3.0 : (hasBos || trendStrongLong || trendStrongShort ? 4.5 : 3.2);
   const fomoVeto = !!(ict && ict.ote && softBias !== 'NEUTRAL'
-    && ((softBias === 'LONG' && lastPrice > ict.ote.longZone.top + fomoPad * atr)
-      || (softBias === 'SHORT' && lastPrice < ict.ote.shortZone.bottom - fomoPad * atr)));
+    && ((softBias === 'LONG' && lastPrice > rangeHi && lastPrice > ict.ote.longZone.top + fomoPad * atr)
+      || (softBias === 'SHORT' && lastPrice < rangeLo && lastPrice < ict.ote.shortZone.bottom - fomoPad * atr)));
   const ictVeto = cisdCounterVeto || fomoVeto;
   // Skor KEYAKINAN netral-arah (0-100): SHORT kuat = angka BESAR (bukan kecil) —
   // skor publik selalu bermakna "seberapa layak sinyal ini", arah dibawa badge arah.
@@ -1098,7 +1107,10 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const persistLong = bodyUp(cP1) && bodyUp(cP0) && Number(cP1.close) > Number(cP0.close);
   const persistShort = bodyDn(cP1) && bodyDn(cP0) && Number(cP1.close) < Number(cP0.close);
   let persistOk = softBias === 'LONG' ? persistLong : softBias === 'SHORT' ? persistShort : false;
-  if (!persistOk && softBias !== 'NEUTRAL' && volImpulse && qualityScore >= PRO_MIN_SCORE + 10) persistOk = true;
+  if (!persistOk && softBias !== 'NEUTRAL') {
+    if (volImpulse && qualityScore >= PRO_MIN_SCORE + 10) persistOk = true;
+    else if (brain === 'SNIPER' && ((softBias === 'LONG' && (bodyUp(cP1) || Number(cP1.close) >= Number(cP0.close))) || (softBias === 'SHORT' && (bodyDn(cP1) || Number(cP1.close) <= Number(cP0.close)))) && qualityScore >= PRO_MIN_SCORE) persistOk = true;
+  }
   // Sinyal bertingkat: ELITE (>=84 & WR>=78) atau PRO (>=64 & WR>=55). Kedua tier
   // wajib: nol hard-veto + urutan Sweep->MSS + struktur bersih (anti-jebakan tetap mutlak).
   const expectancyOk = backtest.disabled ? false : (backtest.expectancyR > 0);

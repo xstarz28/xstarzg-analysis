@@ -225,7 +225,14 @@ export function registerDynamicInstrument(inst) {
 }
 export function getInstrumentMeta(symbol) {
   const clean = String(symbol || 'BTC/USDT').trim().toUpperCase();
-  const found = DEFAULT_INSTRUMENTS.find(i => i.symbol.toUpperCase() === clean || i.providerSymbol.toUpperCase() === clean);
+  const found = DEFAULT_INSTRUMENTS.find(i =>
+    i.symbol.toUpperCase() === clean ||
+    i.providerSymbol.toUpperCase() === clean ||
+    i.symbol.toUpperCase() === clean + '/USDT' ||
+    i.providerSymbol.toUpperCase() === clean + 'USDT' ||
+    (clean.endsWith('/USDT') && i.symbol.toUpperCase() === clean.replace('/USDT', '')) ||
+    (clean.endsWith('/USDT') && i.providerSymbol.toUpperCase() === clean.replace('/USDT', 'USDT'))
+  );
   if (found) return found;
   if (clean.endsWith('/USDT') || clean.endsWith('USDT')) {
     const base = clean.replace('/USDT', '').replace('USDT', '');
