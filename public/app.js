@@ -6170,6 +6170,8 @@ function saveSession() {
       symbol: state.symbol, tf: state.tf, mode: state.mode, subMode: state.subMode,
       radarHorizon: state.radarHorizon, at: Date.now()
     }));
+    var tok = (state.user && (state.user.ownerToken || state.user.authToken)) || '';
+    if (tok) localStorage.setItem('xstarzg_jwt', tok);
   } catch (e) {}
 }
 function loadSession() {
@@ -6183,6 +6185,10 @@ function loadSession() {
     if (!user || !user.email) return null;
     if (user.tier === 'VIP' && user.vipUntil && Date.now() > user.vipUntil) user.tier = 'FREE';
     p.user = user;
+    var tok = (user.ownerToken || user.authToken) || '';
+    if (tok) {
+      try { localStorage.setItem('xstarzg_jwt', tok); } catch (e) {}
+    }
     return p;
   } catch (e) { return null; }
 }
@@ -6502,10 +6508,14 @@ function serverRegister(email, name) {
 }
 // Pastikan akun punya JWT server (sesi publik diterbitkan /api/auth/register).
 function ensureAuthToken() {
+  if (state.user && state.user.ownerToken) return Promise.resolve(state.user.ownerToken);
   if (state.user && state.user.authToken) return Promise.resolve(state.user.authToken);
-  if (!state.user || !state.user.email || /@xstarzg\.local$/.test(state.user.email)) return Promise.reject(new Error('no-login'));
+  var storedJwt = '';
+  try { storedJwt = localStorage.getItem('xstarzg_jwt') || ''; } catch (e) {}
+  if (storedJwt) return Promise.resolve(storedJwt);
+  if (!state.user || !state.user.email || /@xstarzg\.local$/.test(state.user.email)) return Promise.reject(new Error('Silakan login terlebih dahulu.'));
   return serverRegister(state.user.email, state.user.name).then(function (d) {
-    if (!d || !d.ok || !d.token) throw new Error((d && d.error) || 'register-failed');
+    if (!d || !d.ok || !d.token) throw new Error((d && d.error) || 'Gagal otentikasi sesi');
     state.user.authToken = d.token;
     if (d.user && d.user.tier === 'VIP' && d.user.vipUntil) {
       state.user.tier = 'VIP';
@@ -6939,11 +6949,17 @@ function bindUiEvents() {
       }
 
       // Ambil deep-link aktivasi terenkripsi dari server
-      var token = localStorage.getItem('xstarzg_jwt') || '';
-      if (token) {
-        fetch('/api/notify/telegram-link', {
+      if (linkStart) {
+        linkStart.setAttribute('target', '_blank');
+        linkStart.style.opacity = '0.7';
+      }
+
+      ensureAuthToken().then(function (token) {
+        if (!token) return;
+        return fetch('/api/notify/telegram-link', {
           headers: { 'Authorization': 'Bearer ' + token }
         }).then(function (r) { return r.json(); }).then(function (d) {
+          if (linkStart) linkStart.style.opacity = '1';
           if (d && d.ok && d.deepLink && linkStart) {
             linkStart.href = d.deepLink;
           }
@@ -6954,8 +6970,10 @@ function bindUiEvents() {
               msgTgUidStatus.textContent = '✅ HP Anda sudah terhubung (ID: ' + d.linkedChatId + ')';
             }
           }
-        }).catch(function () {});
-      }
+        });
+      }).catch(function () {
+        if (linkStart) linkStart.style.opacity = '1';
+      });
     }
 
     if (modalTgVip) modalTgVip.classList.remove('hidden');
@@ -6995,32 +7013,38 @@ function bindUiEvents() {
         }
         return;
       }
-      var token = localStorage.getItem('xstarzg_jwt') || '';
       if (msgTgUidStatus) {
         msgTgUidStatus.style.color = '#38bdf8';
         msgTgUidStatus.textContent = '⏳ Menghubungkan ID ke database VIP...';
       }
-      fetch('/api/notify/telegram-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ chatId: cid })
-      }).then(function (r) { return r.json(); }).then(function (d) {
-        if (d && d.ok) {
-          if (msgTgUidStatus) {
-            msgTgUidStatus.style.color = '#10b981';
-            msgTgUidStatus.textContent = '✅ Berhasil terhubung! HP Anda akan menerima sinyal 24/7.';
-          }
-        } else {
-          if (msgTgUidStatus) {
-            msgTgUidStatus.style.color = '#f43f5e';
-            msgTgUidStatus.textContent = '❌ Gagal: ' + ((d && d.error) || 'Coba lagi.');
-          }
+      btnSaveTgUid.disabled = true;
+
+      ensureAuthToken().then(function (token) {
+        if (!token) throw new Error('Silakan login terlebih dahulu.');
+        return fetch('/api/notify/telegram-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ chatId: cid })
+        }).then(function (r) {
+          return r.json().then(function (d) {
+            if (!r.ok || !d.ok) {
+              throw new Error((d && (d.error || d.message)) || ('HTTP ' + r.status));
+            }
+            return d;
+          });
+        });
+      }).then(function (d) {
+        if (msgTgUidStatus) {
+          msgTgUidStatus.style.color = '#10b981';
+          msgTgUidStatus.textContent = '✅ Berhasil terhubung! HP Anda (' + cid + ') akan menerima sinyal 24/7.';
         }
       }).catch(function (e) {
         if (msgTgUidStatus) {
           msgTgUidStatus.style.color = '#f43f5e';
-          msgTgUidStatus.textContent = '❌ Error koneksi: ' + e.message;
+          msgTgUidStatus.textContent = '❌ Gagal: ' + (e.message || 'Coba lagi.');
         }
+      }).finally(function () {
+        btnSaveTgUid.disabled = false;
       });
     });
   }

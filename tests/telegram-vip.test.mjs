@@ -68,6 +68,7 @@ class MockD1 {
   constructor() {
     this.tables = {
       telegram_subscribers: new Map(),
+      telegram_activations: new Map(),
       users: new Map(),
       vip_entitlements: new Map()
     };
@@ -87,11 +88,18 @@ class MockD1 {
           const email = boundValues[0];
           return self.tables.vip_entitlements.get(email) || null;
         }
-        if (/SELECT chat_id, tier, vip_until FROM telegram_subscribers/i.test(query)) {
+        if (/SELECT chat_id FROM telegram_subscribers/i.test(query) || /SELECT chat_id, tier, vip_until FROM telegram_subscribers/i.test(query)) {
           const email = boundValues[0];
           for (const sub of self.tables.telegram_subscribers.values()) {
             if (sub.email === email) return sub;
           }
+          return null;
+        }
+        if (/SELECT\s+email.*FROM\s+telegram_activations/is.test(query)) {
+          const code = boundValues[0];
+          const now = boundValues[1] || Date.now();
+          const act = self.tables.telegram_activations.get(code);
+          if (act && act.expires_at > now) return act;
           return null;
         }
         if (/SELECT \* FROM users WHERE email/i.test(query)) {
@@ -101,7 +109,19 @@ class MockD1 {
         return null;
       },
       async run() {
-        if (/INSERT INTO telegram_subscribers/i.test(query)) {
+        if (/INSERT.*INTO telegram_activations/i.test(query)) {
+          const [code, email, tier, vip_until, is_owner, is_affiliate, expires_at] = boundValues;
+          self.tables.telegram_activations.set(code, {
+            code, email, tier, vip_until, is_owner, is_affiliate, expires_at
+          });
+          return { success: true };
+        }
+        if (/DELETE FROM telegram_activations/i.test(query)) {
+          const code = boundValues[0];
+          self.tables.telegram_activations.delete(code);
+          return { success: true };
+        }
+        if (/INSERT.*INTO telegram_subscribers/i.test(query)) {
           const [chat_id, email, tier, vip_until, is_owner, is_affiliate, registered_at] = boundValues;
           self.tables.telegram_subscribers.set(String(chat_id), {
             chat_id: String(chat_id),
@@ -184,7 +204,98 @@ await asyncTest('telegram-link generates signed deep-link for VIP user', async (
   assert.strictEqual(data.ok, true);
   assert.strictEqual(data.vip, true);
   assert.ok(data.deepLink.startsWith('https://t.me/xstarzg_vip_bot?start='));
-  assert.ok(data.authToken.length > 20);
+  assert.ok(data.activationCode.length === 32);
+  assert.ok(data.activationCode.length <= 64); // Strict Telegram deep link parameter requirement
+});
+
+await asyncTest('telegram-link auto-discovers bot username from getMe when TELEGRAM_BOT_USERNAME is not set', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (url.includes('api.telegram.org') && url.includes('/getMe')) {
+      return new Response(JSON.stringify({
+        ok: true,
+        result: { username: 'auto_discovered_signals_bot' }
+      }), { status: 200 });
+    }
+    return originalFetch(url);
+  };
+
+  try {
+    const env = {
+      DB: new MockD1(),
+      TELEGRAM_BOT_TOKEN: '12345678:BOT_TOKEN_XYZ',
+      JWT_SECRET: 'test_jwt_secret_123'
+    };
+
+    const vipToken = await signJwt({
+      email: 'owner@local.com',
+      tier: 'OWNER_VIP'
+    }, env.JWT_SECRET);
+
+    const req = new Request('https://xstarzg.com/api/notify/telegram-link', {
+      headers: { 'Authorization': `Bearer ${vipToken}` }
+    });
+
+    const res = await handleLink({ request: req, env });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.botUsername, 'auto_discovered_signals_bot');
+    assert.ok(data.deepLink.startsWith('https://t.me/auto_discovered_signals_bot?start='));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await asyncTest('manual chat ID link saves subscriber and dispatches confirmation message', async () => {
+  const mockDb = new MockD1();
+  let sentMessages = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url.includes('api.telegram.org')) {
+      const body = JSON.parse(options.body);
+      sentMessages.push(body);
+      return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+    }
+    return originalFetch(url, options);
+  };
+
+  try {
+    const env = {
+      DB: mockDb,
+      TELEGRAM_BOT_TOKEN: '12345678:TEST_TOKEN',
+      JWT_SECRET: 'test_jwt_secret_123'
+    };
+
+    const vipToken = await signJwt({
+      email: 'sevenfoldarmy2822@gmail.com',
+      tier: 'OWNER_VIP'
+    }, env.JWT_SECRET);
+
+    const req = new Request('https://xstarzg.com/api/notify/telegram-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${vipToken}` },
+      body: JSON.stringify({ chatId: '1287273759' })
+    });
+
+    const res = await handleLink({ request: req, env });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.ok, true);
+    assert.strictEqual(data.chatId, '1287273759');
+
+    // Subscriber is recorded
+    const saved = mockDb.tables.telegram_subscribers.get('1287273759');
+    assert.ok(saved);
+    assert.strictEqual(saved.chat_id, '1287273759');
+    assert.strictEqual(saved.email, 'sevenfoldarmy2822@gmail.com');
+
+    // Bot sent confirmation message to HP
+    assert.strictEqual(sentMessages.length, 1);
+    assert.strictEqual(String(sentMessages[0].chat_id), '1287273759');
+    assert.ok(sentMessages[0].text.includes('BERHASIL TERHUBUNG'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 // 3. /api/notify/telegram-webhook test
@@ -295,6 +406,67 @@ await asyncTest('telegram-webhook grants access to VIP trader with valid /start 
     assert.ok(saved);
     assert.strictEqual(saved.chat_id, '777666555');
     assert.strictEqual(saved.tier, 'VIP');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await asyncTest('telegram-webhook grants access via short activation code from deep link', async () => {
+  const mockDb = new MockD1();
+  const env = {
+    DB: mockDb,
+    TELEGRAM_BOT_TOKEN: '12345678:TEST_TOKEN',
+    JWT_SECRET: 'test_jwt_secret_123'
+  };
+
+  let sentMessages = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url.includes('api.telegram.org')) {
+      const body = JSON.parse(options.body);
+      sentMessages.push(body);
+      return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+    }
+    return originalFetch(url, options);
+  };
+
+  try {
+    const actCode = 'abc123def45678901234567890abcdef';
+    // Insert code to activations table
+    await mockDb.prepare('INSERT INTO telegram_activations VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(actCode, 'vip_mobile@pro.com', 'VIP', Date.now() + 86400000 * 30, 0, 0, Date.now() + 86400000)
+      .run();
+
+    const update = {
+      message: {
+        chat: { id: 888999111 },
+        from: { id: 888999111, first_name: 'MobileTrader', username: 'mobiletrader' },
+        text: `/start ${actCode}`
+      }
+    };
+
+    const req = new Request('https://xstarzg.com/api/notify/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update)
+    });
+
+    const res = await handleWebhook({ request: req, env });
+    assert.strictEqual(res.status, 200);
+
+    // Verify confirmation message was sent
+    assert.strictEqual(sentMessages.length, 1);
+    assert.strictEqual(String(sentMessages[0].chat_id), '888999111');
+    assert.ok(sentMessages[0].text.includes('BERHASIL TERVERIFIKASI'));
+
+    // Verify subscriber was saved to D1 database!
+    const saved = mockDb.tables.telegram_subscribers.get('888999111');
+    assert.ok(saved);
+    assert.strictEqual(saved.chat_id, '888999111');
+    assert.strictEqual(saved.email, 'vip_mobile@pro.com');
+
+    // Code is deleted after use
+    assert.strictEqual(mockDb.tables.telegram_activations.has(actCode), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
