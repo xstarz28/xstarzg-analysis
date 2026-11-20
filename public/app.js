@@ -1324,8 +1324,6 @@ function drawChartLevels(analysis) {
         add(slP, '#f43f5e', 'SL HIT ✗', 0);
         add(entryP, 'rgba(56,189,248,0.3)', 'ENTRY', 2);
       } else {
-        add(L.entry, 'rgba(56,189,248,0.3)', 'ENTRY', 2);
-      } else {
         add(L.entry, '#38bdf8', 'ENTRY', 0);
         add(L.sl, '#f43f5e', 'STOP LOSS', 2);
         add(L.tp1, '#10b981', 'TP1', 2);
@@ -6148,23 +6146,24 @@ function startRadarAutoPilot() {
   }, 60000);
 }
 function bootCore() {
-  bindUiEvents();
-  var saved = loadSession();
+  try { bindUiEvents(); } catch (e) {}
+  var saved = null;
+  try { saved = loadSession(); } catch (e) {}
   if (saved && saved.user) {
     // FIX refresh-kickout: sesi login tersimpan -> langsung kembali ke dashboard
     // analisa dengan simbol/timeframe/mode terakhir (tanpa login ulang).
     state.user = saved.user;
-    applyWorkspacePrefs(saved);
-    renderInstrumentCatalog();
-    updateUserUi();
-    verifyOwnerSession();
-    verifyVipSession();
-    syncModeSections();
-    enterWorkspace();
+    try { applyWorkspacePrefs(saved); } catch (e) {}
+    try { renderInstrumentCatalog(); } catch (e) {}
+    try { updateUserUi(); } catch (e) {}
+    try { verifyOwnerSession(); } catch (e) {}
+    try { verifyVipSession(); } catch (e) {}
+    try { syncModeSections(); } catch (e) {}
+    try { enterWorkspace(); } catch (e) {}
   } else {
-    renderInstrumentCatalog();
-    updateUserUi();
-    showScreen('front');
+    try { renderInstrumentCatalog(); } catch (e) {}
+    try { updateUserUi(); } catch (e) {}
+    try { showScreen('front'); } catch (e) {}
   }
   // Muat mesin quant bersama (hasil penyempurnaan sesi sebelumnya)
   // Engine kuantitatif dimuat lewat berkas modul eksternal /js/engine-boot.js
