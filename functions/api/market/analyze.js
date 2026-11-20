@@ -328,17 +328,6 @@ async function fetchYahooCandles(symbol, tf) {
       } catch (e) {}
     }
   }
-
-      const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || candles[0].close;
-      const last = candles[candles.length - 1];
-      if (!cfg.resampleSec && live > 0 && Math.abs(live - last.close) < last.close * 0.15) {
-        last.close = live;
-        if (live > last.high) last.high = live;
-        if (live < last.low) last.low = live;
-      }
-      return { source: 'YAHOO_CANDLES:' + y, price: live, changePct: prev > 0 ? ((live - prev) / prev) * 100 : 0, candles };
-    } catch (e) {}
-  }
   return null;
 }
 function getTvTimeframeSuffix(tf) {
