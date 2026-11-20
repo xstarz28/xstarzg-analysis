@@ -5854,14 +5854,23 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   try { showAlarmToast(title, body); } catch (e) {}
   try { sendBrowserPushNotification(title, body); } catch (e) {}
 
-  // Kirim notifikasi darurat instan ke bot Telegram di HP trader
+  // Kirim notifikasi darurat instan ke bot Telegram di HP trader (Bahasa dinamis sesuai sistem)
   if (telegramConfig && telegramConfig.notifySlPlus && telegramConfig.botToken && telegramConfig.chatId) {
-    var tgSlPlusMsg = '🛡️ <b>[SL+ TERPICU — 0-RISK ALERT]</b>\n\n' +
+    var tgSlPlusMsg = isEn ? (
+      '🛡️ <b>[SL+ TRIGGERED — 0-RISK ALERT]</b>\n\n' +
+      'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ')\n' +
+      'Direction: <b>' + (lock.direction || '—') + '</b>\n' +
+      'Initial Entry: <b>' + (lock.entry ? formatPrice(lock.entry, symbol) : '—') + '</b>\n' +
+      'Move SL to: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk)</b>\n\n' +
+      '⚠️ <i>Price has entered the 0-Risk safety zone! Open MT5 on your phone now and move Stop Loss to the BE+ level above to protect 100% of your capital!</i>'
+    ) : (
+      '🛡️ <b>[SL+ TERPICU — 0-RISK ALERT]</b>\n\n' +
       'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ')\n' +
       'Arah: <b>' + (lock.direction || '—') + '</b>\n' +
       'Entry Awal: <b>' + (lock.entry ? formatPrice(lock.entry, symbol) : '—') + '</b>\n' +
       'Geser SL ke: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk)</b>\n\n' +
-      '⚠️ <i>Harga telah mencapai zona aman 0-Risk! Segera buka MT5 di HP Anda sekarang dan geser Stop Loss ke level BE+ di atas agar modal aman 100%!</i>';
+      '⚠️ <i>Harga telah mencapai zona aman 0-Risk! Segera buka MT5 di HP Anda sekarang dan geser Stop Loss ke level BE+ di atas agar modal aman 100%!</i>'
+    );
     try { sendTelegramAlert(tgSlPlusMsg); } catch (e) {}
   }
 }
@@ -5924,8 +5933,19 @@ function updateTelegramUi() {
   var btnMain = $id('btnOpenTelegramModal');
   var btnJnl = $id('btnOpenTelegramModalJnl');
 
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id' && curLang !== 'ms';
+
   if (txtEl) {
-    txtEl.textContent = isConfigured ? 'Telegram: Aktif (HP)' : 'Notif Telegram (HP)';
+    if (isConfigured) {
+      txtEl.textContent = (window.XSI18N && typeof window.XSI18N.t === 'function') ?
+        window.XSI18N.t('ui.tgActiveBadge', isEn ? 'Telegram: Active (Phone)' : 'Telegram: Aktif (HP)') :
+        (isEn ? 'Telegram: Active (Phone)' : 'Telegram: Aktif (HP)');
+    } else {
+      txtEl.textContent = (window.XSI18N && typeof window.XSI18N.t === 'function') ?
+        window.XSI18N.t('ui.tgBtn', isEn ? 'Telegram Alerts (Phone)' : 'Notif Telegram (HP)') :
+        (isEn ? 'Telegram Alerts (Phone)' : 'Notif Telegram (HP)');
+    }
   }
   if (btnMain) {
     if (isConfigured) {
@@ -6032,11 +6052,29 @@ function checkTelegramHighScoreSignal(a, item) {
   if (telegramConfig.lastSentMap[dedupKey]) return;
   telegramConfig.lastSentMap[dedupKey] = Date.now();
 
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id' && curLang !== 'ms';
+
   var hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
-  var dirEmoji = a.direction === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
+  var dirEmoji = a.direction === 'LONG' ?
+    (isEn ? '🟢 BUY / LONG' : '🟢 BELI / LONG') :
+    (isEn ? '🔴 SELL / SHORT' : '🔴 JUAL / SHORT');
   var tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
 
-  var tgMsg = '🚀 <b>[PELUANG BARU SKOR BESAR]</b>\n\n' +
+  var tgMsg = isEn ? (
+    '🚀 <b>[NEW HIGH-SCORE OPPORTUNITY]</b>\n\n' +
+    'Asset: <b>' + sym + '</b> (' + tf + ' • ' + hzLabel + ')\n' +
+    'Setup: <b>' + dirEmoji + ' (' + tierTxt + ')</b>\n' +
+    'Confidence Score: <b>' + score + '%</b>\n' +
+    'Market Regime: <i>' + (a.regime || 'Institutional Flow') + '</i>\n\n' +
+    '🎯 <b>Entry:</b> ' + formatPrice(L.entry, sym) + '\n' +
+    '🛡️ <b>Stop Loss:</b> ' + formatPrice(L.sl, sym) + '\n' +
+    '✅ <b>Take Profit 1:</b> ' + formatPrice(L.tp1, sym) + '\n' +
+    (L.tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(L.tp2, sym) + '\n') : '') +
+    (L.tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(L.tp3, sym) + '\n') : '') +
+    '\n📱 <i>Open MT5 on your phone and place a Limit Order at the Entry level above!</i>'
+  ) : (
+    '🚀 <b>[PELUANG BARU SKOR BESAR]</b>\n\n' +
     'Aset: <b>' + sym + '</b> (' + tf + ' • ' + hzLabel + ')\n' +
     'Setup: <b>' + dirEmoji + ' (' + tierTxt + ')</b>\n' +
     'Confidence Score: <b>' + score + '%</b>\n' +
@@ -6046,7 +6084,8 @@ function checkTelegramHighScoreSignal(a, item) {
     '✅ <b>Take Profit 1:</b> ' + formatPrice(L.tp1, sym) + '\n' +
     (L.tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(L.tp2, sym) + '\n') : '') +
     (L.tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(L.tp3, sym) + '\n') : '') +
-    '\n📱 <i>Buka MT5 di HP dan pasang Limit Order pada titik Entry di atas!</i>';
+    '\n📱 <i>Buka MT5 di HP dan pasang Limit Order pada titik Entry di atas!</i>'
+  );
 
   try { sendTelegramAlert(tgMsg); } catch (e) {}
 }
@@ -6798,6 +6837,17 @@ function bindUiEvents() {
   /* ---- Telegram Alerts modal & controls ---- */
   var modalTg = $id('telegramConfigModal');
   var statusMsgTg = $id('telegramStatusMsg');
+  var btnTutorTg = $id('btnToggleTgTutorial');
+  var tutorContent = $id('tgTutorialContent');
+  var tutorArrow = $id('tgTutorArrow');
+
+  if (btnTutorTg && tutorContent) {
+    btnTutorTg.addEventListener('click', function () {
+      var isHidden = tutorContent.style.display === 'none';
+      tutorContent.style.display = isHidden ? 'block' : 'none';
+      if (tutorArrow) tutorArrow.textContent = isHidden ? '▲' : '▼';
+    });
+  }
 
   function openTelegramModal() {
     updateTelegramUi();
@@ -6819,6 +6869,9 @@ function bindUiEvents() {
   }
 
   bind('btnSaveTelegramConfig', function () {
+    var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+    var isEn = curLang !== 'id' && curLang !== 'ms';
+
     var tokenEl = $id('inpTelegramBotToken');
     var chatEl = $id('inpTelegramChatId');
     var chkSlEl = $id('chkTelegramSlPlus');
@@ -6842,7 +6895,7 @@ function bindUiEvents() {
     savePersistedTelegramConfig();
     if (statusMsgTg) {
       statusMsgTg.style.color = '#10b981';
-      statusMsgTg.textContent = '✅ Pengaturan Telegram berhasil disimpan!';
+      statusMsgTg.textContent = isEn ? '✅ Telegram settings saved successfully!' : '✅ Pengaturan Telegram berhasil disimpan!';
     }
     setTimeout(function () {
       closeTelegramModal();
@@ -6850,6 +6903,9 @@ function bindUiEvents() {
   });
 
   bind('btnTestTelegram', function () {
+    var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+    var isEn = curLang !== 'id' && curLang !== 'ms';
+
     var tokenEl = $id('inpTelegramBotToken');
     var chatEl = $id('inpTelegramChatId');
     var t = tokenEl ? tokenEl.value.trim() : telegramConfig.botToken;
@@ -6858,7 +6914,9 @@ function bindUiEvents() {
     if (!t || !c) {
       if (statusMsgTg) {
         statusMsgTg.style.color = '#f43f5e';
-        statusMsgTg.textContent = '⚠️ Masukkan Bot Token dan Chat ID terlebih dahulu!';
+        statusMsgTg.textContent = isEn ?
+          '⚠️ Please enter both Bot Token and Chat ID first!' :
+          '⚠️ Masukkan Bot Token dan Chat ID terlebih dahulu!';
       }
       return;
     }
@@ -6868,25 +6926,38 @@ function bindUiEvents() {
 
     if (statusMsgTg) {
       statusMsgTg.style.color = '#38bdf8';
-      statusMsgTg.textContent = '⏳ Mengirim pesan uji coba ke Telegram...';
+      statusMsgTg.textContent = isEn ?
+        '⏳ Sending test message to Telegram...' :
+        '⏳ Mengirim pesan uji coba ke Telegram...';
     }
 
-    var testMsg = '✈️ <b>[XSTARZG — KONEKSI TELEGRAM BERHASIL!]</b>\n\n' +
+    var testMsg = isEn ? (
+      '✈️ <b>[XSTARZG — TELEGRAM CONNECTION SUCCESSFUL!]</b>\n\n' +
+      'Hello Trader! Your Telegram bot is now linked with XStarZG Engine.\n' +
+      'Alerts for <b>Live SL+ (0-Risk)</b> and <b>High-Score Institutional Setups</b> will automatically be delivered here.\n\n' +
+      '<i>Test Timestamp: ' + (new Date()).toLocaleTimeString() + '</i>'
+    ) : (
+      '✈️ <b>[XSTARZG — KONEKSI TELEGRAM BERHASIL!]</b>\n\n' +
       'Halo Trader! Bot Telegram Anda telah terhubung dengan XStarZG Engine.\n' +
       'Notifikasi <b>Live SL+ (0-Risk Alert)</b> dan <b>Peluang Skor Besar</b> akan otomatis dikirim ke HP Anda saat terpicu.\n\n' +
-      '<i>Waktu Uji: ' + (new Date()).toLocaleTimeString() + '</i>';
+      '<i>Waktu Uji: ' + (new Date()).toLocaleTimeString() + '</i>'
+    );
 
     sendTelegramAlert(testMsg).then(function (res) {
       if (res && res.ok) {
         if (statusMsgTg) {
           statusMsgTg.style.color = '#10b981';
-          statusMsgTg.textContent = '✅ Pesan berhasil terkirim ke HP Anda! Cek notifikasi Telegram.';
+          statusMsgTg.textContent = isEn ?
+            '✅ Message successfully sent to your phone! Please check Telegram.' :
+            '✅ Pesan berhasil terkirim ke HP Anda! Cek notifikasi Telegram.';
         }
         savePersistedTelegramConfig();
       } else {
         if (statusMsgTg) {
           statusMsgTg.style.color = '#f43f5e';
-          statusMsgTg.textContent = '❌ Gagal mengirim: ' + ((res && res.error) || 'Periksa Bot Token & Chat ID Anda.');
+          statusMsgTg.textContent = isEn ?
+            ('❌ Failed to send: ' + ((res && res.error) || 'Check your Bot Token & Chat ID.')) :
+            ('❌ Gagal mengirim: ' + ((res && res.error) || 'Periksa Bot Token & Chat ID Anda.'));
         }
       }
     });
@@ -7055,6 +7126,7 @@ function bootCore() {
       else renderOpportunityRadar(false);
       try { renderSignalJournal(); } catch (e) {}
       try { updateSlPlusNotifyUi(); } catch (e) {}
+      try { updateTelegramUi(); } catch (e) {}
       // Narasi analisis terakhir tetap — jalankan ulang analisis agar panel sisi ikut bahasa baru
       if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
     } catch (e) {}
