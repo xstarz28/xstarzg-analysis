@@ -2,6 +2,7 @@
 // Fokus: cache-bust versi, isolasi kalkulator dari generator sinyal, keberadaan
 // wiring lock / scan multi-TF / gerbang, dan kesehatan i18n.
 import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 
 const R = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const html = R('../public/index.html');
@@ -23,12 +24,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.46 (styles)', /styles\.css\?v=2026\.68/.test(html));
-chk('index.html memakai v=2026.46 (app.js)', /app\.js\?v=2026\.68/.test(html));
-chk('index.html memakai v=2026.46 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.68">/.test(html));
-chk('index.html memakai v=2026.46 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.68">/.test(html));
-chk('engine-boot import shared v=2026.46 (2x)', /quant-core\.js\?v=2026\.68/.test(boot) && /signal-engine\.js\?v=2026\.68/.test(boot));
-chk('i18n index import locale v=2026.46', /locales\/\$\{currentLang\}\.js\?v=2026\.68/.test(i18nIndex));
+chk('index.html memakai v=2026.70 (styles)', /styles\.css\?v=2026\.70/.test(html));
+chk('index.html memakai v=2026.70 (app.js)', /app\.js\?v=2026\.70/.test(html));
+chk('index.html memakai v=2026.70 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.70">/.test(html));
+chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
+chk('engine-boot import shared v=2026.70 (2x)', /quant-core\.js\?v=2026\.70/.test(boot) && /signal-engine\.js\?v=2026\.70/.test(boot));
+chk('i18n index import locale v=2026.70', /locales\/\$\{currentLang\}\.js\?v=2026\.70/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -373,6 +374,15 @@ chk('institutional confluence matrix & sentiment flow terminal widgets',
   html.includes('id="smartMoneyFlowTxt"') &&
   app.includes('function renderConfluenceMatrix(a)') &&
   app.includes('function renderSentimentFlow(a)'));
+
+let syntaxOk = false;
+try {
+  execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js', { stdio: 'pipe' });
+  syntaxOk = true;
+} catch (e) {
+  syntaxOk = false;
+}
+chk('sintaks JavaScript browser 100% valid tanpa syntax error (anti-freeze saat Ctrl+F5)', syntaxOk);
 
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
