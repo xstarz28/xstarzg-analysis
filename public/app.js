@@ -1782,6 +1782,8 @@ function updateModeChip() {
   var cls = 'futures', txt = T('ui.chipFutures', 'FUTURES • 2-ARAH + LEV');
   if (state.mode === 'investor') { cls = 'investor'; txt = T('ui.chipInvestor', 'INVESTOR • SPOT DCA'); }
   else if (state.mode === 'meme') { cls = 'meme'; txt = T('ui.chipMeme', '🚀 DEX MEME • ANTI-RUG RADAR'); }
+  else if (state.mode === 'news') { cls = 'news'; txt = '📰 KALENDER EKONOMI & BERITA'; }
+  else if (state.mode === 'journal') { cls = 'journal'; txt = '📒 JURNAL SINYAL TERVERIFIKASI'; }
   else if (state.subMode === 'spot' || (getMeta(state.symbol).assetClass === 'stocks')) { cls = 'spot'; txt = T('ui.chipSpot', 'SPOT • 1-ARAH (TANPA LEV)'); }
   chip.className = 'mode-chip ' + cls;
   chip.textContent = txt;
@@ -4937,6 +4939,9 @@ function gotoInstrument(sym, tf) {
     renderInstrumentCatalog();
     return;
   }
+  if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') {
+    setMode('trader');
+  }
   state.symbol = sym;
   if (tf && TF_SECONDS[tf]) {
     state.tf = tf;
@@ -5222,12 +5227,15 @@ function applyWorkspacePrefs(saved) {
     }
     if (tfOk) { state.tf = saved.tf; state.timeframe = saved.tf; }
   }
-  if (saved.mode === 'investor' || saved.mode === 'trader' || saved.mode === 'meme') {
+  if (saved.mode === 'investor' || saved.mode === 'trader' || saved.mode === 'meme' || saved.mode === 'news' || saved.mode === 'journal') {
     state.mode = saved.mode;
     var t = $id('btnModeTrader'), inv = $id('btnModeInvestor'), mem = $id('btnModeMeme');
+    var nw = $id('btnModeNews'), jn = $id('btnModeJournal');
     if (t) t.classList.toggle('active', saved.mode === 'trader');
     if (inv) inv.classList.toggle('active', saved.mode === 'investor');
     if (mem) mem.classList.toggle('active', saved.mode === 'meme');
+    if (nw) nw.classList.toggle('active', saved.mode === 'news');
+    if (jn) jn.classList.toggle('active', saved.mode === 'journal');
     var wrap = $id('traderSubModeWrap');
     if (wrap) wrap.style.display = saved.mode === 'trader' ? 'flex' : 'none';
   }
@@ -5244,18 +5252,36 @@ function applyWorkspacePrefs(saved) {
   if (typeof updateModeChip === 'function') updateModeChip();
   if (typeof syncTfBarForMode === 'function') syncTfBarForMode();
 }
-// Sinkronkan workspace & section rekomendasi: radar trader vs kurasi portofolio investor vs DEX meme radar.
+// Sinkronkan workspace & section rekomendasi: radar trader vs kurasi portofolio investor vs DEX meme radar vs kalender berita vs jurnal sinyal.
 function syncModeSections() {
   var tiWrap = $id('traderInvestorWorkspaceWrap');
   var memeWrap = $id('memeWorkspaceWrap');
+  var newsWrap = $id('newsWorkspaceWrap');
+  var journalWrap = $id('journalWorkspaceWrap');
   var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection');
   var isInv = state.mode === 'investor';
   var isMeme = state.mode === 'meme';
+  var isNews = state.mode === 'news';
+  var isJournal = state.mode === 'journal';
 
-  if (tiWrap) tiWrap.classList.toggle('hidden', isMeme);
+  if (tiWrap) tiWrap.classList.toggle('hidden', isMeme || isNews || isJournal);
   if (memeWrap) memeWrap.classList.toggle('hidden', !isMeme);
-  if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme);
+  if (newsWrap) newsWrap.classList.toggle('hidden', !isNews);
+  if (journalWrap) journalWrap.classList.toggle('hidden', !isJournal);
+  if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
   if (invSec) invSec.classList.toggle('hidden', !isInv);
+  if (typeof syncModeButtonLabels === 'function') syncModeButtonLabels();
+}
+function syncModeButtonLabels() {
+  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
+  var bn = $id('btnModeNews');
+  var bj = $id('btnModeJournal');
+  if (bn) bn.textContent = isEn ? '📰 ECONOMIC CALENDAR' : '📰 KALENDER EKONOMI';
+  if (bj) bj.textContent = isEn ? '📒 SIGNAL JOURNAL' : '📒 JURNAL SINYAL';
+  var bBacks = document.querySelectorAll('.btn-back-to-trader');
+  Array.prototype.forEach.call(bBacks, function (b) {
+    b.textContent = isEn ? '← Back to Analysis Terminal' : '← Kembali ke Terminal Analisis';
+  });
 }
 // Turunkan tier sesi owner yang tidak bisa dibuktikan ke server (defense-in-depth).
 function downgradeOwnerSession() {
@@ -5719,8 +5745,13 @@ function bindUiEvents() {
   bind('btnModeTrader', function () { setMode('trader'); });
   bind('btnModeInvestor', function () { setMode('investor'); });
   bind('btnModeMeme', function () { setMode('meme'); });
+  bind('btnModeNews', function () { setMode('news'); });
+  bind('btnModeJournal', function () { setMode('journal'); });
   bind('btnSubFutures', function () { setSubMode('futures'); });
   bind('btnSubSpot', function () { setSubMode('spot'); });
+  Array.prototype.forEach.call(document.querySelectorAll('.btn-back-to-trader'), function (b) {
+    b.addEventListener('click', function () { setMode('trader'); });
+  });
   var btnSess = $id('btnUserSession');
   if (btnSess) btnSess.addEventListener('click', function (e) {
     e.stopPropagation();
@@ -5856,9 +5887,12 @@ function setMode(mode) {
   state.mode = mode;
   syncTfBarForMode();
   var t = $id('btnModeTrader'), i = $id('btnModeInvestor'), m = $id('btnModeMeme');
+  var nw = $id('btnModeNews'), jn = $id('btnModeJournal');
   if (t) t.classList.toggle('active', mode === 'trader');
   if (i) i.classList.toggle('active', mode === 'investor');
   if (m) m.classList.toggle('active', mode === 'meme');
+  if (nw) nw.classList.toggle('active', mode === 'news');
+  if (jn) jn.classList.toggle('active', mode === 'journal');
   var sub = $id('traderSubModeWrap');
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
   // Investor: rekomendasi diframe sebagai keputusan beli-nyata; scalping bukan untuk investor
@@ -5869,12 +5903,14 @@ function setMode(mode) {
   // engine terbaru (anti kartu basi yg kontradiksi dengan workspace).
   if (mode === 'investor') renderInvestorPicks(true);
   else if (mode === 'meme') renderMemePicks(true);
+  else if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
+  else if (mode === 'journal') renderSignalJournal();
   else renderOpportunityRadar(true);
   renderMacroMap(); // strip peta makro hanya relevan di workspace investor
   updateModeChip();
   syncTfBarForMode();
   saveSession();
-  if (typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
+  if ((mode === 'trader' || mode === 'investor') && typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
 }
 function setSubMode(sub) {
   state.subMode = sub;
@@ -5989,6 +6025,7 @@ function bootCore() {
       updateModeChip();
       syncTfBarForMode();
       syncHorizonTabs();
+      try { syncModeButtonLabels(); } catch (e) {}
       // force=false: gunakan cache radar/kurasi bila ada (tidak memicu fetch ulang)
       if (state.mode === 'investor') renderInvestorPicks(false);
       else renderOpportunityRadar(false);
