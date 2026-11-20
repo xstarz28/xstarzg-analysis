@@ -365,5 +365,14 @@ chk('sinkronisasi mutlak chart & keterangan panel via effectiveLevels oc.lock + 
   eng.includes("const minTp1R = brainMode === 'SCALP' ? 2.0 : 1.0;") &&
   eng.includes("const tp1Pad = brainMode === 'SCALP' ? 2.0 : 1.1;"));
 
+chk('institutional confluence matrix & sentiment flow terminal widgets',
+  html.includes('id="confluenceMatrixBox"') &&
+  html.includes('id="confluenceMatrixGrid"') &&
+  html.includes('id="sentimentFlowBox"') &&
+  html.includes('id="sentimentIndexVal"') &&
+  html.includes('id="smartMoneyFlowTxt"') &&
+  app.includes('function renderConfluenceMatrix(a)') &&
+  app.includes('function renderSentimentFlow(a)'));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

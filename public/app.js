@@ -1794,7 +1794,125 @@ function renderPanels(a) {
   if (!marginProduct) { setTxt('valRecLeverage', '1x (SPOT)'); setTxt('valLiqPrice', '--'); }
   // v2026.59: toggle SPOT/FUTURES dibiarkan terlihat di SEMUA aset pada mode trader
   // (dipulihkan atas permintaan user — tombol sempat dianggap "hilang").
+  renderConfluenceMatrix(a);
+  renderSentimentFlow(a);
   updateRiskSizing();
+}
+function renderConfluenceMatrix(a) {
+  var grid = $id('confluenceMatrixGrid');
+  if (!grid || !a) return;
+  var ind = a.indicators || {};
+  var p = num(a.lastPrice);
+
+  // 1. Trend Structure
+  var isEmaUp = num(ind.ema20) > num(ind.ema50);
+  var isAboveMa200 = p >= num(ind.ma200 || ind.ema200);
+  var trendVal, trendCls;
+  if (isEmaUp && isAboveMa200) { trendVal = 'BULLISH ▲'; trendCls = 'bull'; }
+  else if (!isEmaUp && !isAboveMa200) { trendVal = 'BEARISH ▼'; trendCls = 'bear'; }
+  else if (isEmaUp) { trendVal = 'RECOVERY ▲'; trendCls = 'bull'; }
+  else { trendVal = 'PULLBACK ▼'; trendCls = 'bear'; }
+
+  // 2. SMC Structure (BOS / CHoCH)
+  var smcSt = String(ind.smcStatus || '');
+  var smcVal = 'EQUILIBRIUM'; var smcCls = 'neut';
+  if (smcSt.indexOf('BULLISH CHoCH') > -1) { smcVal = 'CHoCH ▲'; smcCls = 'bull'; }
+  else if (smcSt.indexOf('BEARISH CHoCH') > -1) { smcVal = 'CHoCH ▼'; smcCls = 'bear'; }
+  else if (smcSt.indexOf('BULLISH BOS') > -1 || smcSt.indexOf('HIGHER') > -1) { smcVal = 'BOS ▲'; smcCls = 'bull'; }
+  else if (smcSt.indexOf('BEARISH BOS') > -1 || smcSt.indexOf('LOWER') > -1) { smcVal = 'BOS ▼'; smcCls = 'bear'; }
+
+  // 3. Institutional VWAP
+  var vwapP = num(ind.vwap);
+  var vwapVal = (p >= vwapP) ? 'PREMIUM (BULL)' : 'DISCOUNT (BEAR)';
+  var vwapCls = (p >= vwapP) ? 'bull' : 'bear';
+
+  // 4. Momentum (RSI & MACD)
+  var rsiVal = num(ind.rsi, 50);
+  var macdVal = num(ind.macdHist, 0);
+  var momVal = 'NEUTRAL'; var momCls = 'neut';
+  if (rsiVal >= 60 && macdVal >= 0) { momVal = 'STRONG BULL'; momCls = 'bull'; }
+  else if (rsiVal <= 40 && macdVal <= 0) { momVal = 'STRONG BEAR'; momCls = 'bear'; }
+  else if (macdVal >= 0) { momVal = 'BULL MOMENTUM'; momCls = 'bull'; }
+  else { momVal = 'BEAR MOMENTUM'; momCls = 'bear'; }
+
+  // 5. Liquidity Sweep (BSL / SSL)
+  var sweepSt = String(ind.liquiditySweep || '');
+  var sweepVal = 'INTACT'; var sweepCls = 'neut';
+  if (sweepSt.indexOf('▲') > -1 || sweepSt.indexOf('SSL') > -1) { sweepVal = 'SSL SWEPT ▲'; sweepCls = 'bull'; }
+  else if (sweepSt.indexOf('▼') > -1 || sweepSt.indexOf('BSL') > -1) { sweepVal = 'BSL SWEPT ▼'; sweepCls = 'bear'; }
+
+  // 6. Order Block / FVG Zone
+  var fvgSt = String(ind.fvgNote || '');
+  var obVal = 'BALANCED'; var obCls = 'neut';
+  if (fvgSt.indexOf('Bullish') > -1 || ind.demandZoneText) { obVal = 'DEMAND MITIGATED'; obCls = 'bull'; }
+  else if (fvgSt.indexOf('Bearish') > -1 || ind.supplyZoneText) { obVal = 'SUPPLY MITIGATED'; obCls = 'bear'; }
+
+  var items = [
+    { k: 'TREND', v: trendVal, c: trendCls },
+    { k: 'SMC', v: smcVal, c: smcCls },
+    { k: 'VWAP', v: vwapVal, c: vwapCls },
+    { k: 'MOMENTUM', v: momVal, c: momCls },
+    { k: 'LIQUIDITY', v: sweepVal, c: sweepCls },
+    { k: 'ZONE / FVG', v: obVal, c: obCls }
+  ];
+
+  var html = '';
+  items.forEach(function (it) {
+    var bg = it.c === 'bull' ? 'rgba(16,185,129,0.16)' : it.c === 'bear' ? 'rgba(244,63,94,0.16)' : 'rgba(148,163,184,0.12)';
+    var col = it.c === 'bull' ? '#34d399' : it.c === 'bear' ? '#fb7185' : '#cbd5e1';
+    var border = it.c === 'bull' ? 'rgba(16,185,129,0.35)' : it.c === 'bear' ? 'rgba(244,63,94,0.35)' : 'rgba(148,163,184,0.22)';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:rgba(15,23,42,0.85);border:1px solid rgba(51,65,85,0.45);border-radius:6px;">' +
+      '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;letter-spacing:0.3px;">' + it.k + '</span>' +
+      '<span style="font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:4px;background:' + bg + ';color:' + col + ';border:1px solid ' + border + ';">' + it.v + '</span>' +
+    '</div>';
+  });
+  grid.innerHTML = html;
+}
+function renderSentimentFlow(a) {
+  var box = $id('sentimentFlowBox');
+  if (!box || !a) return;
+  var ind = a.indicators || {};
+  var fc = a.fundamentalCot || {};
+  var rsiVal = num(ind.rsi, 50);
+  var score = num(a.confluenceScore, 50);
+  var isLong = a.direction === 'LONG';
+  var isShort = a.direction === 'SHORT';
+
+  var sentimentScore = Math.round(Math.max(5, Math.min(95, rsiVal * 0.7 + (isLong ? score * 0.3 : (100 - score) * 0.3))));
+  var sentLabel, sentCol;
+  if (sentimentScore <= 22) { sentLabel = sentimentScore + ' EXTREME FEAR'; sentCol = '#f43f5e'; }
+  else if (sentimentScore <= 42) { sentLabel = sentimentScore + ' FEAR'; sentCol = '#fb7185'; }
+  else if (sentimentScore <= 58) { sentLabel = sentimentScore + ' NEUTRAL'; sentCol = '#fbbf24'; }
+  else if (sentimentScore <= 78) { sentLabel = sentimentScore + ' GREED'; sentCol = '#34d399'; }
+  else { sentLabel = sentimentScore + ' EXTREME GREED'; sentCol = '#10b981'; }
+
+  setTxt('sentimentIndexVal', sentLabel);
+  var sentEl = $id('sentimentIndexVal');
+  if (sentEl) sentEl.style.color = sentCol;
+  var meterFill = $id('sentimentMeterFill');
+  if (meterFill) meterFill.style.width = sentimentScore + '%';
+
+  var specLong = num(fc.specLongPct, 50);
+  var flowTxt, flowCol;
+  if (specLong >= 58 || (isLong && score >= 75)) {
+    flowTxt = 'ACCUMULATION (SMART MONEY BUY)';
+    flowCol = '#10b981';
+  } else if (specLong <= 42 || (isShort && score >= 75)) {
+    flowTxt = 'DISTRIBUTION (SMART MONEY SELL)';
+    flowCol = '#f43f5e';
+  } else if (isLong) {
+    flowTxt = 'NET BUY INFLOW';
+    flowCol = '#34d399';
+  } else if (isShort) {
+    flowTxt = 'NET SELL OUTFLOW';
+    flowCol = '#fb7185';
+  } else {
+    flowTxt = 'BALANCED ROTATION';
+    flowCol = '#94a3b8';
+  }
+  setTxt('smartMoneyFlowTxt', flowTxt);
+  var flowEl = $id('smartMoneyFlowTxt');
+  if (flowEl) flowEl.style.color = flowCol;
 }
 function feedIsEstimate(src) {
   return /ESTIMATE|SYNTHETIC|LOCAL|CALIBRATED|DEFAULT|ANCHOR|SEED|FALLBACK/i.test(String(src || ''));
