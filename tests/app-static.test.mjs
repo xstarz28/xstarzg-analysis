@@ -387,11 +387,18 @@ chk('institutional confluence matrix & sentiment flow terminal widgets',
   app.includes('function renderSentimentFlow(a)'));
 
 chk('integritas feed forex real-time EUR/USD M5 & proteksi sinyal anti-estimasi',
-  edgeAnalyze.includes('flatThresh = isForex ? 0.000005 : (c.close * 0.0004)') &&
+  edgeAnalyze.includes('flatThresh = isForex ? 0.000005 : (lastClose * 0.0004)') &&
   edgeAnalyze.includes("s === 'EUR/USD' || s === 'GBP/USD'") &&
   edgeAnalyze.includes("query2.finance.yahoo.com") &&
   app.includes("isEst ? '--' : formatPrice(L.entry, a.symbol)") &&
   app.includes("if ((scope === 'create' || getSignalLock(symbol, tfA)) && !isFeedEstimate) feedReal = true;"));
+
+chk('radar rekomendasi saham IDX & global lancar tanpa freeze atau memuat abadi',
+  edgeAnalyze.includes("symbol.endsWith('.JK') && (tf === 'M1' || tf === 'M5' || tf === 'M15' || tf === 'M30')") &&
+  edgeAnalyze.includes("'Cache-Control': 'public, max-age=12'") &&
+  app.includes("{ sym: 'BBCA.JK', tf: 'M15' }") &&
+  app.includes("{ sym: 'BBCA.JK', tf: 'H1' }") &&
+  app.includes("{ sym: 'BBCA.JK', tf: 'D1' }"));
 
 let syntaxOk = false;
 try {
