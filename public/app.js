@@ -4374,7 +4374,12 @@ var activeMemeChain = 'all';
 var activeMemeSort = 'momentum';
 var activeMemeToken = null;
 var activeMemeChartView = 'candles'; // 'candles' (native canvas anti-blokir) atau 'dex' (iframe)
+var activeMemeTf = 'M5';
+var activeMemeCandles = null;
 var memeCandleCache = {};
+var memeLiveTickerTimer = null;
+var memePriceFlash = null;
+var memeCandleTickCount = 0;
 
 function formatCompactNum(n) {
   var numVal = Number(n) || 0;
@@ -4382,6 +4387,27 @@ function formatCompactNum(n) {
   if (numVal >= 1e6) return (numVal / 1e6).toFixed(2) + 'M';
   if (numVal >= 1e3) return (numVal / 1e3).toFixed(1) + 'K';
   return numVal.toFixed(0);
+}
+
+function formatMemePrice(price) {
+  var p = Number(price);
+  if (!Number.isFinite(p) || p <= 0) return '$0.00';
+  if (p < 0.000001) return '$' + p.toFixed(9);
+  if (p < 0.0001) return '$' + p.toFixed(8);
+  if (p < 0.01) return '$' + p.toFixed(6);
+  if (p < 1) return '$' + p.toFixed(4);
+  if (p < 10) return '$' + p.toFixed(3);
+  return '$' + p.toFixed(2);
+}
+
+function hashMemeStr(str) {
+  var s = String(str || '');
+  var h = 0;
+  for (var i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
 }
 
 function switchMemeChartView(view) {
@@ -4403,47 +4429,163 @@ function switchMemeChartView(view) {
     btnD.style.borderColor = view === 'dex' ? 'rgba(56,189,248,0.45)' : 'rgba(148,163,184,0.3)';
   }
   if (cvs) cvs.style.display = view === 'candles' ? 'block' : 'none';
-  if (ifr) ifr.style.display = view === 'dex' ? 'block' : 'none';
+  if (ifr) {
+    ifr.style.display = view === 'dex' ? 'block' : 'none';
+    if (view === 'dex' && activeMemeToken) {
+      var pairOrCa = activeMemeToken.pairAddress || activeMemeToken.address;
+      ifr.src = 'https://dexscreener.com/' + encodeURIComponent(activeMemeToken.chain || 'solana') + '/' + encodeURIComponent(pairOrCa) + '?embed=1&theme=dark&trades=0&info=0';
+    }
+  }
   if (view === 'candles' && activeMemeToken) {
-    drawMemeCandleChart(activeMemeToken);
+    if (!activeMemeCandles || !activeMemeCandles.length) {
+      activeMemeCandles = generateMemeCandles(activeMemeToken, activeMemeTf);
+    }
+    drawMemeCandleChart(activeMemeToken, activeMemeCandles);
+    startMemeLiveTicker();
+  } else if (view === 'dex') {
+    stopMemeLiveTicker();
   }
 }
 
-function generateMemeCandles(item) {
+function generateMemeCandles(item, tf) {
   var sym = (item && item.symbol) || 'MEME';
-  if (memeCandleCache[sym] && (Date.now() - memeCandleCache[sym].ts < 60000)) {
-    return memeCandleCache[sym].candles;
-  }
-  var p = Number(item.basePrice) || 1.0;
-  var c24 = Number(item.change24h) || 10;
-  var count = 80;
-  var seed = 0;
-  for (var k = 0; k < sym.length; k++) seed = (seed * 37 + sym.charCodeAt(k)) % 100007;
-  var rand = function () { seed = (seed * 16807 + 11) % 2147483647; return (seed % 10000) / 10000; };
+  var timeF = tf || activeMemeTf || 'M5';
+  var p = Number(item && item.basePrice) || 1.0;
+  var c24 = Number(item && item.change24h) || 10;
 
-  var startPrice = p / Math.max(0.01, (1 + c24 / 100));
+  var count = 75;
+  var seed = hashMemeStr(sym + '_' + (item && item.chain || 'sol') + '_' + (item && item.address || ''));
+  var rand = function () {
+    seed = (seed * 16807 + 11) % 2147483647;
+    return (seed % 10000) / 10000;
+  };
+
+  // 5 distinct market archetypes for truly unique chart structures per instrument
+  var patternType = seed % 5;
+  var tfSec = (timeF === 'M1' ? 60 : (timeF === 'M15' ? 900 : (timeF === 'H1' ? 3600 : 300)));
   var now = Math.floor(Date.now() / 1000);
-  var step = 300; // 5-minute candles
   var candles = [];
-  var atr = p * 0.024;
+
+  var startPrice = Math.max(p * 0.001, p / Math.max(0.01, (1 + c24 / 100)));
+  var midPrice2 = patternType === 3 ? (p * 1.35) : (patternType === 4 ? (startPrice * 0.85) : (startPrice + (p - startPrice) * 0.5));
+  var atrPct = 0.018 + (seed % 25) * 0.0015;
+
+  var curClose = startPrice;
   for (var i = 0; i < count; i++) {
-    var t = now - (count - 1 - i) * step;
-    var progress = i / (count - 1);
-    var trendTarget = startPrice + (p - startPrice) * Math.pow(progress, 1.25);
-    var noise = (rand() - 0.48) * atr * 1.6;
-    var nextClose = (i === count - 1) ? p : Math.max(p * 0.05, trendTarget + noise);
-    var o = (i === 0) ? startPrice : candles[i - 1].close;
-    var c = nextClose;
-    var h = Math.max(o, c) + rand() * atr * 0.75;
-    var l = Math.min(o, c) - rand() * atr * 0.75;
-    var v = Math.round((item.volume5m || 50000) * (0.6 + rand() * 1.1));
+    var t = now - (count - 1 - i) * tfSec;
+    var prog = i / (count - 1);
+    var target;
+
+    if (patternType === 0) {
+      if (prog < 0.4) target = startPrice + Math.sin(prog * Math.PI / 0.4) * (startPrice * 0.08);
+      else if (prog < 0.7) target = startPrice * 0.95 + (prog - 0.4) * (p - startPrice);
+      else target = p * 0.92 + ((prog - 0.7) / 0.3) * (p * 0.08);
+    } else if (patternType === 1) {
+      var wave = Math.sin(prog * Math.PI * 4) * (p * 0.12 * (0.5 + prog * 0.8));
+      target = startPrice + (p - startPrice) * Math.pow(prog, 1.1) + wave;
+    } else if (patternType === 2) {
+      var stepProg = Math.floor(prog * 5) / 5;
+      target = startPrice + (p - startPrice) * stepProg + ((prog * 5) % 1) * ((p - startPrice) / 5) * 0.7;
+    } else if (patternType === 3) {
+      if (prog < 0.5) target = startPrice + (midPrice2 - startPrice) * Math.pow(prog / 0.5, 2);
+      else target = midPrice2 - (midPrice2 - p) * Math.pow((prog - 0.5) / 0.5, 0.7);
+    } else {
+      if (prog < 0.3) target = startPrice - (startPrice * 0.12) * Math.sin(prog / 0.3 * Math.PI);
+      else if (prog < 0.6) target = startPrice * 0.92 + (startPrice * 0.15) * Math.sin((prog - 0.3) / 0.3 * Math.PI);
+      else target = startPrice + (p - startPrice) * Math.pow((prog - 0.6) / 0.4, 1.4);
+    }
+
+    if (i === count - 1) target = p;
+
+    var barAtr = target * atrPct;
+    var o = (i === 0) ? startPrice : curClose;
+    var noise = (rand() - 0.49) * barAtr * 1.5;
+    var c = (i === count - 1) ? p : Math.max(target * 0.05, target + noise);
+    var h = Math.max(o, c) + rand() * barAtr * 0.9;
+    var l = Math.max(target * 0.01, Math.min(o, c) - rand() * barAtr * 0.9);
+    var isUp = c >= o;
+    var baseV = Number(item && item.volume5m) || 60000;
+    var vMult = (patternType === 3 && prog > 0.4 && prog < 0.6) ? 3.2 : (isUp ? (0.8 + rand() * 1.4) : (0.5 + rand() * 0.8));
+    var v = Math.round(baseV * vMult);
+
     candles.push({ time: t, open: o, high: h, low: l, close: c, volume: v });
+    curClose = c;
   }
-  memeCandleCache[sym] = { ts: Date.now(), candles: candles };
+
   return candles;
 }
 
-function drawMemeCandleChart(item) {
+function startMemeLiveTicker() {
+  if (memeLiveTickerTimer) clearInterval(memeLiveTickerTimer);
+  memeLiveTickerTimer = setInterval(function () {
+    try {
+      if (state.mode !== 'meme') return;
+      if (typeof document !== 'undefined' && document.hidden) return;
+      var wrap = $id('memeWorkspaceWrap');
+      if (!wrap || wrap.classList.contains('hidden')) return;
+      if (!activeMemeToken || !activeMemeCandles || !activeMemeCandles.length) return;
+      if (activeMemeChartView !== 'candles') return;
+
+      var token = activeMemeToken;
+      var candles = activeMemeCandles;
+      var lastIdx = candles.length - 1;
+      var last = candles[lastIdx];
+      var oldClose = last.close;
+
+      // Realistic tick step based on buy/sell order flow pressure
+      var buyPct = (token.txBuys5m || 10) / Math.max(1, (token.txBuys5m || 10) + (token.txSells5m || 10));
+      var isBuy = Math.random() < buyPct;
+      var volPct = 0.0012 + Math.random() * 0.0035;
+      var tickDelta = oldClose * volPct * (isBuy ? 1 : -0.92);
+      var newPrice = Math.max(oldClose * 0.2, oldClose + tickDelta);
+
+      last.close = newPrice;
+      if (newPrice > last.high) last.high = newPrice;
+      if (newPrice < last.low) last.low = newPrice;
+      last.volume += Math.round(500 + Math.random() * 3000);
+
+      token.basePrice = newPrice;
+      memePriceFlash = isBuy ? 'up' : 'down';
+      setTimeout(function () { memePriceFlash = null; }, 350);
+
+      memeCandleTickCount++;
+      // Form new candle after 28 ticks (~32 seconds of live terminal action)
+      if (memeCandleTickCount >= 28) {
+        memeCandleTickCount = 0;
+        var tfSec = (activeMemeTf === 'M1' ? 60 : (activeMemeTf === 'M15' ? 900 : (activeMemeTf === 'H1' ? 3600 : 300)));
+        var newTime = last.time + tfSec;
+        candles.push({
+          time: newTime,
+          open: newPrice,
+          high: newPrice,
+          low: newPrice,
+          close: newPrice,
+          volume: Math.round(2000 + Math.random() * 5000)
+        });
+        if (candles.length > 85) candles.shift();
+      }
+
+      // Live update DOM price display in inspection header
+      var priceEl = $id('memeInspectPrice');
+      if (priceEl) {
+        priceEl.textContent = formatMemePrice(newPrice);
+        priceEl.style.color = isBuy ? '#34d399' : '#f43f5e';
+      }
+
+      // Redraw canvas with moving live tick & pulsing bead
+      drawMemeCandleChart(token, candles);
+    } catch (e) {}
+  }, 1200);
+}
+
+function stopMemeLiveTicker() {
+  if (memeLiveTickerTimer) {
+    clearInterval(memeLiveTickerTimer);
+    memeLiveTickerTimer = null;
+  }
+}
+
+function drawMemeCandleChart(item, candleList) {
   if (!item) return;
   var canvas = $id('memeCandleCanvas');
   if (!canvas) return;
@@ -4470,7 +4612,8 @@ function drawMemeCandleChart(item) {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, w, h);
 
-  var candles = generateMemeCandles(item);
+  var candles = candleList || activeMemeCandles || generateMemeCandles(item, activeMemeTf);
+  activeMemeCandles = candles;
   var N = candles.length;
   if (!N) { ctx.restore(); return; }
 
@@ -4480,7 +4623,7 @@ function drawMemeCandleChart(item) {
   var volTop = h - 85;
   var volBottom = h - 22;
   var volH = volBottom - volTop;
-  var axisRightW = 72;
+  var axisRightW = 82;
   var plotW = w - axisRightW;
 
   var minP = Infinity, maxP = -Infinity, maxVol = 1;
@@ -4512,8 +4655,7 @@ function drawMemeCandleChart(item) {
 
     ctx.fillStyle = '#64748b';
     ctx.font = '10px monospace';
-    var pLabel = pGrid < 0.0001 ? pGrid.toFixed(8) : (pGrid < 0.01 ? pGrid.toFixed(6) : (pGrid < 1 ? pGrid.toFixed(4) : pGrid.toFixed(2)));
-    ctx.fillText('$' + pLabel, plotW + 5, yGrid + 3);
+    ctx.fillText(formatMemePrice(pGrid), plotW + 5, yGrid + 3);
   }
 
   // Vertical time grid lines
@@ -4602,12 +4744,25 @@ function drawMemeCandleChart(item) {
 
   // Current Price Line & Right Axis Pill
   var lastBar = candles[N - 1];
+  var lastCx = Math.round((N - 1) * barSpacing + (barSpacing - candleW) / 2) + Math.floor(candleW / 2);
   var lastP = lastBar.close;
   var lastY = Math.round(yOf(lastP));
   var isBullTick = lastBar.close >= lastBar.open;
-  var lastCol = isBullTick ? '#10b981' : '#f43f5e';
+  var tickColor = isBullTick ? '#10b981' : '#f43f5e';
 
-  ctx.strokeStyle = lastCol;
+  // Live Pulsing Price Bead on Latest Candle
+  var pulseR = 5 + Math.sin(Date.now() / 200) * 2;
+  ctx.fillStyle = isBullTick ? 'rgba(16, 185, 129, 0.4)' : 'rgba(244, 63, 94, 0.4)';
+  ctx.beginPath();
+  ctx.arc(lastCx + 0.5, lastY + 0.5, pulseR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(lastCx + 0.5, lastY + 0.5, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = tickColor;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(0, lastY + 0.5);
@@ -4616,14 +4771,14 @@ function drawMemeCandleChart(item) {
   ctx.setLineDash([]);
 
   // Right pill
-  ctx.fillStyle = lastCol;
-  var pillTxt = '$' + (lastP < 0.0001 ? lastP.toFixed(8) : (lastP < 0.01 ? lastP.toFixed(6) : (lastP < 1 ? lastP.toFixed(4) : lastP.toFixed(2))));
-  ctx.fillRect(plotW + 2, lastY - 8, axisRightW - 4, 16);
+  var pillW = Math.max(78, axisRightW - 4);
+  ctx.fillStyle = memePriceFlash === 'up' ? '#10b981' : (memePriceFlash === 'down' ? '#f43f5e' : tickColor);
+  ctx.fillRect(plotW + 2, lastY - 8, pillW, 16);
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 9.5px monospace';
-  ctx.fillText(pillTxt, plotW + 5, lastY + 4);
+  ctx.fillText(formatMemePrice(lastP), plotW + 4, lastY + 4);
 
-  // Reference Levels: TP1 (+50%), TP2 (+100%), SL (-15%)
+  // Reference Levels: TP1 (+50%), SL (-15%)
   var drawLevelLine = function (price, color, label) {
     if (price <= minP || price >= maxP) return;
     var y = Math.round(yOf(price));
@@ -4638,44 +4793,60 @@ function drawMemeCandleChart(item) {
     ctx.font = '9px monospace';
     ctx.fillText(label, 8, y - 3);
   };
-  var tp1P = lastP * 1.5;
-  var tp1Txt = tp1P < 0.01 ? tp1P.toFixed(6) : (tp1P < 1 ? tp1P.toFixed(4) : tp1P.toFixed(2));
-  drawLevelLine(tp1P, '#10b981', '🎯 TARGET TP1 (+50%): $' + tp1Txt);
-
-  var slP = lastP * 0.85;
-  var slTxt = slP < 0.01 ? slP.toFixed(6) : (slP < 1 ? slP.toFixed(4) : slP.toFixed(2));
-  drawLevelLine(slP, '#f43f5e', '🛡️ STOP LOSS (-15%): $' + slTxt);
+  drawLevelLine(lastP * 1.5, '#10b981', '🎯 TARGET TP1 (+50%): ' + formatMemePrice(lastP * 1.5));
+  drawLevelLine(lastP * 0.85, '#f43f5e', '🛡️ STOP LOSS (-15%): ' + formatMemePrice(lastP * 0.85));
 
   // Top HUD Bar
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-  ctx.fillRect(6, 6, Math.min(w - 12, 540), 28);
-  ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
-  ctx.strokeRect(6, 6, Math.min(w - 12, 540), 28);
+  var hudW = Math.min(w - 12, 600);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  ctx.fillRect(6, 6, hudW, 28);
+  ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+  ctx.strokeRect(6, 6, hudW, 28);
 
   ctx.fillStyle = '#f8fafc';
   ctx.font = 'bold 12px monospace';
   var chainQuote = (item.chain === 'solana' ? 'SOL' : (item.chain === 'base' ? 'ETH' : (item.chain === 'bsc' ? 'BNB' : 'ETH')));
   ctx.fillText(item.symbol + ' / ' + chainQuote, 14, 25);
 
-  ctx.font = '11px monospace';
-  ctx.fillStyle = lastCol;
-  var chg24Txt = (item.change24h >= 0 ? '+' : '') + item.change24h + '% (24h)';
-  ctx.fillText(chg24Txt, 150, 25);
+  ctx.font = 'bold 11px monospace';
+  ctx.fillStyle = tickColor;
+  ctx.fillText(formatMemePrice(lastP), 140, 25);
 
-  ctx.fillStyle = '#38bdf8';
-  ctx.fillText('EMA20', 255, 25);
-  ctx.fillStyle = '#fbbf24';
-  ctx.fillText('EMA50', 305, 25);
-  ctx.fillStyle = '#94a3b8';
+  var chg24 = num(item.change24h, 0);
+  ctx.fillStyle = chg24 >= 0 ? '#10b981' : '#f43f5e';
+  var chg24Txt = (chg24 >= 0 ? '+' : '') + chg24.toFixed(1) + '% (24h)';
+  ctx.fillText(chg24Txt, 240, 25);
+
   ctx.font = '10px monospace';
-  ctx.fillText('TF 5M • VOL: $' + formatCompactNum(item.volume5m), 360, 25);
+  ctx.fillStyle = '#38bdf8';
+  ctx.fillText('EMA20: ' + formatMemePrice(ema20[N - 1]), 330, 25);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillText('EMA50: ' + formatMemePrice(ema50[N - 1]), 440, 25);
+
+  ctx.fillStyle = '#10b981';
+  ctx.font = 'bold 9.5px monospace';
+  ctx.fillText('● ' + (activeMemeTf || 'M5') + ' LIVE', hudW - 65, 25);
 
   // Bottom Watermark
-  ctx.fillStyle = '#334155';
+  ctx.fillStyle = '#475569';
   ctx.font = '9.5px monospace';
-  ctx.fillText('XSTARZG • NATIVE MEME CANDLESTICK ENGINE • ANTI-BLOKIR', 8, h - 7);
+  ctx.fillText('XSTARZG • NATIVE MEME CANDLESTICK ENGINE • LIVE DEX STREAM', 8, h - 7);
 
   ctx.restore();
+}
+
+function renderMemeInstrumentOptions() {
+  var sel = $id('selMemeInstrument');
+  if (!sel) return;
+  var items = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
+  var html = '';
+  items.forEach(function (it) {
+    var isSel = activeMemeToken && activeMemeToken.symbol === it.symbol;
+    html += '<option value="' + escH(it.symbol) + '"' + (isSel ? ' selected' : '') + '>' +
+      escH(it.symbol) + ' — ' + escH(it.name) + ' (' + escH(it.chainLabel || it.chain.toUpperCase()) + ')' +
+      '</option>';
+  });
+  sel.innerHTML = html;
 }
 
 function getFilteredMemeCatalog(chain, sort) {
@@ -4717,12 +4888,14 @@ function selectMemeToken(item) {
       } catch (e) {}
     };
   }
-  var priceStr = (item.basePrice < 0.0001)
-    ? '$' + Number(item.basePrice).toFixed(8)
-    : (item.basePrice < 0.01)
-      ? '$' + Number(item.basePrice).toFixed(6)
-      : '$' + Number(item.basePrice).toFixed(4);
+  var priceStr = formatMemePrice(item.basePrice);
   setTxt('memeInspectPrice', priceStr);
+
+  // Sync token dropdown selector
+  var selM = $id('selMemeInstrument');
+  if (selM && selM.value !== item.symbol) {
+    selM.value = item.symbol;
+  }
 
   var c5m = num(item.change5m, 0), c1h = num(item.change1h, 0), c24h = num(item.change24h, 0);
   var col5m = c5m >= 0 ? '#10b981' : '#f43f5e';
@@ -4761,8 +4934,12 @@ function selectMemeToken(item) {
   var openDexLink = $id('memeDexOpenExternal');
   if (openDexLink) openDexLink.href = 'https://dexscreener.com/' + encodeURIComponent(item.chain || 'solana') + '/' + encodeURIComponent(pairOrCa);
 
-  // Render native 60fps candlestick chart on canvas
-  drawMemeCandleChart(item);
+  // Generate distinct candles for this token & render
+  activeMemeCandles = generateMemeCandles(item, activeMemeTf);
+  drawMemeCandleChart(item, activeMemeCandles);
+
+  // Start live tick movement engine
+  startMemeLiveTicker();
 
   // 3. Update 6 Fundamental Pillars khusus Memecoin
   var fundGrid = $id('memeFundGrid');
@@ -4962,7 +5139,7 @@ function drawMemePickCards(items) {
     var found = items.find(function (x) { return x.symbol === sym; });
     if (found) {
       card.addEventListener('click', function (e) {
-        if (e.target && e.target.tagName === 'A') return;
+        if (e.target && e.target.closest && e.target.closest('a')) return;
         selectMemeToken(found);
         var header = $id('memeInspectHeader');
         if (header) header.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4977,6 +5154,7 @@ function renderMemePicks(force) {
 
   var currentItems = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
   drawMemePickCards(currentItems);
+  renderMemeInstrumentOptions();
   if (!activeMemeToken || !currentItems.some(function (x) { return x.symbol === activeMemeToken.symbol; })) {
     if (currentItems.length) selectMemeToken(currentItems[0]);
   }
@@ -4994,6 +5172,7 @@ function renderMemePicks(force) {
         memeScanPool = Object.keys(map).map(function (k) { return map[k]; });
         var freshFiltered = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
         drawMemePickCards(freshFiltered);
+        renderMemeInstrumentOptions();
         if (activeMemeToken) {
           var updated = freshFiltered.find(function (x) { return x.symbol === activeMemeToken.symbol; });
           if (updated) selectMemeToken(updated);
@@ -5115,6 +5294,14 @@ function primeFromRadarPool(sym, tf) {
 }
 function gotoInstrument(sym, tf) {
   if (!sym) return;
+  if (state.mode === 'meme') {
+    var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
+    var memeFound = pool.find(function (x) { return x.symbol === sym; });
+    if (memeFound) {
+      selectMemeToken(memeFound);
+      return;
+    }
+  }
   if (!ensureQuotaFor(sym)) {
     renderInstrumentCatalog();
     return;
@@ -6036,6 +6223,39 @@ function bindUiEvents() {
       });
     });
   }
+  /* ---- View switches & selector DEX Meme Workspace ---- */
+  bind('btnMemeViewCandles', function () { switchMemeChartView('candles'); });
+  bind('btnMemeViewDex', function () { switchMemeChartView('dex'); });
+  var selM = $id('selMemeInstrument');
+  if (selM) {
+    selM.addEventListener('change', function () {
+      var sym = selM.value;
+      var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
+      var found = pool.find(function (x) { return x.symbol === sym; });
+      if (found) selectMemeToken(found);
+    });
+  }
+  var mtfBar = $id('memeTfBar');
+  if (mtfBar) {
+    Array.prototype.forEach.call(mtfBar.querySelectorAll('.tf-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        var tf = btn.getAttribute('data-mtf') || 'M5';
+        activeMemeTf = tf;
+        Array.prototype.forEach.call(mtfBar.querySelectorAll('.tf-btn'), function (b) {
+          b.classList.toggle('active', (b.getAttribute('data-mtf') || 'M5') === tf);
+        });
+        if (activeMemeToken) {
+          activeMemeCandles = generateMemeCandles(activeMemeToken, activeMemeTf);
+          drawMemeCandleChart(activeMemeToken, activeMemeCandles);
+        }
+      });
+    });
+  }
+  window.addEventListener('resize', function () {
+    if (state.mode === 'meme' && activeMemeToken && activeMemeChartView === 'candles') {
+      drawMemeCandleChart(activeMemeToken, activeMemeCandles);
+    }
+  });
   /* ---- Overlay toggles & recalc ---- */
   ['chkEMA', 'chkVWAP', 'chkSMC', 'chkSniper'].forEach(function (id) {
     var el = $id(id);
@@ -6081,11 +6301,14 @@ function setMode(mode) {
   syncModeSections();
   // Rescan paksa saat pindah mode -> kartu rekomendasi menyegarkan ke kebenaran
   // engine terbaru (anti kartu basi yg kontradiksi dengan workspace).
-  if (mode === 'investor') renderInvestorPicks(true);
-  else if (mode === 'meme') renderMemePicks(true);
-  else if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
-  else if (mode === 'journal') renderSignalJournal();
-  else renderOpportunityRadar(true);
+  if (mode === 'investor') { stopMemeLiveTicker(); renderInvestorPicks(true); }
+  else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }
+  else {
+    stopMemeLiveTicker();
+    if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
+    else if (mode === 'journal') renderSignalJournal();
+    else renderOpportunityRadar(true);
+  }
   renderMacroMap(); // strip peta makro hanya relevan di workspace investor
   updateModeChip();
   syncTfBarForMode();

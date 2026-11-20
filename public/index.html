@@ -618,6 +618,7 @@
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <select id="selMemeInstrument" class="ctrl-select" style="font-weight:800;font-size:13px;background:#090d16;color:#f8fafc;border:1px solid rgba(168,85,247,0.5);border-radius:8px;padding:5px 9px;cursor:pointer;max-width:270px;" title="Pilih Instrumen Koin Micin DEX"></select>
               <h2 id="memeInspectSymbol" style="margin:0;font-size:22px;font-weight:900;color:#f8fafc;letter-spacing:0.5px;">PNUT</h2>
               <span id="memeInspectName" style="font-size:13px;color:#94a3b8;font-weight:600;">Peanut the Squirrel</span>
               <span id="memeInspectChainBadge" class="brand-tag" style="background:#581c87;color:#d8b4fe;border-color:rgba(168,85,247,0.4);">🟣 SOLANA</span>
@@ -661,6 +662,12 @@
                 <span class="mode-chip meme" id="memeChartDexBadge">DEX LIVE</span>
               </div>
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <div class="tf-bar" id="memeTfBar" style="margin:0;padding:0;">
+                  <button type="button" class="tf-btn" data-mtf="M1">M1</button>
+                  <button type="button" class="tf-btn active" data-mtf="M5">M5</button>
+                  <button type="button" class="tf-btn" data-mtf="M15">M15</button>
+                  <button type="button" class="tf-btn" data-mtf="H1">H1</button>
+                </div>
                 <button type="button" id="btnMemeViewCandles" class="hz-btn active" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(168,85,247,0.25);color:#d8b4fe;border:1px solid rgba(168,85,247,0.45);font-weight:700;cursor:pointer;">
                   🕯️ Candlestick Live (Anti-Blokir)
                 </button>
