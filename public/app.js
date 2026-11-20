@@ -305,8 +305,9 @@ var RADAR_CONFIG = {
     infoInvestor: 'Horizon scalping bukan untuk akumulasi — investor disarankan memakai tab SWING.',
     list: [
       { sym: 'BTC/USDT', tf: 'M5' }, { sym: 'ETH/USDT', tf: 'M5' }, { sym: 'SOL/USDT', tf: 'M5' },
-      { sym: 'XAU/USD', tf: 'M15' }, { sym: 'COTTON', tf: 'M5' }, { sym: 'EUR/USD', tf: 'M5' },
-      { sym: 'GBP/JPY', tf: 'M15' }, { sym: 'USD/JPY', tf: 'M15' }, { sym: 'NVDA', tf: 'M15' }
+      { sym: 'XAU/USD', tf: 'M15' }, { sym: 'COTTON', tf: 'M5' },
+      { sym: 'EUR/USD', tf: 'M5' }, { sym: 'GBP/USD', tf: 'M5' }, { sym: 'USD/JPY', tf: 'M15' }, { sym: 'GBP/JPY', tf: 'M15' }, { sym: 'AUD/USD', tf: 'M5' },
+      { sym: 'NVDA', tf: 'M15' }, { sym: 'AAPL', tf: 'M15' }, { sym: 'TSLA', tf: 'M15' }, { sym: 'BBCA.JK', tf: 'M15' }, { sym: 'BBRI.JK', tf: 'M15' }
     ]
   },
   intraday: {
@@ -314,9 +315,10 @@ var RADAR_CONFIG = {
     infoTrader: 'Target harian: SMC, FVG, session breakout & VPVR pada M15–H1.',
     infoInvestor: 'Rekomendasi pembelian nyata harian — cek kembali valuasi sebelum akumulasi.',
     list: [
-      { sym: 'BTC/USDT', tf: 'M30' }, { sym: 'ETH/USDT', tf: 'M30' }, { sym: 'XAU/USD', tf: 'H1' },
-      { sym: 'XAU/IDR', tf: 'H1' }, { sym: 'EUR/USD', tf: 'H1' }, { sym: 'USD/IDR', tf: 'M30' },
-      { sym: 'WTI', tf: 'H1' }, { sym: 'BBCA.JK', tf: 'H1' }, { sym: 'BMRI.JK', tf: 'H1' }, { sym: 'NVDA', tf: 'H1' }
+      { sym: 'BTC/USDT', tf: 'M30' }, { sym: 'ETH/USDT', tf: 'M30' }, { sym: 'SOL/USDT', tf: 'H1' },
+      { sym: 'XAU/USD', tf: 'H1' }, { sym: 'XAU/IDR', tf: 'H1' }, { sym: 'WTI', tf: 'H1' },
+      { sym: 'EUR/USD', tf: 'H1' }, { sym: 'GBP/USD', tf: 'H1' }, { sym: 'USD/JPY', tf: 'H1' }, { sym: 'USD/IDR', tf: 'M30' }, { sym: 'GBP/JPY', tf: 'H1' },
+      { sym: 'BBCA.JK', tf: 'H1' }, { sym: 'BMRI.JK', tf: 'H1' }, { sym: 'BBRI.JK', tf: 'H1' }, { sym: 'TLKM.JK', tf: 'H1' }, { sym: 'NVDA', tf: 'H1' }, { sym: 'AAPL', tf: 'H1' }, { sym: 'TSLA', tf: 'H1' }
     ]
   },
   swing: {
@@ -324,10 +326,10 @@ var RADAR_CONFIG = {
     infoTrader: 'Multi-hari: supply/demand, struktur tren & CFTC COT pada H4–W1.',
     infoInvestor: 'Akumulasi spot jangka menengah-panjang: beli nyata bertahap (DCA) di zona demand.',
     list: [
-      { sym: 'BTC/USDT', tf: 'H4' }, { sym: 'ETH/USDT', tf: 'H4' }, { sym: 'XAU/USD', tf: 'D1' },
-      { sym: 'XAU/IDR', tf: 'D1' }, { sym: 'EUR/USD', tf: 'H4' }, { sym: 'WTI', tf: 'D1' },
-      { sym: 'CPO', tf: 'H4' }, { sym: 'BBCA.JK', tf: 'D1' }, { sym: 'BBRI.JK', tf: 'D1' },
-      { sym: 'IHSG', tf: 'D1' }, { sym: 'NVDA', tf: 'D1' }, { sym: 'SPY', tf: 'D1' }
+      { sym: 'BTC/USDT', tf: 'H4' }, { sym: 'ETH/USDT', tf: 'H4' }, { sym: 'SOL/USDT', tf: 'D1' },
+      { sym: 'XAU/USD', tf: 'D1' }, { sym: 'XAU/IDR', tf: 'D1' }, { sym: 'WTI', tf: 'D1' }, { sym: 'CPO', tf: 'H4' },
+      { sym: 'EUR/USD', tf: 'H4' }, { sym: 'GBP/USD', tf: 'H4' }, { sym: 'USD/JPY', tf: 'D1' }, { sym: 'AUD/USD', tf: 'D1' }, { sym: 'EUR/GBP', tf: 'D1' },
+      { sym: 'BBCA.JK', tf: 'D1' }, { sym: 'BBRI.JK', tf: 'D1' }, { sym: 'BMRI.JK', tf: 'D1' }, { sym: 'IHSG', tf: 'D1' }, { sym: 'NVDA', tf: 'D1' }, { sym: 'AAPL', tf: 'D1' }, { sym: 'SPY', tf: 'D1' }
     ]
   }
 };
@@ -5233,10 +5235,10 @@ function renderOpportunityRadar(force) {
   // v2026.66: batch 30 simbol / slot 4 menit (dulu 40/3) — memangkas panggilan Functions
   // ~55% per pengguna demi kuota gratis Cloudflare; rotasi tetap menutupi seluruh katalog.
   var batch = rotatingSlice(catalogSortedStable(), 30, 4);
-  var scanList = batch.slice();
-  if (freshStrong.length < 2 && cfg.list && cfg.list.length) {
-    var seen = {};
-    scanList.forEach(function (x) { if (x && x.symbol) seen[x.symbol] = true; });
+  // Prioritaskan jangkar kurasi horizon (Crypto, Forex & Saham) di depan antrean agar kartu langsung tampil cepat di HP & web
+  var scanList = [];
+  var seen = {};
+  if (cfg.list && cfg.list.length) {
     cfg.list.forEach(function (anc) {
       if (!seen[anc.sym]) {
         var m = getMeta(anc.sym);
@@ -5244,6 +5246,12 @@ function renderOpportunityRadar(force) {
       }
     });
   }
+  batch.forEach(function (x) {
+    if (x && x.symbol && !seen[x.symbol]) {
+      scanList.push(x);
+      seen[x.symbol] = true;
+    }
+  });
   var mySeq = ++radarRunSeq;
   if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', scanList.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
 

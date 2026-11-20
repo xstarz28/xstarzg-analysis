@@ -41,8 +41,18 @@ export async function onRequest(context) {
       try { if (cache && cacheKeyReq && context.waitUntil) context.waitUntil(cache.put(cacheKeyReq, qRes.clone())); } catch (e) {}
       return qRes;
     }
+    let cache = null, cacheKeyReq = null, hit = null;
+    try {
+      if (typeof caches !== 'undefined' && caches.default && request.method === 'GET') {
+        cache = caches.default;
+        cacheKeyReq = new Request(url.toString(), request);
+        hit = await cache.match(cacheKeyReq);
+      }
+    } catch (e) {}
+    if (hit) return hit;
+
     const marketData = await fetchSynchronizedMarketCandles(symbol, tf);
-    return new Response(JSON.stringify({
+    const mRes = new Response(JSON.stringify({
       ok: true,
       symbol,
       tf,
@@ -51,7 +61,9 @@ export async function onRequest(context) {
       changePct: marketData.changePct,
       candles: marketData.candles,
       timestamp: Date.now()
-    }), { status: 200, headers: corsHeaders });
+    }), { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=12' } });
+    try { if (cache && cacheKeyReq && context.waitUntil) context.waitUntil(cache.put(cacheKeyReq, mRes.clone())); } catch (e) {}
+    return mRes;
   } catch (err) {
     const fallback = buildBrokerAnchoredCandles(symbol, tf, null);
     return new Response(JSON.stringify({
@@ -266,7 +278,10 @@ function resampleCandles(candles, bucketSec) {
   return [...m.values()].sort((a, b) => a.time - b.time);
 }
 async function fetchYahooCandles(symbol, tf) {
-  const cfg = YAHOO_TF[tf] || YAHOO_TF['H1'];
+  let cfg = YAHOO_TF[tf] || YAHOO_TF['H1'];
+  if (symbol.endsWith('.JK') && (tf === 'M1' || tf === 'M5' || tf === 'M15' || tf === 'M30')) {
+    cfg = { i: '60m', r: '1mo' };
+  }
   const expectedP = getExpectedPrice(symbol);
   for (const y of yahooSymbolsFor(symbol)) {
     for (const host of ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']) {
@@ -299,7 +314,8 @@ async function fetchYahooCandles(symbol, tf) {
         // Audit candlestick: jika > 35% candle flat tanpa spread (high === low), feed illiquid/mati -> lewati agar tidak jadi titik-titik
         // Untuk Forex (EUR/USD, GBP/USD dll) rentang candle M1/M5 sangat rapat (~1-3 pips) sehingga threshold flat disesuaikan agar tidak salah tolak
         const isForex = symbol.includes('/') && !symbol.endsWith('/USDT') && !symbol.startsWith('XAU/') && !symbol.startsWith('XAG/') && !symbol.startsWith('XPT/') && !symbol.startsWith('XPD/') && !symbol.startsWith('XCU/') && !symbol.startsWith('HG/');
-        const flatThresh = isForex ? 0.000005 : (c.close * 0.0004);
+        const lastClose = candles.length > 0 ? candles[candles.length - 1].close : 100;
+        const flatThresh = isForex ? 0.000005 : (lastClose * 0.0004);
         const flatCount = candles.filter(c => Math.abs(c.high - c.low) < flatThresh).length;
         if (flatCount > candles.length * 0.35) continue;
 
