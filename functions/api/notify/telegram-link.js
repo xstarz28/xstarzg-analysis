@@ -43,7 +43,48 @@ export async function onRequest(context) {
     }, { status: 403, headers: CORS });
   }
 
-  const botUsername = env.TELEGRAM_BOT_USERNAME || 'xstarzg_alert_bot';
+  let botUsername = (env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
+  if (!botUsername && env.TELEGRAM_BOT_TOKEN) {
+    try {
+      const cleanToken = String(env.TELEGRAM_BOT_TOKEN).trim().replace(/^bot/i, '');
+      const meRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`);
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        if (meData && meData.ok && meData.result && meData.result.username) {
+          botUsername = meData.result.username;
+        }
+      }
+    } catch (e) {}
+  }
+  if (!botUsername) botUsername = 'xstarzg_alert_bot';
+
+  // Pastikan tabel database siap
+  if (env && env.DB) {
+    try {
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS telegram_subscribers (
+          chat_id       TEXT PRIMARY KEY,
+          email         TEXT NOT NULL,
+          tier          TEXT NOT NULL,
+          vip_until     INTEGER,
+          is_owner      INTEGER DEFAULT 0,
+          is_affiliate  INTEGER DEFAULT 0,
+          registered_at TEXT NOT NULL
+        )
+      `).run();
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS telegram_activations (
+          code          TEXT PRIMARY KEY,
+          email         TEXT NOT NULL,
+          tier          TEXT NOT NULL,
+          vip_until     INTEGER,
+          is_owner      INTEGER DEFAULT 0,
+          is_affiliate  INTEGER DEFAULT 0,
+          expires_at    INTEGER NOT NULL
+        )
+      `).run();
+    } catch (e) {}
+  }
 
   // GET: Menghasilkan link deep-link terotentikasi & status subscriber saat ini
   if (request.method === 'GET') {
@@ -55,26 +96,49 @@ export async function onRequest(context) {
       }
     } catch (e) {}
 
-    // Buat token aktivasi terenkripsi HMAC yang membawa email & masa aktif VIP
+    const tier = isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP');
+    const vipUntil = isOwner ? 9999999999999 : (d1Until || user.vipUntil || 0);
+
+    // Buat kode aktivasi ringkas (< 64 karakter, aman untuk parameter ?start= Telegram)
+    const activationCode = crypto.randomUUID().replace(/-/g, '');
+    if (env && env.DB) {
+      try {
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO telegram_activations (code, email, tier, vip_until, is_owner, is_affiliate, expires_at)
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        `).bind(
+          activationCode,
+          user.email,
+          tier,
+          vipUntil,
+          isOwner ? 1 : 0,
+          isAffiliate ? 1 : 0,
+          Date.now() + 86400000 // Berlaku 24 jam
+        ).run();
+      } catch (e) {}
+    }
+
+    // Token JWT cadangan untuk integrasi
     const activationToken = await signJwt({
       email: user.email,
-      tier: isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP'),
+      tier,
       isOwner: isOwner ? 1 : 0,
       isAffiliate: isAffiliate ? 1 : 0,
       expDays: isOwner ? 3650 : 35
     }, env.JWT_SECRET || 'xstarzg-2026-quant-secret');
 
-    const deepLink = `https://t.me/${botUsername}?start=${activationToken}`;
+    const deepLink = `https://t.me/${botUsername}?start=${activationCode}`;
 
     return Response.json({
       ok: true,
       isVip: true,
       vip: true,
       email: user.email,
-      tier: isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP'),
+      tier,
       botUsername,
       deepLink,
       authToken: activationToken,
+      activationCode,
       linkedChatId,
       isLinked: !!linkedChatId
     }, { status: 200, headers: CORS });
@@ -98,6 +162,9 @@ export async function onRequest(context) {
         return Response.json({ ok: false, error: 'Chat ID tidak valid (harus berupa angka UID Telegram Anda).' }, { status: 400, headers: CORS });
       }
 
+      const tier = isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP');
+      const vipUntil = isOwner ? 9999999999999 : (d1Until || user.vipUntil || 0);
+
       if (env && env.DB) {
         await env.DB.prepare(`
           INSERT INTO telegram_subscribers (chat_id, email, tier, vip_until, is_owner, is_affiliate, registered_at)
@@ -112,12 +179,32 @@ export async function onRequest(context) {
         `).bind(
           chatId,
           user.email,
-          isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP'),
-          isOwner ? 9999999999999 : (d1Until || user.vipUntil || 0),
+          tier,
+          vipUntil,
           isOwner ? 1 : 0,
           isAffiliate ? 1 : 0,
           new Date().toISOString()
         ).run();
+      }
+
+      // Kirim pesan sambutan langsung ke Telegram pengguna jika bot token terpasang
+      if (env && env.TELEGRAM_BOT_TOKEN) {
+        try {
+          const cleanToken = String(env.TELEGRAM_BOT_TOKEN).trim().replace(/^bot/i, '');
+          await fetch(`https://api.telegram.org/bot${cleanToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: `👑 <b>SELAMAT! AKUN TELEGRAM ANDA BERHASIL TERHUBUNG</b>\n\n` +
+                `Email: <b>${user.email}</b>\n` +
+                `Hak Akses: <b>${tier} MEMBER</b>\n` +
+                `Status: <b>✅ AKTIF 24/7</b>\n\n` +
+                `Notifikasi Sinyal Skor Besar Institusional (≥ 75%) dan Live SL+ 0-Risk Alert akan otomatis berdering di sini tanpa perlu membuka website!`,
+              parse_mode: 'HTML'
+            })
+          });
+        } catch (e) {}
       }
 
       return Response.json({
