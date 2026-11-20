@@ -18,6 +18,28 @@ async function getD1VipUntil(env, email) {
   }
 }
 
+// Otomatis daftarkan webhook ke Telegram jika belum terpasang (100% Zero Manual Configuration!)
+async function ensureWebhookRegistered(request, env) {
+  if (!env || !env.TELEGRAM_BOT_TOKEN) return;
+  try {
+    const cleanToken = String(env.TELEGRAM_BOT_TOKEN).trim().replace(/^bot/i, '');
+    const requestUrl = new URL(request.url);
+    const expectedWebhookUrl = `${requestUrl.origin}/api/notify/telegram-webhook`;
+
+    // Cek apakah webhook saat ini sudah sesuai
+    const infoRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getWebhookInfo`);
+    if (infoRes.ok) {
+      const info = await infoRes.json();
+      if (info && info.result && info.result.url === expectedWebhookUrl) {
+        return; // Sudah sinkron, tidak perlu memanggil setWebhook lagi
+      }
+    }
+
+    // Setel webhook otomatis ke domain website aktif saat ini
+    await fetch(`https://api.telegram.org/bot${cleanToken}/setWebhook?url=${encodeURIComponent(expectedWebhookUrl)}`);
+  } catch (e) {}
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -42,6 +64,9 @@ export async function onRequest(context) {
       message: 'Notifikasi Telegram 24/7 adalah fitur eksklusif Member VIP, Owner, dan Affiliate.'
     }, { status: 403, headers: CORS });
   }
+
+  // Otomatis sinkronkan webhook di latar belakang
+  try { await ensureWebhookRegistered(request, env); } catch (e) {}
 
   let botUsername = (env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
   if (!botUsername && env.TELEGRAM_BOT_TOKEN) {

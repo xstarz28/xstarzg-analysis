@@ -472,6 +472,115 @@ await asyncTest('telegram-webhook grants access via short activation code from d
   }
 });
 
+await asyncTest('telegram-webhook grants access when user types their registered VIP email directly in chat', async () => {
+  const mockDb = new MockD1();
+  const env = {
+    DB: mockDb,
+    TELEGRAM_BOT_TOKEN: '12345678:TEST_TOKEN',
+    JWT_SECRET: 'test_jwt_secret_123'
+  };
+
+  // Register user in vip_entitlements
+  mockDb.tables.vip_entitlements.set('paid_customer@gmail.com', {
+    vip_until: Date.now() + 86400000 * 30
+  });
+
+  let sentMessages = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url.includes('api.telegram.org')) {
+      const body = JSON.parse(options.body);
+      sentMessages.push(body);
+      return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+    }
+    return originalFetch(url, options);
+  };
+
+  try {
+    // User opens bot and simply types: "Halo min, email saya paid_customer@gmail.com"
+    const update = {
+      message: {
+        chat: { id: 555444333 },
+        from: { id: 555444333, first_name: 'Customer' },
+        text: 'Halo min, email saya paid_customer@gmail.com'
+      }
+    };
+
+    const req = new Request('https://xstarzg.com/api/notify/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update)
+    });
+
+    const res = await handleWebhook({ request: req, env });
+    assert.strictEqual(res.status, 200);
+
+    // Bot verifies and confirms
+    assert.strictEqual(sentMessages.length, 1);
+    assert.strictEqual(String(sentMessages[0].chat_id), '555444333');
+    assert.ok(sentMessages[0].text.includes('BERHASIL TERVERIFIKASI'));
+    assert.ok(sentMessages[0].text.includes('paid_customer@gmail.com'));
+
+    // User is saved to telegram_subscribers
+    const saved = mockDb.tables.telegram_subscribers.get('555444333');
+    assert.ok(saved);
+    assert.strictEqual(saved.email, 'paid_customer@gmail.com');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await asyncTest('telegram-webhook rejects stranger typing non-VIP email', async () => {
+  const mockDb = new MockD1();
+  const env = {
+    DB: mockDb,
+    TELEGRAM_BOT_TOKEN: '12345678:TEST_TOKEN',
+    JWT_SECRET: 'test_jwt_secret_123'
+  };
+
+  let sentMessages = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url.includes('api.telegram.org')) {
+      const body = JSON.parse(options.body);
+      sentMessages.push(body);
+      return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+    }
+    return originalFetch(url, options);
+  };
+
+  try {
+    // Stranger tries to type a free / random email
+    const update = {
+      message: {
+        chat: { id: 1122334455 },
+        from: { id: 1122334455, first_name: 'Stranger' },
+        text: 'email saya stranger@free.com'
+      }
+    };
+
+    const req = new Request('https://xstarzg.com/api/notify/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update)
+    });
+
+    const res = await handleWebhook({ request: req, env });
+    assert.strictEqual(res.status, 200);
+
+    // Bot rejects
+    assert.strictEqual(sentMessages.length, 1);
+    assert.strictEqual(String(sentMessages[0].chat_id), '1122334455');
+    assert.ok(sentMessages[0].text.includes('AKSES DITOLAK'));
+    assert.ok(sentMessages[0].text.includes('Member VIP yang sudah berlangganan'));
+
+    // Stranger is NOT saved
+    assert.strictEqual(mockDb.tables.telegram_subscribers.has('1122334455'), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 // 4. /api/notify/telegram-subscribers test (Sentinel Broadcast API)
 await asyncTest('telegram-subscribers endpoint authorizes sentinel and returns active subscribers', async () => {
   const mockDb = new MockD1();
