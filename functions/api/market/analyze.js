@@ -116,8 +116,24 @@ const DEFAULT_PRICES = {
   'SMCI': 32.5, 'ARM': 142, 'INTC': 24.5, 'MU': 108, 'QCOM': 165, 'ORCL': 188, 'HOOD': 36.8, 'PYPL': 84.5,
   'SQ': 88, 'SOFI': 15.2, 'UBER': 76.5, 'ABNB': 138, 'RIVN': 12.8, 'BA': 158, 'LMT': 475, 'RTX': 124,
   'WMT': 92.5, 'COST': 965, 'DIS': 112, 'NKE': 78.5, 'SBUX': 98, 'PFE': 26.5, 'MRK': 102, 'UNH': 580,
-  'CVX': 158, 'CAT': 395
+  'CVX': 158, 'CAT': 395,
+  // Bare meme tokens (Solana, Base, DEX)
+  'FARTCOIN': 0.38, 'AI16Z': 0.42, 'PNUT': 1.1, 'GOAT': 0.78, 'MOODENG': 0.45, 'POPCAT': 1.2,
+  'BONK': 0.000018, 'WIF': 0.72, 'BRETT': 0.12, 'VIRTUAL': 1.85, 'PEPE': 0.0000105, 'SHIB': 0.0000162,
+  'FLOKI': 0.000098, 'NEIRO': 0.0018, 'TURBO': 0.0085, 'SPX': 0.75, 'ACT': 0.48, 'PENGU': 0.035, 'CHILLGUY': 0.28
 };
+export function getExpectedPrice(s) {
+  if (!s) return 0;
+  const clean = String(s).toUpperCase().trim();
+  if (DEFAULT_PRICES[clean]) return DEFAULT_PRICES[clean];
+  if (clean.endsWith('/USDT')) {
+    const base = clean.replace('/USDT', '');
+    if (DEFAULT_PRICES[base]) return DEFAULT_PRICES[base];
+  } else {
+    if (DEFAULT_PRICES[clean + '/USDT']) return DEFAULT_PRICES[clean + '/USDT'];
+  }
+  return 0;
+}
 const US_EXCHANGE_MAP = {
   'SPY': 'AMEX:SPY', 'QQQ': 'NASDAQ:QQQ', 'DIA': 'AMEX:DIA', 'IWM': 'AMEX:IWM',
   'NVDA': 'NASDAQ:NVDA', 'AAPL': 'NASDAQ:AAPL', 'MSFT': 'NASDAQ:MSFT', 'AMZN': 'NASDAQ:AMZN',
@@ -202,7 +218,7 @@ function yahooSymbolsFor(s) {
 }
 async function fetchYahooQuote(symbol) {
   const list = yahooSymbolsFor(symbol);
-  const expectedP = DEFAULT_PRICES[symbol] || 0;
+  const expectedP = getExpectedPrice(symbol);
   for (const y of list) {
     try {
       const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y) + '?interval=1m&range=1d', {
@@ -246,7 +262,7 @@ function resampleCandles(candles, bucketSec) {
 }
 async function fetchYahooCandles(symbol, tf) {
   const cfg = YAHOO_TF[tf] || YAHOO_TF['H1'];
-  const expectedP = DEFAULT_PRICES[symbol] || 0;
+  const expectedP = getExpectedPrice(symbol);
   for (const y of yahooSymbolsFor(symbol)) {
     try {
       const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y)
@@ -472,7 +488,7 @@ async function fetchExactLiveQuote(symbol, tf) {
       atr: yQuote.price * 0.0035
     };
   }
-  const defP = DEFAULT_PRICES[s] || 100;
+  const defP = getExpectedPrice(s) || (Number(yQuote?.price) > 0 ? Number(yQuote.price) : 100);
   return {
     source: 'ESTIMATED_FALLBACK',
     price: defP,
@@ -631,7 +647,7 @@ function buildBrokerAnchoredCandles(symbol, tf, liveQuote) {
   const stepSec = tfSecMap[tf] || 3600;
   const nowBucket = Math.floor(Date.now() / 1000 / stepSec) * stepSec;
   const count = 200;
-  const expectedP = DEFAULT_PRICES[s] || 100;
+  const expectedP = getExpectedPrice(s) || (Number(liveQuote?.price) > 0 ? Number(liveQuote.price) : 100);
   let endPrice = Number(liveQuote?.price) > 0 ? Number(liveQuote.price) : expectedP;
   // Validasi skala harga: jika kuotasi broker menyimpang ekstrem dari harga aset, pakai harga jangkar wajar
   if (expectedP > 0 && (endPrice > expectedP * 3.5 || endPrice < expectedP * 0.28)) {

@@ -1186,6 +1186,7 @@ function drawChartLevels(analysis) {
   var showSMC = $id('chkSMC') ? $id('chkSMC').checked : true;
   var showSniper = $id('chkSniper') ? $id('chkSniper').checked : true;
   var L = effectiveLevels(analysis);
+  var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(analysis.symbol, analysis.timeframe || state.tf) : null;
   var add = function (price, color, title, style) {
     var p = num(price);
     if (!p || p <= 0) return;
@@ -1215,14 +1216,26 @@ function drawChartLevels(analysis) {
     } else {
       // Futures 2-arah: tampilkan garis estimasi likuidasi; Spot 1-arah: tanpa garis likuidasi
       var rp = riskParams(analysis);
-      if (state.subMode === 'futures' && num(rp.liq) > 0) {
+      if (state.subMode === 'futures' && num(rp.liq) > 0 && (!oc || oc.status === 'ACTIVE')) {
         add(rp.liq, 'rgba(168,85,247,0.9)', 'EST. LIQ ' + rp.lev + 'x', 3);
       }
-      add(L.entry, '#38bdf8', 'ENTRY', 0);
-      add(L.sl, '#f43f5e', 'STOP LOSS', 2);
-      add(L.tp1, '#10b981', 'TP1', 2);
-      add(L.tp2, '#10b981', 'TP2', 2);
-      add(L.tp3, '#34d399', 'TP3', 2);
+      if (oc && oc.status === 'TP_HIT') {
+        add(L.tp1, '#10b981', 'TP1 REACHED ✓', 0);
+        add(L.entry, 'rgba(56,189,248,0.45)', 'ENTRY (DONE)', 2);
+        add(L.sl, 'rgba(244,63,94,0.3)', 'SL (CLOSED)', 2);
+      } else if (oc && oc.status === 'BE_SAVED') {
+        add(L.entry, '#10b981', 'SL+ HIT (0-RISK) ✓', 0);
+        add(L.sl, 'rgba(244,63,94,0.25)', 'SL (SAFE)', 2);
+      } else if (oc && oc.status === 'SL_HIT') {
+        add(L.sl, '#f43f5e', 'SL HIT ✗', 0);
+        add(L.entry, 'rgba(56,189,248,0.3)', 'ENTRY', 2);
+      } else {
+        add(L.entry, '#38bdf8', 'ENTRY', 0);
+        add(L.sl, '#f43f5e', 'STOP LOSS', 2);
+        add(L.tp1, '#10b981', 'TP1', 2);
+        add(L.tp2, '#10b981', 'TP2', 2);
+        add(L.tp3, '#34d399', 'TP3', 2);
+      }
     }
   }
 }
@@ -1570,10 +1583,20 @@ function renderPanels(a) {
   // ---- Trader panel ----
   var dir = a.direction;
   var isSpot = state.subMode === 'spot';
+  var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(a.symbol, a.timeframe || state.tf) : null;
   var dirBox = $id('valSignalDirection');
   if (dirBox) {
     var txt, col;
-    if (isSpot) {
+    if (oc && oc.status === 'TP_HIT') {
+      txt = T('ui.eDirTpHit', '✅ TP TERCAPAI — SETUP SELESAI');
+      col = '#10b981';
+    } else if (oc && oc.status === 'BE_SAVED') {
+      txt = T('ui.eDirBeSaved', '🛡️ TERSELAMATKAN SL+ (0-RISK, MODAL AMAN)');
+      col = '#10b981';
+    } else if (oc && oc.status === 'SL_HIT') {
+      txt = T('ui.eDirSlHit', '❌ SL TERSENTUH — SETUP INVALID');
+      col = '#f43f5e';
+    } else if (isSpot) {
       txt = dir === 'LONG' ? T('ui.eDirSpotLong', 'SPOT BUY / AKUMULASI (1-ARAH)') : T('ui.eDirSpotWait', '◆ TUNGGU SETUP BELI (SPOT 1-ARAH)');
       col = dir === 'LONG' ? '#10b981' : '#f59e0b';
     } else {
@@ -1585,7 +1608,9 @@ function renderPanels(a) {
     dirBox.style.background = col === '#10b981' ? 'rgba(16,185,129,0.18)' : col === '#f43f5e' ? 'rgba(244,63,94,0.18)' : 'rgba(245,158,11,0.16)';
   }
   var lockBadge;
-  if (a.lockedSignal) lockBadge = fillTpl(T('ui.eLocked', '🔒 LOCKED {tf}'), { tf: (a.lockTf || a.timeframe || state.tf) }) + (a.signalTier === 'ELITE' ? ' ★' : '');
+  if (oc && oc.status === 'TP_HIT') lockBadge = '✅ TP COMPLETED';
+  else if (oc && oc.status === 'BE_SAVED') lockBadge = '🛡️ SL+ 0-RISK';
+  else if (a.lockedSignal) lockBadge = fillTpl(T('ui.eLocked', '🔒 LOCKED {tf}'), { tf: (a.lockTf || a.timeframe || state.tf) }) + (a.signalTier === 'ELITE' ? ' ★' : '');
   else if (a.signalEligible) lockBadge = fillTpl(a.signalTier === 'ELITE' ? T('ui.eEliteSetup', '✅ ELITE SETUP {tf}') : T('ui.eProSetup', '✅ PRO SETUP {tf}'), { tf: (a.timeframe || state.tf) });
   else lockBadge = fillTpl(T('ui.eNoTradeTf', '🚫 NO-TRADE ZONE {tf}'), { tf: (a.timeframe || state.tf) });
   setTxt('valSetupLockBadge', lockBadge);
@@ -1846,7 +1871,7 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var risk = Math.max(Math.abs(entry - sl), 1e-12);
   var targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
   var brain = lock.brain || (['M1', 'M5', 'M15'].indexOf(tf) > -1 ? 'SCALP' : 'SNIPER');
-  var beTriggerRatio = brain === 'SCALP' ? 0.30 : 0.50;
+  var beTriggerRatio = brain === 'SCALP' ? 0.20 : 0.38;
 
   var tpHit = isLong ? (high >= tp1) : (low <= tp1);
   var slHit = isLong ? (low <= sl) : (high >= sl);
@@ -2272,7 +2297,7 @@ function renderSignalJournal() {
   var isEn = curLang !== 'id';
   var dateLocale = isEn ? 'en-US' : 'id-ID';
   var html = '';
-  rows.slice(0, 14).forEach(function (r) {
+  rows.slice(0, 80).forEach(function (r) {
     var b = jnlStatusBadge(r.st, r.bePlusActive);
     var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
     var tTxt = r.at ? new Date(r.at).toLocaleString(dateLocale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -4774,7 +4799,7 @@ function primeFromRadarPool(sym, tf) {
     var pool = pools[p];
     for (var key in pool) {
       var rec = pool[key];
-      if (rec && rec.item && rec.item.sym === sym && rec.item.tf === tf && rec.item.candles && (now - rec.ts) < 180000) {
+      if (rec && rec.item && rec.item.sym === sym && (!tf || rec.item.tf === tf) && rec.item.candles && (now - rec.ts) < 180000) {
         return { candles: rec.item.candles, source: rec.item.source || 'BROKER FEED' };
       }
     }
@@ -4814,7 +4839,7 @@ function gotoInstrument(sym, tf) {
       if (primeAnalysis && !primeAnalysis.error) renderAllVisuals(primeAnalysis, true);
     } catch (e) {}
   }
-  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
+  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(false);
   connectRealtimeStream();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }

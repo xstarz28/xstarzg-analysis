@@ -1066,9 +1066,11 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // GERBANG PER-OTAK (v2026.51): SCALP dilarang melawan tape (tekanan orderflow
   // berlawanan arah); SNIPER dilarang beli di premium/jual di diskon & wajib BOS/HTF searah.
   const scalpPressureVeto = brain === 'SCALP' && ((softBias === 'LONG' && imbPct <= 38) || (softBias === 'SHORT' && imbPct >= 62));
-  // Eksepsi trend-breakout: di ujung range DENGAN BOS searah (ekspansi nyata),
-  // premium/discount bukan jebakan — hanya berbahaya bila TANPA breakout.
-  const sniperPremiumVeto = brain === 'SNIPER' && ((softBias === 'LONG' && pos90 >= 62 && bosDir <= 0) || (softBias === 'SHORT' && pos90 <= 38 && bosDir >= 0));
+  const trendStrongLong = ema20 > ema50 && lastPrice > ema50;
+  const trendStrongShort = ema20 < ema50 && lastPrice < ema50;
+  const premThresholdLong = trendStrongLong ? 82 : 72;
+  const discThresholdShort = trendStrongShort ? 18 : 28;
+  const sniperPremiumVeto = brain === 'SNIPER' && ((softBias === 'LONG' && pos90 >= premThresholdLong && bosDir <= 0) || (softBias === 'SHORT' && pos90 <= discThresholdShort && bosDir >= 0));
   const sniperStructVeto = brain === 'SNIPER' && ((softBias === 'LONG' && bosDir < 0 && htfBias <= 0) || (softBias === 'SHORT' && bosDir > 0 && htfBias >= 0));
   const brainVeto = scalpPressureVeto || sniperPremiumVeto || sniperStructVeto;
   // VETO ATLAS ICT (v2026.52): CISD lawan arah = status pengiriman sudah berbalik
@@ -1405,9 +1407,9 @@ export function validateSignalLock(lock, closedCandles, fresh) {
     const targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
     const brain = lock.brain || (lock.tfSeconds <= 900 ? 'SCALP' : 'SNIPER');
     // Batas pemicu saran SL+ (0-Risk):
-    // SCALP (M1-M15): sangat cepat & agresif (cukup 30% jarak ke TP1)
-    // SNIPER (M30+): sabar seperti investor, bernapas sampai 50% jarak ke TP1
-    const beTriggerRatio = brain === 'SCALP' ? 0.30 : 0.50;
+    // SCALP (M1-M15): sangat cepat & agresif (cukup 20% jarak ke TP1)
+    // SNIPER (M30+): bernapas hingga 38% jarak ke TP1
+    const beTriggerRatio = brain === 'SCALP' ? 0.20 : 0.38;
 
     let newBars = 0;
     let maxFavorableDist = 0;
