@@ -307,6 +307,17 @@ chk('dashboard depan menampilkan mode meme coin berdampingan dengan trader dan i
   html.includes('ui.feat5Desc') &&
   html.includes('Radar Khusus Koin Micin & DEX Gems'));
 
+chk('workspace DEX meme micin memiliki live ticker gerak aktif dan generator candle unik per instrumen',
+  html.includes('id="selMemeInstrument"') &&
+  html.includes('id="memeTfBar"') &&
+  app.includes('startMemeLiveTicker') &&
+  app.includes('stopMemeLiveTicker') &&
+  app.includes('formatMemePrice') &&
+  app.includes('hashMemeStr') &&
+  app.includes('activeMemeCandles') &&
+  app.includes('drawMemeCandleChart') &&
+  app.includes('switchMemeChartView'));
+
 /* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
 chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
   app.includes('function monitorLiveSignalProgress(') &&
