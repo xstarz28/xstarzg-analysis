@@ -66,7 +66,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (558)', uniform && count === 558);
+chk('20 locale punya keyset ui seragam (587)', uniform && count === 587);
 chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
 chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
@@ -454,6 +454,21 @@ chk('pengiriman notifikasi bot telegram live SL+ & sinyal institusional skor bes
   app.includes('api.telegram.org/bot') &&
   tgRelay.includes('export async function onRequestPost({ request })') &&
   tgRelay.includes('api.telegram.org'));
+
+chk('panduan tutorial pembuatan bot telegram & integrasi sistem multi-bahasa (i18n)',
+  html.includes('id="btnToggleTgTutorial"') &&
+  html.includes('id="tgTutorialContent"') &&
+  html.includes('data-i18n="ui.tgTutorHeading"') &&
+  html.includes('data-i18n="ui.tgTutorSteps"') &&
+  html.includes('data-i18n="ui.tgModalTitle"') &&
+  html.includes('data-i18n="ui.tgTokenLbl"') &&
+  html.includes('data-i18n-ph="ui.tgTokenPh"') &&
+  html.includes('data-i18n="ui.tgChatIdLbl"') &&
+  html.includes('data-i18n-ph="ui.tgChatIdPh"') &&
+  app.includes("$id('btnToggleTgTutorial')") &&
+  app.includes("window.XSI18N.t('ui.tgActiveBadge'") &&
+  app.includes('SL+ TRIGGERED — 0-RISK ALERT') &&
+  app.includes('NEW HIGH-SCORE OPPORTUNITY'));
 
 let syntaxOk = false;
 try {
