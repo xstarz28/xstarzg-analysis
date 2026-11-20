@@ -563,10 +563,10 @@ export function buildInstitutionalLevels(dir, ctx) {
   // target R:R jelas); SNIPER memakai buffer SL struktural lebih lebar & skala TP.
   const brainMode = ctx.brain || 'SNIPER';
   const slBuf = (SL_BUFFER_ATR + (brainMode === 'SCALP' ? -0.15 : 0.15)) * a;
-  const minTp1R = brainMode === 'SCALP' ? 0.85 : 1.0;
-  const tp1Pad = brainMode === 'SCALP' ? 1.1 : 1.1;
-  const rrMin2 = brainMode === 'SCALP' ? 2.0 : MIN_RR_TP2;
-  const distPoint = brainMode === 'SCALP' ? 3.0 : 3.5;
+  const minTp1R = brainMode === 'SCALP' ? 2.0 : 1.0;
+  const tp1Pad = brainMode === 'SCALP' ? 2.0 : 1.1;
+  const rrMin2 = brainMode === 'SCALP' ? 3.0 : MIN_RR_TP2;
+  const distPoint = brainMode === 'SCALP' ? 4.0 : 3.5;
   let entry, sl, tp1, tp2, tp3;
   // Mitigation candidates (zona diskon utk LONG / premium utk SHORT)
   const fib618 = ctx.impulseHigh - 0.618 * Math.max(0, ctx.impulseHigh - ctx.impulseLow);
@@ -598,7 +598,13 @@ export function buildInstitutionalLevels(dir, ctx) {
     if (tp1 <= floor1) tp1 = floor1 + Math.max(tp1Pad * r, 0.4 * a);
     if (tp2 <= tp1) tp2 = tp1 + Math.max(0.5 * r, 0.4 * a);
     if (tp3 <= tp2) tp3 = tp2 + Math.max(0.8 * r, 0.4 * a);
-    return { dir, entry, sl, tp1, tp2, tp3, rrRatio: (tp2 - entry) / r };
+    // Garansi R:R SCALP minimum 1:2 (TP1 >= 2.0R)
+    if (brainMode === 'SCALP' && (tp1 - entry) / r < 2.0) {
+      tp1 = entry + 2.0 * r;
+      if (tp2 <= tp1) tp2 = tp1 + Math.max(0.5 * r, 0.4 * a);
+      if (tp3 <= tp2) tp3 = tp2 + Math.max(0.8 * r, 0.4 * a);
+    }
+    return { dir, entry, sl, tp1, tp2, tp3, rrRatio: brainMode === 'SCALP' ? ((tp1 - entry) / r) : ((tp2 - entry) / r) };
   }
   // SHORT (cermin)
   const above = [obMidS, fvgMidS, ctx.impulseLow + 0.618 * Math.max(0, ctx.impulseHigh - ctx.impulseLow), poc]
@@ -623,8 +629,14 @@ export function buildInstitutionalLevels(dir, ctx) {
   if (tp1 >= ceiling1) tp1 = ceiling1 - Math.max(tp1Pad * r, 0.4 * a);
   if (tp2 >= tp1) tp2 = tp1 - Math.max(0.5 * r, 0.4 * a);
   if (tp3 >= tp2) tp3 = tp2 - Math.max(0.8 * r, 0.4 * a);
+  // Garansi R:R SCALP minimum 1:2 (TP1 >= 2.0R)
+  if (brainMode === 'SCALP' && (entry - tp1) / r < 2.0) {
+    tp1 = entry - 2.0 * r;
+    if (tp2 >= tp1) tp2 = tp1 - Math.max(0.5 * r, 0.4 * a);
+    if (tp3 >= tp2) tp3 = tp2 - Math.max(0.8 * r, 0.4 * a);
+  }
   if (tp3 <= 0) tp3 = Math.max(entry * 0.1, tp2 * 0.95);
-  return { dir, entry, sl, tp1, tp2, tp3, rrRatio: (entry - tp2) / r };
+  return { dir, entry, sl, tp1, tp2, tp3, rrRatio: brainMode === 'SCALP' ? ((entry - tp1) / r) : ((entry - tp2) / r) };
 }
 
 // Label narasi veto (Bahasa Indonesia, sumber untuk lapisan i18n)
@@ -1481,11 +1493,11 @@ export function validateSignalLock(lock, closedCandles, fresh) {
 
       // Cek eksekusi TP / SL
       if (isLong) {
-        if (c.low <= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time, beProtected: bePlusActive, slPlus: lock.slPlus };
-        if (c.high >= lock.tp1) return { status: 'TP_HIT', reason: 'TP tersentuh — setup selesai', at: c.time };
+        if (c.low <= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time, beProtected: bePlusActive, slPlus: lock.slPlus, exitPrice: lock.sl };
+        if (c.high >= lock.tp1) return { status: 'TP_HIT', reason: (lock.brain === 'SCALP' ? 'Target 1:2 R:R tersentuh — setup selesai' : 'TP tersentuh — setup selesai'), at: c.time, exitPrice: lock.tp1 };
       } else {
-        if (c.high >= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time, beProtected: bePlusActive, slPlus: lock.slPlus };
-        if (c.low <= lock.tp1) return { status: 'TP_HIT', reason: 'TP tersentuh — setup selesai', at: c.time };
+        if (c.high >= lock.sl) return { status: 'SL_HIT', reason: 'SL tersentuh pada candle closed', at: c.time, beProtected: bePlusActive, slPlus: lock.slPlus, exitPrice: lock.sl };
+        if (c.low <= lock.tp1) return { status: 'TP_HIT', reason: (lock.brain === 'SCALP' ? 'Target 1:2 R:R tersentuh — setup selesai' : 'TP tersentuh — setup selesai'), at: c.time, exitPrice: lock.tp1 };
       }
     }
     // v2026.65: setup punya MASA HIDUP sesuai horison — horison lewat tanpa TP/SL

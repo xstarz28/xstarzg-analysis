@@ -358,5 +358,12 @@ chk('kalender ekonomi & jurnal sinyal mandiri (terpisah dari dashboard analisa u
   app.includes("state.mode === 'news'") &&
   app.includes("state.mode === 'journal'"));
 
+chk('sinkronisasi mutlak chart & keterangan panel via effectiveLevels oc.lock + SEI/USDT seed',
+  app.includes("'SEI/USDT': 0.28") &&
+  app.includes("if (oc && oc.lock && (oc.status === 'TP_HIT' || oc.status === 'SL_HIT' || oc.status === 'BE_SAVED'))") &&
+  app.includes("formatPrice(tp1, symbol)") &&
+  eng.includes("const minTp1R = brainMode === 'SCALP' ? 2.0 : 1.0;") &&
+  eng.includes("const tp1Pad = brainMode === 'SCALP' ? 2.0 : 1.1;"));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

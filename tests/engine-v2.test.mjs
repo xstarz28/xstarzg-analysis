@@ -115,9 +115,10 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   };
   const SL = SE.buildInstitutionalLevels('LONG', ctxS);
   chk('SCALP SL buffer lebih tipis (0.30*ATR)', Math.abs(SL.sl - (94 - 0.6)) < 1e-6);
-  chk('SCALP TP1 boleh < 1R (mikro-target)', (SL.tp1 - SL.entry) / (SL.entry - SL.sl) >= 0.55 - 1e-9);
-  chk('SCALP TP2 minimal 1.25R (bukan 2.2R sniper)', (SL.tp2 - SL.entry) / (SL.entry - SL.sl) >= 1.25 - 1e-9);
+  chk('SCALP TP1 memenuhi target RR >= 2.0 (1:2)', (SL.tp1 - SL.entry) / (SL.entry - SL.sl) >= 2.0 - 1e-9);
+  chk('SCALP TP2 minimal 3.0R (bukan mikro-target)', (SL.tp2 - SL.entry) / (SL.entry - SL.sl) >= 3.0 - 1e-9);
   chk('SCALP TP naik berurutan', SL.tp1 < SL.tp2 && SL.tp2 < SL.tp3 && SL.entry < SL.tp1);
+  chk('SCALP rrRatio mengacu ke TP1 (1:2 R:R)', SL.rrRatio >= 2.0 - 1e-9);
 }
 
 /* ---------- 5. Persistent Signal Lock lifecycle (aturan #3.2) ---------- */
@@ -545,6 +546,61 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   const lvsLong = SE.buildInstitutionalLevels('LONG', ctxLong);
   chk('LONG levels: TP1 harus berada di atas harga pasar saat ini (TP1 > 87.328)', lvsLong.tp1 > 87.328 && lvsLong.tp1 > lvsLong.entry);
   chk('LONG levels: urutan matematis terjaga entry < tp1 < tp2 < tp3', lvsLong.entry < lvsLong.tp1 && lvsLong.tp1 < lvsLong.tp2 && lvsLong.tp2 < lvsLong.tp3);
+}
+
+/* ---------- 29. SCALPING R:R 1:2 GARANSI MUTLAK & ZERO-DESYNC (SEI/USDT & ALL INSTRUMENTS) ---------- */
+{
+  // 1. Long Scalp pada SEI/USDT (harga mikro)
+  const ctxSeiLong = {
+    price: 0.2800, atr: 0.0050, brain: 'SCALP',
+    impulseHigh: 0.2900, impulseLow: 0.2700,
+    bullOb: { top: 0.2790, bottom: 0.2770 },
+    recentHigh: 0.2850, poc: 0.2785
+  };
+  const seiLvs = SE.buildInstitutionalLevels('LONG', ctxSeiLong);
+  const rLong = seiLvs.entry - seiLvs.sl;
+  chk('SEI/USDT SCALP LONG: TP1 menghasilkan RR >= 2.0 (1:2 R:R)', (seiLvs.tp1 - seiLvs.entry) / rLong >= 2.0 - 1e-9);
+  chk('SEI/USDT SCALP LONG: rrRatio >= 2.00', seiLvs.rrRatio >= 2.0 - 1e-9);
+  chk('SEI/USDT SCALP LONG: TP2 >= 3.0R', (seiLvs.tp2 - seiLvs.entry) / rLong >= 3.0 - 1e-9);
+  chk('SEI/USDT SCALP LONG: urutan harga entry < tp1 < tp2 < tp3', seiLvs.entry < seiLvs.tp1 && seiLvs.tp1 < seiLvs.tp2 && seiLvs.tp2 < seiLvs.tp3);
+
+  // 2. Short Scalp pada SEI/USDT
+  const ctxSeiShort = {
+    price: 0.2800, atr: 0.0050, brain: 'SCALP',
+    impulseHigh: 0.2900, impulseLow: 0.2700,
+    bearOb: { top: 0.2830, bottom: 0.2810 },
+    recentLow: 0.2750, poc: 0.2815
+  };
+  const seiShortLvs = SE.buildInstitutionalLevels('SHORT', ctxSeiShort);
+  const rShort = seiShortLvs.sl - seiShortLvs.entry;
+  chk('SEI/USDT SCALP SHORT: TP1 menghasilkan RR >= 2.0 (1:2 R:R)', (seiShortLvs.entry - seiShortLvs.tp1) / rShort >= 2.0 - 1e-9);
+  chk('SEI/USDT SCALP SHORT: rrRatio >= 2.00', seiShortLvs.rrRatio >= 2.0 - 1e-9);
+  chk('SEI/USDT SCALP SHORT: TP2 >= 3.0R', (seiShortLvs.entry - seiShortLvs.tp2) / rShort >= 3.0 - 1e-9);
+  chk('SEI/USDT SCALP SHORT: urutan harga entry > tp1 > tp2 > tp3 > 0', seiShortLvs.entry > seiShortLvs.tp1 && seiShortLvs.tp1 > seiShortLvs.tp2 && seiShortLvs.tp2 > seiShortLvs.tp3 && seiShortLvs.tp3 > 0);
+
+  // 3. Eksekusi Scalp Lock: Tidak boleh exit premature di 1:1, wajib sampai TP1 (1:2)
+  const scalpAnalysis = {
+    symbol: 'SEI/USDT', timeframe: 'M5', mode: 'trader',
+    direction: 'LONG', signalEligible: true,
+    levels: seiLvs,
+    confluenceScore: 84, anchorClosedTime: 1000, anchorClosedClose: ctxSeiLong.price,
+    gating: { winRate: 78 }, backtest: { winRate: 78 }
+  };
+  const lock = SE.createSignalLock(scalpAnalysis, 'SEI/USDT', 'trader', 'futures');
+  chk('Scalp lock berhasil dibuat dengan brain SCALP', !!lock && lock.brain === 'SCALP');
+
+  // Candle 1 jemput entry & naik ke 1.0R (1:1 R:R): Tidak boleh selesai (bukan TP_HIT)
+  const halfTargetPrice = lock.entry + 1.0 * rLong;
+  const barHalf = { time: 1100, open: lock.entry, high: halfTargetPrice, low: lock.entry - 0.1 * rLong, close: halfTargetPrice, volume: 100 };
+  const vHalf = SE.validateSignalLock(lock, [barHalf], null);
+  chk('Scalp pada 1:1 R:R tetap ACTIVE (tidak exit prematur di 1:1)', vHalf.status === 'ACTIVE');
+  chk('Scalp pada 1:1 R:R mengaktifkan proteksi 0-Risk (bePlusActive)', vHalf.bePlusActive === true);
+
+  // Candle 2 lanjut naik ke TP1 (2.0R / 1:2 R:R): Baru sah TP_HIT
+  const barFull = { time: 1200, open: halfTargetPrice, high: lock.tp1, low: halfTargetPrice - 0.1 * rLong, close: lock.tp1, volume: 100 };
+  const vFull = SE.validateSignalLock(lock, [barHalf, barFull], null);
+  chk('Scalp mencapai TP1 (1:2 R:R) sah TP_HIT', vFull.status === 'TP_HIT');
+  chk('Scalp TP_HIT membawa exitPrice yang presisi sama dengan lock.tp1', vFull.exitPrice === lock.tp1);
 }
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
