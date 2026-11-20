@@ -648,7 +648,18 @@ function saveSignalLock(symbol, tf, lock) {
   try {
     var all = signalLockStore();
     var id = signalLockId(symbol, tf);
-    if (lock) all[id] = lock; else delete all[id];
+    if (lock) {
+      all[id] = lock;
+      try {
+        var outs = signalOutcomeStore();
+        if (outs[id]) {
+          delete outs[id];
+          localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(outs));
+        }
+      } catch (e) {}
+    } else {
+      delete all[id];
+    }
     var ks = Object.keys(all).filter(function (k) { return k !== '__migratedV2'; });
     while (ks.length > 60) { var k0 = ks.shift(); delete all[k0]; }
     localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
@@ -1258,8 +1269,9 @@ function drawChartLevels(analysis) {
   clearDrawnPriceLines();
   var showSMC = $id('chkSMC') ? $id('chkSMC').checked : true;
   var showSniper = $id('chkSniper') ? $id('chkSniper').checked : true;
-  var L = effectiveLevels(analysis);
   var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(analysis.symbol, analysis.timeframe || state.tf) : null;
+  if (analysis.lockedSignal) oc = null;
+  var L = effectiveLevels(analysis);
   var curP = (state.candles && state.candles.length) ? state.candles[state.candles.length - 1].close : (analysis.lastPrice || 0);
   var add = function (price, color, title, style) {
     var p = num(price);
@@ -1302,10 +1314,16 @@ function drawChartLevels(analysis) {
         add(entryP, 'rgba(56,189,248,0.45)', 'ENTRY (DONE)', 2);
         add(slP, 'rgba(244,63,94,0.3)', 'SL (CLOSED)', 2);
       } else if (oc && oc.status === 'BE_SAVED') {
-        add(L.entry, '#10b981', 'SL+ HIT (0-RISK) ✓', 0);
-        add(L.sl, 'rgba(244,63,94,0.25)', 'SL (SAFE)', 2);
+        var entryP = (oc.lock && num(oc.lock.entry) > 0) ? num(oc.lock.entry) : L.entry;
+        var slP = (oc.lock && num(oc.lock.sl) > 0) ? num(oc.lock.sl) : L.sl;
+        add(entryP, '#10b981', 'SL+ HIT (0-RISK) ✓', 0);
+        add(slP, 'rgba(244,63,94,0.25)', 'SL (SAFE)', 2);
       } else if (oc && oc.status === 'SL_HIT') {
-        add(L.sl, '#f43f5e', 'SL HIT ✗', 0);
+        var entryP = (oc.lock && num(oc.lock.entry) > 0) ? num(oc.lock.entry) : L.entry;
+        var slP = (oc.lock && num(oc.lock.sl) > 0) ? num(oc.lock.sl) : L.sl;
+        add(slP, '#f43f5e', 'SL HIT ✗', 0);
+        add(entryP, 'rgba(56,189,248,0.3)', 'ENTRY', 2);
+      } else {
         add(L.entry, 'rgba(56,189,248,0.3)', 'ENTRY', 2);
       } else {
         add(L.entry, '#38bdf8', 'ENTRY', 0);
@@ -1608,6 +1626,32 @@ function riskParams(a) {
    Futures memakai level 2-arah sesuai analisis, Investor memakai zona DCA. */
 function effectiveLevels(a) {
   var L = (a && a.levels) || {};
+  if (!a) return L;
+  // Jika sinyal sedang terkunci aktif, level a.levels sudah di-apply oleh applyLockedSignal.
+  // Namun jika kunci baru saja selesai (TP_HIT, SL_HIT, BE_SAVED), baca outcome aktif
+  // agar panel teks (Keterangan Sinyal) dan chart garis 100% SINKRON dengan target transaksi tersebut!
+  if (!a.lockedSignal) {
+    var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(a.symbol, a.timeframe || state.tf) : null;
+    if (oc && oc.lock && (oc.status === 'TP_HIT' || oc.status === 'SL_HIT' || oc.status === 'BE_SAVED')) {
+      return {
+        entry: oc.lock.entry,
+        sl: oc.lock.sl,
+        tp1: oc.lock.tp1,
+        tp2: oc.lock.tp2,
+        tp3: oc.lock.tp3,
+        rrRatio: oc.lock.rrRatio,
+        poc: L.poc,
+        swingHigh: L.swingHigh,
+        swingLow: L.swingLow,
+        fib: L.fib,
+        dcaZone1: L.dcaZone1,
+        dcaZone2: L.dcaZone2,
+        dcaZone3: L.dcaZone3,
+        invTarget1: L.invTarget1,
+        invTarget2: L.invTarget2
+      };
+    }
+  }
   // Trader SPOT 1-arah: tampilkan level HANYA jika ada sinyal_LONG yang lolos
   // gerbang ketat (entry sudah sangat terkunci di engine). Tidak ada entry liar
   // dari harga live; tanpa sinyal valid -> panel menampilkan '--' (anti-overtrade).
@@ -1662,6 +1706,7 @@ function renderPanels(a) {
   var dir = a.direction;
   var isSpot = state.subMode === 'spot';
   var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(a.symbol, a.timeframe || state.tf) : null;
+  if (a.lockedSignal) oc = null;
   var dirBox = $id('valSignalDirection');
   if (dirBox) {
     var txt, col;
@@ -1688,11 +1733,13 @@ function renderPanels(a) {
   var lockBadge;
   if (oc && oc.status === 'TP_HIT') lockBadge = '✅ TP COMPLETED';
   else if (oc && oc.status === 'BE_SAVED') lockBadge = '🛡️ SL+ 0-RISK';
+  else if (oc && oc.status === 'SL_HIT') lockBadge = '❌ SL HIT';
   else if (a.lockedSignal) lockBadge = fillTpl(T('ui.eLocked', '🔒 LOCKED {tf}'), { tf: (a.lockTf || a.timeframe || state.tf) }) + (a.signalTier === 'ELITE' ? ' ★' : '');
   else if (a.signalEligible) lockBadge = fillTpl(a.signalTier === 'ELITE' ? T('ui.eEliteSetup', '✅ ELITE SETUP {tf}') : T('ui.eProSetup', '✅ PRO SETUP {tf}'), { tf: (a.timeframe || state.tf) });
   else lockBadge = fillTpl(T('ui.eNoTradeTf', '🚫 NO-TRADE ZONE {tf}'), { tf: (a.timeframe || state.tf) });
   setTxt('valSetupLockBadge', lockBadge);
-  setTxt('valConfidenceScore', num(a.convictionScore, a.confluenceScore || a.confidence || 50) + '%');
+  var scoreToShow = (oc && oc.lock && oc.lock.score) ? oc.lock.score : num(a.convictionScore, a.confluenceScore || a.confidence || 50);
+  setTxt('valConfidenceScore', scoreToShow + '%');
   setTxt('valRegime', localizeEngineString(a.regime || '-'));
   var L = effectiveLevels(a);
   setTxt('valEntry', formatPrice(L.entry, a.symbol));
@@ -2000,7 +2047,7 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var slHit = isLong ? (low <= sl) : (high >= sl);
 
   if (tpHit) {
-    var verdict = { status: 'TP_HIT', reason: T('ui.jnlTpHitReason', 'TP tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(price, symbol) + ')', at: Date.now() };
+    var verdict = { status: 'TP_HIT', reason: T('ui.jnlTpHitReason', 'TP tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(tp1, symbol) + ')', at: Date.now(), exitPrice: tp1 };
     if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
     recordSignalOutcome(symbol, tf, verdict, lock);
     saveSignalLock(symbol, tf, null);
@@ -2009,7 +2056,7 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   }
 
   if (slHit) {
-    var verdict = { status: 'SL_HIT', reason: T('ui.jnlSlHitReason', 'SL tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(price, symbol) + ')', at: Date.now(), beProtected: !!lock.bePlusActive, slPlus: lock.slPlus };
+    var verdict = { status: 'SL_HIT', reason: T('ui.jnlSlHitReason', 'SL tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(sl, symbol) + ')', at: Date.now(), beProtected: !!lock.bePlusActive, slPlus: lock.slPlus, exitPrice: sl };
     if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
     recordSignalOutcome(symbol, tf, verdict, lock);
     saveSignalLock(symbol, tf, null);
@@ -2378,6 +2425,7 @@ function localizeJournalReason(reason) {
   var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
   if (isEn) {
     s = s.replace(/Terselamatkan oleh proteksi SL\+ \(0-Risk, modal aman\)/g, 'Saved by SL+ protection (0-Risk, capital safe)');
+    s = s.replace(/Target 1:2 R:R tersentuh — setup selesai/g, 'Target 1:2 R:R hit — setup completed');
     s = s.replace(/TP tersentuh — setup selesai/g, 'TP hit — setup completed');
     s = s.replace(/TP tersentuh pada pemantauan harga langsung/g, 'TP hit on live price stream');
     s = s.replace(/SL tersentuh pada pemantauan harga langsung/g, 'SL hit on live price stream');
@@ -2430,12 +2478,19 @@ function renderSignalJournal() {
     var dcol = r.dir === 'LONG' ? '#34d399' : '#fb7185';
     var tTxt = r.at ? new Date(r.at).toLocaleString(dateLocale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
     var isSniper = r.brain === 'SNIPER' || (r.tf && ['M30', 'H1', 'H4', 'D1', 'W1', 'MN'].indexOf(r.tf) > -1);
+    var isScalp = !isSniper;
     var slPlusRow = (r.slPlus && (r.bePlusActive || r.st === 'BE_SAVED'))
       ? ' • <b style="color:#6ee7b7;">SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (0-Risk)</b>'
       : '';
-    var targetLabel = r.tp2
-      ? (' • <b style="color:#38bdf8;">Target 1:2 R:R (TP2) ' + formatPrice(num(r.tp2), r.sym) + '</b> <span style="color:#64748b;">(TP1: ' + formatPrice(num(r.tp1), r.sym) + ')</span>')
-      : (' • TP1 ' + formatPrice(num(r.tp1), r.sym));
+    var targetLabel;
+    if (isScalp) {
+      targetLabel = ' • <b style="color:#38bdf8;">Target 1:2 R:R (TP1) ' + formatPrice(num(r.tp1), r.sym) + '</b>' +
+        (r.tp2 ? (' <span style="color:#64748b;">(TP2: ' + formatPrice(num(r.tp2), r.sym) + ')</span>') : '');
+    } else {
+      targetLabel = r.tp2
+        ? (' • <b style="color:#38bdf8;">Target 1:2 R:R (TP2) ' + formatPrice(num(r.tp2), r.sym) + '</b> <span style="color:#64748b;">(TP1: ' + formatPrice(num(r.tp1), r.sym) + ')</span>')
+        : (' • TP1 ' + formatPrice(num(r.tp1), r.sym));
+    }
     var advisorNotice = '';
     if (isSniper && r.st === 'ACTIVE') {
       var slPosTxt = r.dir === 'LONG' ? T('ui.jnlAboveEntry', 'di atas entry') : T('ui.jnlBelowEntry', 'di bawah entry');
@@ -2449,6 +2504,15 @@ function renderSignalJournal() {
           T('ui.jnlAdvWarn', '⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Sebelum 1:2, segera geser SL ke SL+ {sl} ({pos}) saat menyentuh TP1 untuk proteksi 0-Risk!')
             .replace('{sl}', formatPrice(num(r.slPlus), r.sym))
             .replace('{pos}', slPosTxt) + '</div>';
+      }
+    } else if (isScalp && r.st === 'ACTIVE') {
+      var slPosTxtS = r.dir === 'LONG' ? T('ui.jnlAboveEntry', 'di atas entry') : T('ui.jnlBelowEntry', 'di bawah entry');
+      if (r.bePlusActive) {
+        advisorNotice = '<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">' +
+          '🛡️ 0-RISK TERKUNCI: Modal aman (SL+ ' + formatPrice(num(r.slPlus), r.sym) + ') menuju Target 1:2 R:R (TP1).' + '</div>';
+      } else {
+        advisorNotice = '<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">' +
+          '⚡ SCALP ADVISOR: Target mandatori R:R 1:2 (TP1). SL+ (0-Risk) aktif otomatis di tengah jalan untuk proteksi modal.' + '</div>';
       }
     }
     var liveMonitorInfo = '';
@@ -6146,7 +6210,7 @@ if (document.readyState === 'loading') {
     'NZD/USD': 0.5980, 'USD/IDR': 16550, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880,
     'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
     'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
-    'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00,
+    'SEI/USDT': 0.28, 'SEI': 0.28, 'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00,
     'NZD/JPY': 87.35, 'NZDJPY': 87.35, 'AUD/JPY': 100.25, 'CAD/JPY': 109.60, 'CHF/JPY': 176.10, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50
   };
   function generateSeedCandles(symbol, tf) {
