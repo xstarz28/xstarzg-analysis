@@ -21,6 +21,8 @@ const wrangler = R('../wrangler.toml');
 const css = R('../public/styles.css');
 const headers = R('../public/_headers');
 const tgRelay = R('../functions/api/notify/telegram.js');
+const sentinelScript = R('../scripts/market-sentinel.mjs');
+const sentinelWorkflow = R('../.github/workflows/market-sentinel.yml');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
@@ -427,21 +429,23 @@ chk('proteksi kontaminasi silang harga antar-pair (anti-terjebak harga pair sebe
   eng.includes('const aSym = String(a.symbol || \'\').toUpperCase();') &&
   eng.includes('if (aSym && lSym && aSym !== lSym) return a;'));
 
-chk('integrasi notifikasi bot telegram (0 kuota CF) dengan modal konfigurasi & kontrol lengkap',
-  headers.includes('https://api.telegram.org') &&
-  html.includes('id="btnOpenTelegramModal"') &&
-  html.includes('id="btnOpenTelegramModalJnl"') &&
-  html.includes('id="telegramConfigModal"') &&
-  html.includes('id="inpTelegramBotToken"') &&
-  html.includes('id="inpTelegramChatId"') &&
-  html.includes('id="chkTelegramSlPlus"') &&
-  html.includes('id="chkTelegramHighScore"') &&
-  html.includes('id="selTelegramMinScore"') &&
-  html.includes('id="chkTelegramScalp"') &&
-  html.includes('id="chkTelegramIntra"') &&
-  html.includes('id="chkTelegramSwing"') &&
-  html.includes('id="btnTestTelegram"') &&
-  html.includes('id="btnSaveTelegramConfig"'));
+chk('mesin pemantau 24/7 otomatis di cloud (github actions sentinel + zero cloudflare quota)',
+  sentinelScript.includes('XSTARZG 24/7 BACKGROUND SENTINEL ENGINE') &&
+  sentinelScript.includes('fetchBinanceCandles') &&
+  sentinelScript.includes('fetchYahooCandles') &&
+  sentinelScript.includes('runFullAnalysis') &&
+  sentinelScript.includes('sendTelegramMessage') &&
+  sentinelScript.includes('XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR') &&
+  sentinelScript.includes('XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)') &&
+  sentinelWorkflow.includes('XStarZG 24/7 Market Sentinel') &&
+  sentinelWorkflow.includes("cron: '*/30 * * * *'") &&
+  sentinelWorkflow.includes('TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}') &&
+  sentinelWorkflow.includes('TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}'));
+
+chk('pembersihan fitur konek tele browser dari web ui (sepenuhnya otonom di cloud)',
+  !html.includes('id="btnOpenTelegramModal"') &&
+  !html.includes('id="btnOpenTelegramModalJnl"') &&
+  !html.includes('id="telegramConfigModal"'));
 
 chk('pengiriman notifikasi bot telegram live SL+ & sinyal institusional skor besar',
   app.includes('xstarzg_telegram_config_v1') &&
@@ -454,21 +458,6 @@ chk('pengiriman notifikasi bot telegram live SL+ & sinyal institusional skor bes
   app.includes('api.telegram.org/bot') &&
   tgRelay.includes('export async function onRequestPost({ request })') &&
   tgRelay.includes('api.telegram.org'));
-
-chk('panduan tutorial pembuatan bot telegram & integrasi sistem multi-bahasa (i18n)',
-  html.includes('id="btnToggleTgTutorial"') &&
-  html.includes('id="tgTutorialContent"') &&
-  html.includes('data-i18n="ui.tgTutorHeading"') &&
-  html.includes('data-i18n="ui.tgTutorSteps"') &&
-  html.includes('data-i18n="ui.tgModalTitle"') &&
-  html.includes('data-i18n="ui.tgTokenLbl"') &&
-  html.includes('data-i18n-ph="ui.tgTokenPh"') &&
-  html.includes('data-i18n="ui.tgChatIdLbl"') &&
-  html.includes('data-i18n-ph="ui.tgChatIdPh"') &&
-  app.includes("$id('btnToggleTgTutorial')") &&
-  app.includes("window.XSI18N.t('ui.tgActiveBadge'") &&
-  app.includes('SL+ TRIGGERED — 0-RISK ALERT') &&
-  app.includes('NEW HIGH-SCORE OPPORTUNITY'));
 
 chk('validasi input token/chatId & penanganan error spesifik telegram (anti-encodeURIComponent colon)',
   app.includes('function formatTelegramError(') &&

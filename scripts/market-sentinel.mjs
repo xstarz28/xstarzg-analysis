@@ -1,0 +1,281 @@
+#!/usr/bin/env node
+// ========================================================================
+// XSTARZG 24/7 BACKGROUND SENTINEL ENGINE (GITHUB ACTIONS / SERVER CRON)
+// ========================================================================
+// Menjalankan analisis kuantitatif 28-Pilar mandiri di cloud (GitHub Actions),
+// memindai setup skor besar (ELITE/PRO >= 75%) dan pemantauan level SL+ (0-Risk),
+// lalu mengirimkan notifikasi instan langsung ke Telegram trader.
+// 100% BEBAS BROWSER — Berjalan di latar belakang tanpa perlu buka laptop/HP.
+// 0 KUOTA CLOUDFLARE — Mengambil data pasar langsung dari public exchange feed.
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { runFullAnalysis } from '../public/js/shared/signal-engine.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
+
+// Ambil token & chatId dari environment variable (GitHub Secrets)
+const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN || '').trim().replace(/^bot/i, '');
+const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
+const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '75', 10) || 75;
+
+console.log('⚡ [XSTARZG SENTINEL] Memulai pemindaian pasar 24/7...');
+console.log(`📌 Konfigurasi: Min Score: ${MIN_SCORE}% | Bot Token Terpasang: ${BOT_TOKEN ? 'YA' : 'TIDAK'} | Chat ID: ${CHAT_ID ? 'YA' : 'TIDAK'}`);
+
+// Load / save sentinel cache to prevent duplicate alerts
+function loadCache() {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return { notified: {}, slPlusLocks: {} };
+}
+
+function saveCache(cache) {
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+async function sendTelegramMessage(text) {
+  if (!BOT_TOKEN || !CHAT_ID) {
+    console.log('⚠️ [Telegram] Token atau Chat ID belum disetel di GitHub Secrets. Pesan hanya dicetak ke console:');
+    console.log(text.replace(/<[^>]+>/g, ''));
+    return false;
+  }
+  try {
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: text,
+        parse_mode: 'HTML'
+      })
+    });
+    const json = await res.json();
+    if (json && json.ok) {
+      console.log('✅ [Telegram] Notifikasi berhasil terkirim ke HP!');
+      return true;
+    } else {
+      console.error('❌ [Telegram Error]:', json && json.description);
+      return false;
+    }
+  } catch (err) {
+    console.error('❌ [Telegram Network Error]:', err.message);
+    return false;
+  }
+}
+
+// Fetch crypto candles from Binance public API
+async function fetchBinanceCandles(pair, interval = '1h', limit = 150) {
+  const sym = pair.replace('/', '').toUpperCase();
+  const url = `https://data-api.binance.vision/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'XStarZG-Sentinel/1.0' } });
+  if (!res.ok) throw new Error(`Binance HTTP ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data.map(d => ({
+    time: Math.floor(Number(d[0]) / 1000),
+    open: Number(d[1]),
+    high: Number(d[2]),
+    low: Number(d[3]),
+    close: Number(d[4]),
+    volume: Number(d[5])
+  }));
+}
+
+// Fetch forex / commodities candles from Yahoo Finance
+const YAHOO_SYMBOLS = {
+  'XAU/USD': 'GC=F',
+  'EUR/USD': 'EURUSD=X',
+  'GBP/USD': 'GBPUSD=X',
+  'USD/JPY': 'USDJPY=X',
+  'WTI/OIL': 'CL=F',
+  'SILVER': 'SI=F'
+};
+
+async function fetchYahooCandles(symbol, tf = 'H1') {
+  const ySym = YAHOO_SYMBOLS[symbol] || (symbol.includes('/') ? symbol.replace('/', '') + '=X' : symbol);
+  const tfMap = { 'M15': { i: '15m', r: '5d' }, 'H1': { i: '60m', r: '1mo' }, 'H4': { i: '60m', r: '3mo', resample: 4 }, 'D1': { i: '1d', r: '1y' } };
+  const cfg = tfMap[tf] || tfMap['H1'];
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ySym)}?interval=${cfg.i}&range=${cfg.r}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
+  if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+  const json = await res.json();
+  const node = json && json.chart && json.chart.result && json.chart.result[0];
+  const ts = node && Array.isArray(node.timestamp) ? node.timestamp : [];
+  const q = node && node.indicators && node.indicators.quote && node.indicators.quote[0];
+  if (!ts.length || !q || !Array.isArray(q.close)) return [];
+
+  let candles = [];
+  for (let k = 0; k < ts.length; k++) {
+    const c = Number(q.close[k]), o = Number(q.open[k]), h = Number(q.high[k]), l = Number(q.low[k]);
+    if (!Number.isFinite(c) || !Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(l) || c <= 0) continue;
+    candles.push({ time: ts[k], open: o, high: Math.max(h, o, c), low: Math.min(l, o, c), close: c, volume: Number(q.volume && q.volume[k]) || 100 });
+  }
+
+  if (cfg.resample && cfg.resample > 1) {
+    const bucketSec = cfg.resample * 3600;
+    const m = new Map();
+    for (const c of candles) {
+      const b = Math.floor(c.time / bucketSec) * bucketSec;
+      const g = m.get(b);
+      if (!g) m.set(b, { time: b, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
+      else { g.high = Math.max(g.high, c.high); g.low = Math.min(g.low, c.low); g.close = c.close; g.volume += c.volume; }
+    }
+    candles = [...m.values()].sort((a, b) => a.time - b.time);
+  }
+  return candles.slice(-200);
+}
+
+// Format price helper
+function formatP(val, sym) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return '-';
+  if ((sym || '').includes('JPY')) return n.toFixed(3);
+  if ((sym || '').includes('XAU') || (sym || '').includes('BTC') || n > 500) return n.toFixed(2);
+  if (n < 1) return n.toFixed(5);
+  return n.toFixed(4);
+}
+
+// Watchlist instrumen institusional utama
+const WATCHLIST = [
+  { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
+  { sym: 'XAU/USD', tf: 'M15', type: 'commodity', hz: 'scalping' },
+  { sym: 'EUR/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
+  { sym: 'GBP/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
+  { sym: 'USD/JPY', tf: 'H1', type: 'forex', hz: 'intraday' },
+  { sym: 'BTC/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
+  { sym: 'ETH/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
+  { sym: 'SOL/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
+  { sym: 'WTI/OIL', tf: 'H1', type: 'commodity', hz: 'intraday' }
+];
+
+async function scanInstrument(inst, cache) {
+  const { sym, tf, type, hz } = inst;
+  try {
+    let candles = [];
+    if (type === 'crypto') {
+      const interval = tf === 'M15' ? '15m' : (tf === 'H4' ? '4h' : '1h');
+      candles = await fetchBinanceCandles(sym, interval);
+    } else {
+      candles = await fetchYahooCandles(sym, tf);
+    }
+
+    if (!candles || candles.length < 35) {
+      console.log(`  [${sym} ${tf}] Data candle tidak cukup (${candles ? candles.length : 0} bar).`);
+      return;
+    }
+
+    const a = runFullAnalysis({ symbol: sym, timeframe: tf, candles });
+    if (!a || a.error) {
+      console.log(`  [${sym} ${tf}] Analisis engine tidak menghasilkan setup (${a && a.error}).`);
+      return;
+    }
+
+    const score = Number(a.confluenceScore || a.confidence || 0);
+    const dir = a.direction;
+    const lastBar = candles[candles.length - 1];
+    const livePrice = lastBar.close;
+
+    console.log(`  [${sym} ${tf}] Harga: ${formatP(livePrice, sym)} | Setup: ${dir || 'NEUTRAL'} | Skor: ${score}% | Tier: ${a.signalTier || '—'}`);
+
+    // 1. Cek Sinyal Skor Tinggi Baru (>= 75%)
+    if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= MIN_SCORE) {
+      const L = a.levels || {};
+      const anchorTime = a.anchorClosedTime || lastBar.time;
+      const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
+
+      if (!cache.notified[setupKey]) {
+        cache.notified[setupKey] = Date.now();
+
+        const hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
+        const dirEmoji = dir === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
+        const tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
+
+        const alertMsg =
+          `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR]</b>\n\n` +
+          `Aset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
+          `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
+          `Confidence Score: <b>${score}%</b>\n` +
+          `Regime: <i>${a.regime || 'Institutional Flow'}</i>\n\n` +
+          `🎯 <b>Entry:</b> ${formatP(L.entry || livePrice, sym)}\n` +
+          `🛡️ <b>Stop Loss:</b> ${formatP(L.sl, sym)}\n` +
+          `✅ <b>Take Profit 1:</b> ${formatP(L.tp1, sym)}\n` +
+          (L.tp2 ? `✅ <b>Take Profit 2:</b> ${formatP(L.tp2, sym)}\n` : '') +
+          (L.tp3 ? `🚀 <b>Target TP3:</b> ${formatP(L.tp3, sym)}\n` : '') +
+          `\n📱 <i>Setup terdeteksi otomatis dari Cloud! Buka MT5 di HP dan pasang Limit Order pada titik Entry di atas.</i>`;
+
+        await sendTelegramMessage(alertMsg);
+
+        // Daftarkan ke pengawasan SL+
+        cache.slPlusLocks[sym] = {
+          symbol: sym,
+          tf: tf,
+          direction: dir,
+          entry: L.entry || livePrice,
+          sl: L.sl,
+          tp1: L.tp1,
+          slPlus: dir === 'LONG' ? (L.entry + Math.abs(L.tp1 - L.entry) * 0.15) : (L.entry - Math.abs(L.tp1 - L.entry) * 0.15),
+          notifiedSlPlus: false,
+          created: Date.now()
+        };
+      }
+    }
+
+    // 2. Cek Pemantauan SL+ (0-Risk Break-Even Plus Trigger)
+    const activeLock = cache.slPlusLocks[sym];
+    if (activeLock && !activeLock.notifiedSlPlus && activeLock.entry && activeLock.tp1) {
+      let slPlusHit = false;
+      if (activeLock.direction === 'LONG' && livePrice >= activeLock.slPlus) {
+        slPlusHit = true;
+      } else if (activeLock.direction === 'SHORT' && livePrice <= activeLock.slPlus) {
+        slPlusHit = true;
+      }
+
+      if (slPlusHit) {
+        activeLock.notifiedSlPlus = true;
+        const slPriceTxt = formatP(activeLock.slPlus, sym);
+        const slMsg =
+          `🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)]</b>\n\n` +
+          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Arah: <b>${activeLock.direction}</b>\n` +
+          `Entry Awal: <b>${formatP(activeLock.entry, sym)}</b>\n` +
+          `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
+          `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Segera buka MT5 di HP sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
+
+        await sendTelegramMessage(slMsg);
+      }
+    }
+  } catch (err) {
+    console.log(`  [${sym} ${tf}] Fetch/analisis dilewati: ${err.message}`);
+  }
+}
+
+async function runSentinel() {
+  const isTest = process.argv.includes('--test');
+  if (isTest) {
+    console.log('🧪 Mengirim pesan uji coba koneksi Telegram...');
+    const testMsg =
+      `✈️ <b>[XSTARZG 24/7 CLOUD SENTINEL — TERHUBUNG!]</b>\n\n` +
+      `Halo Trader! Mesin pemantau 24/7 di cloud (GitHub Actions) telah aktif.\n` +
+      `Peluang Skor Besar (≥ ${MIN_SCORE}%) dan peringatan darurat <b>Live SL+ (0-Risk)</b> akan otomatis dikirimkan ke HP Anda tanpa perlu membuka web atau laptop lagi!\n\n` +
+      `<i>Waktu Server: ${new Date().toUTCString()}</i>`;
+    await sendTelegramMessage(testMsg);
+    return;
+  }
+
+  const cache = loadCache();
+  for (const inst of WATCHLIST) {
+    await scanInstrument(inst, cache);
+  }
+  saveCache(cache);
+  console.log('🏁 [XSTARZG SENTINEL] Pemindaian selesai.');
+}
+
+runSentinel();
