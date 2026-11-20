@@ -479,6 +479,10 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
   .section-card { padding: 12px 10px; }
   .chart-card { padding: 10px 8px; }
   .side-panel-card { padding: 10px 8px; }
+  #confluenceMatrixGrid { gap: 4px; }
+}
+@media (max-width: 360px) {
+  #confluenceMatrixGrid { grid-template-columns: 1fr !important; }
 }
 /* ---- Pemilih bahasa (round 6) ---- */
 .lang-select { background: rgba(15, 23, 42, 0.92); border: 1px solid var(--border-subtle, #334155); color: #e2e8f0; border-radius: 10px; padding: 7px 10px; font-size: 12px; font-weight: 600; cursor: pointer; max-width: 190px; }

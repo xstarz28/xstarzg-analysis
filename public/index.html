@@ -380,6 +380,14 @@
             <span>🔔 Alarm Aktif: Memantau <strong id="alarmMonitoredSym">-</strong></span>
             <span style="font-size:10.5px;color:#38bdf8;cursor:pointer;text-decoration:underline;" id="btnTestAlarmSound">🔊 Tes Bunyi</span>
           </div>
+          <!-- INSTITUTIONAL CONFLUENCE MATRIX (Pro Terminal Style) -->
+          <div id="confluenceMatrixBox" style="margin-bottom:10px;padding:8px 10px;background:rgba(15,23,42,0.65);border:1px solid var(--border-subtle);border-radius:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:10px;font-weight:800;letter-spacing:0.4px;color:#94a3b8;text-transform:uppercase;">⚡ CONFLUENCE MATRIX</span>
+              <span id="matrixScoreChip" style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">INSTITUTIONAL CORE</span>
+            </div>
+            <div id="confluenceMatrixGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:10px;"></div>
+          </div>
           <div class="setup-grid-levels">
             <div class="level-box" style="grid-column:span 2;border-color:rgba(56,189,248,0.4);">
               <span class="lbl" data-i18n="ui.lblEntry">🎯 TITIK ENTRY (TERKUNCI PADA CANDLE AKTIF)</span>
@@ -401,6 +409,25 @@
             <div class="level-box" style="grid-column:span 2;">
               <span class="lbl" data-i18n="ui.lblTP3">🚀 TAKE PROFIT 3 — RUNNER TARGET (4.0R)</span>
               <span id="valTP3" class="val" style="color:#34d399;">4,129.00</span>
+            </div>
+          </div>
+          <!-- GLOBAL MARKET SENTIMENT & FLOW GAUGE -->
+          <div id="sentimentFlowBox" style="margin-top:10px;padding:8px 10px;background:rgba(15,23,42,0.65);border:1px solid var(--border-subtle);border-radius:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:10px;font-weight:800;letter-spacing:0.4px;color:#94a3b8;text-transform:uppercase;">🌐 MARKET SENTIMENT &amp; FLOW</span>
+              <span id="sentimentIndexVal" style="font-size:10px;font-weight:800;color:#10b981;">68 GREED</span>
+            </div>
+            <div style="position:relative;width:100%;height:6px;background:rgba(30,41,59,0.8);border-radius:99px;overflow:hidden;margin:5px 0;">
+              <div id="sentimentMeterFill" style="width:68%;height:100%;background:linear-gradient(90deg, #f43f5e 0%, #f59e0b 50%, #10b981 100%);transition:width 0.4s ease;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:8.5px;color:#64748b;margin-bottom:6px;font-weight:600;">
+              <span>EXTREME FEAR</span>
+              <span>NEUTRAL</span>
+              <span>EXTREME GREED</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:5px;border-top:1px solid rgba(51,65,85,0.4);font-size:10px;">
+              <span style="color:#94a3b8;">Whale / Smart Money:</span>
+              <strong id="smartMoneyFlowTxt" style="color:#38bdf8;font-weight:700;">ACCUMULATION</strong>
             </div>
           </div>
           <!-- DUAL FIBONACCI MATRIX (Retracement & Extension) -->
