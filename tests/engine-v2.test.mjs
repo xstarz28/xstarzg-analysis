@@ -491,5 +491,60 @@ const gen = (sym, tf) => QC.generateInstitutionalSeries(sym, tf, 300);
   chk('runFullAnalysis menghasilkan levels.fib', !!engineRes.levels && !!engineRes.levels.fib);
   chk('levels.fib membawa retracement & extension lengkap', !!engineRes.levels.fib.retracement && !!engineRes.levels.fib.extension && engineRes.levels.fib.goldenPocket > 0);
 }
+
+/* ---------- 27. ANTI-FAKE TP & ORDER FILL INTEGRITY (NZD/JPY FIX) ---------- */
+{
+  // 1. Order limit unfill: harga langsung naik ke target tanpa pernah menyentuh entry
+  const lockUnfilled = {
+    status: 'ACTIVE', direction: 'LONG', tf: 'M5',
+    entry: 87.00, anchorPrice: 87.25, sl: 86.70, tp1: 87.50, tp2: 87.80, tp3: 88.00,
+    anchorClosedTime: 1000
+  };
+  const barsFly = [
+    { time: 1100, open: 87.25, high: 87.55, low: 87.15, close: 87.50, volume: 100 }
+  ];
+  const vUnfilled = SE.validateSignalLock(lockUnfilled, barsFly, null);
+  chk('Order limit belum terisi -> target tercapai menjadi MISSED (bukan TP_HIT)', vUnfilled.status === 'MISSED');
+
+  // 2. Order limit terisi: bar 1 jemput entry, bar 2 capai TP1 -> sah TP_HIT
+  const barsFilled = [
+    { time: 1100, open: 87.25, high: 87.30, low: 86.95, close: 87.10, volume: 100 },
+    { time: 1200, open: 87.10, high: 87.55, low: 87.05, close: 87.52, volume: 100 }
+  ];
+  const vFilled = SE.validateSignalLock(lockUnfilled, barsFilled, null);
+  chk('Order limit terjemput -> kemudian capai target sah menjadi TP_HIT', vFilled.status === 'TP_HIT');
+
+  // 3. Kasus NZD/JPY terbalik: TP1 di bawah harga jangkar / harga live (87.07 vs 87.328)
+  const lockInverted = {
+    status: 'ACTIVE', direction: 'LONG', tf: 'H1',
+    entry: 87.00, anchorPrice: 87.328, sl: 86.80, tp1: 87.07, tp2: 87.40, tp3: 87.80,
+    anchorClosedTime: 1000
+  };
+  const vInv = SE.validateSignalLock(lockInverted, [{ time: 1100, open: 87.328, high: 87.35, low: 87.30, close: 87.33, volume: 100 }], null);
+  chk('Kasus NZD/JPY terbalik (TP1 <= anchorPrice) ditolak STRUCTURE_INVALID (anti TP palsu)', vInv.status === 'STRUCTURE_INVALID');
+
+  // 4. SHORT order limit unfill: harga langsung terjun tanpa pernah naik jemput entry
+  const lockShortUnfilled = {
+    status: 'ACTIVE', direction: 'SHORT', tf: 'M5',
+    entry: 87.50, anchorPrice: 87.20, sl: 87.80, tp1: 86.80, tp2: 86.50, tp3: 86.20,
+    anchorClosedTime: 1000
+  };
+  const barsDrop = [
+    { time: 1100, open: 87.20, high: 87.30, low: 86.75, close: 86.78, volume: 100 }
+  ];
+  const vShortUnfilled = SE.validateSignalLock(lockShortUnfilled, barsDrop, null);
+  chk('SHORT: Order limit belum terisi -> target tercapai menjadi MISSED', vShortUnfilled.status === 'MISSED');
+
+  // 5. Garansi buildInstitutionalLevels: TP1 selalu di atas Math.max(entry, ctx.price) utk LONG
+  const ctxLong = {
+    price: 87.328, atr: 0.25, brain: 'SCALP',
+    impulseHigh: 87.60, impulseLow: 86.90,
+    bullOb: { top: 87.15, bottom: 87.05 },
+    recentHigh: 87.40, poc: 87.10
+  };
+  const lvsLong = SE.buildInstitutionalLevels('LONG', ctxLong);
+  chk('LONG levels: TP1 harus berada di atas harga pasar saat ini (TP1 > 87.328)', lvsLong.tp1 > 87.328 && lvsLong.tp1 > lvsLong.entry);
+  chk('LONG levels: urutan matematis terjaga entry < tp1 < tp2 < tp3', lvsLong.entry < lvsLong.tp1 && lvsLong.tp1 < lvsLong.tp2 && lvsLong.tp2 < lvsLong.tp3);
+}
 console.log(`ENGINE-V2: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

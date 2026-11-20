@@ -668,7 +668,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     // memengaruhi winrate adaptif (bukan kemenangan/kekalahan — netral usia setup).
     if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED' && oc !== 'BE_SAVED') return;
     var beSaved = !!(verdict && verdict.beProtected) || !!(lock && lock.bePlusActive);
-    var finalStatus = (oc !== 'TP_HIT' && beSaved) ? 'BE_SAVED' : oc;
+    var finalStatus = (oc !== 'TP_HIT' && oc !== 'MISSED' && oc !== 'CANCELLED' && beSaved) ? 'BE_SAVED' : oc;
     var finalReason = (finalStatus === 'BE_SAVED')
       ? ((verdict && verdict.reason ? verdict.reason + ' • ' : '') + 'Terselamatkan oleh proteksi SL+ (0-Risk, modal aman)')
       : ((verdict && verdict.reason) || '');
@@ -683,7 +683,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
       lock: lock ? {
         v: lock.v, symbol: lock.symbol, tf: lock.tf, direction: lock.direction,
         entry: lock.entry, sl: lock.sl, tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
-        slPlus: lock.slPlus, bePlusActive: beSaved,
+        slPlus: lock.slPlus, bePlusActive: beSaved, filled: !!lock.filled,
         rrRatio: lock.rrRatio, score: lock.score, winRate: lock.winRate,
         anchorClosedTime: lock.anchorClosedTime, anchorPrice: lock.anchorPrice, issuedAt: lock.issuedAt
       } : null
@@ -691,7 +691,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     var ks = Object.keys(out);
     while (ks.length > 80) { var k0 = ks.shift(); delete out[k0]; }
     localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
-    if (SE && SE.updateRadarAccuracy && oc !== 'EXPIRED' && finalStatus !== 'BE_SAVED') {
+    if (SE && SE.updateRadarAccuracy && (oc === 'TP_HIT' || oc === 'SL_HIT') && finalStatus !== 'BE_SAVED') {
       var acc = radarAccStore();
       var hz = hzOfTf(tf);
       acc[hz] = SE.updateRadarAccuracy(acc[hz], oc === 'TP_HIT' ? 'TP' : 'SL');
@@ -714,6 +714,40 @@ function adaptiveMinScore(tf) {
   } catch (e) {}
   return 62;
 }
+function auditAndCleanseCorruptedStorage() {
+  try {
+    var outs = signalOutcomeStore();
+    var outsMod = false;
+    for (var k in outs) {
+      var o = outs[k];
+      if (!o || !o.lock) continue;
+      var L = o.lock, isL = L.direction === 'LONG';
+      var tp1 = Number(L.tp1), entry = Number(L.entry), sl = Number(L.sl), anc = Number(L.anchorPrice || entry);
+      var inv = isL ? (tp1 <= entry || tp1 <= anc || sl >= entry) : (tp1 >= entry || tp1 >= anc || sl <= entry);
+      if (inv || L.feedUnverified) {
+        delete outs[k];
+        outsMod = true;
+      }
+    }
+    if (outsMod) localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(outs));
+
+    var lks = signalLockStore();
+    var lksMod = false;
+    for (var k2 in lks) {
+      if (k2 === '__migratedV2') continue;
+      var lk = lks[k2];
+      if (!lk) continue;
+      var isL2 = lk.direction === 'LONG';
+      var tp12 = Number(lk.tp1), entry2 = Number(lk.entry), sl2 = Number(lk.sl), anc2 = Number(lk.anchorPrice || entry2);
+      var inv2 = isL2 ? (tp12 <= entry2 || tp12 <= anc2 || sl2 >= entry2) : (tp12 >= entry2 || tp12 >= anc2 || sl2 <= entry2);
+      if (inv2 || lk.feedUnverified) {
+        delete lks[k2];
+        lksMod = true;
+      }
+    }
+    if (lksMod) localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(lks));
+  } catch (e) {}
+}
 /* Rekonsiliasi jujur: badge TP/SL yang lahir dari candle fabrikasi (feed kotor)
    DICABUT saat candle asli membuktikan level itu tidak pernah tersentuh —
    lock dipulihkan ACTIVE dan statistik akurasi dikembalikan (rollback 1 outcome). */
@@ -722,15 +756,35 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
     var key = signalLockId(symbol, tf);
     var out = signalOutcomeStore();
     var o = out[key];
-    if (!o || (Date.now() - o.at) >= outcomeBadgeWindowMs(tf)) return;
-    if (!o.lock || !Number.isFinite(Number(o.lock.anchorClosedTime))) return;
-    if (o.status !== 'TP_HIT' && o.status !== 'SL_HIT') return; // struktur tidak direkonsiliasi mekanis
+    if (!o) return;
+    if (!o.lock || !Number.isFinite(Number(o.lock.anchorClosedTime))) {
+      delete out[key];
+      localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
+      return;
+    }
     var L = o.lock, isLong = L.direction === 'LONG';
-    var target = o.status === 'TP_HIT' ? Number(L.tp1) : Number(L.sl);
+    var entry = Number(L.entry), sl = Number(L.sl), tp1 = Number(L.tp1);
+    var anchorP = Number.isFinite(Number(L.anchorPrice)) ? Number(L.anchorPrice) : entry;
+    // Outcome palsu / terbalik: LONG tapi tp1 <= entry atau tp1 <= anchorP
+    var inverted = isLong ? (tp1 <= entry || tp1 <= anchorP || sl >= entry) : (tp1 >= entry || tp1 >= anchorP || sl <= entry);
+    if (inverted || L.feedUnverified) {
+      delete out[key];
+      localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
+      return;
+    }
+    if ((Date.now() - o.at) >= outcomeBadgeWindowMs(tf)) return;
+    if (o.status !== 'TP_HIT' && o.status !== 'SL_HIT') return; // struktur tidak direkonsiliasi mekanis
+    var target = o.status === 'TP_HIT' ? tp1 : sl;
     var hit = false;
+    var filled = L.filled === true || (isLong ? entry >= anchorP - 1e-6 : entry <= anchorP + 1e-6);
     for (var i = 0; i < closedCandles.length; i++) {
       var c = closedCandles[i];
       if (!c || c.time <= L.anchorClosedTime || (c.time * 1000) > (o.at + 90000)) continue;
+      if (!filled) {
+        if (isLong && c.low <= entry) filled = true;
+        if (!isLong && c.high >= entry) filled = true;
+      }
+      if (!filled) continue; // Jangan akui TP hit jika order limit belum pernah terjemput
       // LONG: TP tersentuh bila high >= tp1; SL bila low <= sl. SHORT cermin.
       if (o.status === 'TP_HIT') { if (isLong ? c.high >= target : c.low <= target) { hit = true; break; } }
       else { if (isLong ? c.low <= target : c.high >= target) { hit = true; break; } }
@@ -739,8 +793,10 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
       delete out[key];
       localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
       var all = signalLockStore();
-      all[key] = Object.assign({}, L, { status: 'ACTIVE' });
-      localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+      if (!inverted && !L.feedUnverified) {
+        all[key] = Object.assign({}, L, { status: 'ACTIVE' });
+        localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+      }
       var acc = radarAccStore(); var hz = hzOfTf(tf); var st = acc[hz];
       if (st && Array.isArray(st.recent) && st.recent.length) {
         st.recent = st.recent.slice(0, -1);
@@ -785,10 +841,27 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             reconcileSignalOutcome(symbol, tfA, closedBars0);
             var lock = getSignalLock(symbol, tfA);
             if (lock && lock.tf === tfA) {
+              var isCurrentFeedReal = typeof feedIsReal === 'function' ? feedIsReal(feedSource) : false;
+              if (lock.feedUnverified && isCurrentFeedReal) {
+                // Kunci lama terbit dari feed unverified/seed sementara saat ini feed asli broker sudah tiba:
+                // Cabut kunci unverified agar tidak memicu TP_HIT palsu saat harga live broker tiba
+                saveSignalLock(symbol, tfA, null);
+                lock = null;
+              }
+            }
+            if (lock && lock.tf === tfA) {
               var verdict = SE.validateSignalLock(lock, closedBars0, a);
               if (verdict && verdict.status === 'ACTIVE') {
+                var lockModified = false;
                 if (verdict.bePlusActive && !lock.bePlusActive) {
                   lock.bePlusActive = true;
+                  lockModified = true;
+                }
+                if (verdict.filled && !lock.filled) {
+                  lock.filled = true;
+                  lockModified = true;
+                }
+                if (lockModified) {
                   saveSignalLock(symbol, tfA, lock);
                 }
                 SE.applyLockedSignal(a, lock, verdict);
@@ -1864,6 +1937,11 @@ function scheduleLiveJournalUpdate() {
 function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var lock = getSignalLock(symbol, tf);
   if (!lock || lock.status !== 'ACTIVE') return;
+  // Feed estimasi / lokal dilarang memicu putusan TP/SL di live monitoring
+  if (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) return;
+  // Kunci dari feed unverified tidak boleh memicu putusan TP/SL palsu
+  if (lock.feedUnverified) return;
+
   price = num(price);
   high = num(high, price);
   low = num(low, price);
@@ -1873,6 +1951,44 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var entry = num(lock.entry);
   var sl = num(lock.sl);
   var tp1 = num(lock.tp1);
+  var anchorP = num(lock.anchorPrice, entry);
+
+  // Inversi level atau lock tidak rasional matematis -> batalkan kunci
+  var inverted = isLong ? (tp1 <= entry || tp1 <= anchorP || sl >= entry) : (tp1 >= entry || tp1 >= anchorP || sl <= entry);
+  if (inverted) {
+    saveSignalLock(symbol, tf, null);
+    try { renderSignalJournal(); } catch (e) {}
+    return;
+  }
+
+  // Verifikasi keterisian order limit
+  var filled = lock.filled === true;
+  if (!filled) {
+    if (isLong && entry >= anchorP - 1e-6) filled = true;
+    if (!isLong && entry <= anchorP + 1e-6) filled = true;
+    if (!filled) {
+      if (isLong && low <= entry) filled = true;
+      if (!isLong && high >= entry) filled = true;
+      if (filled) {
+        lock.filled = true;
+        saveSignalLock(symbol, tf, lock);
+      }
+    }
+  }
+
+  // Jika order belum terjemput dan harga sudah mencapai target -> MISSED (bukan TP hit)
+  if (!filled) {
+    var missed = isLong ? (high >= tp1) : (low <= tp1);
+    if (missed) {
+      var verdict = { status: 'MISSED', reason: 'Target tercapai sebelum order limit terjemput (unfilled)', at: Date.now() };
+      if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
+      recordSignalOutcome(symbol, tf, verdict, lock);
+      saveSignalLock(symbol, tf, null);
+      try { renderSignalJournal(); } catch (e) {}
+    }
+    return;
+  }
+
   var risk = Math.max(Math.abs(entry - sl), 1e-12);
   var targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
   var brain = lock.brain || (['M1', 'M5', 'M15'].indexOf(tf) > -1 ? 'SCALP' : 'SNIPER');
@@ -2248,9 +2364,11 @@ function jnlStatusBadge(st, beActive) {
     TP_HIT: ['#10b981', 'ui.jnlTP', isEn ? '✅ TP HIT' : '✅ TP TERSENTUH'],
     SL_HIT: ['#f43f5e', 'ui.jnlSL', isEn ? '❌ SL HIT' : '❌ SL TERSENTUH'],
     STRUCTURE_INVALID: ['#f59e0b', 'ui.jnlInvalid', isEn ? '⚠️ STRUCTURE INVALID' : '⚠️ INVALID STRUKTUR'],
-    EXPIRED: ['#a8a29e', 'ui.jnlExpired', isEn ? '⏳ EXPIRED (horizon elapsed)' : '⏳ KEDALUWARSA (horison lewat)']
+    EXPIRED: ['#a8a29e', 'ui.jnlExpired', isEn ? '⏳ EXPIRED (horizon elapsed)' : '⏳ KEDALUWARSA (horison lewat)'],
+    MISSED: ['#94a3b8', null, isEn ? '↗ MISSED (unfilled)' : '↗ TERLEWAT (unfilled)'],
+    CANCELLED: ['#94a3b8', null, isEn ? '🚫 CANCELLED' : '🚫 DIBATALKAN']
   }[st] || ['#64748b', null, st];
-  return { col: m[0], txt: m[2] ? T(m[1], m[2]) : st };
+  return { col: m[0], txt: m[1] ? T(m[1], m[2]) : (m[2] || st) };
 }
 function localizeJournalReason(reason) {
   if (!reason) return '';
@@ -2262,12 +2380,15 @@ function localizeJournalReason(reason) {
     s = s.replace(/TP tersentuh pada pemantauan harga langsung/g, 'TP hit on live price stream');
     s = s.replace(/SL tersentuh pada pemantauan harga langsung/g, 'SL hit on live price stream');
     s = s.replace(/SL tersentuh pada candle closed/g, 'SL hit on closed candle');
+    s = s.replace(/Target tercapai sebelum order limit terjemput \(unfilled\)/g, 'Target reached before limit order filled (unfilled)');
+    s = s.replace(/SL tersentuh sebelum order limit terjemput/g, 'SL touched before limit order filled');
     s = s.replace(/Horison setup berakhir tanpa TP\/SL \((\d+) candle berlalu\)/g, 'Setup horizon expired without TP/SL ($1 bars passed)');
     s = s.replace(/Struktur berbalik \+ harga diterima melawan trade \(>=50% risiko\) — Order Block batal/g, 'Structure flip + price accepted against trade (>=50% risk) — Order Block invalid');
   }
   return s;
 }
 function renderSignalJournal() {
+  try { auditAndCleanseCorruptedStorage(); } catch (e) {}
   var list = $id('signalJournalList'); var sum = $id('journalSummary');
   if (!list) return;
   var locks = signalLockStore();
@@ -5988,7 +6109,8 @@ if (document.readyState === 'loading') {
     'NZD/USD': 0.5980, 'USD/IDR': 16550, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880,
     'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
     'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
-    'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00
+    'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00,
+    'NZD/JPY': 87.35, 'NZDJPY': 87.35, 'AUD/JPY': 100.25, 'CAD/JPY': 109.60, 'CHF/JPY': 176.10, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50
   };
   function generateSeedCandles(symbol, tf) {
     const sym = (symbol || 'XAU/USD').toUpperCase();
