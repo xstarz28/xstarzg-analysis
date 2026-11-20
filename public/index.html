@@ -321,9 +321,6 @@
         <button type="button" id="btnToggleSignalAlarm" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(56,189,248,0.4);color:#38bdf8;" title="Bunyikan lonceng & notifikasi browser saat setup sinyal/entry terbuka" data-i18n-title="ui.alarmTitle">
           <span id="lblAlarmIcon">🔔</span> <span id="lblAlarmText" data-i18n="ui.alarmBtn">Pasang Alarm Sinyal</span>
         </button>
-        <button type="button" id="btnOpenTelegramModal" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(14,165,233,0.4);color:#38bdf8;" title="Kirim notifikasi darurat SL+ dan Sinyal Skor Besar langsung ke Telegram di HP" data-i18n-title="ui.tgBtnTitle">
-          <span id="lblTelegramIcon">✈️</span> <span id="lblTelegramText" data-i18n="ui.tgBtn">Notif Telegram (HP)</span>
-        </button>
       </div>
     </section>
     <main class="workspace-main-grid">
@@ -833,9 +830,6 @@
             <button type="button" id="btnToggleSlPlusNotify" class="hz-btn active" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(16,185,129,0.18);color:#6ee7b7;border:1px solid rgba(16,185,129,0.45);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Pemberitahuan otomatis lonceng & push notifikasi untuk menggeser Stop Loss ke BE (SL+) saat posisi aman">
               <span id="slPlusNotifyIcon">🔔</span> <span id="slPlusNotifyTxt">Notif SL+ Aktif (0-Risk Alert)</span>
             </button>
-            <button type="button" id="btnOpenTelegramModalJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(14,165,233,0.18);color:#38bdf8;border:1px solid rgba(14,165,233,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Pengaturan notifikasi bot Telegram ke HP saat SL+ terpicu" data-i18n-title="ui.tgJnlTitle">
-              <span>✈️</span> <span data-i18n="ui.tgBtn">Notif Telegram (HP)</span>
-            </button>
           </div>
         </div>
         <div id="signalJournalList" class="radar-grid" style="max-height:800px;overflow-y:auto;padding-right:4px;"></div>
@@ -944,111 +938,6 @@
       <div style="margin-top:12px;font-size:11px;color:#64748b;">
         Data diambil langsung dari Cloudflare D1 Database (Tabel: <code>vip_entitlements</code> &amp; <code>vip_tx</code>).
       </div>
-    </div>
-  </div>
-  <!-- ================= MODAL 4: TELEGRAM NOTIFICATION SETTINGS ================= -->
-  <div id="telegramConfigModal" class="modal-backdrop hidden">
-    <div class="modal-box" style="max-width:540px;width:95%;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:22px;">✈️</span>
-          <h3 style="margin:0;font-size:16px;color:#38bdf8;" data-i18n="ui.tgModalTitle">Notifikasi Telegram Instan (Layar HP)</h3>
-        </div>
-        <button type="button" id="btnCloseTelegramModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
-      </div>
-
-      <div style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-bottom:14px;background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.25);border-radius:8px;padding:10px 12px;">
-        <strong style="color:#38bdf8;" data-i18n="ui.tgNoticeHead">⚡ HP Tetap Adem &amp; 0 Kuota Cloudflare:</strong><br/>
-        <span data-i18n="ui.tgNoticeBody">Notifikasi dikirim langsung ke server Telegram API (sama sekali tidak memotong kuota Cloudflare Anda). Buka tab XStarZG di Laptop/PC Anda, dan notifikasi <b>SL+</b> serta <b>Sinyal Skor Besar</b> akan langsung berdering di HP Anda via Telegram!</span>
-      </div>
-
-      <!-- Tutorial Interaktif: Cara Bikin Bot & Ambil Chat ID -->
-      <div style="background:rgba(2,6,23,0.7);border:1px solid rgba(56,189,248,0.35);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" id="btnToggleTgTutorial">
-          <div style="font-weight:800;color:#38bdf8;display:flex;align-items:center;gap:6px;">
-            <span>📖</span> <span data-i18n="ui.tgTutorHeading">Panduan 1 Menit: Cara Bikin Bot &amp; Ambil Chat ID</span>
-          </div>
-          <span id="tgTutorArrow" style="color:#38bdf8;font-size:12px;font-weight:bold;">▲</span>
-        </div>
-        <div id="tgTutorialContent" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(51,65,85,0.4);color:#cbd5e1;line-height:1.6;" data-i18n="ui.tgTutorSteps">
-          <div style="margin-bottom:8px;"><strong>Langkah 1:</strong> Buka Telegram di HP/PC, cari bot resmi <b><a href="https://t.me/BotFather" target="_blank" style="color:#38bdf8;text-decoration:underline;">@BotFather</a></b> (centang biru) atau klik tautan tersebut.</div>
-          <div style="margin-bottom:8px;"><strong>Langkah 2:</strong> Klik tombol <b>START</b> (atau kirim <code>/start</code>), lalu ketik dan kirim pesan: <code>/newbot</code>.</div>
-          <div style="margin-bottom:8px;"><strong>Langkah 3:</strong> Masukkan Nama Tampilan Bot (bebas, misal: <i>Sinyal XStarZG Saya</i>).</div>
-          <div style="margin-bottom:8px;"><strong>Langkah 4:</strong> Masukkan Username Bot (wajib diakhiri kata <code>bot</code>, misal: <code>xstarzg_alert_bot</code> atau <code>sinyalku_bot</code>).</div>
-          <div style="margin-bottom:8px;"><strong>Langkah 5:</strong> BotFather akan membalas dengan <b>HTTP API Token</b> (kombinasi angka &amp; huruf, misal: <code>7123456789:AAH...</code>). Salin dan tempel ke kolom <b>1. Bot Token</b> di bawah.</div>
-          <div style="margin-bottom:8px;"><strong>Langkah 6 (Ambil Chat ID):</strong> Buka bot <b><a href="https://t.me/userinfobot" target="_blank" style="color:#38bdf8;text-decoration:underline;">@userinfobot</a></b> di Telegram, klik <b>START</b>, lalu salin angka <b>Id</b> Anda (misal: <code>987654321</code>) dan tempel ke kolom <b>2. Chat ID</b> di bawah.</div>
-          <div style="margin-bottom:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:6px 8px;color:#fde68a;"><strong>⚠️ Langkah 7 (PENTING):</strong> Buka bot yang baru saja Anda buat (klik tautan <code>t.me/username_bot_anda</code> yang diberikan BotFather), lalu klik tombol <b>START</b> di bot tersebut agar bot memiliki izin untuk mengirim pesan ke Anda!</div>
-          <div><strong>Langkah 8:</strong> Klik tombol <b>📩 Kirim Pesan Uji Coba</b> di bawah untuk menguji. Pesan akan langsung berdering di HP Anda!</div>
-        </div>
-      </div>
-
-      <!-- Input Token & Chat ID -->
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-        <div>
-          <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;" data-i18n="ui.tgTokenLbl">1. Bot Token HTTP API (BUKAN username @bot, salin dari <a href="https://t.me/BotFather" target="_blank" style="color:#38bdf8;text-decoration:underline;">@BotFather</a>):</label>
-          <input type="text" id="inpTelegramBotToken" class="ctrl-input" placeholder="Salin HTTP API Token, misal: 7123456789:AAHk..." data-i18n-ph="ui.tgTokenPh" style="width:100%;font-size:12px;padding:8px 10px;" />
-        </div>
-        <div>
-          <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;" data-i18n="ui.tgChatIdLbl">2. Chat ID / UID Telegram Anda (Cek di <a href="https://t.me/userinfobot" target="_blank" style="color:#38bdf8;text-decoration:underline;">@userinfobot</a>):</label>
-          <input type="text" id="inpTelegramChatId" class="ctrl-input" placeholder="Salin angka ID, misal: 987654321" data-i18n-ph="ui.tgChatIdPh" style="width:100%;font-size:12px;padding:8px 10px;" />
-        </div>
-      </div>
-
-      <!-- Opsi & Label Notifikasi -->
-      <div style="background:rgba(15,23,42,0.65);border:1px solid rgba(51,65,85,0.6);border-radius:10px;padding:12px;margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:800;color:#f8fafc;margin-bottom:8px;" data-i18n="ui.tgOptionsTitle">PILIHAN JENIS NOTIFIKASI KE TELEGRAM:</div>
-
-        <!-- Opsi Live SL+ -->
-        <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;cursor:pointer;font-size:12px;">
-          <input type="checkbox" id="chkTelegramSlPlus" checked style="margin-top:2px;" />
-          <div>
-            <strong style="color:#10b981;" data-i18n="ui.tgSlPlusTitle">🛡️ Notifikasi Live SL+ (0-Risk Alert)</strong>
-            <div style="font-size:11px;color:#94a3b8;" data-i18n="ui.tgSlPlusDesc">Kirim pesan darurat saat posisi aktif menyentuh SL+ agar Anda segera geser SL ke BE+ di MT5 HP.</div>
-          </div>
-        </label>
-
-        <!-- Opsi High Score Setup -->
-        <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;cursor:pointer;font-size:12px;">
-          <input type="checkbox" id="chkTelegramHighScore" checked style="margin-top:2px;" />
-          <div>
-            <strong style="color:#38bdf8;" data-i18n="ui.tgHighScoreTitle">🚀 Sinyal Peluang Baru Skor Besar (Institutional Setup)</strong>
-            <div style="font-size:11px;color:#94a3b8;" data-i18n="ui.tgHighScoreDesc">Kirim rincian Entry, SL, dan TP saat radar mendeteksi peluang ber-skor tinggi di pasar.</div>
-          </div>
-        </label>
-
-        <!-- Ambang Skor Minimum -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid rgba(51,65,85,0.4);font-size:11.5px;">
-          <span style="color:#94a3b8;font-weight:700;" data-i18n="ui.tgMinScoreLbl">Ambang Minimum Skor Sinyal:</span>
-          <select id="selTelegramMinScore" class="ctrl-select" style="padding:4px 8px;font-size:11.5px;width:auto;">
-            <option value="70" data-i18n="ui.tgScore70">Skor ≥ 70% (Setup Valid)</option>
-            <option value="75" selected data-i18n="ui.tgScore75">Skor ≥ 75% (PRO Setup - Rekomendasi)</option>
-            <option value="80" data-i18n="ui.tgScore80">Skor ≥ 80% (High Confidence)</option>
-            <option value="85" data-i18n="ui.tgScore85">Skor ≥ 85% (ELITE Institutional Setup)</option>
-          </select>
-        </div>
-
-        <!-- Pilihan Horison -->
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(51,65,85,0.4);font-size:11.5px;">
-          <span style="color:#94a3b8;font-weight:700;" data-i18n="ui.tgHorizonLbl">Filter Horison Waktu Sinyal:</span>
-          <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap;">
-            <label style="cursor:pointer;"><input type="checkbox" id="chkTelegramScalp" checked /> <span data-i18n="ui.tgScalp">⚡ Scalping (M1-M15)</span></label>
-            <label style="cursor:pointer;"><input type="checkbox" id="chkTelegramIntra" checked /> <span data-i18n="ui.tgIntra">🎯 Intraday (M15-H1)</span></label>
-            <label style="cursor:pointer;"><input type="checkbox" id="chkTelegramSwing" checked /> <span data-i18n="ui.tgSwing">🌊 Swing (H4-W1)</span></label>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button type="button" id="btnTestTelegram" class="btn-secondary-outline" style="padding:8px 14px;font-size:12px;" data-i18n="ui.tgBtnTest">
-          📩 Kirim Pesan Uji Coba
-        </button>
-        <button type="button" id="btnSaveTelegramConfig" class="btn-primary" style="padding:8px 18px;font-size:12px;background:#0ea5e9;" data-i18n="ui.tgBtnSave">
-          💾 Simpan Pengaturan
-        </button>
-      </div>
-
-      <div id="telegramStatusMsg" style="font-size:11.5px;margin-top:8px;text-align:center;"></div>
     </div>
   </div>
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->

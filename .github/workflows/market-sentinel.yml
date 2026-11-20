@@ -1,0 +1,47 @@
+name: XStarZG 24/7 Market Sentinel
+
+on:
+  schedule:
+    # Berjalan otomatis di cloud GitHub setiap 30 menit nonstop (24/7, 0 kuota Cloudflare)
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    # Tombol pemicu manual di dashboard GitHub ("Run workflow")
+    inputs:
+      test_mode:
+        description: 'Kirim pesan tes koneksi Telegram ke HP'
+        type: boolean
+        default: false
+
+jobs:
+  sentinel:
+    name: Scan Market & Alert Telegram
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Restore Sentinel Cache
+        uses: actions/cache@v4
+        with:
+          path: .sentinel-cache.json
+          key: sentinel-cache-${{ github.run_id }}
+          restore-keys: |
+            sentinel-cache-
+
+      - name: Run Market Sentinel
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SENTINEL_MIN_SCORE: '75'
+        run: |
+          if [ "${{ inputs.test_mode }}" = "true" ]; then
+            node scripts/market-sentinel.mjs --test
+          else
+            node scripts/market-sentinel.mjs
+          fi
