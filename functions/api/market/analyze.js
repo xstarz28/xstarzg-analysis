@@ -200,6 +200,9 @@ const YAHOO_SYMBOLS = {
   'XPD/USD': ['PA=F'],
   'XCU/USD': ['HG=F'],
   'HG/USD': ['HG=F'],
+  'EUR/USD': ['EURUSD=X', 'EUR=X'],
+  'GBP/USD': ['GBPUSD=X', 'GBP=X'],
+  'USD/JPY': ['USDJPY=X', 'JPY=X'],
   'IHSG': ['^JKSE'],
   'JP225': ['^N225'], 'HK50': ['^HSI'], 'DE40': ['^GDAXI'], 'UK100': ['^FTSE'],
   'WTI': ['CL=F'], 'WTI/USD': ['CL=F'], 'BRENT': ['BZ=F'], 'BRENT/USD': ['BZ=F'],
@@ -220,20 +223,22 @@ async function fetchYahooQuote(symbol) {
   const list = yahooSymbolsFor(symbol);
   const expectedP = getExpectedPrice(symbol);
   for (const y of list) {
-    try {
-      const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y) + '?interval=1m&range=1d', {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-      });
-      if (!res.ok) continue;
-      const j = await res.json();
-      const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
-      const price = meta ? Number(meta.regularMarketPrice) : 0;
-      if (price > 0) {
-        if (expectedP > 0 && (price > expectedP * 3.5 || price < expectedP * 0.28)) continue;
-        const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || price;
-        return { price, changePct: prev > 0 ? ((price - prev) / prev) * 100 : 0, source: 'YAHOO:' + y };
-      }
-    } catch (e) {}
+    for (const host of ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']) {
+      try {
+        const res = await fetch('https://' + host + '/v8/finance/chart/' + encodeURIComponent(y) + '?interval=1m&range=1d', {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        if (!res.ok) continue;
+        const j = await res.json();
+        const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+        const price = meta ? Number(meta.regularMarketPrice) : 0;
+        if (price > 0) {
+          if (expectedP > 0 && (price > expectedP * 3.5 || price < expectedP * 0.28)) continue;
+          const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || price;
+          return { price, changePct: prev > 0 ? ((price - prev) / prev) * 100 : 0, source: 'YAHOO:' + y };
+        }
+      } catch (e) {}
+    }
   }
   return null;
 }
@@ -264,48 +269,65 @@ async function fetchYahooCandles(symbol, tf) {
   const cfg = YAHOO_TF[tf] || YAHOO_TF['H1'];
   const expectedP = getExpectedPrice(symbol);
   for (const y of yahooSymbolsFor(symbol)) {
-    try {
-      const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(y)
-        + '?interval=' + cfg.i + '&range=' + cfg.r;
-      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
-      if (!res.ok) continue;
-      const j = await res.json();
-      const node = j && j.chart && j.chart.result && j.chart.result[0];
-      const ts = node && Array.isArray(node.timestamp) ? node.timestamp : null;
-      const q = node && node.indicators && node.indicators.quote && node.indicators.quote[0];
-      if (!ts || !q || !Array.isArray(q.close)) continue;
-      let candles = [];
-      for (let k = 0; k < ts.length; k++) {
-        const c = Number(q.close[k]), o = Number(q.open[k]), h = Number(q.high[k]), l = Number(q.low[k]);
-        if (!Number.isFinite(c) || !Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(l) || c <= 0) continue;
-        candles.push({ time: ts[k], open: o, high: Math.max(h, o, c), low: Math.min(l, o, c), close: c, volume: Number(q.volume && q.volume[k]) || 100 });
-      }
-      if (cfg.resampleSec) candles = resampleCandles(candles, cfg.resampleSec);
-      candles = candles.slice(-220);
-      if (candles.length < 10) continue;
-
-      const meta = node.meta || {};
-      const live = Number(meta.regularMarketPrice) > 0 ? Number(meta.regularMarketPrice) : candles[candles.length - 1].close;
-
-      // Validasi skala harga: tolak ticker yang menyimpang ekstrem dari harga aset (mis. ETN BAL $10 vs Cotton 68.4)
-      if (expectedP > 0 && (live > expectedP * 3.5 || live < expectedP * 0.28)) continue;
-
-      // Audit candlestick: jika > 35% candle flat tanpa spread (high === low), feed illiquid/mati -> lewati agar tidak jadi titik-titik
-      const flatCount = candles.filter(c => Math.abs(c.high - c.low) < c.close * 0.0004).length;
-      if (flatCount > candles.length * 0.35) continue;
-
-      // Garansi anti-dot: setiap candle dipastikan memiliki wick & body yang proporsional
-      candles = candles.map(c => {
-        let maxP = Math.max(c.high, c.open, c.close);
-        let minP = Math.min(c.low, c.open, c.close);
-        const minSpread = Math.max(c.close * 0.0016, 0.0001);
-        if ((maxP - minP) < minSpread) {
-          const pad = (minSpread - (maxP - minP)) * 0.5;
-          maxP = Math.max(c.open, c.close) + pad;
-          minP = Math.max(0.000001, Math.min(c.open, c.close) - pad);
+    for (const host of ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']) {
+      try {
+        const url = 'https://' + host + '/v8/finance/chart/' + encodeURIComponent(y)
+          + '?interval=' + cfg.i + '&range=' + cfg.r;
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
+        if (!res.ok) continue;
+        const j = await res.json();
+        const node = j && j.chart && j.chart.result && j.chart.result[0];
+        const ts = node && Array.isArray(node.timestamp) ? node.timestamp : null;
+        const q = node && node.indicators && node.indicators.quote && node.indicators.quote[0];
+        if (!ts || !q || !Array.isArray(q.close)) continue;
+        let candles = [];
+        for (let k = 0; k < ts.length; k++) {
+          const c = Number(q.close[k]), o = Number(q.open[k]), h = Number(q.high[k]), l = Number(q.low[k]);
+          if (!Number.isFinite(c) || !Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(l) || c <= 0) continue;
+          candles.push({ time: ts[k], open: o, high: Math.max(h, o, c), low: Math.min(l, o, c), close: c, volume: Number(q.volume && q.volume[k]) || 100 });
         }
-        return { time: c.time, open: c.open, high: maxP, low: minP, close: c.close, volume: c.volume };
-      });
+        if (cfg.resampleSec) candles = resampleCandles(candles, cfg.resampleSec);
+        candles = candles.slice(-220);
+        if (candles.length < 10) continue;
+
+        const meta = node.meta || {};
+        const live = Number(meta.regularMarketPrice) > 0 ? Number(meta.regularMarketPrice) : candles[candles.length - 1].close;
+
+        // Validasi skala harga: tolak ticker yang menyimpang ekstrem dari harga aset (mis. ETN BAL $10 vs Cotton 68.4)
+        if (expectedP > 0 && (live > expectedP * 3.5 || live < expectedP * 0.28)) continue;
+
+        // Audit candlestick: jika > 35% candle flat tanpa spread (high === low), feed illiquid/mati -> lewati agar tidak jadi titik-titik
+        // Untuk Forex (EUR/USD, GBP/USD dll) rentang candle M1/M5 sangat rapat (~1-3 pips) sehingga threshold flat disesuaikan agar tidak salah tolak
+        const isForex = symbol.includes('/') && !symbol.endsWith('/USDT') && !symbol.startsWith('XAU/') && !symbol.startsWith('XAG/') && !symbol.startsWith('XPT/') && !symbol.startsWith('XPD/') && !symbol.startsWith('XCU/') && !symbol.startsWith('HG/');
+        const flatThresh = isForex ? 0.000005 : (c.close * 0.0004);
+        const flatCount = candles.filter(c => Math.abs(c.high - c.low) < flatThresh).length;
+        if (flatCount > candles.length * 0.35) continue;
+
+        // Garansi anti-dot: setiap candle dipastikan memiliki wick & body yang proporsional
+        candles = candles.map(c => {
+          let maxP = Math.max(c.high, c.open, c.close);
+          let minP = Math.min(c.low, c.open, c.close);
+          let minSpread = Math.max(c.close * 0.0016, 0.0001);
+          if (isForex) minSpread = Math.max(c.close * 0.00008, 0.00004);
+          if ((maxP - minP) < minSpread) {
+            const pad = (minSpread - (maxP - minP)) * 0.5;
+            maxP = Math.max(c.open, c.close) + pad;
+            minP = Math.max(0.000001, Math.min(c.open, c.close) - pad);
+          }
+          return { time: c.time, open: c.open, high: maxP, low: minP, close: c.close, volume: c.volume };
+        });
+
+        const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || candles[0].close;
+        const last = candles[candles.length - 1];
+        if (!cfg.resampleSec && live > 0 && Math.abs(live - last.close) < last.close * 0.15) {
+          last.close = live;
+          if (live > last.high) last.high = live;
+          if (live < last.low) last.low = live;
+        }
+        return { source: 'YAHOO_CANDLES:' + y, price: live, changePct: prev > 0 ? ((live - prev) / prev) * 100 : 0, candles };
+      } catch (e) {}
+    }
+  }
 
       const prev = Number(meta.chartPreviousClose) || Number(meta.previousClose) || candles[0].close;
       const last = candles[candles.length - 1];
@@ -834,6 +856,14 @@ async function fetchSynchronizedMarketCandles(symbol, tf) {
   if (s !== 'XAU/IDR') {
     const yc = await fetchYahooCandles(s, tf).catch(() => null);
     if (yc && Array.isArray(yc.candles) && yc.candles.length >= 10) return yc;
+  }
+  // Jalur cadangan broker live spot klines untuk EUR/USD dan GBP/USD (Binance EURUSDT / GBPUSDT spot)
+  if (s === 'EUR/USD' || s === 'GBP/USD') {
+    const binData = await fetchBinanceCandles(s.replace('/', '/USDT'), tf).catch(() => null);
+    if (binData && Array.isArray(binData.candles) && binData.candles.length >= 10) {
+      const binPair = s.replace('/', '') + 'T';
+      return { source: 'BINANCE:' + binPair, price: binData.price, changePct: binData.changePct, candles: binData.candles };
+    }
   }
   // v2026.71: XAU/IDR komposit NYATA (LBMA Gold Spot XAUUSD=X x Interbank Kurs Rupiah USDIDR=X per gram)
   if (s === 'XAU/IDR') {
