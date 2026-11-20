@@ -214,6 +214,8 @@
         <button type="button" id="btnModeTrader" class="mode-btn active" data-i18n="ui.modeTrader">⚡ TRADER MODE</button>
         <button type="button" id="btnModeInvestor" class="mode-btn" data-i18n="ui.modeInvestor">🏛️ SPOT INVESTOR (DCA & VALUASI)</button>
         <button type="button" id="btnModeMeme" class="mode-btn" data-i18n="ui.modeMeme">🚀 MEME &amp; DEX GEMS</button>
+        <button type="button" id="btnModeNews" class="mode-btn">📰 KALENDER EKONOMI</button>
+        <button type="button" id="btnModeJournal" class="mode-btn">📒 JURNAL SINYAL</button>
         <div id="traderSubModeWrap" style="display:flex;gap:6px;margin-left:6px;">
           <button type="button" id="btnSubFutures" class="submode-btn active" data-i18n="ui.subFutures">📈 TRADER FUTURES (2-ARAH)</button>
           <button type="button" id="btnSubSpot" class="submode-btn" data-i18n="ui.subSpot">🪙 TRADER SPOT (1-ARAH)</button>
@@ -569,29 +571,6 @@
         </div>
         <div id="opportunityRadarGrid" class="radar-grid" style="margin-top:10px;"></div>
       </div>
-      <!-- Kalender Ekonomi & Berita (bias arah per instrumen) -->
-      <div class="section-card" id="newsPanelSection">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.secNews">📰 Kalender Ekonomi &amp; Berita Pasar — Arah Kemungkinan per Instrumen</h3>
-          <div class="radar-horizon-bar" id="newsFilterBar">
-            <button type="button" class="hz-btn active" data-nf="all"><span data-i18n="ui.nfAll">SEMUA</span></button>
-            <button type="button" class="hz-btn" data-nf="high"><span data-i18n="ui.nfHigh">HIGH IMPACT</span></button>
-            <button type="button" class="hz-btn" data-nf="metal"><span data-i18n="ui.nfMetal">EMAS/METAL</span></button>
-            <button type="button" class="hz-btn" data-nf="fx"><span data-i18n="ui.nfFx">FOREX</span></button>
-            <button type="button" class="hz-btn" data-nf="crypto"><span data-i18n="ui.nfCrypto">KRIPTO</span></button>
-            <button type="button" class="hz-btn" data-nf="stock"><span data-i18n="ui.nfStock">SAHAM/INDEKS</span></button>
-          </div>
-        </div>
-        <div style="font-size:11px;color:#94a3b8;margin:6px 0 2px;" data-i18n="ui.secNewsSub">Prakiraan vs data sebelumnya dipetakan ke bias arah tiap instrumen — dipakai sebagai acuan untuk TIDAK sembarang entry menjelang news ber-impact tinggi.</div>
-        <div id="newsGrid" class="radar-grid"></div>
-      </div>
-      <!-- Jurnal Sinyal: rekam jejak komitmen di perangkat (v2026.65) -->
-      <div class="section-card" id="journalSection">
-        <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.jnlTitle">📒 Jurnal Sinyal — Rekam Jejak Terverifikasi (Perangkat Ini)</h3>
-        <div style="font-size:11px;color:#94a3b8;margin:3px 0 6px;" data-i18n="ui.jnlSub">Setiap komitmen yang lolos gerbang ketat tercatat SANGKAI putusan akhir: TP, SL, invalid struktur, atau kedaluwarsa horison — tanpa ditutupi, tanpa korban jam berubah-ubah.</div>
-        <div id="journalSummary" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;"></div>
-        <div id="signalJournalList" class="radar-grid" style="max-height:560px;overflow-y:auto;padding-right:4px;"></div>
-      </div>
       <!-- Rekomendasi khusus INVESTOR (dipisah total dari radar trader) -->
       <div class="section-card hidden" id="investorRadarSection">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -757,6 +736,57 @@
           </div>
         </div>
         <div id="memePicksGrid" class="radar-grid" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- ================= WORKSPACE 3: DEDICATED ECONOMIC CALENDAR & MARKET NEWS ================= -->
+    <div id="newsWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+          ← Kembali ke Terminal Analisis
+        </button>
+        <span class="brand-tag" style="background:rgba(56,189,248,0.12);color:#38bdf8;border-color:rgba(56,189,248,0.3);padding:4px 10px;font-size:11px;">
+          📰 LIVE MACRO FEED &amp; HIGH IMPACT ALERTS
+        </span>
+      </div>
+      <div class="section-card" id="newsPanelSection" style="margin:0;padding:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:16px;color:#f8fafc;" data-i18n="ui.secNews">📰 Kalender Ekonomi &amp; Berita Pasar — Arah Kemungkinan per Instrumen</h3>
+            <div style="font-size:11px;color:#94a3b8;margin:6px 0 2px;" data-i18n="ui.secNewsSub">Prakiraan vs data sebelumnya dipetakan ke bias arah tiap instrumen — dipakai sebagai acuan untuk TIDAK sembarang entry menjelang news ber-impact tinggi.</div>
+          </div>
+          <div class="radar-horizon-bar" id="newsFilterBar">
+            <button type="button" class="hz-btn active" data-nf="all"><span data-i18n="ui.nfAll">SEMUA</span></button>
+            <button type="button" class="hz-btn" data-nf="high"><span data-i18n="ui.nfHigh">HIGH IMPACT</span></button>
+            <button type="button" class="hz-btn" data-nf="metal"><span data-i18n="ui.nfMetal">EMAS/METAL</span></button>
+            <button type="button" class="hz-btn" data-nf="fx"><span data-i18n="ui.nfFx">FOREX</span></button>
+            <button type="button" class="hz-btn" data-nf="crypto"><span data-i18n="ui.nfCrypto">KRIPTO</span></button>
+            <button type="button" class="hz-btn" data-nf="stock"><span data-i18n="ui.nfStock">SAHAM/INDEKS</span></button>
+          </div>
+        </div>
+        <div id="newsGrid" class="radar-grid" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- ================= WORKSPACE 4: DEDICATED VERIFIED SIGNAL JOURNAL ================= -->
+    <div id="journalWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+          ← Kembali ke Terminal Analisis
+        </button>
+        <span class="brand-tag" style="background:rgba(16,185,129,0.12);color:#34d399;border-color:rgba(16,185,129,0.3);padding:4px 10px;font-size:11px;">
+          📒 AUDIT LOKAL TERVERIFIKASI &amp; 0-RISK SL+
+        </span>
+      </div>
+      <div class="section-card" id="journalSection" style="margin:0;padding:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:16px;color:#f8fafc;" data-i18n="ui.jnlTitle">📒 Jurnal Sinyal — Rekam Jejak Terverifikasi (Perangkat Ini)</h3>
+            <div style="font-size:11px;color:#94a3b8;margin:3px 0 6px;" data-i18n="ui.jnlSub">Setiap komitmen yang lolos gerbang ketat tercatat sampai putusan akhir: TP, SL, invalid struktur, atau kedaluwarsa horison — tanpa ditutupi, tanpa korban jam berubah-ubah.</div>
+          </div>
+          <div id="journalSummary" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+        <div id="signalJournalList" class="radar-grid" style="max-height:800px;overflow-y:auto;padding-right:4px;"></div>
       </div>
     </div>
   </div>

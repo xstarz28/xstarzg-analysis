@@ -350,5 +350,13 @@ chk('integritas anti-fake TP: harga NZD/JPY 2026, verifikasi keterisian limit & 
   app.includes('Target tercapai sebelum order limit terjemput (unfilled)') &&
   app.includes('auditAndCleanseCorruptedStorage'));
 
+chk('kalender ekonomi & jurnal sinyal mandiri (terpisah dari dashboard analisa utama)',
+  html.includes('id="newsWorkspaceWrap"') &&
+  html.includes('id="journalWorkspaceWrap"') &&
+  html.includes('id="btnModeNews"') &&
+  html.includes('id="btnModeJournal"') &&
+  app.includes("state.mode === 'news'") &&
+  app.includes("state.mode === 'journal'"));
+
 console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
