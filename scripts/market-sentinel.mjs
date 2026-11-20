@@ -40,35 +40,74 @@ function saveCache(cache) {
   } catch (e) {}
 }
 
+async function getActiveSubscribers() {
+  const recipients = new Set();
+  if (CHAT_ID) recipients.add(CHAT_ID);
+
+  const apiHost = process.env.XSTARZG_API_HOST || 'https://xstarzganalysis.pages.dev';
+  const secret = process.env.SENTINEL_SECRET || 'xstarzg-2026-quant-secret';
+
+  try {
+    const res = await fetch(`${apiHost}/api/notify/telegram-subscribers?key=${encodeURIComponent(secret)}`, {
+      headers: { 'X-Sentinel-Key': secret, 'User-Agent': 'XStarZG-Sentinel/1.0' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.subscribers)) {
+        for (const sub of data.subscribers) {
+          if (sub && sub.chat_id) recipients.add(String(sub.chat_id));
+        }
+      }
+    }
+  } catch (e) {}
+
+  return Array.from(recipients);
+}
+
 async function sendTelegramMessage(text) {
-  if (!BOT_TOKEN || !CHAT_ID) {
-    console.log('⚠️ [Telegram] Token atau Chat ID belum disetel di GitHub Secrets. Pesan hanya dicetak ke console:');
+  if (!BOT_TOKEN) {
+    console.log('⚠️ [Telegram] Token belum disetel di GitHub Secrets. Pesan hanya dicetak ke console:');
     console.log(text.replace(/<[^>]+>/g, ''));
     return false;
   }
-  try {
-    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: text,
-        parse_mode: 'HTML'
-      })
-    });
-    const json = await res.json();
-    if (json && json.ok) {
-      console.log('✅ [Telegram] Notifikasi berhasil terkirim ke HP!');
-      return true;
-    } else {
-      console.error('❌ [Telegram Error]:', json && json.description);
-      return false;
-    }
-  } catch (err) {
-    console.error('❌ [Telegram Network Error]:', err.message);
+
+  const recipients = await getActiveSubscribers();
+  if (!recipients.length) {
+    console.log('⚠️ [Telegram] Tidak ada penerima aktif terdaftar (Owner / VIP). Pesan dicetak ke console:');
+    console.log(text.replace(/<[^>]+>/g, ''));
     return false;
   }
+
+  console.log(`📤 Mengirim notifikasi ke ${recipients.length} penerima VIP/Owner...`);
+  let successCount = 0;
+
+  for (const cid of recipients) {
+    try {
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: cid,
+          text: text,
+          parse_mode: 'HTML'
+        })
+      });
+      const json = await res.json();
+      if (json && json.ok) {
+        successCount++;
+      } else {
+        console.error(`  ❌ [Telegram Error CID ${cid}]:`, json && json.description);
+      }
+    } catch (err) {
+      console.error(`  ❌ [Telegram Network Error CID ${cid}]:`, err.message);
+    }
+    // Jeda 40ms antar pesan untuk menjaga kepatuhan rate-limit Telegram
+    await new Promise(r => setTimeout(r, 40));
+  }
+
+  console.log(`✅ [Telegram] Notifikasi sukses terkirim ke ${successCount}/${recipients.length} penerima.`);
+  return successCount > 0;
 }
 
 // Fetch crypto candles from Binance public API

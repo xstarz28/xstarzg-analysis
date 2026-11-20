@@ -37,3 +37,20 @@ export async function authenticateRequest(request, env) {
   if (!token) return null;
   return await verifyJwt(token, env?.JWT_SECRET || 'xstarzg-2026-quant-secret');
 }
+
+export function isOwnerEmail(email) {
+  if (!email) return false;
+  return OWNER_EMAILS.includes(String(email).trim().toLowerCase());
+}
+
+export function isPrivilegedVip(user, d1Until = 0) {
+  if (!user) return false;
+  if (user.tier === 'OWNER_VIP' || isOwnerEmail(user.email)) return true;
+  if (user.isAffiliate || user.role === 'affiliate') return true;
+  if (user.tier === 'VIP') {
+    if (user.vipUntil === null || user.vipUntil === undefined) return true;
+    const until = Math.max(Number(d1Until) || 0, Number(user.vipUntil) || 0);
+    return until > Date.now();
+  }
+  return false;
+}
