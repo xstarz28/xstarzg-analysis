@@ -5989,13 +5989,70 @@ function updateTelegramUi() {
   if (chkSwing) chkSwing.checked = telegramConfig.horizons ? (telegramConfig.horizons.swing !== false) : true;
 }
 
+function formatTelegramError(rawErr) {
+  var err = String(rawErr || '');
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id' && curLang !== 'ms';
+
+  if (/chat not found/i.test(err)) {
+    return isEn ?
+      'Chat ID not found! Ensure you opened your bot in Telegram and clicked START, and your Chat ID from @userinfobot is correct.' :
+      'Chat ID tidak ditemukan! Pastikan Anda sudah membuka bot Anda di Telegram dan klik tombol START, serta Chat ID dari @userinfobot sudah benar.';
+  }
+  if (/unauthorized/i.test(err)) {
+    return isEn ?
+      'Invalid Bot Token! Please paste the exact HTTP API Token provided by @BotFather (e.g. 7123456789:AAHk...).' :
+      'Bot Token tidak valid! Salin ulang HTTP API Token lengkap yang diberikan oleh @BotFather (contoh: 7123456789:AAHk...).';
+  }
+  if (/bot was blocked/i.test(err)) {
+    return isEn ?
+      'Bot was blocked by your Telegram account! Please open the bot and unblock it.' :
+      'Bot terblokir oleh akun Telegram Anda! Silakan buka bot Anda di Telegram dan klik Unblock.';
+  }
+  if (/can\'t parse entities|parse/i.test(err)) {
+    return isEn ? 'Text formatting error.' : 'Format teks pesan ditolak Telegram.';
+  }
+  return err;
+}
+
+function validateTelegramInputs(token, chatId) {
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id' && curLang !== 'ms';
+
+  var cleanToken = String(token || '').trim().replace(/^bot/i, '');
+  var cleanChatId = String(chatId || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
+
+  if (!cleanToken) {
+    return isEn ? '⚠️ Please enter the HTTP API Bot Token from @BotFather!' : '⚠️ Masukkan HTTP API Bot Token dari @BotFather!';
+  }
+  if (!cleanChatId) {
+    return isEn ? '⚠️ Please enter your numeric Chat ID / UID from @userinfobot!' : '⚠️ Masukkan angka Chat ID / UID dari @userinfobot!';
+  }
+
+  // Token format check: must contain a colon ":" separating numeric bot ID and secret key, and NOT contain "@" or "t.me"
+  if (cleanToken.indexOf(':') === -1 || cleanToken.indexOf('@') !== -1 || cleanToken.indexOf('t.me') !== -1) {
+    return isEn ?
+      '⚠️ Invalid Token format! The Bot Token must be the "HTTP API Token" from @BotFather with digits and letters separated by a colon (e.g. 7123456789:AAHk... NOT the bot @username or t.me link). Please copy the token from @BotFather.' :
+      '⚠️ Format Token salah! Bot Token harus berupa "HTTP API Token" dari @BotFather berisi angka & huruf dengan tanda titik dua (contoh: 7123456789:AAHk... BUKAN alamat atau username @bot). Buka @BotFather dan salin tokennya.';
+  }
+
+  // Chat ID format check: must be numeric
+  if (!/^-?\d+$/.test(cleanChatId)) {
+    return isEn ?
+      '⚠️ Chat ID must be your numeric account ID (e.g. 987654321 from @userinfobot), NOT a username!' :
+      '⚠️ Chat ID / UID harus berupa angka ID akun Telegram Anda (contoh: 987654321 dari @userinfobot), BUKAN username!';
+  }
+
+  return null;
+}
+
 function sendTelegramAlert(text) {
   if (!telegramConfig.botToken || !telegramConfig.chatId || !text) {
-    return Promise.resolve({ ok: false, error: 'Belum dikonfigurasi' });
+    return Promise.resolve({ ok: false, error: 'Token / Chat ID belum diisi' });
   }
-  var token = String(telegramConfig.botToken).trim();
-  var chatId = String(telegramConfig.chatId).trim();
-  var directUrl = 'https://api.telegram.org/bot' + encodeURIComponent(token) + '/sendMessage';
+  var token = String(telegramConfig.botToken).trim().replace(/^bot/i, '');
+  var chatId = String(telegramConfig.chatId).trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
+  var directUrl = 'https://api.telegram.org/bot' + token + '/sendMessage';
 
   // 1. Direct browser-to-Telegram dispatch (0 Kuota Cloudflare!)
   return fetch(directUrl, {
@@ -6007,12 +6064,13 @@ function sendTelegramAlert(text) {
       parse_mode: 'HTML'
     })
   }).then(function (r) {
-    return r.json();
-  }).then(function (res) {
-    if (res && res.ok) return { ok: true, direct: true };
-    throw new Error((res && res.description) || 'Telegram API rejected');
+    return r.json().then(function (res) {
+      if (res && res.ok) return { ok: true, direct: true };
+      var desc = (res && (res.description || res.error)) || ('HTTP ' + r.status);
+      throw new Error(desc);
+    });
   }).catch(function (directErr) {
-    // 2. Serverless fallback if ISP blocks direct api.telegram.org
+    // 2. Serverless fallback if ISP blocks direct api.telegram.org or CORS error
     return fetch('/api/notify/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -6025,9 +6083,11 @@ function sendTelegramAlert(text) {
       return r2.json();
     }).then(function (res2) {
       if (res2 && res2.ok) return { ok: true, fallback: true };
-      return { ok: false, error: (res2 && res2.error) || 'Gagal mengirim pesan' };
+      var errDesc = (res2 && (res2.description || res2.error)) || (directErr && directErr.message) || 'Gagal mengirim pesan';
+      return { ok: false, error: errDesc };
     }).catch(function (fbErr) {
-      return { ok: false, error: (fbErr && fbErr.message) || (directErr && directErr.message) || 'Koneksi gagal' };
+      var finalErr = (directErr && directErr.message) || (fbErr && fbErr.message) || 'Koneksi gagal';
+      return { ok: false, error: finalErr };
     });
   });
 }
@@ -6881,8 +6941,22 @@ function bindUiEvents() {
     var chkIntraEl = $id('chkTelegramIntra');
     var chkSwingEl = $id('chkTelegramSwing');
 
-    telegramConfig.botToken = tokenEl ? tokenEl.value.trim() : '';
-    telegramConfig.chatId = chatEl ? chatEl.value.trim() : '';
+    var rawToken = tokenEl ? tokenEl.value.trim() : '';
+    var rawChat = chatEl ? chatEl.value.trim() : '';
+
+    if (rawToken || rawChat) {
+      var valErr = validateTelegramInputs(rawToken, rawChat);
+      if (valErr) {
+        if (statusMsgTg) {
+          statusMsgTg.style.color = '#f43f5e';
+          statusMsgTg.textContent = valErr;
+        }
+        return;
+      }
+    }
+
+    telegramConfig.botToken = rawToken.replace(/^bot/i, '').trim();
+    telegramConfig.chatId = rawChat.replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
     telegramConfig.notifySlPlus = chkSlEl ? chkSlEl.checked : true;
     telegramConfig.notifyHighScore = chkHsEl ? chkHsEl.checked : true;
     telegramConfig.minScore = selScoreEl ? (parseInt(selScoreEl.value, 10) || 75) : 75;
@@ -6911,18 +6985,17 @@ function bindUiEvents() {
     var t = tokenEl ? tokenEl.value.trim() : telegramConfig.botToken;
     var c = chatEl ? chatEl.value.trim() : telegramConfig.chatId;
 
-    if (!t || !c) {
+    var valErr = validateTelegramInputs(t, c);
+    if (valErr) {
       if (statusMsgTg) {
         statusMsgTg.style.color = '#f43f5e';
-        statusMsgTg.textContent = isEn ?
-          '⚠️ Please enter both Bot Token and Chat ID first!' :
-          '⚠️ Masukkan Bot Token dan Chat ID terlebih dahulu!';
+        statusMsgTg.textContent = valErr;
       }
       return;
     }
 
-    telegramConfig.botToken = t;
-    telegramConfig.chatId = c;
+    telegramConfig.botToken = t.replace(/^bot/i, '').trim();
+    telegramConfig.chatId = c.replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
 
     if (statusMsgTg) {
       statusMsgTg.style.color = '#38bdf8';
@@ -6955,9 +7028,10 @@ function bindUiEvents() {
       } else {
         if (statusMsgTg) {
           statusMsgTg.style.color = '#f43f5e';
+          var errTxt = formatTelegramError((res && res.error) || 'Periksa Bot Token & Chat ID Anda.');
           statusMsgTg.textContent = isEn ?
-            ('❌ Failed to send: ' + ((res && res.error) || 'Check your Bot Token & Chat ID.')) :
-            ('❌ Gagal mengirim: ' + ((res && res.error) || 'Periksa Bot Token & Chat ID Anda.'));
+            ('❌ Failed to send: ' + errTxt) :
+            ('❌ Gagal mengirim: ' + errTxt);
         }
       }
     });
