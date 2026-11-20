@@ -2143,6 +2143,7 @@ function renderAllVisuals(analysis) {
   try { renderPillars(analysis); } catch (e) {}
   try { writeBackRadarPools(analysis); } catch (e) {}
   try { checkSignalAlarm(analysis); } catch (e) {}
+  try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
   try { renderSignalJournal(); } catch (e) {}
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
@@ -5448,6 +5449,7 @@ function renderOpportunityRadar(force) {
         if (alarmState.enabled && alarmState.symbol && it.sym && it.sym.toUpperCase() === alarmState.symbol.toUpperCase() && it.analysis && it.analysis.signalEligible) {
           try { checkSignalAlarm(it.analysis); } catch (e) {}
         }
+        try { checkTelegramHighScoreSignal(it.analysis, it); } catch (e) {}
         triggerProgressiveRepaint();
       }
       return it;
@@ -5851,6 +5853,202 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   try { playAlertChime(); } catch (e) {}
   try { showAlarmToast(title, body); } catch (e) {}
   try { sendBrowserPushNotification(title, body); } catch (e) {}
+
+  // Kirim notifikasi darurat instan ke bot Telegram di HP trader
+  if (telegramConfig && telegramConfig.notifySlPlus && telegramConfig.botToken && telegramConfig.chatId) {
+    var tgSlPlusMsg = '🛡️ <b>[SL+ TERPICU — 0-RISK ALERT]</b>\n\n' +
+      'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ')\n' +
+      'Arah: <b>' + (lock.direction || '—') + '</b>\n' +
+      'Entry Awal: <b>' + (lock.entry ? formatPrice(lock.entry, symbol) : '—') + '</b>\n' +
+      'Geser SL ke: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk)</b>\n\n' +
+      '⚠️ <i>Harga telah mencapai zona aman 0-Risk! Segera buka MT5 di HP Anda sekarang dan geser Stop Loss ke level BE+ di atas agar modal aman 100%!</i>';
+    try { sendTelegramAlert(tgSlPlusMsg); } catch (e) {}
+  }
+}
+
+/* ==================== INTEGRASI NOTIFIKASI BOT TELEGRAM (0 KUOTA CF) ====================
+   Mengirim notifikasi instan langsung dari browser pengguna ke api.telegram.org.
+   100% 0 kuota Cloudflare, privasi terjamin, dan aman bagi baterai HP. */
+var TELEGRAM_CONFIG_KEY = 'xstarzg_telegram_config_v1';
+var telegramConfig = {
+  botToken: '',
+  chatId: '',
+  notifySlPlus: true,
+  notifyHighScore: true,
+  minScore: 75,
+  horizons: { scalping: true, intraday: true, swing: true },
+  lastSentMap: {}
+};
+
+function loadPersistedTelegramConfig() {
+  try {
+    var raw = localStorage.getItem(TELEGRAM_CONFIG_KEY);
+    if (raw) {
+      var d = JSON.parse(raw);
+      if (d && typeof d === 'object') {
+        if (typeof d.botToken === 'string') telegramConfig.botToken = d.botToken.trim();
+        if (typeof d.chatId === 'string' || typeof d.chatId === 'number') telegramConfig.chatId = String(d.chatId).trim();
+        if (typeof d.notifySlPlus === 'boolean') telegramConfig.notifySlPlus = d.notifySlPlus;
+        if (typeof d.notifyHighScore === 'boolean') telegramConfig.notifyHighScore = d.notifyHighScore;
+        if (typeof d.minScore === 'number' || typeof d.minScore === 'string') telegramConfig.minScore = parseInt(d.minScore, 10) || 75;
+        if (d.horizons && typeof d.horizons === 'object') {
+          telegramConfig.horizons = {
+            scalping: d.horizons.scalping !== false,
+            intraday: d.horizons.intraday !== false,
+            swing: d.horizons.swing !== false
+          };
+        }
+      }
+    }
+  } catch (e) {}
+  updateTelegramUi();
+}
+
+function savePersistedTelegramConfig() {
+  try {
+    localStorage.setItem(TELEGRAM_CONFIG_KEY, JSON.stringify({
+      botToken: telegramConfig.botToken,
+      chatId: telegramConfig.chatId,
+      notifySlPlus: telegramConfig.notifySlPlus,
+      notifyHighScore: telegramConfig.notifyHighScore,
+      minScore: telegramConfig.minScore,
+      horizons: telegramConfig.horizons
+    }));
+  } catch (e) {}
+  updateTelegramUi();
+}
+
+function updateTelegramUi() {
+  var isConfigured = !!(telegramConfig.botToken && telegramConfig.chatId);
+  var txtEl = $id('lblTelegramText');
+  var btnMain = $id('btnOpenTelegramModal');
+  var btnJnl = $id('btnOpenTelegramModalJnl');
+
+  if (txtEl) {
+    txtEl.textContent = isConfigured ? 'Telegram: Aktif (HP)' : 'Notif Telegram (HP)';
+  }
+  if (btnMain) {
+    if (isConfigured) {
+      btnMain.style.borderColor = 'rgba(16,185,129,0.6)';
+      btnMain.style.color = '#6ee7b7';
+      btnMain.style.background = 'rgba(16,185,129,0.12)';
+    } else {
+      btnMain.style.borderColor = 'rgba(14,165,233,0.4)';
+      btnMain.style.color = '#38bdf8';
+      btnMain.style.background = '';
+    }
+  }
+  if (btnJnl) {
+    if (isConfigured) {
+      btnJnl.style.borderColor = 'rgba(16,185,129,0.6)';
+      btnJnl.style.color = '#6ee7b7';
+      btnJnl.style.background = 'rgba(16,185,129,0.18)';
+    } else {
+      btnJnl.style.borderColor = 'rgba(14,165,233,0.4)';
+      btnJnl.style.color = '#38bdf8';
+      btnJnl.style.background = 'rgba(14,165,233,0.18)';
+    }
+  }
+
+  var inpToken = $id('inpTelegramBotToken');
+  var inpChat = $id('inpTelegramChatId');
+  var chkSl = $id('chkTelegramSlPlus');
+  var chkHs = $id('chkTelegramHighScore');
+  var selScore = $id('selTelegramMinScore');
+  var chkScalp = $id('chkTelegramScalp');
+  var chkIntra = $id('chkTelegramIntra');
+  var chkSwing = $id('chkTelegramSwing');
+
+  if (inpToken && !inpToken.dataset.userEdited) inpToken.value = telegramConfig.botToken || '';
+  if (inpChat && !inpChat.dataset.userEdited) inpChat.value = telegramConfig.chatId || '';
+  if (chkSl) chkSl.checked = !!telegramConfig.notifySlPlus;
+  if (chkHs) chkHs.checked = !!telegramConfig.notifyHighScore;
+  if (selScore) selScore.value = String(telegramConfig.minScore || 75);
+  if (chkScalp) chkScalp.checked = telegramConfig.horizons ? (telegramConfig.horizons.scalping !== false) : true;
+  if (chkIntra) chkIntra.checked = telegramConfig.horizons ? (telegramConfig.horizons.intraday !== false) : true;
+  if (chkSwing) chkSwing.checked = telegramConfig.horizons ? (telegramConfig.horizons.swing !== false) : true;
+}
+
+function sendTelegramAlert(text) {
+  if (!telegramConfig.botToken || !telegramConfig.chatId || !text) {
+    return Promise.resolve({ ok: false, error: 'Belum dikonfigurasi' });
+  }
+  var token = String(telegramConfig.botToken).trim();
+  var chatId = String(telegramConfig.chatId).trim();
+  var directUrl = 'https://api.telegram.org/bot' + encodeURIComponent(token) + '/sendMessage';
+
+  // 1. Direct browser-to-Telegram dispatch (0 Kuota Cloudflare!)
+  return fetch(directUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: text,
+      parse_mode: 'HTML'
+    })
+  }).then(function (r) {
+    return r.json();
+  }).then(function (res) {
+    if (res && res.ok) return { ok: true, direct: true };
+    throw new Error((res && res.description) || 'Telegram API rejected');
+  }).catch(function (directErr) {
+    // 2. Serverless fallback if ISP blocks direct api.telegram.org
+    return fetch('/api/notify/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: token,
+        chatId: chatId,
+        text: text
+      })
+    }).then(function (r2) {
+      return r2.json();
+    }).then(function (res2) {
+      if (res2 && res2.ok) return { ok: true, fallback: true };
+      return { ok: false, error: (res2 && res2.error) || 'Gagal mengirim pesan' };
+    }).catch(function (fbErr) {
+      return { ok: false, error: (fbErr && fbErr.message) || (directErr && directErr.message) || 'Koneksi gagal' };
+    });
+  });
+}
+
+function checkTelegramHighScoreSignal(a, item) {
+  if (!telegramConfig.notifyHighScore || !telegramConfig.botToken || !telegramConfig.chatId) return;
+  if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return;
+
+  var score = num(a.confluenceScore, a.confidence || 0);
+  if (score < (telegramConfig.minScore || 75)) return;
+
+  var sym = a.symbol || (item && item.sym) || state.symbol;
+  var tf = a.timeframe || (item && item.tf) || state.tf || 'H1';
+  var hz = (typeof hzOfTf === 'function') ? hzOfTf(tf) : 'intraday';
+
+  if (telegramConfig.horizons && telegramConfig.horizons[hz] === false) return;
+
+  var L = a.levels || {};
+  if (!L.entry || !L.sl || !L.tp1) return;
+
+  var dedupKey = 'tg:' + sym + ':' + tf + ':' + a.direction + ':' + (a.anchorClosedTime || L.entry || 0);
+  if (telegramConfig.lastSentMap[dedupKey]) return;
+  telegramConfig.lastSentMap[dedupKey] = Date.now();
+
+  var hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
+  var dirEmoji = a.direction === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
+  var tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
+
+  var tgMsg = '🚀 <b>[PELUANG BARU SKOR BESAR]</b>\n\n' +
+    'Aset: <b>' + sym + '</b> (' + tf + ' • ' + hzLabel + ')\n' +
+    'Setup: <b>' + dirEmoji + ' (' + tierTxt + ')</b>\n' +
+    'Confidence Score: <b>' + score + '%</b>\n' +
+    'Regime Pasar: <i>' + (a.regime || 'Institutional Flow') + '</i>\n\n' +
+    '🎯 <b>Entry:</b> ' + formatPrice(L.entry, sym) + '\n' +
+    '🛡️ <b>Stop Loss:</b> ' + formatPrice(L.sl, sym) + '\n' +
+    '✅ <b>Take Profit 1:</b> ' + formatPrice(L.tp1, sym) + '\n' +
+    (L.tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(L.tp2, sym) + '\n') : '') +
+    (L.tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(L.tp3, sym) + '\n') : '') +
+    '\n📱 <i>Buka MT5 di HP dan pasang Limit Order pada titik Entry di atas!</i>';
+
+  try { sendTelegramAlert(tgMsg); } catch (e) {}
 }
 
 /* ==================== 9. SESI, KUOTA & ALUR LAYAR ==================== */
@@ -6596,6 +6794,105 @@ function bindUiEvents() {
   });
   loadPersistedSlPlusNotify();
   updateSlPlusNotifyUi();
+
+  /* ---- Telegram Alerts modal & controls ---- */
+  var modalTg = $id('telegramConfigModal');
+  var statusMsgTg = $id('telegramStatusMsg');
+
+  function openTelegramModal() {
+    updateTelegramUi();
+    if (statusMsgTg) statusMsgTg.textContent = '';
+    if (modalTg) modalTg.classList.remove('hidden');
+  }
+
+  function closeTelegramModal() {
+    if (modalTg) modalTg.classList.add('hidden');
+  }
+
+  bind('btnOpenTelegramModal', openTelegramModal);
+  bind('btnOpenTelegramModalJnl', openTelegramModal);
+  bind('btnCloseTelegramModal', closeTelegramModal);
+  if (modalTg) {
+    modalTg.addEventListener('click', function (e) {
+      if (e.target === modalTg) closeTelegramModal();
+    });
+  }
+
+  bind('btnSaveTelegramConfig', function () {
+    var tokenEl = $id('inpTelegramBotToken');
+    var chatEl = $id('inpTelegramChatId');
+    var chkSlEl = $id('chkTelegramSlPlus');
+    var chkHsEl = $id('chkTelegramHighScore');
+    var selScoreEl = $id('selTelegramMinScore');
+    var chkScalpEl = $id('chkTelegramScalp');
+    var chkIntraEl = $id('chkTelegramIntra');
+    var chkSwingEl = $id('chkTelegramSwing');
+
+    telegramConfig.botToken = tokenEl ? tokenEl.value.trim() : '';
+    telegramConfig.chatId = chatEl ? chatEl.value.trim() : '';
+    telegramConfig.notifySlPlus = chkSlEl ? chkSlEl.checked : true;
+    telegramConfig.notifyHighScore = chkHsEl ? chkHsEl.checked : true;
+    telegramConfig.minScore = selScoreEl ? (parseInt(selScoreEl.value, 10) || 75) : 75;
+    telegramConfig.horizons = {
+      scalping: chkScalpEl ? chkScalpEl.checked : true,
+      intraday: chkIntraEl ? chkIntraEl.checked : true,
+      swing: chkSwingEl ? chkSwingEl.checked : true
+    };
+
+    savePersistedTelegramConfig();
+    if (statusMsgTg) {
+      statusMsgTg.style.color = '#10b981';
+      statusMsgTg.textContent = '✅ Pengaturan Telegram berhasil disimpan!';
+    }
+    setTimeout(function () {
+      closeTelegramModal();
+    }, 800);
+  });
+
+  bind('btnTestTelegram', function () {
+    var tokenEl = $id('inpTelegramBotToken');
+    var chatEl = $id('inpTelegramChatId');
+    var t = tokenEl ? tokenEl.value.trim() : telegramConfig.botToken;
+    var c = chatEl ? chatEl.value.trim() : telegramConfig.chatId;
+
+    if (!t || !c) {
+      if (statusMsgTg) {
+        statusMsgTg.style.color = '#f43f5e';
+        statusMsgTg.textContent = '⚠️ Masukkan Bot Token dan Chat ID terlebih dahulu!';
+      }
+      return;
+    }
+
+    telegramConfig.botToken = t;
+    telegramConfig.chatId = c;
+
+    if (statusMsgTg) {
+      statusMsgTg.style.color = '#38bdf8';
+      statusMsgTg.textContent = '⏳ Mengirim pesan uji coba ke Telegram...';
+    }
+
+    var testMsg = '✈️ <b>[XSTARZG — KONEKSI TELEGRAM BERHASIL!]</b>\n\n' +
+      'Halo Trader! Bot Telegram Anda telah terhubung dengan XStarZG Engine.\n' +
+      'Notifikasi <b>Live SL+ (0-Risk Alert)</b> dan <b>Peluang Skor Besar</b> akan otomatis dikirim ke HP Anda saat terpicu.\n\n' +
+      '<i>Waktu Uji: ' + (new Date()).toLocaleTimeString() + '</i>';
+
+    sendTelegramAlert(testMsg).then(function (res) {
+      if (res && res.ok) {
+        if (statusMsgTg) {
+          statusMsgTg.style.color = '#10b981';
+          statusMsgTg.textContent = '✅ Pesan berhasil terkirim ke HP Anda! Cek notifikasi Telegram.';
+        }
+        savePersistedTelegramConfig();
+      } else {
+        if (statusMsgTg) {
+          statusMsgTg.style.color = '#f43f5e';
+          statusMsgTg.textContent = '❌ Gagal mengirim: ' + ((res && res.error) || 'Periksa Bot Token & Chat ID Anda.');
+        }
+      }
+    });
+  });
+
+  loadPersistedTelegramConfig();
   /* ---- Risk calc inputs ---- */
   ['inpCalcBalance', 'inpCalcRiskPct'].forEach(function (id) {
     var el = $id(id);

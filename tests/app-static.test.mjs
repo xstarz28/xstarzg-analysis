@@ -19,6 +19,8 @@ const calcMod = R('../public/js/calculator.js');
 const engineBoot = R('../public/js/engine-boot.js');
 const wrangler = R('../wrangler.toml');
 const css = R('../public/styles.css');
+const headers = R('../public/_headers');
+const tgRelay = R('../functions/api/notify/telegram.js');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
@@ -425,9 +427,37 @@ chk('proteksi kontaminasi silang harga antar-pair (anti-terjebak harga pair sebe
   eng.includes('const aSym = String(a.symbol || \'\').toUpperCase();') &&
   eng.includes('if (aSym && lSym && aSym !== lSym) return a;'));
 
+chk('integrasi notifikasi bot telegram (0 kuota CF) dengan modal konfigurasi & kontrol lengkap',
+  headers.includes('https://api.telegram.org') &&
+  html.includes('id="btnOpenTelegramModal"') &&
+  html.includes('id="btnOpenTelegramModalJnl"') &&
+  html.includes('id="telegramConfigModal"') &&
+  html.includes('id="inpTelegramBotToken"') &&
+  html.includes('id="inpTelegramChatId"') &&
+  html.includes('id="chkTelegramSlPlus"') &&
+  html.includes('id="chkTelegramHighScore"') &&
+  html.includes('id="selTelegramMinScore"') &&
+  html.includes('id="chkTelegramScalp"') &&
+  html.includes('id="chkTelegramIntra"') &&
+  html.includes('id="chkTelegramSwing"') &&
+  html.includes('id="btnTestTelegram"') &&
+  html.includes('id="btnSaveTelegramConfig"'));
+
+chk('pengiriman notifikasi bot telegram live SL+ & sinyal institusional skor besar',
+  app.includes('xstarzg_telegram_config_v1') &&
+  app.includes('function loadPersistedTelegramConfig()') &&
+  app.includes('function savePersistedTelegramConfig()') &&
+  app.includes('function sendTelegramAlert(') &&
+  app.includes('function checkTelegramHighScoreSignal(') &&
+  app.includes('SL+ TERPICU — 0-RISK ALERT') &&
+  app.includes('PELUANG BARU SKOR BESAR') &&
+  app.includes('api.telegram.org/bot') &&
+  tgRelay.includes('export async function onRequestPost({ request })') &&
+  tgRelay.includes('api.telegram.org'));
+
 let syntaxOk = false;
 try {
-  execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js', { stdio: 'pipe' });
+  execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js functions/api/notify/telegram.js', { stdio: 'pipe' });
   syntaxOk = true;
 } catch (e) {
   syntaxOk = false;
