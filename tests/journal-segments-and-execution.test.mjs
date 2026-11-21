@@ -114,3 +114,25 @@ test('AUDIT VERIFIKASI HASIL PREDIKSI BERITA EKONOMI (ANTI-OMONG KOSONG)', async
     assert.ok(edgeCal.includes('predDir'), 'calendar.js harus memuat predDir');
   });
 });
+
+test('SINKRONISASI OTOMATIS DEX MEME & ISOLASI INVESTOR DARI FLUKTUASI M5 SCALPING', async (t) => {
+  await t.test('DEX Meme Workspace menyinkronkan token rekomendasi teratas secara otomatis ke Jurnal Micin', () => {
+    assert.ok(appJs.includes('syncRecommendedMemeToJournal'), 'Harus ada fungsi syncRecommendedMemeToJournal');
+    assert.ok(appJs.includes('syncCuratedInvestorToJournal'), 'Harus ada fungsi syncCuratedInvestorToJournal');
+  });
+
+  await t.test('investorScanPool terlindungi dari kontaminasi time frame M5/scalping', () => {
+    assert.ok(appJs.includes("if (state.mode === 'investor' || tf === 'D1' || tf === 'W1')"), 'investorScanPool hanya menerima TF D1/W1 atau mode investor');
+  });
+
+  await t.test('checkSignalAlarm memblokir feed estimasi, seed lokal, dan pasar tutup', () => {
+    assert.ok(appJs.includes('isAssetMarketOpen(sym)'), 'Harus memeriksa isAssetMarketOpen');
+    assert.ok(appJs.includes('isPriceCompatibleWithSymbol(lastP, sym)'), 'Harus memeriksa isPriceCompatibleWithSymbol');
+    assert.ok(appJs.includes("analysis.feedSource === 'LOCAL_SEED'"), 'Harus memblokir LOCAL_SEED');
+  });
+
+  await t.test('checkTelegramHighScoreSignal tidak mencemari livePrice dengan state.candles milik pair lain', () => {
+    assert.ok(appJs.includes('Dapatkan livePrice KHUSUS untuk instrumen ini'), 'Harus mencari livePrice per-simbol');
+  });
+});
+
