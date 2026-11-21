@@ -171,7 +171,7 @@ export default {
     "vFair": "FAIR VALUE",
     "secTech": "🔬 16 Pilar Kuantitatif Teknikal & Smart Money Concepts (SMC + ORB/Theta/VWAP-Entry)",
     "secMacro": "🌍 10 Pilar Makroekonomi, Likuiditas Global & Institusional",
-    "radarTitle": "📡 Radar Rekomendasi Aset Multi-Aset Real-Time",
+    "radarTitle": "📡 Daftar Sinyal Terkonfirmasi (Top-Down Market Alignment)",
     "hzScalp": "⚡ SCALPING",
     "hzIntraday": "🎯 INTRADAY",
     "hzSwing": "🌊 SWING",

@@ -332,8 +332,13 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
   console.log(`  [${sym} ${tf}] Harga: ${formatP(livePrice, sym)} | Setup: ${dir || 'NEUTRAL'} | Skor: ${score}% | Tier: ${a.signalTier || '—'}`);
 
-  // 1. Cek Sinyal Skor Tinggi Baru (>= MIN_SCORE)
-  if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore) {
+  // 1. Cek Sinyal Skor Tinggi Baru (>= MIN_SCORE) dengan verifikasi Top-Down Alignment
+  const isTopDownAligned = !a.topDown || a.topDown.isAligned;
+  if (!isTopDownAligned && a.topDown && a.topDown.alignmentStatus === 'WAITING_ALIGNMENT') {
+    console.log(`  [${sym} ${tf}] 🟡 Menunggu keselarasan pasar Top-Down (1D/4H vs 1H/15m) — anti counter-trend noise.`);
+  }
+
+  if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
     const L = a.levels || {};
     const anchorTime = a.anchorClosedTime || lastBar.time;
     const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
@@ -378,12 +383,31 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         }
       }
 
+      let topDownBlock = '';
+      if (a.topDown) {
+        const td = a.topDown;
+        topDownBlock =
+          `📊 <b>KESELARASAN PASAR (TOP-DOWN ALIGNED):</b>\n` +
+          `• 1D–4H Makro: <b>${td.macroBias}</b> (Arah & Likuiditas)\n` +
+          `• 1H–15m Struktur: <b>${td.structBias}</b> (Order Block & FVG)\n` +
+          `• 5m–1m Eksekusi: <b>${dir}</b> (Konfirmasi Entry)\n` +
+          (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
+      }
+
+      let sessionBlock = '';
+      if (a.sessionInfo) {
+        const sess = a.sessionInfo;
+        sessionBlock = `🏛️ <b>Sesi Optimal:</b> <code>${sess.bestSession}</code> (${sess.isOptimal ? 'Puncak Likuiditas 🔥' : 'Sesi Reguler'})\n`;
+      }
+
       const alertMsg =
         `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR]</b>\n\n` +
         `Aset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
         `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
         `Confidence Score: <b>${score}%</b>\n` +
-        `Regime: <i>${a.regime || 'Institutional Flow'}</i>\n\n` +
+        `Regime: <i>${a.regime || 'Institutional Flow'}</i>\n` +
+        (sessionBlock ? `${sessionBlock}` : '') +
+        (topDownBlock ? `\n${topDownBlock}\n` : '\n') +
         `📌 <b>Tipe Order:</b> <code>${orderType}</code>\n` +
         `🎯 <b>Titik Entry:</b> <code>${formatP(entryPrice, sym)}</code>\n` +
         `🛡️ <b>Stop Loss:</b> <code>${formatP(L.sl, sym)}</code>\n` +

@@ -3702,6 +3702,7 @@ function gateShortLabel(code) {
     SCALP_PRESSURE: T('ui.gScalpPressure', 'Tekanan orderflow berlawanan — scalp melawan tape terlarang'),
     SNIPER_PREMIUM: T('ui.gSniperPremium', 'Harga berada di zona premium/diskon — akumulasi menunggu harga murah'),
     SNIPER_STRUCTURE: T('ui.gSniperStruct', 'Struktur belum selaras (BOS/HTF lawan arah) — sniper wajib konfirmasi'),
+    COUNTER_HTF_ALIGNMENT: T('ui.eVetoHtf', 'Melawan arah tren makro 1D/4H — menunggu keselarasan pasar'),
     CISD_COUNTER: T('ui.gCISD', 'Change in state of delivery lawan arah — reversal sedang berjalan'),
     FOMO_ZONE: T('ui.gFomo', 'Harga jauh dari zona OTE — master tidak mengejar kereta')
   };
@@ -3788,6 +3789,27 @@ function renderRadarCardHtml(it) {
       '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
     '</div>' +
     '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' + outBadge +
+    (function () {
+      var tdHtml = '';
+      if (a.topDown) {
+        var td = a.topDown;
+        if (td.isAligned) {
+          tdHtml = '<div style="font-size:10px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
+            '🟢 ALIGNED: 1D/4H (' + td.macroBias + ') ➔ 1H/15m ➔ 5m</div>';
+        } else {
+          tdHtml = '<div style="font-size:10px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.1);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
+            '🟡 Menunggu Keselarasan (' + td.macroBias + ' vs ' + td.structBias + ')</div>';
+        }
+      }
+      var sessHtml = '';
+      if (a.sessionInfo) {
+        var sess = a.sessionInfo;
+        var sessCol = sess.isOptimal ? '#38bdf8' : '#94a3b8';
+        sessHtml = '<div style="font-size:9.5px;color:' + sessCol + ';margin-top:2px;">' +
+          (sess.isOptimal ? '⚡ Sesi Optimal: ' : '🌐 Sesi: ') + '<b>' + escH(sess.bestSession) + '</b></div>';
+      }
+      return tdHtml + sessHtml;
+    })() +
     (state.mode === 'trader' && !a.signalEligible && !a.lockedSignal && !a.__estFeed && a.gating && a.gating.active && a.gating.active.length
       ? '<div style="font-size:10.5px;color:#f59e0b;margin-top:3px;line-height:1.35;">⛔ ' + gateShortLabel(a.gating.active[0]) + '</div>' : '') +
     (function () { var nw = newsSoonFor(it.sym, 120); return nw ? '<div style="font-size:10.5px;color:#7dd3fc;margin-top:3px;">⏰ ' + escH(nw.title).slice(0, 34) + ' • ' + newsFmtTime(nw.ts) + '</div>' : ''; })() +
@@ -6166,7 +6188,9 @@ function renderOpportunityRadar(force) {
       var stAcc = radarAccStore()[hz];
       if (stAcc && stAcc.sample >= 5) accTxt = ' • ' + T('ui.eAccRadar', 'Akurasi radar terukur: {wr}% (n={n})').replace('{wr}', stAcc.winRate).replace('{n}', stAcc.sample);
     } catch (e) {}
-    infoEl.textContent = (state.mode === 'investor' ? T('ui.radarInfoI' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoInvestor || '') : T('ui.radarInfoT' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoTrader || '')) + accTxt;
+    infoEl.textContent = (state.mode === 'investor'
+      ? T('ui.radarInfoI' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoInvestor || '')
+      : T('ui.radarTitle', '⚡ Sinyal Terbit Hanya Saat 1D/4H (Arah), 1H/15m (OB/FVG), & 5m (Konfirmasi) Sepakat Searah • Anti Counter-Trend')) + accTxt;
   }
   /* Radar merata ke seluruh katalog: batch bergilir per slot 5 menit + cache
      per-instrumen (TTL 8 mnt) -> semua simbol dinilai, 12 sinyal terkuat tampil. */
@@ -6176,7 +6200,12 @@ function renderOpportunityRadar(force) {
   var fresh = [];
   var now = Date.now();
   for (var k in pool) if (now - pool[k].ts < 15 * 60000 && !pool[k].item.analysis.__estFeed) fresh.push(pool[k].item);
-  fresh.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
+  fresh.sort(function (x, y) {
+    var xAligned = (x.analysis && x.analysis.topDown && x.analysis.topDown.isAligned) ? 1 : 0;
+    var yAligned = (y.analysis && y.analysis.topDown && y.analysis.topDown.isAligned) ? 1 : 0;
+    if (xAligned !== yAligned) return yAligned - xAligned;
+    return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0);
+  });
   // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
   var freshStrong = fresh.filter(isActionableRadarSignal);
