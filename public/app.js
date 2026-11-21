@@ -425,6 +425,35 @@ function catLabelOf(meta) {
   return meta.region === 'ID' ? 'IDX STOCKS' : 'GLOBAL STOCKS';
 }
 
+/* Memeriksa apakah sesi bursa untuk instrumen ini sedang buka.
+   Kripto & DEX buka 24/7/365. Forex, Emas/Logam, Komoditas & Saham tutup di akhir pekan. */
+function isAssetMarketOpen(symbol) {
+  var s = String(symbol || '').toUpperCase().trim();
+  // Kripto dan token DEX selalu buka 24/7/365 nonstop
+  if (s.indexOf('/USDT') > -1 || s.indexOf('/USDC') > -1 || s.indexOf('/SOL') > -1 || s.indexOf('BTC') > -1 || s.indexOf('ETH') > -1) {
+    return true;
+  }
+  var meta = (typeof guessInstrumentMeta === 'function') ? guessInstrumentMeta(s) : {};
+  if (meta.assetClass === 'crypto') return true;
+
+  var now = new Date();
+  var dayUtc = now.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+  var hourUtc = now.getUTCHours();
+
+  // Akhir pekan:
+  // Pasar Forex, Logam Spot (XAU/XAG) & Komoditas tutup dari Sabtu s/d Minggu 21:00 UTC
+  if (dayUtc === 6) return false;
+  if (dayUtc === 0 && hourUtc < 21) return false;
+  if (dayUtc === 5 && hourUtc >= 22) return false;
+
+  // Pasar Saham (US & IDX): Tutup Sabtu & Minggu seharian
+  if (meta.assetClass === 'stocks') {
+    if (dayUtc === 0 || dayUtc === 6) return false;
+  }
+
+  return true;
+}
+
 /* ==================== 0. VALIDASI INTEGRITAS HARGA & INSTRUMEN ====================
    Mencegah bug fatal "harga pair sebelumnya menempel ke pair yang baru dikunjungi":
    memvalidasi kesesuaian orde/skala harga candlestick, sinyal, dan lock storage
@@ -1009,7 +1038,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible && !a.__estFeed
                 && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
-              if (nl && isPriceCompatibleWithSymbol(nl.entry, symbol)) {
+              if (nl && isAssetMarketOpen(symbol) && isPriceCompatibleWithSymbol(nl.entry, symbol)) {
                 if (a.feedUnverified) nl.feedUnverified = true;
                 saveSignalLock(symbol, tfA, nl);
                 SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false });
@@ -2454,6 +2483,9 @@ function connectRealtimeStream() {
    trader -> ▲ LONG / ▼ SHORT (futures) atau TUNGGU (spot 1-arah),
    investor -> AKUMULASI / DCA / TUNGGU DISKON (framing beli-nyata). */
 function fetchRadarCandidate(item) {
+  if (!isAssetMarketOpen(item.sym)) {
+    return Promise.resolve(null);
+  }
   return fetchRealMarketCandles(item.sym, item.tf).then(function (d) {
     var a = computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source);
     if (!a) throw new Error('no-analysis');
@@ -6126,6 +6158,31 @@ function checkSignalAlarm(analysis) {
     var title = '🔔 SETUP ' + analysis.direction + ' TERBUKA: [' + sym + '] (' + tf + ')';
     var body = (analysis.signalTier || 'ELITE') + ' Setup • Skor ' + (analysis.convictionScore || analysis.confluenceScore || 50) + '% • Entry: ' + entryTxt + ' • TP1: ' + tpTxt + ' • SL: ' + slTxt;
     triggerAlarmAlert(title, body, sym, tf);
+
+    var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+    var isEn = curLang !== 'id' && curLang !== 'ms';
+    var score = analysis.convictionScore || analysis.confluenceScore || 50;
+
+    var tgAlarmMsg = isEn ? (
+      '🚨 <b>[SPECIAL WATCHLIST ALARM — ' + sym + ']</b>\n\n' +
+      'Monitored Asset: <b>' + sym + '</b> (' + tf + ')\n' +
+      'Setup: <b>' + (analysis.direction === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT') + ' (' + (analysis.signalTier || 'PRO') + ')</b>\n' +
+      'Confidence Score: <b>' + score + '%</b>\n\n' +
+      '🎯 <b>Entry:</b> ' + entryTxt + '\n' +
+      '🛡️ <b>Stop Loss:</b> ' + slTxt + '\n' +
+      '✅ <b>Target TP1:</b> ' + tpTxt + '\n\n' +
+      '⚡ <i>Your monitored pair has just triggered a signal! Check your trading app now!</i>'
+    ) : (
+      '🚨 <b>[ALARM PANTAUAN KHUSUS BERBUNYI — ' + sym + ']</b>\n\n' +
+      'Aset Pantauan: <b>' + sym + '</b> (' + tf + ')\n' +
+      'Setup: <b>' + (analysis.direction === 'LONG' ? '🟢 BELI / LONG' : '🔴 JUAL / SHORT') + ' (' + (analysis.signalTier || 'PRO') + ')</b>\n' +
+      'Skor Konfluensi: <b>' + score + '%</b>\n\n' +
+      '🎯 <b>Entry:</b> ' + entryTxt + '\n' +
+      '🛡️ <b>Stop Loss:</b> ' + slTxt + '\n' +
+      '✅ <b>Target TP1:</b> ' + tpTxt + '\n\n' +
+      '⚡ <i>Pair yang Anda pasang alarm khusus baru saja memicu sinyal! Buka aplikasi trading Anda sekarang!</i>'
+    );
+    try { sendTelegramAlert(tgAlarmMsg); } catch (e) {}
     return;
   }
 
@@ -6141,6 +6198,23 @@ function checkSignalAlarm(analysis) {
       var titleTouch = '🎯 HARGA MENYENTUH ENTRY: [' + sym + ']';
       var bodyTouch = 'Harga terkini ' + formatPrice(p, sym) + ' menyentuh titik Entry ' + formatPrice(en, sym) + ' (' + (analysis.timeframe || state.tf) + ')';
       triggerAlarmAlert(titleTouch, bodyTouch, sym, analysis.timeframe);
+
+      var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+      var isEn = curLang !== 'id' && curLang !== 'ms';
+      var tgTouchMsg = isEn ? (
+        '🎯 <b>[ENTRY TOUCH ALARM — ' + sym + ']</b>\n\n' +
+        'Monitored Asset: <b>' + sym + '</b>\n' +
+        'Live Price: <b>' + formatPrice(p, sym) + '</b>\n' +
+        'Entry Zone: <b>' + formatPrice(en, sym) + '</b> (' + (analysis.timeframe || state.tf) + ')\n\n' +
+        '⚡ <i>Price has just hit your entry zone! Place or check your order now!</i>'
+      ) : (
+        '🎯 <b>[ALARM ENTRY TERSENTUH — ' + sym + ']</b>\n\n' +
+        'Aset Pantauan: <b>' + sym + '</b>\n' +
+        'Harga Terkini: <b>' + formatPrice(p, sym) + '</b>\n' +
+        'Titik Entry: <b>' + formatPrice(en, sym) + '</b> (' + (analysis.timeframe || state.tf) + ')\n\n' +
+        '⚡ <i>Harga pasar baru saja menyentuh zona Entry! Segera eksekusi order Anda di aplikasi broker/exchange!</i>'
+      );
+      try { sendTelegramAlert(tgTouchMsg); } catch (e) {}
     }
   }
 }
@@ -6187,6 +6261,19 @@ function toggleSignalAlarm() {
     }
     playAlertChime();
     showAlarmToast('🔔 ALARM AKTIF', 'XStarZG memantau setup sinyal & entry untuk [' + alarmState.symbol + ']. Lonceng & notifikasi browser akan berbunyi saat peluang terbuka.');
+
+    var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+    var isEn = curLang !== 'id' && curLang !== 'ms';
+    var tgConfirm = isEn ? (
+      '🔔 <b>[PRIORITY ALARM ACTIVATED: ' + alarmState.symbol + ']</b>\n\n' +
+      'Asset: <b>' + alarmState.symbol + '</b> is now being monitored with high priority!\n' +
+      'Instant alerts will be sent directly to this Telegram when a new setup forms or price touches Entry.'
+    ) : (
+      '🔔 <b>[ALARM PANTAUAN PRIORITAS AKTIF: ' + alarmState.symbol + ']</b>\n\n' +
+      'Aset: <b>' + alarmState.symbol + '</b> kini dipantau secara prioritas!\n' +
+      'Begitu sinyal baru (ELITE/PRO) terdeteksi atau harga pasar menyentuh titik Entry, bot Telegram akan langsung mengirimkan peringatan darurat ke sini.'
+    );
+    try { sendTelegramAlert(tgConfirm); } catch (e) {}
   }
   try {
     localStorage.setItem('xstarzg_signal_alarm_v1', JSON.stringify({
@@ -6642,17 +6729,29 @@ function checkTelegramHighScoreSignal(a, item) {
   var tp3 = L.tp3 || a.tp3 || (a.lockedSignal && a.lockedSignal.tp3);
   if (!entry || !sl || !tp1) return;
 
+  if (!isAssetMarketOpen(sym)) return;
+
   var lastCandle = (a.candles && a.candles.length && a.candles[a.candles.length - 1]) || (state.candles && state.candles.length && state.candles[state.candles.length - 1]);
   var livePrice = a.livePrice || a.price || (lastCandle && lastCandle.close) || entry;
 
-  // Anti-chasing guard: jangan kirim jika harga sudah melaju >= 40% menuju TP1 atau sudah menyentuh target
   var isLong = a.direction === 'LONG';
   var targetDist = Math.abs(tp1 - entry);
-  if (targetDist > 0) {
-    var progressTowardsTp = isLong ? (livePrice - entry) / targetDist : (entry - livePrice) / targetDist;
-    if (progressTowardsTp >= 0.40) {
-      return; // Lewati: harga sudah melaju jauh dari entry, jangan suruh trader mengejar market
-    }
+  var risk = Math.abs(entry - sl);
+  var atr = a.atr || (risk * 0.5) || (livePrice * 0.005);
+
+  // Anti-chasing:
+  // 1. Jangan kirim jika harga saat ini sudah menyentuh / melewati TP1 atau SL
+  if (isLong) {
+    if (livePrice >= tp1 || livePrice <= sl) return;
+  } else {
+    if (livePrice <= tp1 || livePrice >= sl) return;
+  }
+
+  // 2. Untuk order Market/Instan (harga berada di sekitar entry), pastikan harga belum lari > 35% target
+  var isMarketOrder = Math.abs(entry - livePrice) <= 0.15 * atr;
+  if (isMarketOrder && targetDist > 0) {
+    var marketProgress = isLong ? (livePrice - entry) / targetDist : (entry - livePrice) / targetDist;
+    if (marketProgress > 0.35) return;
   }
 
   var dedupKey = 'tg:' + sym + ':' + tf + ':' + a.direction + ':' + (a.anchorClosedTime || entry || 0);
