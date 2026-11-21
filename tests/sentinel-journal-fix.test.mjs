@@ -76,7 +76,7 @@ await asyncChk('Sentinel tidak boleh mengirim SL+ pada cycle penerbitan sinyal (
 
   // Verifikasi hanya 1 pesan (Sinyal Entry), BUKAN 2 pesan (Sinyal + SL+)
   chk('Hanya 1 pesan terkirim pada cycle awal (sinyal entry baru)', sentMessages.length === 1);
-  chk('Pesan memuat instruksi MT5 BUY LIMIT', sentMessages[0].includes('BUY LIMIT') && sentMessages[0].includes('2650.00'));
+  chk('Pesan memuat instruksi eksekusi BUY LIMIT', sentMessages[0].includes('BUY LIMIT') && sentMessages[0].includes('2650.00'));
   chk('Lock terdaftar dengan status PENDING_FILL', cache.slPlusLocks['XAU/USD'].status === 'PENDING_FILL');
   chk('Order belum berstatus filled', cache.slPlusLocks['XAU/USD'].filled === false);
   chk('SL+ belum terpicu', cache.slPlusLocks['XAU/USD'].notifiedSlPlus === false);

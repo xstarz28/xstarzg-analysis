@@ -222,6 +222,10 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       const atr = a.atr || (livePrice * 0.005);
       const entryDiff = entryPrice - livePrice;
 
+      const isCrypto = (sym || '').includes('/USDT') || (sym || '').includes('BTC') || (sym || '').includes('ETH') || (sym || '').includes('SOL');
+      const isStock = (sym || '').includes('.JK') || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].includes(sym);
+      const platformName = isCrypto ? 'exchange kripto pilihan Anda (Binance/Bybit/Tokocrypto/OKX)' : isStock ? 'aplikasi sekuritas/broker saham Anda' : 'broker/aplikasi trading Anda';
+
       let orderType = '';
       let orderInstruction = '';
       if (dir === 'LONG') {
@@ -254,13 +258,13 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
         `Confidence Score: <b>${score}%</b>\n` +
         `Regime: <i>${a.regime || 'Institutional Flow'}</i>\n\n` +
-        `📌 <b>Tipe Order MT5:</b> <code>${orderType}</code>\n` +
+        `📌 <b>Tipe Order:</b> <code>${orderType}</code>\n` +
         `🎯 <b>Titik Entry:</b> <code>${formatP(entryPrice, sym)}</code>\n` +
         `🛡️ <b>Stop Loss:</b> <code>${formatP(L.sl, sym)}</code>\n` +
         `✅ <b>Take Profit 1:</b> <code>${formatP(L.tp1, sym)}</code>\n` +
         (L.tp2 ? `✅ <b>Take Profit 2:</b> <code>${formatP(L.tp2, sym)}</code>\n` : '') +
         (L.tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(L.tp3, sym)}</code>\n` : '') +
-        `\n📱 <i>${orderInstruction} Bot memantau posisi dan akan mengirim peringatan SL+ (0-Risk) setelah order terisi dan meluncur menuju profit!</i>`;
+        `\n📱 <i>${orderInstruction} Buka ${platformName}. Bot memantau posisi dan akan mengirim peringatan SL+ (0-Risk) setelah order terisi dan meluncur menuju profit!</i>`;
 
       await sendFn(alertMsg);
 
@@ -375,6 +379,10 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       const slPlusPrice = isLong ? (entry + beBuffer) : (entry - beBuffer);
       const slPriceTxt = formatP(slPlusPrice, sym);
 
+      const isCryptoSym = (sym || '').includes('/USDT') || (sym || '').includes('BTC') || (sym || '').includes('ETH') || (sym || '').includes('SOL');
+      const isStockSym = (sym || '').includes('.JK') || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].includes(sym);
+      const platTarget = isCryptoSym ? 'exchange kripto Anda' : isStockSym ? 'aplikasi sekuritas/saham Anda' : 'broker/aplikasi trading Anda';
+
       const slMsg =
         `🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)]</b>\n\n` +
         `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
@@ -383,7 +391,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         `Entry Awal: <b>${formatP(entry, sym)}</b>\n` +
         `Harga Saat Ini: <b>${formatP(livePrice, sym)}</b>\n` +
         `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
-        `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka MT5 di HP sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
+        `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka ${platTarget} sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
 
       await sendFn(slMsg);
     }
