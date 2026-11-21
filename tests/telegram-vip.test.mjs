@@ -656,7 +656,7 @@ await test('app.js and index.html support cloud-bot VIP notifications without lo
 
   // checkTelegramHighScoreSignal does not block on empty botToken
   assert.ok(!appJs.includes('if (!telegramConfig.notifyHighScore || !telegramConfig.botToken || !telegramConfig.chatId) return;'));
-  assert.ok(appJs.includes('if (!telegramConfig.notifyHighScore || !telegramConfig.chatId) return;'));
+  assert.ok(appJs.includes('if (!telegramConfig.notifyHighScore) return;'));
 
   // sendTelegramAlert relays to /api/notify/telegram when botToken is absent
   assert.ok(appJs.includes('/api/notify/telegram'));
@@ -664,6 +664,54 @@ await test('app.js and index.html support cloud-bot VIP notifications without lo
   // index.html has lblTelegramVipJnlText in the journal tab header
   assert.ok(indexHtml.includes('id="lblTelegramVipJnlText"'));
   assert.ok(appJs.includes("txtJnlEl = $id('lblTelegramVipJnlText')"));
+
+  // Signal creation locks call checkTelegramHighScoreSignal
+  assert.ok(appJs.includes('saveSignalLock(symbol, tfA, nl);\n                SE.applyLockedSignal(a, nl, { status: \'ACTIVE\', bePlusActive: false });\n                try { checkTelegramHighScoreSignal(a, { sym: symbol, tf: tfA }); } catch (e) {}'));
+
+  // bootCore syncs telegram status on startup
+  assert.ok(appJs.includes('try { loadPersistedTelegramConfig(); } catch (e) {}'));
+  assert.ok(appJs.includes('function syncTelegramLinkStatus()'));
+});
+
+await test('telegram relay auto-resolves chatId from authenticated subscriber record when omitted by client', async () => {
+  const { onRequestPost: handleTelegramRelay } = await import('../functions/api/notify/telegram.js');
+  let capturedCall = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    capturedCall = { url, opts };
+    return { ok: true, json: async () => ({ ok: true, result: { message_id: 999 } }) };
+  };
+
+  try {
+    const env = {
+      TELEGRAM_BOT_TOKEN: '123:ABC_TEST',
+      JWT_SECRET: 'secret-xyz',
+      DB: {
+        prepare: (sql) => ({
+          bind: (...args) => ({
+            first: async () => ({ chat_id: '1287273759' })
+          })
+        })
+      }
+    };
+    const token = await signJwt({ email: 'sevenfoldarmy2822@gmail.com', tier: 'OWNER_VIP' }, env.JWT_SECRET);
+    const req = new Request('https://xstarzg.com/api/notify/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ text: 'Auto resolved chat alert' })
+    });
+
+    const res = await handleTelegramRelay({ request: req, env });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.ok, true);
+    assert.strictEqual(data.chatId, '1287273759');
+    const sentBody = JSON.parse(capturedCall.opts.body);
+    assert.strictEqual(sentBody.chat_id, '1287273759');
+    assert.strictEqual(sentBody.text, 'Auto resolved chat alert');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 console.log(`\nTELEGRAM VIP SUITE: ${passed} passed, ${failed} failed`);

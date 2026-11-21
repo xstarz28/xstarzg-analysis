@@ -1,3 +1,5 @@
+import { authenticateRequest } from '../../lib/auth.js';
+
 // Fallback relay pengiriman notifikasi Telegram
 // Digunakan oleh browser trader (VIP / Owner) untuk mengirim alert instan tanpa perlu mengekspos Bot Token ke client-side.
 export async function onRequestPost({ request }) {
@@ -14,6 +16,16 @@ export async function onRequestPost({ request }) {
           if (row && row.value) token = String(row.value).trim();
         } catch (e) {}
       }
+    }
+
+    if (!chatId) {
+      try {
+        const user = await authenticateRequest(request, env);
+        if (user && user.email && env && env.DB) {
+          const row = await env.DB.prepare('SELECT chat_id FROM telegram_subscribers WHERE email = ?1').bind(user.email).first();
+          if (row && row.chat_id) chatId = row.chat_id;
+        }
+      } catch (e) {}
     }
 
     if (!token || !chatId || !text) {
@@ -37,7 +49,7 @@ export async function onRequestPost({ request }) {
       const errMsg = (data && (data.description || data.error)) || `HTTP ${tgRes.status}`;
       return Response.json({ ok: false, error: errMsg, description: data && data.description, error_code: data && data.error_code });
     }
-    return Response.json(data);
+    return Response.json({ ...data, chatId: cleanChatId });
   } catch (err) {
     return Response.json({ ok: false, error: (err && err.message) || 'Gagal mengirim pesan Telegram' }, { status: 500 });
   }
