@@ -49,7 +49,14 @@ export async function onRequestGet({ request, env }) {
         FROM telegram_subscribers
         WHERE is_owner = 1 OR is_affiliate = 1 OR (vip_until > ?1)
       `).bind(now).all();
-      subscribers = (res && res.results) || [];
+      subscribers = ((res && res.results) || []).map(s => {
+        let lang = 'en';
+        const em = String(s.email || '').toLowerCase();
+        if (s.is_owner === 1 || em.includes('.id') || em.includes('sevenfoldarmy') || s.lang === 'id') {
+          lang = 'id';
+        }
+        return { ...s, lang };
+      });
     }
 
     let botToken = (env && env.TELEGRAM_BOT_TOKEN ? env.TELEGRAM_BOT_TOKEN : '').trim().replace(/^bot/i, '');

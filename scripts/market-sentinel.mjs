@@ -97,8 +97,9 @@ export async function syncActiveLocksFromCloud(cache) {
 let RESOLVED_BOT_TOKEN = '';
 
 async function getActiveSubscribers() {
-  const recipients = new Set();
-  if (CHAT_ID) recipients.add(CHAT_ID);
+  const recipients = new Map();
+  const defaultLang = process.env.TELEGRAM_LANG || 'id';
+  if (CHAT_ID) recipients.set(CHAT_ID, { chatId: CHAT_ID, lang: defaultLang });
 
   const apiHosts = [
     process.env.XSTARZG_API_HOST,
@@ -123,7 +124,19 @@ async function getActiveSubscribers() {
         }
         if (data && Array.isArray(data.subscribers)) {
           for (const sub of data.subscribers) {
-            if (sub && sub.chat_id) recipients.add(String(sub.chat_id));
+            if (sub && sub.chat_id) {
+              const cid = String(sub.chat_id);
+              let lang = sub.lang;
+              if (!lang) {
+                const em = String(sub.email || '').toLowerCase();
+                if (sub.is_owner === 1 || em.includes('.id') || em.includes('sevenfoldarmy')) {
+                  lang = 'id';
+                } else {
+                  lang = 'en';
+                }
+              }
+              recipients.set(cid, { chatId: cid, lang, email: sub.email });
+            }
           }
           if (recipients.size > 0) break;
         }
@@ -131,10 +144,10 @@ async function getActiveSubscribers() {
     } catch (e) {}
   }
 
-  return Array.from(recipients);
+  return Array.from(recipients.values());
 }
 
-async function sendTelegramMessage(text) {
+async function sendTelegramMessage(text, payload = {}) {
   const activeBotToken = BOT_TOKEN || RESOLVED_BOT_TOKEN;
   const recipients = await getActiveSubscribers();
 
@@ -148,7 +161,11 @@ async function sendTelegramMessage(text) {
     console.log(`📤 Mengirim notifikasi ke ${recipients.length} penerima VIP/Owner...`);
     let successCount = 0;
 
-    for (const cid of recipients) {
+    for (const rec of recipients) {
+      const cid = typeof rec === 'object' ? rec.chatId : rec;
+      const lang = typeof rec === 'object' ? (rec.lang || 'id') : 'id';
+      const msgText = (lang === 'id' || lang === 'ms') ? (payload.id || text) : (payload.en || text);
+
       try {
         const url = `https://api.telegram.org/bot${activeBotToken}/sendMessage`;
         const res = await fetch(url, {
@@ -156,7 +173,7 @@ async function sendTelegramMessage(text) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: cid,
-            text: text,
+            text: msgText,
             parse_mode: 'HTML'
           })
         });
@@ -185,12 +202,16 @@ async function sendTelegramMessage(text) {
   ].filter(Boolean);
 
   for (const host of apiHosts) {
-    for (const cid of recipients) {
+    for (const rec of recipients) {
+      const cid = typeof rec === 'object' ? rec.chatId : rec;
+      const lang = typeof rec === 'object' ? (rec.lang || 'id') : 'id';
+      const msgText = (lang === 'id' || lang === 'ms') ? (payload.id || text) : (payload.en || text);
+
       try {
         const res = await fetch(`${host}/api/notify/telegram-link`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'send_alert', chatId: cid, text: text })
+          body: JSON.stringify({ action: 'send_alert', chatId: cid, text: msgText })
         });
         const json = await res.json();
         if (json && json.ok) return true;
@@ -416,7 +437,53 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         (L.tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(L.tp3, sym)}</code>\n` : '') +
         `\n📱 <i>${orderInstruction} Buka ${platformName}. Bot memantau posisi dan akan mengirim peringatan SL+ (0-Risk) setelah order terisi dan meluncur menuju profit!</i>`;
 
-      await sendFn(alertMsg);
+      const hzLabelEn = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
+      const platformNameEn = isCrypto ? 'your crypto exchange (Binance/Bybit/OKX/etc.)' : isStock ? 'your stock brokerage account' : 'your trading platform / broker';
+      let orderInstructionEn = '';
+      if (dir === 'LONG') {
+        if (entryDiff < -0.05 * atr) orderInstructionEn = `Place a <b>BUY LIMIT</b> at <code>${formatP(entryPrice, sym)}</code> (discount pullback entry).`;
+        else if (entryDiff > 0.05 * atr) orderInstructionEn = `Place a <b>BUY STOP</b> at <code>${formatP(entryPrice, sym)}</code> (resistance breakout entry).`;
+        else orderInstructionEn = `Execute <b>BUY NOW</b> at market price (~${formatP(livePrice, sym)}).`;
+      } else {
+        if (entryDiff > 0.05 * atr) orderInstructionEn = `Place a <b>SELL LIMIT</b> at <code>${formatP(entryPrice, sym)}</code> (premium pullback entry).`;
+        else if (entryDiff < -0.05 * atr) orderInstructionEn = `Place a <b>SELL STOP</b> at <code>${formatP(entryPrice, sym)}</code> (support breakdown entry).`;
+        else orderInstructionEn = `Execute <b>SELL NOW</b> at market price (~${formatP(livePrice, sym)}).`;
+      }
+
+      let topDownBlockEn = '';
+      if (a.topDown) {
+        const td = a.topDown;
+        topDownBlockEn =
+          `📊 <b>MARKET ALIGNMENT (TOP-DOWN ALIGNED):</b>\n` +
+          `• 1D–4H Macro: <b>${td.macroBias}</b> (Direction & Liquidity)\n` +
+          `• 1H–15m Structure: <b>${td.structBias}</b> (OB & FVG)\n` +
+          `• 5m–1m Execution: <b>${dir}</b> (Entry Confirmation)\n` +
+          (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
+      }
+
+      let sessionBlockEn = '';
+      if (a.sessionInfo) {
+        const sess = a.sessionInfo;
+        sessionBlockEn = `🏛️ <b>Optimal Session:</b> <code>${sess.bestSession}</code> (${sess.isOptimal ? 'Peak Liquidity 🔥' : 'Regular Hours'})\n`;
+      }
+
+      const alertMsgEn =
+        `🚀 <b>[XSTARZG 24/7 CLOUD — HIGH CONVICTION SETUP]</b>\n\n` +
+        `Asset: <b>${sym}</b> (${tf} • ${hzLabelEn})\n` +
+        `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
+        `Confidence Score: <b>${score}%</b>\n` +
+        `Market Regime: <i>${a.regime || 'Institutional Flow'}</i>\n` +
+        (sessionBlockEn ? `${sessionBlockEn}` : '') +
+        (topDownBlockEn ? `\n${topDownBlockEn}\n` : '\n') +
+        `📌 <b>Order Type:</b> <code>${orderType}</code>\n` +
+        `🎯 <b>Entry Level:</b> <code>${formatP(entryPrice, sym)}</code>\n` +
+        `🛡️ <b>Stop Loss:</b> <code>${formatP(L.sl, sym)}</code>\n` +
+        `✅ <b>Take Profit 1:</b> <code>${formatP(L.tp1, sym)}</code>\n` +
+        (L.tp2 ? `✅ <b>Take Profit 2:</b> <code>${formatP(L.tp2, sym)}</code>\n` : '') +
+        (L.tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(L.tp3, sym)}</code>\n` : '') +
+        `\n📱 <i>${orderInstructionEn} Open ${platformNameEn}. Cloud bot monitors this position 24/7 and will send an SL+ (0-Risk) alert once filled and moving into profit!</i>`;
+
+      await sendFn(alertMsg, { id: alertMsg, en: alertMsgEn });
 
       // Daftarkan ke pengawasan order
       // PENTING: flag `justCreated = true` MENJAMIN step 2 tidak mengevaluasi SL+ pada cycle yang sama!
@@ -489,7 +556,14 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `Status: <b>TARGET TERCAPAI SEBELUM TERISI (MISSED)</b>\n\n` +
           `⚠️ <b>AKSI WAJIB:</b>\n` +
           `<i>Segera batalkan (cancel) antrian limit order Anda pada exchange/broker sekarang! Target sudah tersentuh duluan tanpa menjemput antrian. Jangan biarkan order menggantung!</i>`;
-        await sendFn(cancelMsg);
+        const cancelMsgEn =
+          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER MISSED / CANCEL PENDING]</b>\n\n` +
+          `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>TARGET REACHED BEFORE FILL (MISSED)</b>\n\n` +
+          `⚠️ <b>REQUIRED ACTION:</b>\n` +
+          `<i>Cancel your pending limit order on your broker/exchange now! Target was reached before tagging entry. Do not leave unfilled orders hanging!</i>`;
+        await sendFn(cancelMsg, { id: cancelMsg, en: cancelMsgEn });
         await syncJournalToCloud({
           action: 'record_outcome',
           outcome: {
@@ -515,7 +589,14 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `Status: <b>EXPIRED (Waktu Tunggu Setup Habis)</b>\n\n` +
           `⚠️ <b>AKSI WAJIB BAGI TRADER:</b>\n` +
           `<i>Batalkan (cancel) antrian limit order ini sekarang! Durasi setup telah berakhir tanpa terisi (unfilled). Jangan lakukan entry karena momentum dan struktur pasar sudah berubah!</i>`;
-        await sendFn(expMsg);
+        const expMsgEn =
+          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER EXPIRED / CANCEL]</b>\n\n` +
+          `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>EXPIRED (Pending Setup Timeout)</b>\n\n` +
+          `⚠️ <b>REQUIRED ACTION:</b>\n` +
+          `<i>Cancel this pending limit order now! Setup validity duration has expired without fill. Market structure has shifted!</i>`;
+        await sendFn(expMsg, { id: expMsg, en: expMsgEn });
         await syncJournalToCloud({
           action: 'record_outcome',
           outcome: {
@@ -542,7 +623,14 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `Status: <b>DIBATALKAN (Harga Lari > 3x ATR dari Entry)</b>\n\n` +
           `⚠️ <b>AKSI WAJIB:</b>\n` +
           `<i>Batalkan (cancel) antrian limit order ini sekarang! Harga pasar sudah melaju terlalu jauh tanpa menjemput antrian. Jangan mengejar harga (anti-chasing)!</i>`;
-        await sendFn(cancelMsg);
+        const cancelMsgEn =
+          `🚫 <b>[XSTARZG 24/7 CLOUD — PRICE MOVED AWAY / CANCEL ORDER]</b>\n\n` +
+          `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>CANCELLED (Price ran > 3x ATR away without fill)</b>\n\n` +
+          `⚠️ <b>REQUIRED ACTION:</b>\n` +
+          `<i>Cancel your pending limit order on your broker/exchange now! Price has moved too far away without tagging entry. Avoid chasing price!</i>`;
+        await sendFn(cancelMsg, { id: cancelMsg, en: cancelMsgEn });
         await syncJournalToCloud({
           action: 'record_outcome',
           outcome: {
@@ -571,7 +659,13 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
       `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
       `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
-    await sendFn(slMsg);
+    const slMsgEn =
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS HIT]</b>\n\n` +
+      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Stop Loss Level: <b>${formatP(sl, sym)} HIT</b>\n\n` +
+      `🛡️ <i>Disciplined cut loss protects your trading capital according to Money Management rules. Position closed.</i>`;
+    await sendFn(slMsg, { id: slMsg, en: slMsgEn });
     await syncJournalToCloud({
       action: 'record_outcome',
       outcome: {
@@ -596,7 +690,14 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
       `Target TP1: <b>${formatP(tp1, sym)} TERPENUHI!</b>\n\n` +
       `💰 <i>Tutup 50% lot untuk mengunci profit! Geser Stop Loss ke BE+ untuk sisa posisi yang mengincar TP2/TP3.</i>`;
-    await sendFn(tpMsg);
+    const tpMsgEn =
+      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 REACHED!]</b>\n\n` +
+      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Entry Level: <b>${formatP(entry, sym)}</b>\n` +
+      `Target TP1: <b>${formatP(tp1, sym)} HIT!</b>\n\n` +
+      `💰 <i>Close 50% position to lock in profit! Move Stop Loss to BE+ for the remainder targeting TP2/TP3.</i>`;
+    await sendFn(tpMsg, { id: tpMsg, en: tpMsgEn });
     await syncJournalToCloud({
       action: 'record_outcome',
       outcome: {
@@ -629,6 +730,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       const isCryptoSym = (sym || '').includes('/USDT') || (sym || '').includes('BTC') || (sym || '').includes('ETH') || (sym || '').includes('SOL');
       const isStockSym = (sym || '').includes('.JK') || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].includes(sym);
       const platTarget = isCryptoSym ? 'exchange kripto Anda' : isStockSym ? 'aplikasi sekuritas/saham Anda' : 'broker/aplikasi trading Anda';
+      const platTargetEn = isCryptoSym ? 'your crypto exchange' : isStockSym ? 'your stock brokerage app' : 'your trading platform / broker';
 
       const slMsg =
         `🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)]</b>\n\n` +
@@ -640,7 +742,17 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
         `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka ${platTarget} sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
 
-      await sendFn(slMsg);
+      const slMsgEn =
+        `🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TRIGGERED (0-RISK)]</b>\n\n` +
+        `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Status: <b>FILLED & PROFIT RUNNING (+${Math.round(triggerRatio * 100)}%)</b>\n` +
+        `Initial Entry: <b>${formatP(entry, sym)}</b>\n` +
+        `Current Price: <b>${formatP(livePrice, sym)}</b>\n` +
+        `Move Stop Loss to: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
+        `⚠️ <i>Price has entered the 0-Risk safety zone! Open ${platTargetEn} now and move your Stop Loss to the BE+ level above to secure 100% of your capital!</i>`;
+
+      await sendFn(slMsg, { id: slMsg, en: slMsgEn });
       await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
     }
   }
