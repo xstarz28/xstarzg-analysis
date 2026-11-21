@@ -173,7 +173,7 @@ async function fetchYahooCandles(symbol, tf = 'H1') {
 }
 
 // Format price helper
-function formatP(val, sym) {
+export function formatP(val, sym) {
   const n = Number(val);
   if (!Number.isFinite(n)) return '-';
   if ((sym || '').includes('JPY')) return n.toFixed(3);
@@ -183,7 +183,7 @@ function formatP(val, sym) {
 }
 
 // Watchlist instrumen institusional utama
-const WATCHLIST = [
+export const WATCHLIST = [
   { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
   { sym: 'XAU/USD', tf: 'M15', type: 'commodity', hz: 'scalping' },
   { sym: 'EUR/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
@@ -195,8 +195,203 @@ const WATCHLIST = [
   { sym: 'WTI/OIL', tf: 'H1', type: 'commodity', hz: 'intraday' }
 ];
 
+export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE }) {
+  const { sym, tf, hz } = inst;
+  if (!candles || candles.length < 35 || !a || a.error) return;
+
+  const score = Number(a.confluenceScore || a.confidence || 0);
+  const dir = a.direction;
+  const lastBar = candles[candles.length - 1];
+  const livePrice = lastBar.close;
+
+  console.log(`  [${sym} ${tf}] Harga: ${formatP(livePrice, sym)} | Setup: ${dir || 'NEUTRAL'} | Skor: ${score}% | Tier: ${a.signalTier || '—'}`);
+
+  // 1. Cek Sinyal Skor Tinggi Baru (>= MIN_SCORE)
+  if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore) {
+    const L = a.levels || {};
+    const anchorTime = a.anchorClosedTime || lastBar.time;
+    const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
+
+    if (!cache.notified[setupKey]) {
+      cache.notified[setupKey] = Date.now();
+
+      const hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
+      const dirEmoji = dir === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
+      const tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
+      const entryPrice = L.entry || livePrice;
+      const atr = a.atr || (livePrice * 0.005);
+      const entryDiff = entryPrice - livePrice;
+
+      let orderType = '';
+      let orderInstruction = '';
+      if (dir === 'LONG') {
+        if (entryDiff < -0.05 * atr) {
+          orderType = 'BUY LIMIT';
+          orderInstruction = `Pasang <b>BUY LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> (antri beli di harga diskon/pullback).`;
+        } else if (entryDiff > 0.05 * atr) {
+          orderType = 'BUY STOP';
+          orderInstruction = `Pasang <b>BUY STOP</b> di <code>${formatP(entryPrice, sym)}</code> (eksekusi saat breakout ke atas).`;
+        } else {
+          orderType = 'BUY (Market / Instan)';
+          orderInstruction = `Eksekusi <b>BUY SEKARANG</b> di harga pasar (~${formatP(livePrice, sym)}).`;
+        }
+      } else {
+        if (entryDiff > 0.05 * atr) {
+          orderType = 'SELL LIMIT';
+          orderInstruction = `Pasang <b>SELL LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> (antri jual di harga premium/pullback).`;
+        } else if (entryDiff < -0.05 * atr) {
+          orderType = 'SELL STOP';
+          orderInstruction = `Pasang <b>SELL STOP</b> di <code>${formatP(entryPrice, sym)}</code> (eksekusi saat breakout ke bawah).`;
+        } else {
+          orderType = 'SELL (Market / Instan)';
+          orderInstruction = `Eksekusi <b>SELL SEKARANG</b> di harga pasar (~${formatP(livePrice, sym)}).`;
+        }
+      }
+
+      const alertMsg =
+        `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR]</b>\n\n` +
+        `Aset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
+        `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
+        `Confidence Score: <b>${score}%</b>\n` +
+        `Regime: <i>${a.regime || 'Institutional Flow'}</i>\n\n` +
+        `📌 <b>Tipe Order MT5:</b> <code>${orderType}</code>\n` +
+        `🎯 <b>Titik Entry:</b> <code>${formatP(entryPrice, sym)}</code>\n` +
+        `🛡️ <b>Stop Loss:</b> <code>${formatP(L.sl, sym)}</code>\n` +
+        `✅ <b>Take Profit 1:</b> <code>${formatP(L.tp1, sym)}</code>\n` +
+        (L.tp2 ? `✅ <b>Take Profit 2:</b> <code>${formatP(L.tp2, sym)}</code>\n` : '') +
+        (L.tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(L.tp3, sym)}</code>\n` : '') +
+        `\n📱 <i>${orderInstruction} Bot memantau posisi dan akan mengirim peringatan SL+ (0-Risk) setelah order terisi dan meluncur menuju profit!</i>`;
+
+      await sendFn(alertMsg);
+
+      // Daftarkan ke pengawasan order
+      // PENTING: flag `justCreated = true` MENJAMIN step 2 tidak mengevaluasi SL+ pada cycle yang sama!
+      cache.slPlusLocks[sym] = {
+        symbol: sym,
+        tf: tf,
+        direction: dir,
+        orderType: orderType,
+        entry: entryPrice,
+        sl: L.sl,
+        tp1: L.tp1,
+        tp2: L.tp2,
+        tp3: L.tp3,
+        atr: atr,
+        status: orderType.includes('Market') ? 'FILLED' : 'PENDING_FILL',
+        filled: orderType.includes('Market'),
+        filledAt: orderType.includes('Market') ? Date.now() : null,
+        notifiedSlPlus: false,
+        notifiedTp1: false,
+        created: Date.now(),
+        justCreated: true
+      };
+    }
+  }
+
+  // 2. Pemantauan Posisi & SL+ (0-Risk Break-Even Plus Trigger)
+  const activeLock = cache.slPlusLocks[sym];
+  if (!activeLock) return;
+
+  // 2a. Guard anti double-ping: jika order baru saja diterbitkan di tick ini, lewati
+  if (activeLock.justCreated) {
+    delete activeLock.justCreated;
+    return;
+  }
+
+  const isLong = activeLock.direction === 'LONG';
+  const entry = Number(activeLock.entry);
+  const sl = Number(activeLock.sl);
+  const tp1 = Number(activeLock.tp1);
+  const targetDist = Math.abs(tp1 - entry);
+
+  // 2b. Verifikasi Keterisian Limit Order (hanya jika belum terisi)
+  if (!activeLock.filled) {
+    let gotFilled = false;
+    if (isLong) {
+      if (lastBar.low <= entry || livePrice <= entry) gotFilled = true;
+    } else {
+      if (lastBar.high >= entry || livePrice >= entry) gotFilled = true;
+    }
+
+    if (gotFilled) {
+      activeLock.filled = true;
+      activeLock.status = 'FILLED';
+      activeLock.filledAt = Date.now();
+      console.log(`  [${sym} ${tf}] 🔔 Limit Order TERJEMPUT pada ${formatP(entry, sym)}! Posisi aktif dipantau.`);
+    } else {
+      // Cek apakah target sudah tercapai sebelum order sempat dijemput (MISSED)
+      const missed = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
+      if (missed) {
+        console.log(`  [${sym} ${tf}] ↗️ Order terlewat (MISSED) — target tercapai sebelum terjemput.`);
+        delete cache.slPlusLocks[sym];
+        return;
+      }
+      // Batalkan order limit jika gantung lebih dari 24 jam tanpa terisi
+      if (Date.now() - activeLock.created > 24 * 3600 * 1000) {
+        console.log(`  [${sym} ${tf}] ⏳ Limit order kedaluwarsa (>24 jam belum terjemput).`);
+        delete cache.slPlusLocks[sym];
+        return;
+      }
+      // Order belum terisi -> JANGAN PERNAH mengevaluasi SL+!
+      return;
+    }
+  }
+
+  // 2c. Posisi SUDAH TERISI: Cek eksekusi Stop Loss atau TP1
+  const slHit = isLong ? (lastBar.low <= sl || livePrice <= sl) : (lastBar.high >= sl || livePrice >= sl);
+  if (slHit) {
+    console.log(`  [${sym} ${tf}] ❌ Posisi menyentuh Stop Loss (${formatP(sl, sym)}). Pengawasan selesai.`);
+    delete cache.slPlusLocks[sym];
+    return;
+  }
+
+  const tpHit = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
+  if (tpHit && !activeLock.notifiedTp1) {
+    activeLock.notifiedTp1 = true;
+    const tpMsg =
+      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 TERCAPAI!]</b>\n\n` +
+      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
+      `Target TP1: <b>${formatP(tp1, sym)} TERPENUHI!</b>\n\n` +
+      `💰 <i>Tutup 50% lot untuk mengunci profit! Geser Stop Loss ke BE+ untuk sisa posisi yang mengincar TP2/TP3.</i>`;
+    await sendFn(tpMsg);
+    delete cache.slPlusLocks[sym];
+    return;
+  }
+
+  // 2d. Pemantauan SL+ (0-Risk BE+ Trigger)
+  // Syarat mutlak: Posisi terisi & telah bergerak minimal 38% menuju target TP1 (bukan 15% noise)
+  if (!activeLock.notifiedSlPlus && targetDist > 0) {
+    const triggerRatio = 0.38;
+    const beTriggerPrice = isLong ? (entry + triggerRatio * targetDist) : (entry - triggerRatio * targetDist);
+    const slPlusHit = isLong
+      ? (lastBar.high >= beTriggerPrice || livePrice >= beTriggerPrice)
+      : (lastBar.low <= beTriggerPrice || livePrice <= beTriggerPrice);
+
+    if (slPlusHit) {
+      activeLock.notifiedSlPlus = true;
+      const beBuffer = Math.max(0.08 * targetDist, 0.15 * (activeLock.atr || 1));
+      const slPlusPrice = isLong ? (entry + beBuffer) : (entry - beBuffer);
+      const slPriceTxt = formatP(slPlusPrice, sym);
+
+      const slMsg =
+        `🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)]</b>\n\n` +
+        `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Status: <b>TEREKSEKUSI & PROFIT BERJALAN (+${Math.round(triggerRatio * 100)}%)</b>\n` +
+        `Entry Awal: <b>${formatP(entry, sym)}</b>\n` +
+        `Harga Saat Ini: <b>${formatP(livePrice, sym)}</b>\n` +
+        `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
+        `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka MT5 di HP sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
+
+      await sendFn(slMsg);
+    }
+  }
+}
+
 async function scanInstrument(inst, cache) {
-  const { sym, tf, type, hz } = inst;
+  const { sym, tf, type } = inst;
   try {
     let candles = [];
     if (type === 'crypto') {
@@ -212,85 +407,7 @@ async function scanInstrument(inst, cache) {
     }
 
     const a = runFullAnalysis({ symbol: sym, timeframe: tf, candles });
-    if (!a || a.error) {
-      console.log(`  [${sym} ${tf}] Analisis engine tidak menghasilkan setup (${a && a.error}).`);
-      return;
-    }
-
-    const score = Number(a.confluenceScore || a.confidence || 0);
-    const dir = a.direction;
-    const lastBar = candles[candles.length - 1];
-    const livePrice = lastBar.close;
-
-    console.log(`  [${sym} ${tf}] Harga: ${formatP(livePrice, sym)} | Setup: ${dir || 'NEUTRAL'} | Skor: ${score}% | Tier: ${a.signalTier || '—'}`);
-
-    // 1. Cek Sinyal Skor Tinggi Baru (>= 75%)
-    if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= MIN_SCORE) {
-      const L = a.levels || {};
-      const anchorTime = a.anchorClosedTime || lastBar.time;
-      const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
-
-      if (!cache.notified[setupKey]) {
-        cache.notified[setupKey] = Date.now();
-
-        const hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
-        const dirEmoji = dir === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
-        const tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
-
-        const alertMsg =
-          `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR]</b>\n\n` +
-          `Aset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
-          `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
-          `Confidence Score: <b>${score}%</b>\n` +
-          `Regime: <i>${a.regime || 'Institutional Flow'}</i>\n\n` +
-          `🎯 <b>Entry:</b> ${formatP(L.entry || livePrice, sym)}\n` +
-          `🛡️ <b>Stop Loss:</b> ${formatP(L.sl, sym)}\n` +
-          `✅ <b>Take Profit 1:</b> ${formatP(L.tp1, sym)}\n` +
-          (L.tp2 ? `✅ <b>Take Profit 2:</b> ${formatP(L.tp2, sym)}\n` : '') +
-          (L.tp3 ? `🚀 <b>Target TP3:</b> ${formatP(L.tp3, sym)}\n` : '') +
-          `\n📱 <i>Setup terdeteksi otomatis dari Cloud! Buka MT5 di HP dan pasang Limit Order pada titik Entry di atas.</i>`;
-
-        await sendTelegramMessage(alertMsg);
-
-        // Daftarkan ke pengawasan SL+
-        cache.slPlusLocks[sym] = {
-          symbol: sym,
-          tf: tf,
-          direction: dir,
-          entry: L.entry || livePrice,
-          sl: L.sl,
-          tp1: L.tp1,
-          slPlus: dir === 'LONG' ? (L.entry + Math.abs(L.tp1 - L.entry) * 0.15) : (L.entry - Math.abs(L.tp1 - L.entry) * 0.15),
-          notifiedSlPlus: false,
-          created: Date.now()
-        };
-      }
-    }
-
-    // 2. Cek Pemantauan SL+ (0-Risk Break-Even Plus Trigger)
-    const activeLock = cache.slPlusLocks[sym];
-    if (activeLock && !activeLock.notifiedSlPlus && activeLock.entry && activeLock.tp1) {
-      let slPlusHit = false;
-      if (activeLock.direction === 'LONG' && livePrice >= activeLock.slPlus) {
-        slPlusHit = true;
-      } else if (activeLock.direction === 'SHORT' && livePrice <= activeLock.slPlus) {
-        slPlusHit = true;
-      }
-
-      if (slPlusHit) {
-        activeLock.notifiedSlPlus = true;
-        const slPriceTxt = formatP(activeLock.slPlus, sym);
-        const slMsg =
-          `🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)]</b>\n\n` +
-          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-          `Arah: <b>${activeLock.direction}</b>\n` +
-          `Entry Awal: <b>${formatP(activeLock.entry, sym)}</b>\n` +
-          `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
-          `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Segera buka MT5 di HP sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
-
-        await sendTelegramMessage(slMsg);
-      }
-    }
+    await processInstrumentAnalysis({ inst, candles, a, cache });
   } catch (err) {
     console.log(`  [${sym} ${tf}] Fetch/analisis dilewati: ${err.message}`);
   }

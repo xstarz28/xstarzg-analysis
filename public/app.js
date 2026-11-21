@@ -770,7 +770,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     var oc = String((verdict && verdict.status) || '');
     // v2026.65: EXPIRED dicatat juga ke jurnal (transparansi penuh) namun TIDAK
     // memengaruhi winrate adaptif (bukan kemenangan/kekalahan — netral usia setup).
-    if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED' && oc !== 'BE_SAVED') return;
+    if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED' && oc !== 'BE_SAVED' && oc !== 'MISSED' && oc !== 'CANCELLED') return;
     var beSaved = !!(verdict && verdict.beProtected) || !!(lock && lock.bePlusActive);
     var finalStatus = (oc !== 'TP_HIT' && oc !== 'MISSED' && oc !== 'CANCELLED' && beSaved) ? 'BE_SAVED' : oc;
     var finalReason = (finalStatus === 'BE_SAVED')
@@ -839,11 +839,12 @@ function auditAndCleanseCorruptedStorage() {
       if (!o || !o.lock) continue;
       var L = o.lock, isL = L.direction === 'LONG';
       var sym = (L.symbol || k.split('|')[0] || '').toUpperCase();
-      var tp1 = Number(L.tp1), entry = Number(L.entry), sl = Number(L.sl), anc = Number(L.anchorPrice || entry);
-      var inv = isL ? (tp1 <= entry || tp1 <= anc || sl >= entry) : (tp1 >= entry || tp1 >= anc || sl <= entry);
-      var badPrice = !isPriceCompatibleWithSymbol(entry, sym) || !isPriceCompatibleWithSymbol(anc, sym);
-      var symMismatch = (L.symbol && k.indexOf(L.symbol) !== 0);
-      if (inv || L.feedUnverified || badPrice || symMismatch) {
+      var tp1 = Number(L.tp1), entry = Number(L.entry), sl = Number(L.sl);
+      var inv = isL ? (tp1 <= entry || sl >= entry) : (tp1 >= entry || sl <= entry);
+      var badPrice = !isPriceCompatibleWithSymbol(entry, sym);
+      var kSym = (k.split('|')[0] || '').toUpperCase();
+      var symMismatch = (L.symbol && kSym && L.symbol.toUpperCase() !== kSym);
+      if (inv || badPrice || symMismatch) {
         delete outs[k];
         outsMod = true;
       }
@@ -858,11 +859,12 @@ function auditAndCleanseCorruptedStorage() {
       if (!lk) continue;
       var isL2 = lk.direction === 'LONG';
       var sym2 = (lk.symbol || k2.split('|')[0] || '').toUpperCase();
-      var tp12 = Number(lk.tp1), entry2 = Number(lk.entry), sl2 = Number(lk.sl), anc2 = Number(lk.anchorPrice || entry2);
-      var inv2 = isL2 ? (tp12 <= entry2 || tp12 <= anc2 || sl2 >= entry2) : (tp12 >= entry2 || tp12 >= anc2 || sl2 <= entry2);
-      var badPrice2 = !isPriceCompatibleWithSymbol(entry2, sym2) || !isPriceCompatibleWithSymbol(anc2, sym2);
-      var symMismatch2 = (lk.symbol && k2.indexOf(lk.symbol) !== 0);
-      if (inv2 || lk.feedUnverified || badPrice2 || symMismatch2) {
+      var tp12 = Number(lk.tp1), entry2 = Number(lk.entry), sl2 = Number(lk.sl);
+      var inv2 = isL2 ? (tp12 <= entry2 || sl2 >= entry2) : (tp12 >= entry2 || sl2 <= entry2);
+      var badPrice2 = !isPriceCompatibleWithSymbol(entry2, sym2);
+      var k2Sym = (k2.split('|')[0] || '').toUpperCase();
+      var symMismatch2 = (lk.symbol && k2Sym && lk.symbol.toUpperCase() !== k2Sym);
+      if (inv2 || badPrice2 || symMismatch2) {
         delete lks[k2];
         lksMod = true;
       }
@@ -887,9 +889,9 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
     var L = o.lock, isLong = L.direction === 'LONG';
     var entry = Number(L.entry), sl = Number(L.sl), tp1 = Number(L.tp1);
     var anchorP = Number.isFinite(Number(L.anchorPrice)) ? Number(L.anchorPrice) : entry;
-    // Outcome palsu / terbalik: LONG tapi tp1 <= entry atau tp1 <= anchorP
-    var inverted = isLong ? (tp1 <= entry || tp1 <= anchorP || sl >= entry) : (tp1 >= entry || tp1 >= anchorP || sl <= entry);
-    if (inverted || L.feedUnverified) {
+    // Outcome palsu / terbalik: LONG tapi tp1 <= entry atau sl >= entry
+    var inverted = isLong ? (tp1 <= entry || sl >= entry) : (tp1 >= entry || sl <= entry);
+    if (inverted) {
       delete out[key];
       localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
       return;
@@ -898,7 +900,7 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
     if (o.status !== 'TP_HIT' && o.status !== 'SL_HIT') return; // struktur tidak direkonsiliasi mekanis
     var target = o.status === 'TP_HIT' ? tp1 : sl;
     var hit = false;
-    var filled = L.filled === true || (isLong ? entry >= anchorP - 1e-6 : entry <= anchorP + 1e-6);
+    var filled = L.filled === true || (isLong ? low <= entry : high >= entry);
     for (var i = 0; i < closedCandles.length; i++) {
       var c = closedCandles[i];
       if (!c || c.time <= L.anchorClosedTime || (c.time * 1000) > (o.at + 90000)) continue;
@@ -915,7 +917,7 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
       delete out[key];
       localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
       var all = signalLockStore();
-      if (!inverted && !L.feedUnverified) {
+      if (!inverted) {
         all[key] = Object.assign({}, L, { status: 'ACTIVE' });
         localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
       }
@@ -973,10 +975,9 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             if (lock && lock.tf === tfA) {
               var isCurrentFeedReal = typeof feedIsReal === 'function' ? feedIsReal(feedSource) : false;
               if (lock.feedUnverified && isCurrentFeedReal) {
-                // Kunci lama terbit dari feed unverified/seed sementara saat ini feed asli broker sudah tiba:
-                // Cabut kunci unverified agar tidak memicu TP_HIT palsu saat harga live broker tiba
-                saveSignalLock(symbol, tfA, null);
-                lock = null;
+                // Upgrade kunci yang sebelumnya unverified menjadi verified saat feed asli broker tiba (jangan hapus!)
+                lock.feedUnverified = false;
+                saveSignalLock(symbol, tfA, lock);
               }
             }
             if (lock && lock.tf === tfA) {
@@ -2265,9 +2266,12 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var tp1 = num(lock.tp1);
   var anchorP = num(lock.anchorPrice, entry);
 
-  // Inversi level atau lock tidak rasional matematis -> batalkan kunci
-  var inverted = isLong ? (tp1 <= entry || tp1 <= anchorP || sl >= entry) : (tp1 >= entry || tp1 >= anchorP || sl <= entry);
+  // Inversi level atau lock tidak rasional matematis -> catat pembatalan secara jujur
+  var inverted = isLong ? (tp1 <= entry || sl >= entry) : (tp1 >= entry || sl <= entry);
   if (inverted) {
+    var invVerdict = { status: 'STRUCTURE_INVALID', reason: 'Level sinyal tidak konsisten dengan arah posisi', at: Date.now() };
+    if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = invVerdict;
+    recordSignalOutcome(symbol, tf, invVerdict, lock);
     saveSignalLock(symbol, tf, null);
     try { renderSignalJournal(); } catch (e) {}
     return;
@@ -2276,15 +2280,11 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   // Verifikasi keterisian order limit
   var filled = lock.filled === true;
   if (!filled) {
-    if (isLong && entry >= anchorP - 1e-6) filled = true;
-    if (!isLong && entry <= anchorP + 1e-6) filled = true;
-    if (!filled) {
-      if (isLong && low <= entry) filled = true;
-      if (!isLong && high >= entry) filled = true;
-      if (filled) {
-        lock.filled = true;
-        saveSignalLock(symbol, tf, lock);
-      }
+    if (isLong && low <= entry) filled = true;
+    if (!isLong && high >= entry) filled = true;
+    if (filled) {
+      lock.filled = true;
+      saveSignalLock(symbol, tf, lock);
     }
   }
 
@@ -2304,7 +2304,7 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var risk = Math.max(Math.abs(entry - sl), 1e-12);
   var targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
   var brain = lock.brain || (['M1', 'M5', 'M15'].indexOf(tf) > -1 ? 'SCALP' : 'SNIPER');
-  var beTriggerRatio = brain === 'SCALP' ? 0.20 : 0.38;
+  var beTriggerRatio = brain === 'SCALP' ? 0.35 : 0.40;
 
   var tpHit = isLong ? (high >= tp1) : (low <= tp1);
   var slHit = isLong ? (low <= sl) : (high >= sl);
