@@ -94,3 +94,23 @@ test('LOGIKA PENYIMPANAN & KALKULASI PORTOFOLIO DI APP.JS', async (t) => {
     assert.ok(appJs.includes('Moonbag'), 'Harus ada konsep moonbag aman tanpa risiko');
   });
 });
+
+test('AUDIT VERIFIKASI HASIL PREDIKSI BERITA EKONOMI (ANTI-OMONG KOSONG)', async (t) => {
+  await t.test('HTML memiliki tombol filter AUDIT HASIL ASLI pada kalender berita', () => {
+    assert.ok(html.includes('data-nf="verified"'), 'Harus ada filter data-nf="verified"');
+    assert.ok(html.includes('Audit Verifikasi Hasil Nyata'), 'Harus ada heading audit verifikasi berita');
+  });
+
+  await t.test('app.js mengimplementasikan evaluasi prediksi vs rilis aktual & dampak emas', () => {
+    assert.ok(appJs.includes('evalNewsPredictionOutcome'), 'Harus ada fungsi evalNewsPredictionOutcome');
+    assert.ok(appJs.includes('PREDIKSI TEPAT (TERKONFIRMASI)'), 'Harus ada status prediksi tepat terkonfirmasi');
+    assert.ok(appJs.includes('KEJUTAN PASAR (DEVIASI BERLAWANAN)'), 'Harus ada status kejutan pasar deviasi');
+    assert.ok(appJs.includes('Dampak Nyata Emas'), 'Harus menampilkan dampak nyata ke emas XAU/USD');
+  });
+
+  await t.test('edge calendar menyimpan predDir dan outcomeStatus', () => {
+    const edgeCal = fs.readFileSync(path.join(root, 'functions', 'api', 'news', 'calendar.js'), 'utf-8');
+    assert.ok(edgeCal.includes('outcomeStatus'), 'calendar.js harus memuat outcomeStatus');
+    assert.ok(edgeCal.includes('predDir'), 'calendar.js harus memuat predDir');
+  });
+});

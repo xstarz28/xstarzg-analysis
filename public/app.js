@@ -2590,6 +2590,91 @@ function newsFmtTime(ts) {
   try { return new Date(ts).toLocaleString(navigator.language || 'id-ID', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
+
+function evalNewsPredictionOutcome(ev) {
+  function parseNum(x) {
+    if (x == null) return null;
+    var m = String(x).replace('%', '').replace(',', '.').match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : null;
+  }
+  var act = parseNum(ev.actual);
+  var fc = parseNum(ev.forecast);
+  var prev = parseNum(ev.previous);
+  var titleL = (ev.title || '').toLowerCase();
+  var isUnemp = titleL.indexOf('unemployment') > -1 || titleL.indexOf('jobless') > -1 || titleL.indexOf('claims') > -1;
+
+  // Proyeksi konsensus pra-event (Prakiraan vs Sebelumnya)
+  var predDir = ev.predDir || 0;
+  if (!predDir && fc != null && prev != null) {
+    predDir = fc > prev ? 1 : fc < prev ? -1 : 0;
+    if (isUnemp) predDir = -predDir;
+  }
+
+  // Realisasi aktual vs prakiraan
+  var actDir = 0;
+  var dev = 0;
+  if (act != null && fc != null) {
+    actDir = act > fc ? 1 : act < fc ? -1 : 0;
+    dev = Math.round((act - fc) * 100) / 100;
+    if (isUnemp) actDir = -actDir;
+  }
+
+  var isDone = !!ev.actual || (ev.ts <= Date.now());
+  var status = 'AWAITING';
+  var badgeTxt = '⏳ MENUNGGU RILIS';
+  var badgeCol = '#38bdf8';
+  var explanation = '';
+  var goldImpact = '';
+
+  if (act != null && fc != null) {
+    var devUnit = (ev.forecast && ev.forecast.indexOf('%') > -1) ? '%' : '';
+    var devSign = dev > 0 ? '+' : '';
+    var devTxt = devSign + dev + devUnit;
+
+    if (actDir === predDir && predDir !== 0) {
+      status = 'ACCURATE';
+      badgeTxt = '🎯 PREDIKSI TEPAT (TERKONFIRMASI)';
+      badgeCol = '#10b981';
+      explanation = 'Data rilis aktual (' + ev.actual + ') mengonfirmasi proyeksi konsensus analis (' + ev.forecast + '). Deviasi ' + devTxt + ' sejalan dengan ekspektasi.';
+      goldImpact = ev.ccy === 'USD'
+        ? (actDir > 0 ? '📉 Tekanan jual pada Emas (XAU/USD melemah tertekan USD kuat)' : '📈 Katalis reli beli pada Emas (XAU/USD menguat terdorong pelemahan USD)')
+        : '';
+    } else if (actDir !== 0 && predDir !== 0 && actDir !== predDir) {
+      status = 'SURPRISE';
+      badgeTxt = '⚡ KEJUTAN PASAR (DEVIASI BERLAWANAN)';
+      badgeCol = '#f59e0b';
+      explanation = 'Peringatan: Data rilis aktual (' + ev.actual + ') bertolak belakang dari ekspektasi konsensus (' + ev.forecast + '). Terjadi deviasi kejutan ' + devTxt + '!';
+      goldImpact = ev.ccy === 'USD'
+        ? (actDir > 0 ? '📉 Emas XAU/USD berbalik anjlok akibat kejutan lonjakan USD' : '🚀 Emas XAU/USD melonjak reli akibat kejutan anjloknya USD')
+        : '';
+    } else {
+      status = 'IN_LINE';
+      badgeTxt = '⚖️ SESUAI EKSPEKTASI KONSENSUS';
+      badgeCol = '#94a3b8';
+      explanation = 'Data rilis aktual (' + ev.actual + ') tepat seimbang dengan prakiraan (' + ev.forecast + '). Volatilitas cepat stabil.';
+      goldImpact = 'Reaksi stabil pada XAU/USD pasca 5 menit pertama.';
+    }
+  } else {
+    status = 'AWAITING';
+    badgeTxt = '⏳ MENUNGGU RILIS RESMI';
+    badgeCol = '#38bdf8';
+    var pStr = predDir > 0 ? 'Potensi Penguatan ' + (ev.ccy || 'Mata Uang') : predDir < 0 ? 'Potensi Pelemahan ' + (ev.ccy || 'Mata Uang') : 'Netral';
+    explanation = 'Prakiraan konsensus: ' + pStr + ' (Prakiraan: ' + (ev.forecast || '—') + ' vs Sebelumnya: ' + (ev.previous || '—') + ').';
+    goldImpact = ev.ccy === 'USD'
+      ? (predDir > 0 ? 'Jika rilis aktual > prakiraan: Emas XAU/USD cenderung tertekan turun.' : 'Jika rilis aktual < prakiraan: Emas XAU/USD berpeluang melesat naik.')
+      : '';
+  }
+
+  return {
+    status: status,
+    badgeTxt: badgeTxt,
+    badgeCol: badgeCol,
+    explanation: explanation,
+    goldImpact: goldImpact,
+    isDone: isDone
+  };
+}
+
 function renderNewsPanel() {
   var grid = $id('newsGrid');
   if (!grid) return;
@@ -2598,14 +2683,23 @@ function renderNewsPanel() {
     newsState.events = getClientInstitutionalEvents(now);
   }
   var evs = (newsState.events || []).filter(function (ev) { return ev.ts >= now - 12 * 3600e3; });
-  if (newsState.filter === 'high') evs = evs.filter(function (e) { return e.impact === 'HIGH'; });
-  else if (newsState.filter !== 'all') evs = evs.filter(function (e) { return (e.impacts || []).some(function (x) { return newsClassOfSym(x.sym) === newsState.filter; }); });
-  evs = evs.slice().sort(function (a, b) { return a.ts - b.ts; });
+  if (newsState.filter === 'high') {
+    evs = evs.filter(function (e) { return e.impact === 'HIGH'; });
+  } else if (newsState.filter === 'verified') {
+    evs = (newsState.events || []).filter(function (e) { return !!e.actual || (e.ts <= now); });
+  } else if (newsState.filter !== 'all') {
+    evs = evs.filter(function (e) { return (e.impacts || []).some(function (x) { return newsClassOfSym(x.sym) === newsState.filter; }); });
+  }
+  evs = evs.slice().sort(function (a, b) {
+    if (newsState.filter === 'verified') return b.ts - a.ts; // Yang terbaru rilis di urutan atas
+    return a.ts - b.ts;
+  });
   if (!evs.length) {
     // Jika semua agenda minggu ini telah selesai (misal di akhir pekan), tarik proyeksi minggu depan
     var nextWeekEvs = getClientInstitutionalEvents(now + 3 * 86400e3);
     evs = nextWeekEvs.filter(function (ev) { return ev.ts >= now - 12 * 3600e3; });
     if (newsState.filter === 'high') evs = evs.filter(function (e) { return e.impact === 'HIGH'; });
+    else if (newsState.filter === 'verified') evs = (nextWeekEvs || []).filter(function (e) { return !!e.actual; });
     else if (newsState.filter !== 'all') evs = evs.filter(function (e) { return (e.impacts || []).some(function (x) { return newsClassOfSym(x.sym) === newsState.filter; }); });
     if (!evs.length) evs = nextWeekEvs.slice(0, 12);
   }
@@ -2634,7 +2728,18 @@ function renderNewsPanel() {
         '⚡ <b>Peringatan Broker & Volatilitas Pasar:</b> Waspada lonjakan spread & penyesuaian margin 15 menit sebelum hingga 5 menit setelah rilis berita berdampak tinggi ini.' +
         '</div>'
       : '';
-    html += '<div class="radar-card" style="cursor:default;' + (done ? 'opacity:0.78;' : '') + '">' +
+
+    var ver = evalNewsPredictionOutcome(ev);
+    var verBox = '<div style="margin-top:7px;padding:7px 9px;border-radius:6px;background:rgba(15,23,42,0.7);border:1px solid ' + ver.badgeCol + '44;display:flex;flex-direction:column;gap:4px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">' +
+        '<span style="font-size:10px;font-weight:800;color:' + ver.badgeCol + ';">' + ver.badgeTxt + '</span>' +
+        (ver.status !== 'AWAITING' ? '<span style="font-size:9px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">Audit Hasil Nyata</span>' : '<span style="font-size:9px;color:#38bdf8;">Skenario Pra-Rilis</span>') +
+      '</div>' +
+      '<div style="font-size:10.2px;color:#cbd5e1;line-height:1.35;">' + escH(ver.explanation) + '</div>' +
+      (ver.goldImpact ? ('<div style="font-size:9.8px;color:#fde68a;font-weight:600;">🪙 <b>Dampak Nyata Emas:</b> ' + escH(ver.goldImpact) + '</div>') : '') +
+    '</div>';
+
+    html += '<div class="radar-card" style="cursor:default;' + (done ? 'opacity:0.85;' : '') + '">' +
       '<div style="display:flex;justify-content:space-between;gap:6px;align-items:flex-start;min-width:0;">' +
         '<span style="font-size:12px;font-weight:700;color:var(--text-bright);line-height:1.35;word-break:break-word;min-width:0;flex:1;">' + escH(ev.title) + '</span>' +
         '<span style="flex-shrink:0;font-size:10px;padding:2px 8px;border-radius:99px;background:' + impCol + '22;color:' + impCol + ';border:1px solid ' + impCol + '55;white-space:nowrap;">' + impTxt + '</span>' +
@@ -2642,6 +2747,7 @@ function renderNewsPanel() {
       '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;word-break:break-word;">' + escH(ev.ccy) + ' • ' + newsFmtTime(ev.ts) + (soon ? ' • <b style="color:#f59e0b;">⏰ ' + T('ui.eNewsSoon', 'SEGERA') + '</b>' : done ? ' • <b style="color:#10b981;">✅ ' + T('ui.eNewsDone', 'SELESAI') + '</b>' : '') + '</div>' +
       ((ev.forecast || ev.previous) ? '<div style="font-size:10.5px;color:#cbd5e1;margin-top:3px;word-break:break-word;">' + (ev.actual ? T('ui.eNewsActual', 'Hasil') + ': <b style="color:#fbbf24;">' + escH(ev.actual) + '</b> • ' : '') + T('ui.eNewsFc', 'Prakiraan') + ': <b>' + escH(ev.forecast || '—') + '</b> • ' + T('ui.eNewsPv', 'Sebelumnya') + ': ' + escH(ev.previous || '—') + '</div>' : '') +
       '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + chips + '</div>' +
+      verBox +
       brokerAlert +
     '</div>';
   }
