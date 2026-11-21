@@ -2,8 +2,9 @@ name: XStarZG 24/7 Market Sentinel
 
 on:
   schedule:
-    # Berjalan otomatis di cloud GitHub setiap 30 menit nonstop (24/7, 0 kuota Cloudflare)
+    # Berjalan otomatis di cloud GitHub setiap 15 menit nonstop (24/7, 0 kuota Cloudflare)
     - cron: '*/30 * * * *'
+    - cron: '15,45 * * * *'
   workflow_dispatch:
     # Tombol pemicu manual di dashboard GitHub ("Run workflow")
     inputs:
