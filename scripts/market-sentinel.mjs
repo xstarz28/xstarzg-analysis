@@ -19,7 +19,7 @@ const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
 // Ambil token & chatId dari environment variable (GitHub Secrets)
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN || '').trim().replace(/^bot/i, '');
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
-const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '75', 10) || 75;
+const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '65', 10) || 65;
 
 console.log('⚡ [XSTARZG SENTINEL] Memulai pemindaian pasar 24/7...');
 console.log(`📌 Konfigurasi: Min Score: ${MIN_SCORE}% | Bot Token Terpasang: ${BOT_TOKEN ? 'YA' : 'TIDAK'} | Chat ID: ${CHAT_ID ? 'YA' : 'TIDAK'}`);
@@ -194,11 +194,15 @@ export const WATCHLIST = [
   { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
   { sym: 'XAU/USD', tf: 'M15', type: 'commodity', hz: 'scalping' },
   { sym: 'EUR/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
+  { sym: 'EUR/USD', tf: 'M15', type: 'forex', hz: 'scalping' },
   { sym: 'GBP/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
   { sym: 'USD/JPY', tf: 'H1', type: 'forex', hz: 'intraday' },
   { sym: 'BTC/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
+  { sym: 'BTC/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
   { sym: 'ETH/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
+  { sym: 'ETH/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
   { sym: 'SOL/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
+  { sym: 'SOL/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
   { sym: 'WTI/OIL', tf: 'H1', type: 'commodity', hz: 'intraday' }
 ];
 
@@ -337,9 +341,19 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         delete cache.slPlusLocks[sym];
         return;
       }
-      // Batalkan order limit jika gantung lebih dari 24 jam tanpa terisi
-      if (Date.now() - activeLock.created > 24 * 3600 * 1000) {
-        console.log(`  [${sym} ${tf}] ⏳ Limit order kedaluwarsa (>24 jam belum terjemput).`);
+      // Batalkan order jika kedaluwarsa (>12 jam) atau jika data kunci cacat / tidak bertanggal
+      const ageMs = activeLock.created ? (Date.now() - activeLock.created) : Infinity;
+      if (ageMs > 12 * 3600 * 1000) {
+        console.log(`  [${sym} ${tf}] ⏳ Limit order kedaluwarsa (>12 jam belum terjemput).`);
+        delete cache.slPlusLocks[sym];
+        return;
+      }
+
+      // Batalkan jika harga pasar saat ini sudah terlalu jauh (> 3x ATR) dari titik antri entry
+      const entryDist = Math.abs(livePrice - entry);
+      const maxPendingAtr = 3.0 * (activeLock.atr || (entry * 0.015));
+      if (entryDist > maxPendingAtr) {
+        console.log(`  [${sym} ${tf}] ↗️ Harga pasar (${formatP(livePrice, sym)}) sudah terlalu jauh dari entry (${formatP(entry, sym)}). Order dibatalkan.`);
         delete cache.slPlusLocks[sym];
         return;
       }
