@@ -793,6 +793,117 @@ function hzOfTf(tf) { var t = String(tf || ''); if (t === 'M1' || t === 'M5' || 
 function outcomeCooldownMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 30 * 60000 : hz === 'intraday' ? 90 * 60000 : 6 * 3600000; }
 function outcomeBadgeWindowMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 45 * 60000 : hz === 'intraday' ? 3 * 3600000 : 12 * 3600000; }
 function radarAccStore() { try { return JSON.parse(localStorage.getItem(RADAR_ACC_KEY) || '{}') || {}; } catch (e) { return {}; } }
+
+function notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock) {
+  try {
+    if (!symbol || !lock) return;
+    if (typeof telegramConfig === 'undefined' || (!telegramConfig.chatId && !state.user)) return;
+    if (!telegramConfig.notifyHighScore && !telegramConfig.notifySlPlus) return;
+
+    var lockAnchor = (lock && (lock.issuedAt || lock.anchorClosedTime || lock.entry)) || '0';
+    var dedupKey = 'tg_outcome:' + symbol + ':' + (tf || '') + ':' + finalStatus + ':' + lockAnchor;
+    telegramConfig.lastSentMap = telegramConfig.lastSentMap || {};
+    if (telegramConfig.lastSentMap[dedupKey]) return;
+    telegramConfig.lastSentMap[dedupKey] = Date.now();
+
+    var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+    var isEn = curLang !== 'id';
+
+    var hz = (typeof hzOfTf === 'function') ? hzOfTf(tf) : 'intraday';
+    var hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
+    var dir = lock.direction || '—';
+    var dirEmoji = dir === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
+    var entryP = lock.entry ? formatPrice(lock.entry, symbol) : '—';
+    var isFilled = !!lock.filled;
+    var msg = '';
+
+    if (finalStatus === 'EXPIRED') {
+      if (!isFilled) {
+        msg = isEn ?
+          ('⌛ <b>[SIGNAL EXPIRED — CANCEL LIMIT ORDER]</b>\n\n' +
+           'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b> @ ' + entryP + '\n' +
+           'Status: <b>EXPIRED (12 Bars Elapsed Unfilled)</b>\n\n' +
+           '⚠️ <b>MANDATORY ACTION:</b>\n' +
+           '<i>Cancel your pending limit order on your broker/exchange now! The setup duration has elapsed before price reached entry. Do not enter this trade anymore.</i>') :
+          ('⌛ <b>[SINYAL KADALUWARSA — BATALKAN ORDER]</b>\n\n' +
+           'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b> @ ' + entryP + '\n' +
+           'Status: <b>KADALUWARSA (12 Bar Berlalu Belum Terjemput)</b>\n\n' +
+           '⚠️ <b>AKSI WAJIB BAGI TRADER:</b>\n' +
+           '<i>Segera <b>BATALKAN (CANCEL)</b> antrian Limit Order Anda pada exchange/broker sekarang! Masa berlaku setup telah berakhir (12 candle berlalu tanpa terisi). Jangan biarkan order menggantung agar terhindar dari posisi zonk!</i>');
+      } else {
+        msg = isEn ?
+          ('⌛ <b>[POSITION TIME HORIZON EXPIRED]</b>\n\n' +
+           'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b>\n' +
+           'Status: <b>Time horizon elapsed without TP/SL</b>\n\n' +
+           '💡 <i>Consider closing or tightening manual stop loss as momentum has faded.</i>') :
+          ('⌛ <b>[WAKTU POSISI BERAKHIR (EXPIRED)]</b>\n\n' +
+           'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b>\n' +
+           'Status: <b>Horison waktu setup selesai tanpa menyentuh TP/SL</b>\n\n' +
+           '💡 <i>Disarankan tutup posisi atau pasang trailing stop manual karena momentum pergerakan sudah mereda.</i>');
+      }
+    } else if (finalStatus === 'TP_HIT') {
+      var tpP = lock.tp1 ? formatPrice(lock.tp1, symbol) : '—';
+      msg = isEn ?
+        ('🎉 <b>[TAKE PROFIT REACHED (TP1 HIT)!]</b>\n\n' +
+         'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + '</b>\n' +
+         'Target TP1: <b>' + tpP + ' REACHED!</b>\n\n' +
+         '💰 <i>Congratulations! Target profit achieved. Lock in your profits according to your trading plan!</i>') :
+        ('🎉 <b>[TAKE PROFIT TERCAPAI (TP1 HIT)!]</b>\n\n' +
+         'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + '</b>\n' +
+         'Target TP1: <b>' + tpP + ' TERCAPAI!</b>\n\n' +
+         '💰 <i>Selamat! Target profit telah tercapai. Kunci profit Anda sesuai rencana trading!</i>');
+    } else if (finalStatus === 'SL_HIT') {
+      var slP = lock.sl ? formatPrice(lock.sl, symbol) : '—';
+      msg = isEn ?
+        ('🛡️ <b>[STOP LOSS HIT]</b>\n\n' +
+         'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + '</b>\n' +
+         'Stop Loss: <b>' + slP + ' hit</b>\n\n' +
+         '🛡️ <i>Disciplined cut loss preserves trading capital for subsequent high-probability opportunities.</i>') :
+        ('🛡️ <b>[STOP LOSS TERSENTUH (CUT LOSS)]</b>\n\n' +
+         'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + '</b>\n' +
+         'Level SL: <b>' + slP + ' tersentuh</b>\n\n' +
+         '🛡️ <i>Disiplin cut loss menjaga modal trading Anda tetap aman dan utuh untuk setup peluang berikutnya.</i>');
+    } else if (finalStatus === 'BE_SAVED') {
+      var beP = lock.slPlus ? formatPrice(lock.slPlus, symbol) : 'BE+';
+      msg = isEn ?
+        ('🛡️ <b>[SAVED BY 0-RISK (BE+ EXIT)]</b>\n\n' +
+         'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + '</b>\n' +
+         'Exit Level: <b>' + beP + ' (0-Risk)</b>\n\n' +
+         '✅ <i>Position exited at BE+ safety lock! 100% capital preserved with 0 loss!</i>') :
+        ('🛡️ <b>[MODAL AMAN 100% (BE+ EXIT)]</b>\n\n' +
+         'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + '</b>\n' +
+         'Keluar di Level: <b>' + beP + ' (0-Risk)</b>\n\n' +
+         '✅ <i>Posisi keluar pada pengaman BE+! Modal Anda terselamatkan 100% tanpa kerugian!</i>');
+    } else if (finalStatus === 'STRUCTURE_INVALID' || finalStatus === 'CANCELLED' || finalStatus === 'MISSED') {
+      msg = isEn ?
+        ('🚫 <b>[SETUP INVALIDATED / CANCELLED]</b>\n\n' +
+         'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + ' @ ' + entryP + '</b>\n' +
+         'Reason: <i>' + (verdict && verdict.reason ? verdict.reason : 'Market structure shift or target hit prior to fill') + '</i>\n\n' +
+         '⚠️ <i>Cancel any pending orders for this asset immediately.</i>') :
+        ('🚫 <b>[SETUP BATAL / INVALID]</b>\n\n' +
+         'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+         'Setup: <b>' + dirEmoji + ' @ ' + entryP + '</b>\n' +
+         'Alasan: <i>' + (verdict && verdict.reason ? verdict.reason : 'Struktur harga berbalik atau target tercapai sebelum terjemput') + '</i>\n\n' +
+         '⚠️ <i>Segera batalkan antrian limit order Anda pada broker/exchange untuk aset ini.</i>');
+    }
+
+    if (msg && typeof sendTelegramAlert === 'function') {
+      sendTelegramAlert(msg);
+    }
+  } catch (e) {}
+}
+
 function recordSignalOutcome(symbol, tf, verdict, lock) {
   try {
     if (lock && !isPriceCompatibleWithSymbol(lock.entry, symbol)) return;
@@ -830,6 +941,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
       acc[hz] = SE.updateRadarAccuracy(acc[hz], oc === 'TP_HIT' ? 'TP' : 'SL');
       localStorage.setItem(RADAR_ACC_KEY, JSON.stringify(acc));
     }
+    try { notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock); } catch (e) {}
     try { renderSignalJournal(); } catch (e) {}
   } catch (e) {}
 }

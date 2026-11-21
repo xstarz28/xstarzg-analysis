@@ -40,6 +40,8 @@ function saveCache(cache) {
   } catch (e) {}
 }
 
+let RESOLVED_BOT_TOKEN = '';
+
 async function getActiveSubscribers() {
   const recipients = new Set();
   if (CHAT_ID) recipients.add(CHAT_ID);
@@ -58,6 +60,9 @@ async function getActiveSubscribers() {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data && data.botToken && !RESOLVED_BOT_TOKEN) {
+          RESOLVED_BOT_TOKEN = String(data.botToken).trim().replace(/^bot/i, '');
+        }
         if (data && Array.isArray(data.subscribers)) {
           for (const sub of data.subscribers) {
             if (sub && sub.chat_id) recipients.add(String(sub.chat_id));
@@ -72,49 +77,72 @@ async function getActiveSubscribers() {
 }
 
 async function sendTelegramMessage(text) {
-  if (!BOT_TOKEN) {
-    console.log('⚠️ [Telegram] Token belum disetel di GitHub Secrets. Pesan hanya dicetak ke console:');
-    console.log(text.replace(/<[^>]+>/g, ''));
-    return false;
-  }
-
+  const activeBotToken = BOT_TOKEN || RESOLVED_BOT_TOKEN;
   const recipients = await getActiveSubscribers();
+
   if (!recipients.length) {
     console.log('⚠️ [Telegram] Tidak ada penerima aktif terdaftar (Owner / VIP). Pesan dicetak ke console:');
     console.log(text.replace(/<[^>]+>/g, ''));
     return false;
   }
 
-  console.log(`📤 Mengirim notifikasi ke ${recipients.length} penerima VIP/Owner...`);
-  let successCount = 0;
+  if (activeBotToken) {
+    console.log(`📤 Mengirim notifikasi ke ${recipients.length} penerima VIP/Owner...`);
+    let successCount = 0;
 
-  for (const cid of recipients) {
-    try {
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: cid,
-          text: text,
-          parse_mode: 'HTML'
-        })
-      });
-      const json = await res.json();
-      if (json && json.ok) {
-        successCount++;
-      } else {
-        console.error(`  ❌ [Telegram Error CID ${cid}]:`, json && json.description);
+    for (const cid of recipients) {
+      try {
+        const url = `https://api.telegram.org/bot${activeBotToken}/sendMessage`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: cid,
+            text: text,
+            parse_mode: 'HTML'
+          })
+        });
+        const json = await res.json();
+        if (json && json.ok) {
+          successCount++;
+        } else {
+          console.error(`  ❌ [Telegram Error CID ${cid}]:`, json && json.description);
+        }
+      } catch (err) {
+        console.error(`  ❌ [Telegram Network Error CID ${cid}]:`, err.message);
       }
-    } catch (err) {
-      console.error(`  ❌ [Telegram Network Error CID ${cid}]:`, err.message);
+      // Jeda 40ms antar pesan untuk menjaga kepatuhan rate-limit Telegram
+      await new Promise(r => setTimeout(r, 40));
     }
-    // Jeda 40ms antar pesan untuk menjaga kepatuhan rate-limit Telegram
-    await new Promise(r => setTimeout(r, 40));
+
+    console.log(`✅ [Telegram] Notifikasi sukses terkirim ke ${successCount}/${recipients.length} penerima.`);
+    return successCount > 0;
   }
 
-  console.log(`✅ [Telegram] Notifikasi sukses terkirim ke ${successCount}/${recipients.length} penerima.`);
-  return successCount > 0;
+  // Fallback jika token bot belum ada di env GitHub: kirim via endpoint Cloudflare
+  const apiHosts = [
+    process.env.XSTARZG_API_HOST,
+    'https://xstarzganalysis.pages.dev',
+    'https://xstarzg-analysis.pages.dev'
+  ].filter(Boolean);
+
+  for (const host of apiHosts) {
+    for (const cid of recipients) {
+      try {
+        const res = await fetch(`${host}/api/notify/telegram-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send_alert', chatId: cid, text: text })
+        });
+        const json = await res.json();
+        if (json && json.ok) return true;
+      } catch (e) {}
+    }
+  }
+
+  console.log('⚠️ [Telegram] Token belum disetel di GitHub Secrets. Pesan hanya dicetak ke console:');
+  console.log(text.replace(/<[^>]+>/g, ''));
+  return false;
 }
 
 // Fetch crypto candles from Binance public API
@@ -204,6 +232,14 @@ export function isAssetMarketOpen(symbol) {
   return true;
 }
 
+const TOP_CRYPTO_SYMBOLS = [
+  'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'BCH/USDT',
+  'ICP/USDT', 'INJ/USDT', 'HBAR/USDT', 'STX/USDT', 'BNB/USDT',
+  'XRP/USDT', 'DOGE/USDT', 'ADA/USDT', 'AVAX/USDT', 'NEAR/USDT',
+  'SUI/USDT', 'APT/USDT', 'RENDER/USDT', 'TAO/USDT', 'FET/USDT',
+  'PENDLE/USDT', 'PEPE/USDT'
+];
+
 // Watchlist instrumen institusional utama
 export const WATCHLIST = [
   { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
@@ -212,16 +248,13 @@ export const WATCHLIST = [
   { sym: 'EUR/USD', tf: 'M15', type: 'forex', hz: 'scalping' },
   { sym: 'GBP/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
   { sym: 'USD/JPY', tf: 'H1', type: 'forex', hz: 'intraday' },
-  { sym: 'BTC/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
-  { sym: 'BTC/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
-  { sym: 'BTC/USDT', tf: 'M5', type: 'crypto', hz: 'scalping' },
-  { sym: 'ETH/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
-  { sym: 'ETH/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
-  { sym: 'ETH/USDT', tf: 'M5', type: 'crypto', hz: 'scalping' },
-  { sym: 'SOL/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
-  { sym: 'SOL/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
-  { sym: 'SOL/USDT', tf: 'M5', type: 'crypto', hz: 'scalping' },
-  { sym: 'WTI/OIL', tf: 'H1', type: 'commodity', hz: 'intraday' }
+  { sym: 'WTI/OIL', tf: 'H1', type: 'commodity', hz: 'intraday' },
+  // Seluruh koin kripto likuiditas teratas (M5 scalping, M15 scalping, H1 intraday)
+  ...TOP_CRYPTO_SYMBOLS.flatMap(sym => [
+    { sym, tf: 'H1', type: 'crypto', hz: 'intraday' },
+    { sym, tf: 'M15', type: 'crypto', hz: 'scalping' },
+    { sym, tf: 'M5', type: 'crypto', hz: 'scalping' }
+  ])
 ];
 
 export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE }) {
@@ -356,13 +389,30 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       const missed = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
       if (missed) {
         console.log(`  [${sym} ${tf}] ↗️ Order terlewat (MISSED) — target tercapai sebelum terjemput.`);
+        const cancelMsg =
+          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER TERLEWAT / BATALKAN]</b>\n\n` +
+          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>TARGET TERCAPAI SEBELUM TERISI (MISSED)</b>\n\n` +
+          `⚠️ <b>AKSI WAJIB:</b>\n` +
+          `<i>Segera batalkan (cancel) antrian limit order Anda pada exchange/broker sekarang! Target sudah tersentuh duluan tanpa menjemput antrian. Jangan biarkan order menggantung!</i>`;
+        await sendFn(cancelMsg);
         delete cache.slPlusLocks[sym];
         return;
       }
-      // Batalkan order jika kedaluwarsa (>12 jam) atau jika data kunci cacat / tidak bertanggal
+      // Batalkan order jika kedaluwarsa (>12 bar / >60 menit untuk M5/M15, >12 jam untuk H1)
       const ageMs = activeLock.created ? (Date.now() - activeLock.created) : Infinity;
-      if (ageMs > 12 * 3600 * 1000) {
-        console.log(`  [${sym} ${tf}] ⏳ Limit order kedaluwarsa (>12 jam belum terjemput).`);
+      const maxPendingMs = (activeLock.tf === 'M5' || activeLock.tf === 'M15') ? (60 * 60 * 1000) : (12 * 3600 * 1000);
+      if (ageMs > maxPendingMs) {
+        console.log(`  [${sym} ${tf}] ⏳ Limit order kedaluwarsa (>12 bar belum terjemput).`);
+        const expMsg =
+          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER KADALUWARSA / BATALKAN]</b>\n\n` +
+          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>EXPIRED (Waktu Tunggu Setup Habis)</b>\n\n` +
+          `⚠️ <b>AKSI WAJIB BAGI TRADER:</b>\n` +
+          `<i>Batalkan (cancel) antrian limit order ini sekarang! Durasi setup telah berakhir tanpa terisi (unfilled). Jangan lakukan entry karena momentum dan struktur pasar sudah berubah!</i>`;
+        await sendFn(expMsg);
         delete cache.slPlusLocks[sym];
         return;
       }
@@ -372,6 +422,14 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       const maxPendingAtr = 3.0 * (activeLock.atr || (entry * 0.015));
       if (entryDist > maxPendingAtr) {
         console.log(`  [${sym} ${tf}] ↗️ Harga pasar (${formatP(livePrice, sym)}) sudah terlalu jauh dari entry (${formatP(entry, sym)}). Order dibatalkan.`);
+        const cancelMsg =
+          `🚫 <b>[XSTARZG 24/7 CLOUD — HARGA MENJAUH / BATALKAN ORDER]</b>\n\n` +
+          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>DIBATALKAN (Harga Lari > 3x ATR dari Entry)</b>\n\n` +
+          `⚠️ <b>AKSI WAJIB:</b>\n` +
+          `<i>Batalkan (cancel) antrian limit order ini sekarang! Harga pasar sudah melaju terlalu jauh tanpa menjemput antrian. Jangan mengejar harga (anti-chasing)!</i>`;
+        await sendFn(cancelMsg);
         delete cache.slPlusLocks[sym];
         return;
       }
@@ -384,6 +442,13 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   const slHit = isLong ? (lastBar.low <= sl || livePrice <= sl) : (lastBar.high >= sl || livePrice >= sl);
   if (slHit) {
     console.log(`  [${sym} ${tf}] ❌ Posisi menyentuh Stop Loss (${formatP(sl, sym)}). Pengawasan selesai.`);
+    const slMsg =
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS TERSENTUH]</b>\n\n` +
+      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
+      `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
+    await sendFn(slMsg);
     delete cache.slPlusLocks[sym];
     return;
   }

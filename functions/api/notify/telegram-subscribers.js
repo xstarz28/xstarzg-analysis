@@ -51,8 +51,18 @@ export async function onRequestGet({ request, env }) {
       `).bind(now).all();
       subscribers = (res && res.results) || [];
     }
+
+    let botToken = (env && env.TELEGRAM_BOT_TOKEN ? env.TELEGRAM_BOT_TOKEN : '').trim().replace(/^bot/i, '');
+    if (!botToken && env && env.DB) {
+      try {
+        const row = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'telegram_bot_token'").first();
+        if (row && row.value) botToken = String(row.value).trim();
+      } catch (e) {}
+    }
+
     return Response.json({
       ok: true,
+      botToken: botToken || undefined,
       count: subscribers.length,
       subscribers
     });

@@ -816,5 +816,43 @@ await test('app.js Investor and DEX Micin journal items have clickable cards and
   assert.ok(appJs.includes("setMode('meme')"));
 });
 
+await test('app.js recordSignalOutcome dispatches telegram alerts when signals expire or hit TP/SL', async () => {
+  const fs = await import('fs');
+  const appJs = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  // Verify function definition and outcome notifications
+  assert.ok(appJs.includes('function notifySignalOutcomeTelegram('));
+  assert.ok(appJs.includes('notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock)'));
+  assert.ok(appJs.includes('SINYAL KADALUWARSA — BATALKAN ORDER'));
+  assert.ok(appJs.includes('BATALKAN (CANCEL) antrian Limit Order'));
+  assert.ok(appJs.includes('TAKE PROFIT TERCAPAI (TP1 HIT)!'));
+  assert.ok(appJs.includes('STOP LOSS TERSENTUH (CUT LOSS)'));
+  assert.ok(appJs.includes('MODAL AMAN 100% (BE+ EXIT)'));
+});
+
+await test('market-sentinel covers top crypto pairs and alerts on expired, missed, or SL hit orders', async () => {
+  const fs = await import('fs');
+  const sentinelJs = fs.readFileSync(new URL('../scripts/market-sentinel.mjs', import.meta.url), 'utf8');
+  const { WATCHLIST } = await import('../scripts/market-sentinel.mjs');
+
+  // Contains top crypto pairs on M5
+  const symbols = new Set(WATCHLIST.map(w => `${w.sym}:${w.tf}`));
+  assert.ok(symbols.has('LINK/USDT:M5'));
+  assert.ok(symbols.has('BCH/USDT:M5'));
+  assert.ok(symbols.has('ICP/USDT:M5'));
+  assert.ok(symbols.has('INJ/USDT:M5'));
+  assert.ok(symbols.has('HBAR/USDT:M5'));
+  assert.ok(symbols.has('STX/USDT:M5'));
+  assert.ok(symbols.has('ETH/USDT:M5'));
+  assert.ok(symbols.has('BTC/USDT:M5'));
+  assert.ok(symbols.has('SOL/USDT:M5'));
+
+  // Contains alert messages on outcome transitions
+  assert.ok(sentinelJs.includes('ORDER TERLEWAT / BATALKAN'));
+  assert.ok(sentinelJs.includes('ORDER KADALUWARSA / BATALKAN'));
+  assert.ok(sentinelJs.includes('HARGA MENJAUH / BATALKAN ORDER'));
+  assert.ok(sentinelJs.includes('STOP LOSS TERSENTUH'));
+});
+
 console.log(`\nTELEGRAM VIP SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
