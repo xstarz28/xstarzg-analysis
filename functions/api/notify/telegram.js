@@ -1,9 +1,21 @@
 // Fallback relay pengiriman notifikasi Telegram
-// Digunakan hanya jika ISP pengguna memblokir akses langsung browser ke api.telegram.org.
+// Digunakan oleh browser trader (VIP / Owner) untuk mengirim alert instan tanpa perlu mengekspos Bot Token ke client-side.
 export async function onRequestPost({ request }) {
+  const env = (arguments[0] && arguments[0].env) || {};
   try {
     const body = await request.json();
-    const { token, chatId, text } = body || {};
+    let { token, chatId, text } = body || {};
+
+    if (!token) {
+      token = (env && env.TELEGRAM_BOT_TOKEN) || '';
+      if (!token && env && env.DB) {
+        try {
+          const row = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'telegram_bot_token'").first();
+          if (row && row.value) token = String(row.value).trim();
+        } catch (e) {}
+      }
+    }
+
     if (!token || !chatId || !text) {
       return Response.json({ ok: false, error: 'Parameter token, chatId, atau text tidak lengkap' }, { status: 400 });
     }
