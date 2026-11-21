@@ -579,10 +579,12 @@ export function buildInstitutionalLevels(dir, ctx) {
     const below = [obMidB, fvgMidB, fib618, poc]
       .filter(v => typeof v === 'number' && v <= ctx.price - 0.15 * a)
       .sort((x, y) => y - x);
-    entry = below.length ? below[0] : ctx.price; // semua zona di atas harga -> pasar sudah di diskon
+    entry = below.length ? below[0] : (ctx.price - 0.20 * a); // zona diskon pullback anti-pucuk
     const slBase = Math.min(ctx.impulseLow, ctx.bullOb ? ctx.bullOb.bottom : Infinity);
     sl = (Number.isFinite(slBase) ? slBase : ctx.impulseLow) - slBuf;
     if (sl >= entry) sl = entry - risk.min;
+    const minRiskDist = (brainMode === 'SCALP' ? 1.0 : 1.2) * a;
+    if (entry - sl < minRiskDist) sl = entry - minRiskDist;
     const r = entry - sl;
     const minTargetBase = Math.max(entry, ctx.price);
     const pool = [ctx.recentHigh, ctx.vah, ctx.r1, ctx.r2, ctx.t1Sup, ctx.impulseHigh, ctx.eqHigh, ctx.prevSessHigh, ctx.oldHigh, ctx.pdh, ctx.pwh]
@@ -610,10 +612,12 @@ export function buildInstitutionalLevels(dir, ctx) {
   const above = [obMidS, fvgMidS, ctx.impulseLow + 0.618 * Math.max(0, ctx.impulseHigh - ctx.impulseLow), poc]
     .filter(v => typeof v === 'number' && v >= ctx.price + 0.15 * a)
     .sort((x, y) => x - y);
-  entry = above.length ? above[0] : ctx.price;
+  entry = above.length ? above[0] : (ctx.price + 0.20 * a); // zona premium pullback anti-lembah
   const slBase = Math.max(ctx.impulseHigh, ctx.bearOb ? ctx.bearOb.top : -Infinity);
   sl = (Number.isFinite(slBase) && slBase > 0 ? slBase : ctx.impulseHigh) + slBuf;
   if (sl <= entry) sl = entry + risk.min;
+  const minRiskDist = (brainMode === 'SCALP' ? 1.0 : 1.2) * a;
+  if (sl - entry < minRiskDist) sl = entry + minRiskDist;
   const r = sl - entry;
   const maxTargetBase = Math.min(entry, ctx.price);
   const pool = [ctx.recentLow, ctx.val, ctx.s1, ctx.s2, ctx.impulseLow, ctx.eqLow, ctx.prevSessLow, ctx.oldLow, ctx.pdl, ctx.pwl]
@@ -1454,9 +1458,9 @@ export function validateSignalLock(lock, closedCandles, fresh) {
     const targetDist = Math.max(Math.abs(tp1 - entry), 1e-12);
     const brain = lock.brain || (lock.tfSeconds <= 900 ? 'SCALP' : 'SNIPER');
     // Batas pemicu saran SL+ (0-Risk):
-    // SCALP (M1-M15): sangat cepat & agresif (cukup 20% jarak ke TP1)
+    // SCALP (M1-M15): 30% jarak ke TP1
     // SNIPER (M30+): bernapas hingga 38% jarak ke TP1
-    const beTriggerRatio = brain === 'SCALP' ? 0.20 : 0.38;
+    const beTriggerRatio = brain === 'SCALP' ? 0.30 : 0.38;
 
     let newBars = 0;
     let maxFavorableDist = 0;
