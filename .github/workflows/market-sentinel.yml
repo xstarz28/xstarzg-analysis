@@ -38,7 +38,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          SENTINEL_MIN_SCORE: '75'
+          SENTINEL_MIN_SCORE: '65'
         run: |
           if [ "${{ inputs.test_mode }}" = "true" ]; then
             node scripts/market-sentinel.mjs --test

@@ -6345,7 +6345,7 @@ var telegramConfig = {
   chatId: '',
   notifySlPlus: true,
   notifyHighScore: true,
-  minScore: 75,
+  minScore: 62,
   horizons: { scalping: true, intraday: true, swing: true },
   lastSentMap: {}
 };
@@ -6360,7 +6360,7 @@ function loadPersistedTelegramConfig() {
         if (typeof d.chatId === 'string' || typeof d.chatId === 'number') telegramConfig.chatId = String(d.chatId).trim();
         if (typeof d.notifySlPlus === 'boolean') telegramConfig.notifySlPlus = d.notifySlPlus;
         if (typeof d.notifyHighScore === 'boolean') telegramConfig.notifyHighScore = d.notifyHighScore;
-        if (typeof d.minScore === 'number' || typeof d.minScore === 'string') telegramConfig.minScore = parseInt(d.minScore, 10) || 75;
+        if (typeof d.minScore === 'number' || typeof d.minScore === 'string') telegramConfig.minScore = parseInt(d.minScore, 10) || 62;
         if (d.horizons && typeof d.horizons === 'object') {
           telegramConfig.horizons = {
             scalping: d.horizons.scalping !== false,
@@ -6624,8 +6624,9 @@ function checkTelegramHighScoreSignal(a, item) {
   if (!telegramConfig.chatId && !state.user) return;
   if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return;
 
+  var minThresh = telegramConfig.minScore || 62;
   var score = num(a.confluenceScore, a.confidence || 0);
-  if (score < (telegramConfig.minScore || 75)) return;
+  if (score < minThresh) return;
 
   var sym = a.symbol || (item && item.sym) || state.symbol;
   var tf = a.timeframe || (item && item.tf) || state.tf || 'H1';
@@ -6641,6 +6642,19 @@ function checkTelegramHighScoreSignal(a, item) {
   var tp3 = L.tp3 || a.tp3 || (a.lockedSignal && a.lockedSignal.tp3);
   if (!entry || !sl || !tp1) return;
 
+  var lastCandle = (a.candles && a.candles.length && a.candles[a.candles.length - 1]) || (state.candles && state.candles.length && state.candles[state.candles.length - 1]);
+  var livePrice = a.livePrice || a.price || (lastCandle && lastCandle.close) || entry;
+
+  // Anti-chasing guard: jangan kirim jika harga sudah melaju >= 40% menuju TP1 atau sudah menyentuh target
+  var isLong = a.direction === 'LONG';
+  var targetDist = Math.abs(tp1 - entry);
+  if (targetDist > 0) {
+    var progressTowardsTp = isLong ? (livePrice - entry) / targetDist : (entry - livePrice) / targetDist;
+    if (progressTowardsTp >= 0.40) {
+      return; // Lewati: harga sudah melaju jauh dari entry, jangan suruh trader mengejar market
+    }
+  }
+
   var dedupKey = 'tg:' + sym + ':' + tf + ':' + a.direction + ':' + (a.anchorClosedTime || entry || 0);
   if (telegramConfig.lastSentMap[dedupKey]) return;
   telegramConfig.lastSentMap[dedupKey] = Date.now();
@@ -6654,30 +6668,82 @@ function checkTelegramHighScoreSignal(a, item) {
     (isEn ? '🔴 SELL / SHORT' : '🔴 JUAL / SHORT');
   var tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
 
+  var risk = Math.abs(entry - sl);
+  var reward = Math.abs(tp1 - entry);
+  var rrRatio = risk > 0 ? (reward / risk).toFixed(1) : '2.0';
+
+  var atr = a.atr || (risk * 0.5) || (livePrice * 0.005);
+  var diff = entry - livePrice;
+  var orderInstruction = '';
+
+  if (isLong) {
+    if (diff < -0.08 * atr) {
+      orderInstruction = isEn ?
+        ('📌 <b>Action:</b> <code>BUY LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Pending limit order at pullback discount. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
+        ('📌 <b>Aksi Order:</b> <code>BUY LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Pasang antrian Buy Limit di harga diskon/pullback. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
+    } else if (diff > 0.08 * atr) {
+      orderInstruction = isEn ?
+        ('📌 <b>Action:</b> <code>BUY STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Breakout order above resistance. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
+        ('📌 <b>Aksi Order:</b> <code>BUY STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Pasang order Buy Stop pada breakout resistance. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
+    } else {
+      orderInstruction = isEn ?
+        ('📌 <b>Action:</b> <code>BUY NOW (MARKET ORDER)</code>\n' +
+         '⚡ <i>Live price (~' + formatPrice(livePrice, sym) + ') is right at Entry zone! Execute immediately.</i>') :
+        ('📌 <b>Aksi Order:</b> <code>BELI SEKARANG (MARKET ORDER)</code>\n' +
+         '⚡ <i>Harga pasar (~' + formatPrice(livePrice, sym) + ') berada tepat di zona Entry! Buka posisi langsung sekarang.</i>');
+    }
+  } else {
+    if (diff > 0.08 * atr) {
+      orderInstruction = isEn ?
+        ('📌 <b>Action:</b> <code>SELL LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Pending limit order at premium pullback. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
+        ('📌 <b>Aksi Order:</b> <code>SELL LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Pasang antrian Sell Limit di harga premium/pullback. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
+    } else if (diff < -0.08 * atr) {
+      orderInstruction = isEn ?
+        ('📌 <b>Action:</b> <code>SELL STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Breakdown order below support. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
+        ('📌 <b>Aksi Order:</b> <code>SELL STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+         '💡 <i>Pasang order Sell Stop pada breakdown support. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
+    } else {
+      orderInstruction = isEn ?
+        ('📌 <b>Action:</b> <code>SELL NOW (MARKET ORDER)</code>\n' +
+         '⚡ <i>Live price (~' + formatPrice(livePrice, sym) + ') is right at Entry zone! Execute immediately.</i>') :
+        ('📌 <b>Aksi Order:</b> <code>JUAL SEKARANG (MARKET ORDER)</code>\n' +
+         '⚡ <i>Harga pasar (~' + formatPrice(livePrice, sym) + ') berada tepat di zona Entry! Buka posisi langsung sekarang.</i>');
+    }
+  }
+
   var tgMsg = isEn ? (
-    '🚀 <b>[NEW HIGH-SCORE OPPORTUNITY]</b>\n\n' +
+    '🚀 <b>[NEW HIGH-SCORE OPPORTUNITY — ' + tierTxt + ']</b>\n\n' +
     'Asset: <b>' + sym + '</b> (' + tf + ' • ' + hzLabel + ')\n' +
-    'Setup: <b>' + dirEmoji + ' (' + tierTxt + ')</b>\n' +
+    'Setup: <b>' + dirEmoji + '</b> (R:R 1:' + rrRatio + ')\n' +
     'Confidence Score: <b>' + score + '%</b>\n' +
     'Market Regime: <i>' + (a.regime || 'Institutional Flow') + '</i>\n\n' +
-    '🎯 <b>Entry:</b> ' + formatPrice(L.entry, sym) + '\n' +
-    '🛡️ <b>Stop Loss:</b> ' + formatPrice(L.sl, sym) + '\n' +
-    '✅ <b>Take Profit 1:</b> ' + formatPrice(L.tp1, sym) + '\n' +
-    (L.tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(L.tp2, sym) + '\n') : '') +
-    (L.tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(L.tp3, sym) + '\n') : '') +
-    '\n📱 <i>Open your trading platform / exchange and place an order at the Entry level above!</i>'
+    orderInstruction + '\n\n' +
+    '🎯 <b>Entry:</b> ' + formatPrice(entry, sym) + '\n' +
+    '🛡️ <b>Stop Loss:</b> ' + formatPrice(sl, sym) + '\n' +
+    '✅ <b>Take Profit 1:</b> ' + formatPrice(tp1, sym) + '\n' +
+    (tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(tp2, sym) + '\n') : '') +
+    (tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(tp3, sym) + '\n') : '') +
+    '\n📱 <i>Open your trading platform / exchange and execute according to the instructions above!</i>'
   ) : (
-    '🚀 <b>[PELUANG BARU SKOR BESAR]</b>\n\n' +
+    '🚀 <b>[PELUANG BARU SKOR BESAR — ' + tierTxt + ']</b>\n\n' +
     'Aset: <b>' + sym + '</b> (' + tf + ' • ' + hzLabel + ')\n' +
-    'Setup: <b>' + dirEmoji + ' (' + tierTxt + ')</b>\n' +
+    'Setup: <b>' + dirEmoji + '</b> (R:R 1:' + rrRatio + ')\n' +
     'Confidence Score: <b>' + score + '%</b>\n' +
     'Regime Pasar: <i>' + (a.regime || 'Institutional Flow') + '</i>\n\n' +
-    '🎯 <b>Entry:</b> ' + formatPrice(L.entry, sym) + '\n' +
-    '🛡️ <b>Stop Loss:</b> ' + formatPrice(L.sl, sym) + '\n' +
-    '✅ <b>Take Profit 1:</b> ' + formatPrice(L.tp1, sym) + '\n' +
-    (L.tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(L.tp2, sym) + '\n') : '') +
-    (L.tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(L.tp3, sym) + '\n') : '') +
-    '\n📱 <i>Buka aplikasi broker / exchange Anda dan pasang order pada titik Entry di atas!</i>'
+    orderInstruction + '\n\n' +
+    '🎯 <b>Entry:</b> ' + formatPrice(entry, sym) + '\n' +
+    '🛡️ <b>Stop Loss:</b> ' + formatPrice(sl, sym) + '\n' +
+    '✅ <b>Take Profit 1:</b> ' + formatPrice(tp1, sym) + '\n' +
+    (tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(tp2, sym) + '\n') : '') +
+    (tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(tp3, sym) + '\n') : '') +
+    '\n📱 <i>Buka aplikasi broker / exchange Anda dan pasang order sesuai instruksi di atas!</i>'
   );
 
   try { sendTelegramAlert(tgMsg); } catch (e) {}
