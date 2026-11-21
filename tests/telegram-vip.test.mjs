@@ -741,5 +741,80 @@ await test('smart signal alarm dispatches instant Telegram alerts for watched pa
   assert.ok(appJs.includes('ALARM PANTAUAN PRIORITAS AKTIF'));
 });
 
+await test('telegram-link handles action send_alert and dispatches to telegram with CORS headers', async () => {
+  const mockDb = new MockD1();
+  // Register subscriber
+  await mockDb.prepare('INSERT INTO telegram_subscribers VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind('1287273759', 'sevenfoldarmy2822@gmail.com', 'OWNER_VIP', null, 1, 0, new Date().toISOString())
+    .run();
+
+  let sentMessages = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url.includes('api.telegram.org')) {
+      const body = JSON.parse(options.body);
+      sentMessages.push(body);
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 1010 } }), { status: 200 });
+    }
+    return originalFetch(url, options);
+  };
+
+  try {
+    const env = {
+      DB: mockDb,
+      TELEGRAM_BOT_TOKEN: '12345678:TEST_BOT_TOKEN',
+      JWT_SECRET: 'test_jwt_secret_123'
+    };
+
+    const vipToken = await signJwt({
+      email: 'sevenfoldarmy2822@gmail.com',
+      tier: 'OWNER_VIP'
+    }, env.JWT_SECRET);
+
+    const req = new Request('https://xstarzg.com/api/notify/telegram-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${vipToken}` },
+      body: JSON.stringify({ action: 'send_alert', text: '🔔 Sinyal Baru ETH/USDT M5' })
+    });
+
+    const res = await handleLink({ request: req, env });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.ok, true);
+    assert.strictEqual(sentMessages.length, 1);
+    assert.strictEqual(String(sentMessages[0].chat_id), '1287273759');
+    assert.strictEqual(sentMessages[0].text, '🔔 Sinyal Baru ETH/USDT M5');
+    assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await test('telegram relay endpoint supports OPTIONS CORS preflight and returns 204', async () => {
+  const { onRequestOptions } = await import('../functions/api/notify/telegram.js');
+  const res = await onRequestOptions();
+  assert.strictEqual(res.status, 204);
+  assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
+  assert.ok(res.headers.get('Access-Control-Allow-Methods').includes('POST'));
+  assert.ok(res.headers.get('Access-Control-Allow-Headers').includes('Authorization'));
+});
+
+await test('app.js Investor and DEX Micin journal items have clickable cards and valid mode switches', async () => {
+  const fs = await import('fs');
+  const appJs = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  // No nonexistent switchMode or syncModeToDom
+  assert.ok(!appJs.includes('switchMode('));
+  assert.ok(!appJs.includes('syncModeToDom('));
+
+  // Cards have cursor pointer and navigation click listeners
+  assert.ok(appJs.includes('inv-jnl-card'));
+  assert.ok(appJs.includes('meme-jnl-card'));
+  assert.ok(appJs.includes("openInvestorAsset(sym)"));
+  assert.ok(appJs.includes("openMemeAsset(sym)"));
+  assert.ok(appJs.includes("setMode('investor')"));
+  assert.ok(appJs.includes("setMode('meme')"));
+});
+
 console.log(`\nTELEGRAM VIP SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

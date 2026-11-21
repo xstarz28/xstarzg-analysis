@@ -19,7 +19,7 @@ const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
 // Ambil token & chatId dari environment variable (GitHub Secrets)
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN || '').trim().replace(/^bot/i, '');
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
-const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '65', 10) || 65;
+const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '62', 10) || 62;
 
 console.log('⚡ [XSTARZG SENTINEL] Memulai pemindaian pasar 24/7...');
 console.log(`📌 Konfigurasi: Min Score: ${MIN_SCORE}% | Bot Token Terpasang: ${BOT_TOKEN ? 'YA' : 'TIDAK'} | Chat ID: ${CHAT_ID ? 'YA' : 'TIDAK'}`);
@@ -214,10 +214,13 @@ export const WATCHLIST = [
   { sym: 'USD/JPY', tf: 'H1', type: 'forex', hz: 'intraday' },
   { sym: 'BTC/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
   { sym: 'BTC/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
+  { sym: 'BTC/USDT', tf: 'M5', type: 'crypto', hz: 'scalping' },
   { sym: 'ETH/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
   { sym: 'ETH/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
+  { sym: 'ETH/USDT', tf: 'M5', type: 'crypto', hz: 'scalping' },
   { sym: 'SOL/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' },
   { sym: 'SOL/USDT', tf: 'M15', type: 'crypto', hz: 'scalping' },
+  { sym: 'SOL/USDT', tf: 'M5', type: 'crypto', hz: 'scalping' },
   { sym: 'WTI/OIL', tf: 'H1', type: 'commodity', hz: 'intraday' }
 ];
 

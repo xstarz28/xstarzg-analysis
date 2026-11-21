@@ -315,6 +315,45 @@ export async function onRequest(context) {
         }
       }
 
+      if (action === 'send_alert' || action === 'send_signal') {
+        let targetChatId = body.chatId;
+        if (!targetChatId && env && env.DB) {
+          const row = await env.DB.prepare('SELECT chat_id FROM telegram_subscribers WHERE email = ?1').bind(user.email).first();
+          if (row && row.chat_id) targetChatId = row.chat_id;
+        }
+        if (!targetChatId) {
+          return Response.json({ ok: false, error: 'Belum ada Chat ID Telegram yang terhubung.' }, { status: 400, headers: CORS });
+        }
+        const activeBotToken = botToken || (env && env.TELEGRAM_BOT_TOKEN);
+        if (!activeBotToken) {
+          return Response.json({ ok: false, error: 'Bot token belum terpasang di sistem.' }, { status: 400, headers: CORS });
+        }
+        const cleanToken = String(activeBotToken).trim().replace(/^bot/i, '');
+        const alertText = String(body.text || '').slice(0, 4000);
+        if (!alertText) {
+          return Response.json({ ok: false, error: 'Pesan text tidak boleh kosong.' }, { status: 400, headers: CORS });
+        }
+        try {
+          const tRes = await fetch(`https://api.telegram.org/bot${cleanToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: targetChatId,
+              text: alertText,
+              parse_mode: 'HTML'
+            })
+          });
+          const tData = await tRes.json();
+          if (tData && tData.ok) {
+            return Response.json({ ok: true, message: 'Notifikasi sinyal terkirim ke Telegram!', ...tData }, { status: 200, headers: CORS });
+          } else {
+            return Response.json({ ok: false, error: (tData && tData.description) || 'Gagal mengirim pesan ke Telegram.' }, { status: 400, headers: CORS });
+          }
+        } catch (err) {
+          return Response.json({ ok: false, error: err.message }, { status: 500, headers: CORS });
+        }
+      }
+
       const chatId = String(body.chatId || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
       if (!chatId || !/^-?\d+$/.test(chatId)) {
         return Response.json({ ok: false, error: 'Chat ID tidak valid (harus berupa angka UID Telegram Anda).' }, { status: 400, headers: CORS });

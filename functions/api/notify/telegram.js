@@ -1,5 +1,17 @@
 import { authenticateRequest } from '../../lib/auth.js';
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Content-Type': 'application/json; charset=utf-8',
+  'Cache-Control': 'no-store'
+};
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS });
+}
+
 // Fallback relay pengiriman notifikasi Telegram
 // Digunakan oleh browser trader (VIP / Owner) untuk mengirim alert instan tanpa perlu mengekspos Bot Token ke client-side.
 export async function onRequestPost({ request }) {
@@ -29,7 +41,7 @@ export async function onRequestPost({ request }) {
     }
 
     if (!token || !chatId || !text) {
-      return Response.json({ ok: false, error: 'Parameter token, chatId, atau text tidak lengkap' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Parameter token, chatId, atau text tidak lengkap' }, { status: 400, headers: CORS });
     }
     const cleanToken = String(token).trim().replace(/^bot/i, '');
     const cleanChatId = String(chatId).trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
@@ -47,10 +59,10 @@ export async function onRequestPost({ request }) {
     const data = await tgRes.json();
     if (!tgRes.ok || !data.ok) {
       const errMsg = (data && (data.description || data.error)) || `HTTP ${tgRes.status}`;
-      return Response.json({ ok: false, error: errMsg, description: data && data.description, error_code: data && data.error_code });
+      return Response.json({ ok: false, error: errMsg, description: data && data.description, error_code: data && data.error_code }, { status: 400, headers: CORS });
     }
-    return Response.json({ ...data, chatId: cleanChatId });
+    return Response.json({ ...data, chatId: cleanChatId }, { status: 200, headers: CORS });
   } catch (err) {
-    return Response.json({ ok: false, error: (err && err.message) || 'Gagal mengirim pesan Telegram' }, { status: 500 });
+    return Response.json({ ok: false, error: (err && err.message) || 'Gagal mengirim pesan Telegram' }, { status: 500, headers: CORS });
   }
 }
