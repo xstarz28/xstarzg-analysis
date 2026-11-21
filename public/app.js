@@ -6401,10 +6401,12 @@ function updateTelegramUi() {
   var isEn = curLang !== 'id' && curLang !== 'ms';
 
   if (txtEl) {
-    if (isVip) {
-      txtEl.textContent = isEn ? 'Telegram 24/7 (VIP)' : 'Notif Telegram 24/7 (VIP)';
+    if (telegramConfig.chatId) {
+      txtEl.textContent = '✅ Telegram: ' + telegramConfig.chatId;
+    } else if (isVip) {
+      txtEl.textContent = isEn ? '✈️ Link Telegram (Tap Here)' : '✈️ Sambungkan Telegram';
     } else {
-      txtEl.textContent = isEn ? 'Telegram 24/7 (VIP)' : 'Notif Telegram 24/7 (VIP)';
+      txtEl.textContent = isEn ? '✈️ Telegram Alerts (Phone)' : '✈️ Notif Telegram (HP)';
     }
   }
   if (btnMain) {
@@ -7765,6 +7767,9 @@ function bindUiEvents() {
           msgTgUidStatus.style.color = '#10b981';
           msgTgUidStatus.textContent = '✅ Berhasil terhubung! HP Anda (' + cid + ') akan menerima sinyal 24/7.';
         }
+        telegramConfig.chatId = cid;
+        savePersistedTelegramConfig();
+        updateTelegramUi();
       }).catch(function (e) {
         if (msgTgUidStatus) {
           msgTgUidStatus.style.color = '#f43f5e';
@@ -7772,6 +7777,45 @@ function bindUiEvents() {
         }
       }).finally(function () {
         btnSaveTgUid.disabled = false;
+      });
+    });
+  }
+
+  // Handler tombol kirim pesan tes ke HP
+  var btnTestPing = $id('btnTestTgPing');
+  var msgTestPing = $id('msgTgTestStatus');
+  if (btnTestPing) {
+    btnTestPing.addEventListener('click', function () {
+      var cid = inpTgUid ? inpTgUid.value.trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '') : (telegramConfig.chatId || '');
+      if (msgTestPing) {
+        msgTestPing.style.color = '#38bdf8';
+        msgTestPing.textContent = '⏳ Mengirim pesan tes ke Telegram HP Anda...';
+      }
+      btnTestPing.disabled = true;
+      ensureAuthToken().then(function (token) {
+        if (!token) throw new Error('Silakan login terlebih dahulu.');
+        return fetch('/api/notify/telegram-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ action: 'test_ping', chatId: cid })
+        }).then(function (r) {
+          return r.json().then(function (d) {
+            if (!r.ok || !d.ok) throw new Error((d && (d.error || d.message)) || 'Gagal mengirim pesan.');
+            return d;
+          });
+        });
+      }).then(function (d) {
+        if (msgTestPing) {
+          msgTestPing.style.color = '#10b981';
+          msgTestPing.textContent = '✅ Sukses! Buka Telegram di HP Anda, pesan tes telah masuk!';
+        }
+      }).catch(function (err) {
+        if (msgTestPing) {
+          msgTestPing.style.color = '#f43f5e';
+          msgTestPing.textContent = '❌ ' + err.message;
+        }
+      }).finally(function () {
+        btnTestPing.disabled = false;
       });
     });
   }
