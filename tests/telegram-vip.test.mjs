@@ -854,5 +854,46 @@ await test('market-sentinel covers top crypto pairs and alerts on expired, misse
   assert.ok(sentinelJs.includes('STOP LOSS TERSENTUH'));
 });
 
+await test('telegram-subscribers maps language preference and sentinel dispatches localized notifications', async () => {
+  const mockDb = new MockD1();
+  const env = {
+    DB: mockDb,
+    SENTINEL_SECRET: 'sentinel_secret_key_xyz'
+  };
+
+  await mockDb.prepare('INSERT INTO telegram_subscribers VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind('111222333', 'vip_foreigner@uk-capital.com', 'VIP', Date.now() + 86400000, 0, 0, new Date().toISOString())
+    .run();
+  await mockDb.prepare('INSERT INTO telegram_subscribers VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind('444555666', 'sevenfoldarmy2822@gmail.com', 'OWNER_VIP', null, 1, 0, new Date().toISOString())
+    .run();
+
+  const req = new Request('https://xstarzg.com/api/notify/telegram-subscribers', {
+    headers: { 'X-Sentinel-Key': 'sentinel_secret_key_xyz' }
+  });
+
+  const res = await handleSubscribers({ request: req, env });
+  assert.strictEqual(res.status, 200);
+  const data = await res.json();
+  assert.strictEqual(data.ok, true);
+
+  const subEn = data.subscribers.find(s => s.chat_id === '111222333');
+  const subId = data.subscribers.find(s => s.chat_id === '444555666');
+  assert.strictEqual(subEn.lang, 'en');
+  assert.strictEqual(subId.lang, 'id');
+
+  // Verify market-sentinel.mjs supports both ID and EN alerts without mixed terms
+  const fs = await import('fs');
+  const sentinelJs = fs.readFileSync(new URL('../scripts/market-sentinel.mjs', import.meta.url), 'utf8');
+  assert.ok(sentinelJs.includes('alertMsgEn'));
+  assert.ok(sentinelJs.includes('cancelMsgEn'));
+  assert.ok(sentinelJs.includes('expMsgEn'));
+  assert.ok(sentinelJs.includes('slMsgEn'));
+  assert.ok(sentinelJs.includes('tpMsgEn'));
+  assert.ok(sentinelJs.includes('NEW HIGH-SCORE OPPORTUNITY'));
+  assert.ok(sentinelJs.includes('ORDER MISSED / CANCEL PENDING'));
+  assert.ok(sentinelJs.includes('SL+ TRIGGERED (0-RISK)'));
+});
+
 console.log(`\nTELEGRAM VIP SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
