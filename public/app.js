@@ -3274,7 +3274,7 @@ function renderSignalJournal() {
       var tProgText = (targetProg !== null && targetProg > 0) ? (' • ' + targetProg + '% menuju Target 1') : '';
       var statusBadgeText = pnl >= 0 ? '🟢 PROFIT' : '⏳ AKUMULASI (FLOATING LOSS)';
 
-      invHtml += '<div class="radar-card jnl-card" style="border:1px solid rgba(16,185,129,0.3);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;">' +
+      invHtml += '<div class="radar-card jnl-card inv-jnl-card" data-sym="' + escH(it.symbol) + '" style="border:1px solid rgba(16,185,129,0.3);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;" title="Klik untuk membuka pemantauan langsung & grafik valuasi instrumen ini">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
           '<div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -3307,18 +3307,31 @@ function renderSignalJournal() {
             '✕ Hapus' +
           '</button>' +
         '</div>' +
+        '<div style="font-size:9.5px;color:#6ee7b7;opacity:0.85;">👆 Sentuh / klik kartu ini untuk pemantauan live & grafik valuasi</div>' +
       '</div>';
     });
 
     list.innerHTML = invHtml;
 
+    function openInvestorAsset(sym) {
+      if (!sym) return;
+      setMode('investor');
+      gotoInstrument(sym, 'D1');
+    }
+
+    Array.prototype.forEach.call(list.querySelectorAll('.inv-jnl-card'), function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target && e.target.closest && (e.target.closest('.btn-del-inv') || e.target.closest('button'))) return;
+        var s = card.getAttribute('data-sym');
+        openInvestorAsset(s);
+      });
+    });
+
     Array.prototype.forEach.call(list.querySelectorAll('.btn-open-inv-chart'), function (b) {
       b.onclick = function (e) {
         e.stopPropagation();
         var s = b.getAttribute('data-sym');
-        state.mode = 'investor';
-        syncModeToDom();
-        gotoInstrument(s, 'D1');
+        openInvestorAsset(s);
       };
     });
 
@@ -3397,7 +3410,7 @@ function renderSignalJournal() {
         ? '<div style="font-size:10.5px;color:#6ee7b7;padding:5px 8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:6px;margin-top:4px;">💰 <b>GOLDEN RULE 2x TERPENUHI:</b> Koin telah naik 2x lipat! Tarik modal awal Anda sekarang agar posisi menjadi "Moonbag" 100% bebas risiko!</div>'
         : '<div style="font-size:10.5px;color:#fde68a;padding:5px 8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;margin-top:4px;">⚠️ <b>PANDUAN MICIN:</b> Targetkan kelipatan 2x untuk balik modal. Jangan menahan jika likuiditas pool ditarik dev!</div>';
 
-      memeHtml += '<div class="radar-card jnl-card" style="border:1px solid rgba(168,85,247,0.35);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;">' +
+      memeHtml += '<div class="radar-card jnl-card meme-jnl-card" data-sym="' + escH(m.symbol) + '" style="border:1px solid rgba(168,85,247,0.35);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;" title="Klik untuk membuka terminal live chart DEX koin ini">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
           '<div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -3430,19 +3443,33 @@ function renderSignalJournal() {
             '✕ Hapus' +
           '</button>' +
         '</div>' +
+        '<div style="font-size:9.5px;color:#d8b4fe;opacity:0.85;">👆 Sentuh / klik kartu ini untuk live chart & eksekusi DEX</div>' +
       '</div>';
     });
 
     list.innerHTML = memeHtml;
 
+    function openMemeAsset(sym) {
+      if (!sym) return;
+      setMode('meme');
+      var pool = (typeof memeScanPool !== 'undefined' && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
+      var found = pool.find(function (x) { return (x.symbol || '').toUpperCase() === (sym || '').toUpperCase(); });
+      if (found) selectMemeToken(found);
+    }
+
+    Array.prototype.forEach.call(list.querySelectorAll('.meme-jnl-card'), function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target && e.target.closest && (e.target.closest('.btn-del-meme') || e.target.closest('button') || e.target.closest('a'))) return;
+        var s = card.getAttribute('data-sym');
+        openMemeAsset(s);
+      });
+    });
+
     Array.prototype.forEach.call(list.querySelectorAll('.btn-open-meme-terminal'), function (b) {
       b.onclick = function (e) {
         e.stopPropagation();
         var sym = b.getAttribute('data-sym');
-        switchMode('meme');
-        var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
-        var found = pool.find(function (x) { return x.symbol === sym; });
-        if (found) selectMemeToken(found);
+        openMemeAsset(sym);
       };
     });
 
@@ -6557,7 +6584,7 @@ function loadPersistedTelegramConfig() {
         if (typeof d.chatId === 'string' || typeof d.chatId === 'number') telegramConfig.chatId = String(d.chatId).trim();
         if (typeof d.notifySlPlus === 'boolean') telegramConfig.notifySlPlus = d.notifySlPlus;
         if (typeof d.notifyHighScore === 'boolean') telegramConfig.notifyHighScore = d.notifyHighScore;
-        if (typeof d.minScore === 'number' || typeof d.minScore === 'string') telegramConfig.minScore = parseInt(d.minScore, 10) || 62;
+        if (typeof d.minScore === 'number' || typeof d.minScore === 'string') telegramConfig.minScore = Math.min(parseInt(d.minScore, 10) || 62, 62);
         if (d.horizons && typeof d.horizons === 'object') {
           telegramConfig.horizons = {
             scalping: d.horizons.scalping !== false,
@@ -6767,22 +6794,46 @@ function relayAlertToServer(token, chatId, text) {
     if (token) bodyPayload.token = token;
     if (chatId) bodyPayload.chatId = chatId;
 
-    return fetch('/api/notify/telegram', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(bodyPayload)
-    }).then(function (r) {
-      return r.json().then(function (d) {
-        if (d && d.chatId && !telegramConfig.chatId) {
-          telegramConfig.chatId = String(d.chatId).trim();
-          savePersistedTelegramConfig();
-          updateTelegramUi();
-        }
-        return d;
+    // Utamakan endpoint /api/notify/telegram-link yang terbukti 100% bekerja di production
+    if (authToken) {
+      return fetch('/api/notify/telegram-link', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ action: 'send_alert', chatId: chatId, text: text })
+      }).then(function (r) {
+        return r.json().then(function (d) {
+          if (d && d.ok) return d;
+          return directRelayTelegram(token, chatId, text, headers);
+        });
+      }).catch(function () {
+        return directRelayTelegram(token, chatId, text, headers);
       });
-    });
+    }
+
+    return directRelayTelegram(token, chatId, text, headers);
   }).catch(function (e) {
     return { ok: false, error: e.message };
+  });
+}
+
+function directRelayTelegram(token, chatId, text, headers) {
+  var bodyPayload = { text: text };
+  if (token) bodyPayload.token = token;
+  if (chatId) bodyPayload.chatId = chatId;
+
+  return fetch('/api/notify/telegram', {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(bodyPayload)
+  }).then(function (r) {
+    return r.json().then(function (d) {
+      if (d && d.chatId && !telegramConfig.chatId) {
+        telegramConfig.chatId = String(d.chatId).trim();
+        savePersistedTelegramConfig();
+        updateTelegramUi();
+      }
+      return d;
+    });
   });
 }
 
@@ -6825,7 +6876,7 @@ function checkTelegramHighScoreSignal(a, item) {
   if (!telegramConfig.chatId && !state.user) return;
   if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return;
 
-  var minThresh = telegramConfig.minScore || 62;
+  var minThresh = Math.min(telegramConfig.minScore || 62, 62);
   var score = num(a.confluenceScore, a.confidence || 0);
   if (score < minThresh) return;
 
