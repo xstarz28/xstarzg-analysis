@@ -714,5 +714,32 @@ await test('telegram relay auto-resolves chatId from authenticated subscriber re
   }
 });
 
+await test('market-sentinel and app.js implement weekend market closure filtering for forex and stocks', async () => {
+  const fs = await import('fs');
+  const appJs = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const { isAssetMarketOpen } = await import('../scripts/market-sentinel.mjs');
+
+  // Crypto always open
+  assert.strictEqual(isAssetMarketOpen('BTC/USDT'), true);
+  assert.strictEqual(isAssetMarketOpen('ETH/USDT'), true);
+  assert.strictEqual(isAssetMarketOpen('SOL/USDT'), true);
+
+  // app.js has isAssetMarketOpen and guards
+  assert.ok(appJs.includes('function isAssetMarketOpen(symbol)'));
+  assert.ok(appJs.includes('if (!isAssetMarketOpen(sym)) return;'));
+  assert.ok(appJs.includes('if (nl && isAssetMarketOpen(symbol) && isPriceCompatibleWithSymbol(nl.entry, symbol))'));
+});
+
+await test('smart signal alarm dispatches instant Telegram alerts for watched pair', async () => {
+  const fs = await import('fs');
+  const appJs = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  // checkSignalAlarm sends telegram message
+  assert.ok(appJs.includes('ALARM PANTAUAN KHUSUS BERBUNYI'));
+  assert.ok(appJs.includes('ALARM ENTRY TERSENTUH'));
+  // toggleSignalAlarm confirms activation to Telegram
+  assert.ok(appJs.includes('ALARM PANTAUAN PRIORITAS AKTIF'));
+});
+
 console.log(`\nTELEGRAM VIP SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

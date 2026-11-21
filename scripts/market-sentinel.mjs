@@ -189,6 +189,21 @@ export function formatP(val, sym) {
   return n.toFixed(4);
 }
 
+export function isAssetMarketOpen(symbol) {
+  const s = String(symbol || '').toUpperCase().trim();
+  if (s.includes('/USDT') || s.includes('BTC') || s.includes('ETH') || s.includes('SOL')) return true;
+
+  const now = new Date();
+  const dayUtc = now.getUTCDay(); // 0 = Sun, 6 = Sat
+  const hourUtc = now.getUTCHours();
+
+  if (dayUtc === 6) return false;
+  if (dayUtc === 0 && hourUtc < 21) return false;
+  if (dayUtc === 5 && hourUtc >= 22) return false;
+
+  return true;
+}
+
 // Watchlist instrumen institusional utama
 export const WATCHLIST = [
   { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
@@ -421,6 +436,10 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
 async function scanInstrument(inst, cache) {
   const { sym, tf, type } = inst;
+  if (!isAssetMarketOpen(sym)) {
+    console.log(`  [${sym} ${tf}] Sesi bursa tutup (akhir pekan). Pemindaian dilewati.`);
+    return;
+  }
   try {
     let candles = [];
     if (type === 'crypto') {
