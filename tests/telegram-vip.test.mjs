@@ -620,5 +620,51 @@ await asyncTest('telegram-subscribers endpoint authorizes sentinel and returns a
   assert.ok(!chatIds.includes('999000111'));
 });
 
+await test('telegram relay dispatches using server env.TELEGRAM_BOT_TOKEN when client token is omitted', async () => {
+  const { onRequestPost: handleTelegramRelay } = await import('../functions/api/notify/telegram.js');
+  let capturedCall = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    capturedCall = { url, opts };
+    return { ok: true, json: async () => ({ ok: true, result: { message_id: 888 } }) };
+  };
+
+  try {
+    const req = new Request('https://xstarzg.com/api/notify/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId: '1287273759', text: 'High Score Alert SOL/USDT' })
+    });
+    const env = { TELEGRAM_BOT_TOKEN: '123456:ABC_OFFICIAL_VIP_TOKEN' };
+    const res = await handleTelegramRelay({ request: req, env });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.ok, true);
+    assert.strictEqual(capturedCall.url, 'https://api.telegram.org/bot123456:ABC_OFFICIAL_VIP_TOKEN/sendMessage');
+    const sentBody = JSON.parse(capturedCall.opts.body);
+    assert.strictEqual(sentBody.chat_id, '1287273759');
+    assert.strictEqual(sentBody.text, 'High Score Alert SOL/USDT');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await test('app.js and index.html support cloud-bot VIP notifications without local botToken', async () => {
+  const fs = await import('fs');
+  const appJs = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const indexHtml = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+
+  // checkTelegramHighScoreSignal does not block on empty botToken
+  assert.ok(!appJs.includes('if (!telegramConfig.notifyHighScore || !telegramConfig.botToken || !telegramConfig.chatId) return;'));
+  assert.ok(appJs.includes('if (!telegramConfig.notifyHighScore || !telegramConfig.chatId) return;'));
+
+  // sendTelegramAlert relays to /api/notify/telegram when botToken is absent
+  assert.ok(appJs.includes('/api/notify/telegram'));
+
+  // index.html has lblTelegramVipJnlText in the journal tab header
+  assert.ok(indexHtml.includes('id="lblTelegramVipJnlText"'));
+  assert.ok(appJs.includes("txtJnlEl = $id('lblTelegramVipJnlText')"));
+});
+
 console.log(`\nTELEGRAM VIP SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

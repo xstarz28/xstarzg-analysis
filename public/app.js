@@ -6315,7 +6315,7 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   try { sendBrowserPushNotification(title, body); } catch (e) {}
 
   // Kirim notifikasi darurat instan ke bot Telegram di HP trader (Bahasa dinamis sesuai sistem)
-  if (telegramConfig && telegramConfig.notifySlPlus && telegramConfig.botToken && telegramConfig.chatId) {
+  if (telegramConfig && telegramConfig.notifySlPlus && telegramConfig.chatId) {
     var tgSlPlusMsg = isEn ? (
       '🛡️ <b>[SL+ TRIGGERED — 0-RISK ALERT]</b>\n\n' +
       'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ')\n' +
@@ -6370,6 +6370,24 @@ function loadPersistedTelegramConfig() {
       }
     }
   } catch (e) {}
+
+  // Auto-sync linkedChatId dari server jika di localStorage belum tersimpan
+  if (!telegramConfig.chatId) {
+    try {
+      ensureAuthToken().then(function (token) {
+        if (!token) return;
+        return fetch('/api/notify/telegram-link', { headers: { 'Authorization': 'Bearer ' + token } })
+          .then(function (r) { return r && r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (d && d.linkedChatId) {
+              telegramConfig.chatId = String(d.linkedChatId).trim();
+              savePersistedTelegramConfig();
+              updateTelegramUi();
+            }
+          });
+      }).catch(function () {});
+    } catch (e) {}
+  }
   updateTelegramUi();
 }
 
@@ -6394,26 +6412,34 @@ function updateTelegramUi() {
   var isVip = isOwner || isAffiliate || (curUser && curUser.tier === 'VIP' && (!curUser.vipUntil || curUser.vipUntil > Date.now()));
 
   var txtEl = $id('lblTelegramVipText') || $id('lblTelegramText');
+  var txtJnlEl = $id('lblTelegramVipJnlText');
   var btnMain = $id('btnTelegramVipAccess') || $id('btnOpenTelegramModal');
   var btnJnl = $id('btnTelegramVipAccessJnl') || $id('btnOpenTelegramModalJnl');
 
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
   var isEn = curLang !== 'id' && curLang !== 'ms';
 
-  if (txtEl) {
-    if (telegramConfig.chatId) {
-      txtEl.textContent = '✅ Telegram: ' + telegramConfig.chatId;
-    } else if (isVip) {
-      txtEl.textContent = isEn ? '✈️ Link Telegram (Tap Here)' : '✈️ Sambungkan Telegram';
-    } else {
-      txtEl.textContent = isEn ? '✈️ Telegram Alerts (Phone)' : '✈️ Notif Telegram (HP)';
-    }
+  var labelText = '';
+  if (telegramConfig.chatId) {
+    labelText = '✅ Telegram: ' + telegramConfig.chatId;
+  } else if (isVip) {
+    labelText = isEn ? '✈️ Link Telegram (Tap Here)' : '✈️ Sambungkan Telegram';
+  } else {
+    labelText = isEn ? '✈️ Telegram Alerts (Phone)' : '✈️ Notif Telegram (HP)';
   }
+
+  if (txtEl) txtEl.textContent = labelText;
+  if (txtJnlEl) txtJnlEl.textContent = labelText;
+
   if (btnMain) {
-    if (isVip) {
-      btnMain.style.borderColor = 'rgba(16,185,129,0.6)';
+    if (telegramConfig.chatId) {
+      btnMain.style.borderColor = 'rgba(16,185,129,0.7)';
       btnMain.style.color = '#6ee7b7';
-      btnMain.style.background = 'rgba(16,185,129,0.12)';
+      btnMain.style.background = 'rgba(16,185,129,0.16)';
+    } else if (isVip) {
+      btnMain.style.borderColor = 'rgba(56,189,248,0.6)';
+      btnMain.style.color = '#38bdf8';
+      btnMain.style.background = 'rgba(56,189,248,0.12)';
     } else {
       btnMain.style.borderColor = 'rgba(245,158,11,0.5)';
       btnMain.style.color = '#fbbf24';
@@ -6421,10 +6447,14 @@ function updateTelegramUi() {
     }
   }
   if (btnJnl) {
-    if (isVip) {
-      btnJnl.style.borderColor = 'rgba(16,185,129,0.6)';
+    if (telegramConfig.chatId) {
+      btnJnl.style.borderColor = 'rgba(16,185,129,0.7)';
       btnJnl.style.color = '#6ee7b7';
-      btnJnl.style.background = 'rgba(16,185,129,0.18)';
+      btnJnl.style.background = 'rgba(16,185,129,0.22)';
+    } else if (isVip) {
+      btnJnl.style.borderColor = 'rgba(56,189,248,0.6)';
+      btnJnl.style.color = '#38bdf8';
+      btnJnl.style.background = 'rgba(56,189,248,0.15)';
     } else {
       btnJnl.style.borderColor = 'rgba(245,158,11,0.5)';
       btnJnl.style.color = '#fbbf24';
@@ -6518,53 +6548,55 @@ function validateTelegramInputs(token, chatId) {
 }
 
 function sendTelegramAlert(text) {
-  if (!telegramConfig.botToken || !telegramConfig.chatId || !text) {
-    return Promise.resolve({ ok: false, error: 'Token / Chat ID belum diisi' });
+  if (!telegramConfig.chatId || !text) {
+    return Promise.resolve({ ok: false, error: 'Chat ID belum diisi' });
   }
-  var token = String(telegramConfig.botToken).trim().replace(/^bot/i, '');
   var chatId = String(telegramConfig.chatId).trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
-  var directUrl = 'https://api.telegram.org/bot' + token + '/sendMessage';
+  var token = telegramConfig.botToken ? String(telegramConfig.botToken).trim().replace(/^bot/i, '') : '';
 
-  // 1. Direct browser-to-Telegram dispatch (0 Kuota Cloudflare!)
-  return fetch(directUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      parse_mode: 'HTML'
-    })
-  }).then(function (r) {
-    return r.json().then(function (res) {
-      if (res && res.ok) return { ok: true, direct: true };
-      var desc = (res && (res.description || res.error)) || ('HTTP ' + r.status);
-      throw new Error(desc);
-    });
-  }).catch(function (directErr) {
-    // 2. Serverless fallback if ISP blocks direct api.telegram.org or CORS error
-    return fetch('/api/notify/telegram', {
+  // 1. Jika ada token bot langsung di client: coba direct browser-to-Telegram dispatch
+  if (token) {
+    var directUrl = 'https://api.telegram.org/bot' + token + '/sendMessage';
+    return fetch(directUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        token: token,
-        chatId: chatId,
-        text: text
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'HTML'
       })
-    }).then(function (r2) {
-      return r2.json();
-    }).then(function (res2) {
-      if (res2 && res2.ok) return { ok: true, fallback: true };
-      var errDesc = (res2 && (res2.description || res2.error)) || (directErr && directErr.message) || 'Gagal mengirim pesan';
-      return { ok: false, error: errDesc };
-    }).catch(function (fbErr) {
-      var finalErr = (directErr && directErr.message) || (fbErr && fbErr.message) || 'Koneksi gagal';
-      return { ok: false, error: finalErr };
+    }).then(function (r) {
+      return r.json().then(function (res) {
+        if (res && res.ok) return { ok: true, direct: true };
+        var desc = (res && (res.description || res.error)) || ('HTTP ' + r.status);
+        throw new Error(desc);
+      });
+    }).catch(function () {
+      // Fallback ke server relay resmi
+      return fetch('/api/notify/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, chatId: chatId, text: text })
+      }).then(function (r2) { return r2.json(); });
     });
+  }
+
+  // 2. Official VIP Bot: kirim langsung via server relay yang memegang token bot resmi
+  return fetch('/api/notify/telegram', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId: chatId, text: text })
+  }).then(function (r) {
+    return r.json().then(function (d) {
+      return d;
+    });
+  }).catch(function (e) {
+    return { ok: false, error: e.message };
   });
 }
 
 function checkTelegramHighScoreSignal(a, item) {
-  if (!telegramConfig.notifyHighScore || !telegramConfig.botToken || !telegramConfig.chatId) return;
+  if (!telegramConfig.notifyHighScore || !telegramConfig.chatId) return;
   if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return;
 
   var score = num(a.confluenceScore, a.confidence || 0);
