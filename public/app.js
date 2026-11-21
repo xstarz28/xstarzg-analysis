@@ -1013,6 +1013,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
                 if (a.feedUnverified) nl.feedUnverified = true;
                 saveSignalLock(symbol, tfA, nl);
                 SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false });
+                try { checkTelegramHighScoreSignal(a, { sym: symbol, tf: tfA }); } catch (e) {}
               }
             }
           }
@@ -6315,7 +6316,7 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   try { sendBrowserPushNotification(title, body); } catch (e) {}
 
   // Kirim notifikasi darurat instan ke bot Telegram di HP trader (Bahasa dinamis sesuai sistem)
-  if (telegramConfig && telegramConfig.notifySlPlus && telegramConfig.chatId) {
+  if (telegramConfig && telegramConfig.notifySlPlus && (telegramConfig.chatId || state.user)) {
     var tgSlPlusMsg = isEn ? (
       '🛡️ <b>[SL+ TRIGGERED — 0-RISK ALERT]</b>\n\n' +
       'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ')\n' +
@@ -6371,24 +6372,25 @@ function loadPersistedTelegramConfig() {
     }
   } catch (e) {}
 
-  // Auto-sync linkedChatId dari server jika di localStorage belum tersimpan
-  if (!telegramConfig.chatId) {
-    try {
-      ensureAuthToken().then(function (token) {
-        if (!token) return;
-        return fetch('/api/notify/telegram-link', { headers: { 'Authorization': 'Bearer ' + token } })
-          .then(function (r) { return r && r.ok ? r.json() : null; })
-          .then(function (d) {
-            if (d && d.linkedChatId) {
-              telegramConfig.chatId = String(d.linkedChatId).trim();
-              savePersistedTelegramConfig();
-              updateTelegramUi();
-            }
-          });
-      }).catch(function () {});
-    } catch (e) {}
-  }
+  syncTelegramLinkStatus();
   updateTelegramUi();
+}
+
+function syncTelegramLinkStatus() {
+  if (!state.user) return Promise.resolve(null);
+  return ensureAuthToken().then(function (token) {
+    if (!token) return null;
+    return fetch('/api/notify/telegram-link', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.linkedChatId) {
+          telegramConfig.chatId = String(d.linkedChatId).trim();
+          savePersistedTelegramConfig();
+          updateTelegramUi();
+        }
+        return d;
+      });
+  }).catch(function () { return null; });
 }
 
 function savePersistedTelegramConfig() {
@@ -6419,13 +6421,22 @@ function updateTelegramUi() {
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
   var isEn = curLang !== 'id' && curLang !== 'ms';
 
+  var iconMain = btnMain ? btnMain.querySelector('span:first-child') : null;
+  var iconJnl = btnJnl ? btnJnl.querySelector('span:first-child') : null;
+
   var labelText = '';
   if (telegramConfig.chatId) {
-    labelText = '✅ Telegram: ' + telegramConfig.chatId;
+    labelText = 'Telegram: ' + telegramConfig.chatId;
+    if (iconMain) iconMain.textContent = '✅';
+    if (iconJnl) iconJnl.textContent = '✅';
   } else if (isVip) {
-    labelText = isEn ? '✈️ Link Telegram (Tap Here)' : '✈️ Sambungkan Telegram';
+    labelText = isEn ? 'Link Telegram (Tap Here)' : 'Sambungkan Telegram';
+    if (iconMain) iconMain.textContent = '✈️';
+    if (iconJnl) iconJnl.textContent = '✈️';
   } else {
-    labelText = isEn ? '✈️ Telegram Alerts (Phone)' : '✈️ Notif Telegram (HP)';
+    labelText = isEn ? 'Telegram Alerts (Phone)' : 'Notif Telegram (HP)';
+    if (iconMain) iconMain.textContent = '✈️';
+    if (iconJnl) iconJnl.textContent = '✈️';
   }
 
   if (txtEl) txtEl.textContent = labelText;
@@ -6547,15 +6558,43 @@ function validateTelegramInputs(token, chatId) {
   return null;
 }
 
+function relayAlertToServer(token, chatId, text) {
+  return ensureAuthToken().then(function (authToken) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+    var bodyPayload = { text: text };
+    if (token) bodyPayload.token = token;
+    if (chatId) bodyPayload.chatId = chatId;
+
+    return fetch('/api/notify/telegram', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(bodyPayload)
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        if (d && d.chatId && !telegramConfig.chatId) {
+          telegramConfig.chatId = String(d.chatId).trim();
+          savePersistedTelegramConfig();
+          updateTelegramUi();
+        }
+        return d;
+      });
+    });
+  }).catch(function (e) {
+    return { ok: false, error: e.message };
+  });
+}
+
 function sendTelegramAlert(text) {
-  if (!telegramConfig.chatId || !text) {
-    return Promise.resolve({ ok: false, error: 'Chat ID belum diisi' });
+  if (!text) return Promise.resolve({ ok: false, error: 'Text kosong' });
+  if (!telegramConfig.chatId && !state.user) {
+    return Promise.resolve({ ok: false, error: 'Chat ID belum diisi dan pengguna belum login' });
   }
-  var chatId = String(telegramConfig.chatId).trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
+  var chatId = telegramConfig.chatId ? String(telegramConfig.chatId).trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '') : '';
   var token = telegramConfig.botToken ? String(telegramConfig.botToken).trim().replace(/^bot/i, '') : '';
 
-  // 1. Jika ada token bot langsung di client: coba direct browser-to-Telegram dispatch
-  if (token) {
+  // 1. Jika ada token bot langsung di client dan ada chatId: coba direct browser-to-Telegram dispatch
+  if (token && chatId) {
     var directUrl = 'https://api.telegram.org/bot' + token + '/sendMessage';
     return fetch(directUrl, {
       method: 'POST',
@@ -6572,31 +6611,17 @@ function sendTelegramAlert(text) {
         throw new Error(desc);
       });
     }).catch(function () {
-      // Fallback ke server relay resmi
-      return fetch('/api/notify/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token, chatId: chatId, text: text })
-      }).then(function (r2) { return r2.json(); });
+      return relayAlertToServer(token, chatId, text);
     });
   }
 
   // 2. Official VIP Bot: kirim langsung via server relay yang memegang token bot resmi
-  return fetch('/api/notify/telegram', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chatId: chatId, text: text })
-  }).then(function (r) {
-    return r.json().then(function (d) {
-      return d;
-    });
-  }).catch(function (e) {
-    return { ok: false, error: e.message };
-  });
+  return relayAlertToServer(token, chatId, text);
 }
 
 function checkTelegramHighScoreSignal(a, item) {
-  if (!telegramConfig.notifyHighScore || !telegramConfig.chatId) return;
+  if (!telegramConfig.notifyHighScore) return;
+  if (!telegramConfig.chatId && !state.user) return;
   if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return;
 
   var score = num(a.confluenceScore, a.confidence || 0);
@@ -6609,9 +6634,14 @@ function checkTelegramHighScoreSignal(a, item) {
   if (telegramConfig.horizons && telegramConfig.horizons[hz] === false) return;
 
   var L = a.levels || {};
-  if (!L.entry || !L.sl || !L.tp1) return;
+  var entry = L.entry || a.entry || (a.lockedSignal && a.lockedSignal.entry);
+  var sl = L.sl || a.sl || (a.lockedSignal && a.lockedSignal.sl);
+  var tp1 = L.tp1 || a.tp1 || (a.lockedSignal && a.lockedSignal.tp1);
+  var tp2 = L.tp2 || a.tp2 || (a.lockedSignal && a.lockedSignal.tp2);
+  var tp3 = L.tp3 || a.tp3 || (a.lockedSignal && a.lockedSignal.tp3);
+  if (!entry || !sl || !tp1) return;
 
-  var dedupKey = 'tg:' + sym + ':' + tf + ':' + a.direction + ':' + (a.anchorClosedTime || L.entry || 0);
+  var dedupKey = 'tg:' + sym + ':' + tf + ':' + a.direction + ':' + (a.anchorClosedTime || entry || 0);
   if (telegramConfig.lastSentMap[dedupKey]) return;
   telegramConfig.lastSentMap[dedupKey] = Date.now();
 
@@ -6895,6 +6925,7 @@ function updateUserUi() {
   }
 
   try { updateTelegramUi(); } catch (e) {}
+  if (u && !telegramConfig.chatId) { try { syncTelegramLinkStatus(); } catch (e) {} }
 }
 function fetchOwnerSubscribers() {
   if (!state.user || state.user.tier !== 'OWNER_VIP') return;
@@ -7651,8 +7682,11 @@ function bindUiEvents() {
             if (d.botUsername && inpOwnerBotUser && !inpOwnerBotUser.value) {
               inpOwnerBotUser.value = '@' + d.botUsername;
             }
-            if (d.linkedChatId && inpTgUid) {
-              inpTgUid.value = d.linkedChatId;
+            if (d.linkedChatId) {
+              telegramConfig.chatId = String(d.linkedChatId).trim();
+              savePersistedTelegramConfig();
+              updateTelegramUi();
+              if (inpTgUid) inpTgUid.value = d.linkedChatId;
               if (msgTgUidStatus) {
                 msgTgUidStatus.style.color = '#10b981';
                 msgTgUidStatus.textContent = '✅ HP Anda sudah terhubung (ID: ' + d.linkedChatId + ')';
@@ -7841,6 +7875,11 @@ function bindUiEvents() {
           msgTestPing.style.color = '#10b981';
           msgTestPing.textContent = '✅ Sukses! Buka Telegram di HP Anda, pesan tes telah masuk!';
         }
+        if (cid) {
+          telegramConfig.chatId = cid;
+          savePersistedTelegramConfig();
+          updateTelegramUi();
+        }
       }).catch(function (err) {
         if (msgTestPing) {
           msgTestPing.style.color = '#f43f5e';
@@ -7948,12 +7987,14 @@ function startRadarAutoPilot() {
 }
 function bootCore() {
   try { bindUiEvents(); } catch (e) {}
+  try { loadPersistedTelegramConfig(); } catch (e) {}
   var saved = null;
   try { saved = loadSession(); } catch (e) {}
   if (saved && saved.user) {
     // FIX refresh-kickout: sesi login tersimpan -> langsung kembali ke dashboard
     // analisa dengan simbol/timeframe/mode terakhir (tanpa login ulang).
     state.user = saved.user;
+    try { syncTelegramLinkStatus(); } catch (e) {}
     try { applyWorkspacePrefs(saved); } catch (e) {}
     try { renderInstrumentCatalog(); } catch (e) {}
     try { updateUserUi(); } catch (e) {}

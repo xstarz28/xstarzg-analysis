@@ -44,22 +44,29 @@ async function getActiveSubscribers() {
   const recipients = new Set();
   if (CHAT_ID) recipients.add(CHAT_ID);
 
-  const apiHost = process.env.XSTARZG_API_HOST || 'https://xstarzganalysis.pages.dev';
+  const apiHosts = [
+    process.env.XSTARZG_API_HOST,
+    'https://xstarzganalysis.pages.dev',
+    'https://xstarzg-analysis.pages.dev'
+  ].filter(Boolean);
   const secret = process.env.SENTINEL_SECRET || 'xstarzg-2026-quant-secret';
 
-  try {
-    const res = await fetch(`${apiHost}/api/notify/telegram-subscribers?key=${encodeURIComponent(secret)}`, {
-      headers: { 'X-Sentinel-Key': secret, 'User-Agent': 'XStarZG-Sentinel/1.0' }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.subscribers)) {
-        for (const sub of data.subscribers) {
-          if (sub && sub.chat_id) recipients.add(String(sub.chat_id));
+  for (const apiHost of apiHosts) {
+    try {
+      const res = await fetch(`${apiHost}/api/notify/telegram-subscribers?key=${encodeURIComponent(secret)}`, {
+        headers: { 'X-Sentinel-Key': secret, 'User-Agent': 'XStarZG-Sentinel/1.0' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.subscribers)) {
+          for (const sub of data.subscribers) {
+            if (sub && sub.chat_id) recipients.add(String(sub.chat_id));
+          }
+          if (recipients.size > 0) break;
         }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
   return Array.from(recipients);
 }
