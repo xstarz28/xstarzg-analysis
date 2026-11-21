@@ -5,6 +5,9 @@ on:
     # Berjalan otomatis di cloud GitHub setiap 15 menit nonstop (24/7, 0 kuota Cloudflare)
     - cron: '*/30 * * * *'
     - cron: '15,45 * * * *'
+  push:
+    branches:
+      - main
   workflow_dispatch:
     # Tombol pemicu manual di dashboard GitHub ("Run workflow")
     inputs:
@@ -25,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Restore Sentinel Cache
         uses: actions/cache@v4
@@ -38,7 +41,9 @@ jobs:
       - name: Run Market Sentinel
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN || secrets.BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID || secrets.CHAT_ID }}
           SENTINEL_MIN_SCORE: '62'
         run: |
           if [ "${{ inputs.test_mode }}" = "true" ]; then
