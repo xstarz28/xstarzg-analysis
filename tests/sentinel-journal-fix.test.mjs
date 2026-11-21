@@ -2,8 +2,9 @@
 // Verifikasi perbaikan Bug 04:45 AM Sentinel (SL+ prematur), Journal hilang, dan fakeout levels
 
 import assert from 'node:assert';
-import { processInstrumentAnalysis, formatP } from '../scripts/market-sentinel.mjs';
+import { processInstrumentAnalysis, formatP, syncActiveLocksFromCloud } from '../scripts/market-sentinel.mjs';
 import * as SE from '../public/js/shared/signal-engine.js';
+import { onRequestGet, onRequestPost, onRequestOptions } from '../functions/api/market/journal-sync.js';
 
 let passed = 0;
 let failed = 0;
@@ -186,6 +187,195 @@ await asyncChk('Sentinel tidak boleh mengirim SL+ pada cycle penerbitan sinyal (
   chk('Format Kripto besar 2 desimal', formatP(91250.789, 'BTC/USDT') === '91250.79');
   chk('Format Forex standar 4 desimal', formatP(1.08543, 'EUR/USD') === '1.0854');
 })();
+
+// 3. Verifikasi Logika Eksekusi Limit Order & Proteksi SL+ (Bebas False SL+ Trigger)
+(() => {
+  // Kasus SHORT: Anchor close di 56.000, entry limit di 57.831 (antrian atas).
+  // Harga turun ke 55.200 tanpa pernah menyentuh 57.831.
+  const analysisShort = {
+    symbol: 'BTC/USDT',
+    timeframe: 'M5',
+    signalEligible: true,
+    direction: 'SHORT',
+    levels: {
+      entry: 57831,
+      sl: 59000,
+      tp1: 54000,
+      tp2: 52000,
+      tp3: 50000
+    },
+    anchorClosedTime: 1000000,
+    anchorClosedClose: 56000,
+    lastPrice: 56000,
+    atr: 200
+  };
+  const lock = SE.createSignalLock(analysisShort, 'BTC/USDT');
+
+  chk('Limit order SHORT awalnya belum terisi (filled === false)', lock.filled === false);
+
+  // Candle selanjutnya: High hanya mencapai 57000 (belum sampai entry 57831), Low 55000
+  const candlesNotHit = [
+    { time: 1000000, open: 56200, high: 56500, low: 55800, close: 56000 },
+    { time: 1000300, open: 56000, high: 57000, low: 55000, close: 55200 }
+  ];
+
+  const verdictNotHit = SE.validateSignalLock(lock, candlesNotHit, 55200);
+  chk('Order SHORT tetap belum terisi jika candle high < entry limit', verdictNotHit.filled === false);
+  chk('bePlusActive TIDAK BOLEH aktif pada order SHORT yang belum terisi!', verdictNotHit.bePlusActive === false);
+  chk('Status verdict SHORT adalah ACTIVE (menunggu jemputan antrian)', verdictNotHit.status === 'ACTIVE');
+
+  // Candle berikutnya: High menembus 57900 (entry 57831 terjemput)
+  const candlesHit = [
+    { time: 1000000, open: 56200, high: 56500, low: 55800, close: 56000 },
+    { time: 1000300, open: 56000, high: 57900, low: 56500, close: 57100 }
+  ];
+  const verdictHit = SE.validateSignalLock(lock, candlesHit, 57100);
+  chk('Order SHORT menjadi terisi setelah high candle mencapai level entry', verdictHit.filled === true);
+
+  // Setelah terisi, harga turun mencapai zona 0-Risk (target 38% atau bePlus trigger)
+  const lockFilled = { ...lock, filled: true };
+  const candlesProfit = [
+    { time: 1000000, open: 56200, high: 56500, low: 55800, close: 56000 },
+    { time: 1000300, open: 56000, high: 57900, low: 56500, close: 57100 },
+    { time: 1000600, open: 57100, high: 57200, low: 55500, close: 55800 }
+  ];
+  const verdictProfit = SE.validateSignalLock(lockFilled, candlesProfit, 55800);
+  chk('bePlusActive sah aktif setelah order SHORT terisi dan harga masuk floating profit aman', verdictProfit.bePlusActive === true);
+})();
+
+(() => {
+  // Kasus LONG: Anchor di 2650, entry limit di 2640 (antrian bawah).
+  const analysisLong = {
+    symbol: 'XAU/USD',
+    timeframe: 'M15',
+    signalEligible: true,
+    direction: 'LONG',
+    levels: {
+      entry: 2640,
+      sl: 2620,
+      tp1: 2670,
+      tp2: 2690,
+      tp3: 2710
+    },
+    anchorClosedTime: 2000000,
+    anchorClosedClose: 2650,
+    lastPrice: 2650,
+    atr: 5
+  };
+  const lockLong = SE.createSignalLock(analysisLong, 'XAU/USD');
+
+  chk('LONG limit order awalnya belum terisi (filled === false)', lockLong.filled === false);
+
+  const candlesPending = [
+    { time: 2000000, open: 2648, high: 2652, low: 2645, close: 2650 },
+    { time: 2000900, open: 2650, high: 2660, low: 2644, close: 2655 }
+  ];
+  const vPending = SE.validateSignalLock(lockLong, candlesPending, 2655);
+  chk('LONG order belum terisi jika candle low > entry limit', vPending.filled === false);
+  chk('bePlusActive tidak aktif jika order belum terisi', vPending.bePlusActive === false);
+  chk('Status LONG adalah ACTIVE saat pending', vPending.status === 'ACTIVE');
+
+  // Harga melesat ke 2680 tanpa pullback ke 2640 (MISSED)
+  const candlesUp = [
+    { time: 2000000, open: 2648, high: 2652, low: 2645, close: 2650 },
+    { time: 2000900, open: 2650, high: 2680, low: 2644, close: 2675 }
+  ];
+  const vUp = SE.validateSignalLock(lockLong, candlesUp, 2675);
+  chk('Jika harga menyentuh TP1 sebelum order terisi, status adalah MISSED', vUp.status === 'MISSED');
+})();
+
+// 4. Sinkronisasi Cloud Journal API Endpoint (functions/api/market/journal-sync.js)
+await asyncChk('Cloud Journal Sync Endpoint: GET, POST save_lock, and record_outcome', async () => {
+  const optRes = await onRequestOptions();
+  chk('CORS OPTIONS mengembalikan status 204', optRes.status === 204);
+
+  const getRes1 = await onRequestGet({ env: {} });
+  const data1 = await getRes1.json();
+  chk('GET mengembalikan respons ok: true', data1.ok === true);
+  chk('GET memiliki daftar activeLocks bertipe array', Array.isArray(data1.activeLocks));
+
+  const testLock = {
+    symbol: 'SOL/USDT',
+    tf: 'M15',
+    direction: 'LONG',
+    entry: 185.50,
+    sl: 180.00,
+    tp1: 195.00,
+    tp2: 205.00,
+    tp3: 215.00,
+    slPlus: 186.00,
+    filled: false,
+    score: 85,
+    issuedAt: Date.now()
+  };
+
+  const reqSave = new Request('http://localhost/api/market/journal-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'save_lock', lock: testLock })
+  });
+  const postRes1 = await onRequestPost({ request: reqSave, env: {} });
+  const postData1 = await postRes1.json();
+  chk('POST save_lock berhasil disimpan', postData1.ok === true && postData1.saved === true);
+
+  const getRes2 = await onRequestGet({ env: {} });
+  const data2 = await getRes2.json();
+  const solLock = data2.activeLocks.find(l => l.symbol === 'SOL/USDT' && l.tf === 'M15');
+  chk('Lock SOL/USDT terdata di activeLocks cloud', !!solLock && solLock.entry === 185.50);
+
+  const reqOutcome = new Request('http://localhost/api/market/journal-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'record_outcome',
+      outcome: {
+        symbol: 'SOL/USDT',
+        tf: 'M15',
+        status: 'TP_HIT',
+        reason: 'Target Take Profit 1 tercapai',
+        at: Date.now()
+      }
+    })
+  });
+  const postRes2 = await onRequestPost({ request: reqOutcome, env: {} });
+  const postData2 = await postRes2.json();
+  chk('POST record_outcome berhasil dicatat', postData2.ok === true);
+
+  const getRes3 = await onRequestGet({ env: {} });
+  const data3 = await getRes3.json();
+  const solLockActive = data3.activeLocks.find(l => l.symbol === 'SOL/USDT' && l.tf === 'M15');
+  const solOutcome = data3.recentOutcomes.find(o => o.symbol === 'SOL/USDT' && o.tf === 'M15');
+  chk('Lock aktif dihapus setelah outcome tercapai', !solLockActive);
+  chk('Outcome tercatat di recentOutcomes', !!solOutcome && solOutcome.status === 'TP_HIT');
+});
+
+// 5. Integrasi Sinkronisasi Cloud Sentinel ke Jurnal
+await asyncChk('Sentinel menyinkronkan active locks dari cloud secara otomatis', async () => {
+  const mockCache = { notified: {}, slPlusLocks: {} };
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (String(url).includes('/api/market/journal-sync')) {
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          activeLocks: [
+            { symbol: 'ETH/USDT', tf: 'H1', direction: 'LONG', entry: 3200, sl: 3100, tp1: 3400, filled: false }
+          ]
+        })
+      };
+    }
+    return origFetch ? origFetch(url) : { ok: false };
+  };
+
+  try {
+    await syncActiveLocksFromCloud(mockCache);
+    chk('Sentinel cache memuat lock ETH/USDT dari cloud', !!mockCache.slPlusLocks['ETH/USDT']);
+    chk('Lock ETH/USDT mempertahankan level entry & filled: false', mockCache.slPlusLocks['ETH/USDT'].entry === 3200 && mockCache.slPlusLocks['ETH/USDT'].filled === false);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
 
 console.log(`\nSENTINEL & JOURNAL REGRESSION SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

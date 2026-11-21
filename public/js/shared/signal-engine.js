@@ -1416,6 +1416,9 @@ export function createSignalLock(a, symbol, mode, subMode) {
   const beBuffer = Math.max(risk * 0.08, entry * 0.0003); // buffer tipis di atas entry (menutup fee spread)
   const slPlus = a.direction === 'LONG' ? entry + beBuffer : entry - beBuffer;
 
+  const lastP = Number(a.lastPrice || a.anchorClosedClose || entry);
+  const isMarket = a.entryType === 'MARKET' || Math.abs(entry - lastP) <= 0.05 * (a.atr || 1);
+
   return {
     v: 3,
     symbol: String(symbol || a.symbol).toUpperCase(),
@@ -1426,6 +1429,7 @@ export function createSignalLock(a, symbol, mode, subMode) {
     tp1: a.levels.tp1, tp2: a.levels.tp2, tp3: a.levels.tp3,
     slPlus: slPlus,
     bePlusActive: false,
+    filled: isMarket, // Order Limit BARU terisi jika pasar masa depan menjemput titik entry!
     rrRatio: a.levels.rrRatio,
     score: a.confluenceScore,
     winRate: a.gating ? a.gating.winRate : (a.backtest ? a.backtest.winRate : 0),
@@ -1466,17 +1470,14 @@ export function validateSignalLock(lock, closedCandles, fresh) {
     let maxFavorableDist = 0;
     let bePlusActive = !!lock.bePlusActive;
     let filled = lock.filled === true;
-    if (!filled) {
-      if (isLong && entry >= anchorP - 1e-6) filled = true;
-      if (!isLong && entry <= anchorP + 1e-6) filled = true;
-    }
 
     for (let i = 0; i < closedCandles.length; i++) {
       const c = closedCandles[i];
       if (!c || c.time <= lock.anchorClosedTime) continue;
       newBars++;
 
-      // Verifikasi pengisian order (order limit vs market)
+      // Verifikasi pengisian order: Order LIMIT hanya terisi jika harga pasar masa depan
+      // benar-benar menjemput entry (Low <= entry untuk Buy Limit; High >= entry untuk Sell Limit)
       if (!filled) {
         if (isLong && Number(c.low) <= entry) filled = true;
         if (!isLong && Number(c.high) >= entry) filled = true;
@@ -1500,11 +1501,11 @@ export function validateSignalLock(lock, closedCandles, fresh) {
         continue;
       }
 
-      // Ukur pergerakan positif maksimum
+      // Ukur pergerakan positif maksimum HANYA jika order sudah terisi!
       const favorableDist = isLong ? (Number(c.high) - entry) : (entry - Number(c.low));
       if (favorableDist > maxFavorableDist) maxFavorableDist = favorableDist;
 
-      // Cek apakah menyentuh ambang SL+ (0-Risk)
+      // Cek apakah menyentuh ambang SL+ (0-Risk) — MUTLAK HANYA JIKA ORDER SUDAH TERISI!
       if (!bePlusActive && maxFavorableDist >= beTriggerRatio * targetDist) {
         bePlusActive = true;
       }
