@@ -171,7 +171,7 @@ export default {
     "vFair": "FAIR VALUE",
     "secTech": "🔬 16 Quantitative Technical & Smart Money Concepts Pillars (SMC + ORB/Theta/VWAP-Entry)",
     "secMacro": "🌍 10 Macroeconomic, Global Liquidity & Institutional Pillars",
-    "radarTitle": "📡 Multi-Asset Real-Time Recommendation Radar",
+    "radarTitle": "📡 Confirmed Signal Radar (Top-Down Market Alignment)",
     "hzScalp": "⚡ SCALPING",
     "hzIntraday": "🎯 INTRADAY",
     "hzSwing": "🌊 SWING",

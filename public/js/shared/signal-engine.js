@@ -643,6 +643,250 @@ export function buildInstitutionalLevels(dir, ctx) {
   return { dir, entry, sl, tp1, tp2, tp3, rrRatio: brainMode === 'SCALP' ? ((entry - tp1) / r) : ((entry - tp2) / r) };
 }
 
+/* ==================== SESI PASAR INSTITUSIONAL (ICT KILLZONES & SESSION TIMING) ====================
+   Peta sesi perdagangan optimal per instrumen (London, New York, Tokyo, Sydney)
+   sesuai kaidah likuiditas institusional nyata:
+   - EUR/USD, GBP/USD, USD/CHF, XAU/USD (Gold): London + New York (Overlap Peak)
+   - USD/JPY: Tokyo + London (Transisi Sesi Asia ke Eropa)
+   - AUD/USD, NZD/USD: Sydney + Tokyo (Sesi Asia Pasifik)
+   - USD/CAD: New York Session
+   - EUR/GBP, EUR/JPY, GBP/JPY: London Session
+   - Crypto: 24/7 (Puncak Likuiditas: Overlap London + New York)
+   - Saham: Jam Buka Reguler Bursa Asal (US: NYSE/Nasdaq 14:30-21:00 UTC; IDX: 02:00-09:00 UTC) */
+export const PAIR_SESSION_MAP = {
+  'EUR/USD': { best: 'London + New York', hoursUtc: [12, 17], desc: 'London & New York Overlap (Likuiditas Puncak)' },
+  'GBP/USD': { best: 'London + New York', hoursUtc: [12, 17], desc: 'London & New York Overlap (Likuiditas Puncak)' },
+  'USD/JPY': { best: 'Tokyo + London', hoursUtc: [7, 11], desc: 'Transisi Sesi Tokyo & London Open' },
+  'USD/CHF': { best: 'London + New York', hoursUtc: [12, 17], desc: 'London & New York Overlap' },
+  'AUD/USD': { best: 'Sydney + Tokyo', hoursUtc: [23, 7], desc: 'Sesi Asia Pasifik (Sydney & Tokyo Open)' },
+  'NZD/USD': { best: 'Sydney + Tokyo', hoursUtc: [23, 7], desc: 'Sesi Asia Pasifik (Sydney & Tokyo Open)' },
+  'USD/CAD': { best: 'New York', hoursUtc: [12, 21], desc: 'Sesi New York & Rilis Data Ekonomi AS/Kanada' },
+  'EUR/GBP': { best: 'London', hoursUtc: [7, 16], desc: 'Jam Perbankan Eropa (London Core)' },
+  'EUR/JPY': { best: 'London', hoursUtc: [7, 16], desc: 'London Open & Arus Lintas Valuta' },
+  'GBP/JPY': { best: 'London', hoursUtc: [7, 16], desc: 'London Open & Volatilitas Tinggi (Dragon)' },
+  'XAU/USD': { best: 'London + New York', hoursUtc: [12, 17], desc: 'London Fix & NY Open (Likuiditas Emas Maksimum)' }
+};
+
+export function getInstrumentSessionInfo(symbol, timestampSec) {
+  const s = String(symbol || '').toUpperCase().trim();
+  const t = timestampSec ? new Date(timestampSec * 1000) : new Date();
+  const utcHour = t.getUTCHours();
+  const utcMin = t.getUTCMinutes();
+
+  const activeSessions = [];
+  if (utcHour >= 0 && utcHour < 9) activeSessions.push('Tokyo/Asia');
+  if (utcHour >= 7 && utcHour < 16) activeSessions.push('London');
+  if (utcHour >= 12 && utcHour < 21) activeSessions.push('New York');
+  if (utcHour >= 21 || utcHour < 6) activeSessions.push('Sydney');
+
+  const isOverlapLondonNY = (utcHour >= 12 && utcHour < 16);
+  const activeSessionName = isOverlapLondonNY
+    ? 'London + New York (Overlap Peak)'
+    : (activeSessions.join(' + ') || 'Off-Peak');
+
+  const isCrypto = s.includes('/USDT') || s.includes('BTC') || s.includes('ETH') || s.includes('SOL');
+  const isUsStock = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].includes(s);
+  const isIdxStock = s.includes('.JK') || s === 'IHSG';
+
+  let bestSession = 'London + New York';
+  let isOptimal = false;
+  let sessionDesc = '';
+
+  if (isCrypto) {
+    bestSession = '24/7 (Puncak: London + NY Overlap)';
+    isOptimal = isOverlapLondonNY || (utcHour >= 12 && utcHour < 22);
+    sessionDesc = isOverlapLondonNY ? 'Volume institusional kripto puncak (London & NY aktif)' : 'Pasar kripto aktif 24/7';
+  } else if (isUsStock) {
+    bestSession = 'New York Session (14:30 - 21:00 UTC)';
+    const usMin = utcHour * 60 + utcMin;
+    isOptimal = usMin >= (14 * 60 + 30) && usMin <= (21 * 60);
+    sessionDesc = isOptimal ? 'Bursa AS (NYSE/Nasdaq) Sedang Buka' : 'Di Luar Jam Regular Bursa AS';
+  } else if (isIdxStock) {
+    bestSession = 'Sesi Bursa IDX (02:00 - 09:00 UTC / 09:00 - 16:00 WIB)';
+    isOptimal = (utcHour >= 2 && utcHour < 9);
+    sessionDesc = isOptimal ? 'Sesi Perdagangan Saham Indonesia Aktif' : 'Bursa IDX Tutup';
+  } else {
+    const pairCfg = PAIR_SESSION_MAP[s] || { best: 'London + New York', hoursUtc: [12, 17], desc: 'London & NY Major Volatility' };
+    bestSession = pairCfg.best;
+    const [startH, endH] = pairCfg.hoursUtc;
+    if (startH <= endH) {
+      isOptimal = (utcHour >= startH && utcHour <= endH);
+    } else {
+      isOptimal = (utcHour >= startH || utcHour <= endH);
+    }
+    sessionDesc = pairCfg.desc;
+  }
+
+  return {
+    utcHour,
+    activeSessions,
+    activeSessionName,
+    isOverlapLondonNY,
+    bestSession,
+    isOptimal,
+    sessionDesc
+  };
+}
+
+/* ==================== MODEL ALIRAN ORDER SESI ASIA -> LONDON -> NY ====================
+   "Mark out Asia's high & low. London will break one.
+    New York will use that break to continue or reverse. That's the entire story." */
+export function detectAsiaLondonOrderFlow(candles) {
+  if (!candles || candles.length < 12) return null;
+  const DAY = 86400;
+  const lastT = candles[candles.length - 1].time;
+  const dayStart = Math.floor(lastT / DAY) * DAY;
+
+  // Filter candle sesi Asia: antara 00:00 dan 08:00 UTC hari ini (atau hari trading terakhir)
+  const asiaCandles = candles.filter(c => {
+    const d = new Date(c.time * 1000);
+    const h = d.getUTCHours();
+    return c.time >= (dayStart - DAY) && h >= 0 && h < 8;
+  });
+
+  if (asiaCandles.length < 3) return null;
+  const asiaHigh = Math.max(...asiaCandles.map(c => c.high));
+  const asiaLow = Math.min(...asiaCandles.map(c => c.low));
+
+  // Candle setelah sesi Asia (London & NY >= 08:00 UTC)
+  const postAsiaCandles = candles.filter(c => {
+    const d = new Date(c.time * 1000);
+    const h = d.getUTCHours();
+    return c.time >= (dayStart - DAY) && h >= 8;
+  });
+
+  let londonSweptHigh = false;
+  let londonSweptLow = false;
+  for (const c of postAsiaCandles) {
+    if (c.high > asiaHigh) londonSweptHigh = true;
+    if (c.low < asiaLow) londonSweptLow = true;
+  }
+
+  const lastBar = candles[candles.length - 1];
+  const lastClose = lastBar.close;
+
+  let sweepStatus = 'ASIA_RANGE_ACCUMULATION';
+  let orderFlowBias = 'NEUTRAL';
+  let story = 'Akumulasi Range Asia (High: ' + asiaHigh.toFixed(2) + ' / Low: ' + asiaLow.toFixed(2) + ')';
+
+  if (londonSweptLow && lastClose > asiaLow && !londonSweptHigh) {
+    sweepStatus = 'ASIA_LOW_SWEPT_BULLISH';
+    orderFlowBias = 'BULLISH';
+    story = 'London menyapu (sweep) Asia Low lalu reclaim — New York potensi pembalikan Bullish (Judas Swing)';
+  } else if (londonSweptHigh && lastClose < asiaHigh && !londonSweptLow) {
+    sweepStatus = 'ASIA_HIGH_SWEPT_BEARISH';
+    orderFlowBias = 'BEARISH';
+    story = 'London menyapu (sweep) Asia High lalu reject — New York potensi pembalikan Bearish (Judas Swing)';
+  } else if (londonSweptHigh && lastClose >= asiaHigh) {
+    sweepStatus = 'LONDON_HIGH_BREAKOUT_CONTINUATION';
+    orderFlowBias = 'BULLISH';
+    story = 'London menembus Asia High dengan kuat — New York melanjutkan ekspansi Bullish';
+  } else if (londonSweptLow && lastClose <= asiaLow) {
+    sweepStatus = 'LONDON_LOW_BREAKDOWN_CONTINUATION';
+    orderFlowBias = 'BEARISH';
+    story = 'London menembus Asia Low dengan kuat — New York melanjutkan ekspansi Bearish';
+  }
+
+  return {
+    asiaHigh,
+    asiaLow,
+    londonSweptHigh,
+    londonSweptLow,
+    sweepStatus,
+    orderFlowBias,
+    story
+  };
+}
+
+/* ==================== MULTI-TIMEFRAME TOP-DOWN MARKET ALIGNMENT ====================
+   "Discover the Power of Timeframes:
+    1D - 4H: Direction, Liquidity, Supply & Demand
+    1H - 15m: Trend, Breakout, Reversals, Order Blocks (OB), FVG, Liquidity
+    5m - 1m: Confirmations, Entry"
+   Menjamin sinyal hanya terbit jika SEARAH dari makro hingga eksekusi (anti-loss counter-trend). */
+export function detectTopDownAlignment(candles, symbol, currentTf = 'H1') {
+  if (!candles || candles.length < 35) return null;
+
+  // 1. Tier 1 (1D - 4H): Direction & Supply/Demand
+  const htf4h = resampleCandles(candles, 14400); // 4-hour bars
+  let macroBias = 'NEUTRAL';
+  let macroDemand = null;
+  let macroSupply = null;
+
+  if (htf4h.length >= 12) {
+    const closes4h = htf4h.map(c => c.close);
+    const emaPeriod = Math.min(20, closes4h.length);
+    const ema4h = calcEMA(closes4h, emaPeriod);
+    const last4h = htf4h[htf4h.length - 1];
+    const prev4h = htf4h[Math.max(0, htf4h.length - 4)];
+    const emaVal = ema4h[ema4h.length - 1];
+
+    const highs4h = htf4h.slice(-12).map(c => c.high);
+    const lows4h = htf4h.slice(-12).map(c => c.low);
+    macroSupply = Math.max(...highs4h);
+    macroDemand = Math.min(...lows4h);
+
+    if (last4h.close > emaVal && last4h.close >= prev4h.close) {
+      macroBias = 'BULLISH';
+    } else if (last4h.close < emaVal && last4h.close <= prev4h.close) {
+      macroBias = 'BEARISH';
+    }
+  } else {
+    const b = computeHtfBias(candles, currentTf);
+    macroBias = b === 1 ? 'BULLISH' : (b === -1 ? 'BEARISH' : 'NEUTRAL');
+  }
+
+  // 2. Tier 2 (1H - 15m): Struktur, Order Blocks, FVG, & Sesi
+  const atr = calcATR(candles, 14).pop() || (candles[candles.length - 1].close * 0.01);
+  const swings = detectSwingsNoLookahead(candles, 3, 3);
+  const obs = detectOrderBlocks(candles, swings, atr);
+  const sessionFlow = detectAsiaLondonOrderFlow(candles);
+
+  let structBias = 'NEUTRAL';
+  if (obs.bullOb && !obs.bearOb) structBias = 'BULLISH';
+  else if (obs.bearOb && !obs.bullOb) structBias = 'BEARISH';
+  else if (obs.bullOb && obs.bearOb) {
+    const lastP = candles[candles.length - 1].close;
+    structBias = (lastP >= (obs.bullOb.top + obs.bearOb.bottom) / 2) ? 'BULLISH' : 'BEARISH';
+  }
+
+  if (sessionFlow && sessionFlow.orderFlowBias !== 'NEUTRAL') {
+    structBias = sessionFlow.orderFlowBias;
+  }
+
+  // 3. Tier 3 (5m - 1m): Konfirmasi Eksekusi Terkini
+  const lastBar = candles[candles.length - 1];
+  const prevBar = candles[Math.max(0, candles.length - 2)];
+  let execBias = lastBar.close >= prevBar.close ? 'BULLISH' : 'BEARISH';
+
+  // 4. Sintesis Keselarasan (Top-Down Alignment)
+  const isAlignedBullish = (macroBias === 'BULLISH') && (structBias === 'BULLISH');
+  const isAlignedBearish = (macroBias === 'BEARISH') && (structBias === 'BEARISH');
+  const isAligned = isAlignedBullish || isAlignedBearish;
+
+  const alignmentStatus = isAlignedBullish
+    ? 'ALIGNED_BULLISH'
+    : (isAlignedBearish ? 'ALIGNED_BEARISH' : 'WAITING_ALIGNMENT');
+
+  const alignmentLabel = isAlignedBullish
+    ? '🟢 SEARAH MARKET (1D/4H Bullish ➔ 1H/15m OB/FVG ➔ 5m Entry)'
+    : (isAlignedBearish
+      ? '🔴 SEARAH MARKET (1D/4H Bearish ➔ 1H/15m OB/FVG ➔ 5m Entry)'
+      : '🟡 MENUNGGU KESELARASAN TREN (Anti Counter-Trend)');
+
+  return {
+    macroBias,
+    macroSupply,
+    macroDemand,
+    structBias,
+    sessionFlow,
+    execBias,
+    isAligned,
+    alignmentStatus,
+    alignmentLabel
+  };
+}
+
 // Label narasi veto (Bahasa Indonesia, sumber untuk lapisan i18n)
 export const VETO_LABELS = {
   OVEREXTENDED: 'Harga OVEREXTENDED >1.2x ATR dari EMA20/VWAP (jangan kejar kereta)',
@@ -650,6 +894,7 @@ export const VETO_LABELS = {
   EXHAUST_RSI: 'Momentum jenuh ekstrem (RSI >74 / <26) — rawan reversal',
   DIVERGENCE_MACD: 'Divergensi momentum MACD vs struktur swing',
   COUNTER_HTF: 'Melawan bias struktur timeframe di atasnya',
+  COUNTER_HTF_ALIGNMENT: 'Melawan arah tren makro 1D/4H — menunggu keselarasan pasar',
   LOW_SCORE: 'Skor konfluensi di bawah ambang minimum sinyal',
   LOW_WINRATE: 'Winrate historis di bawah ambang minimum',
   NO_SEQ: 'Belum ada urutan Liquidity Sweep -> CHoCH/BOS',
@@ -709,6 +954,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const liqPools = detectLiquidityPools(closed, swings, atr, timeframe);
   // Atlas ICT lengkap (v2026.52): level sesi, CISD, FVG/IFVG/BPR, OTE, breaker, AMD, draw on liquidity
   const ict = detectIctAtlas(closed, swings, atr, timeframe, obs);
+  const sessionInfo = getInstrumentSessionInfo(symbol, lastCandle ? lastCandle.time : null);
+  const topDown = detectTopDownAlignment(closed, symbol, timeframe);
   // Upgrade sweep: wick menembus kolam likuiditas (SSL/BSL/session lama) lalu reclaim
   for (let i = lastIdx; i > Math.max(0, lastIdx - 8); i--) {
     const b = closed[i];
@@ -745,6 +992,10 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   if (ema20 > ema50) trendScore += 14; else trendScore -= 14;
   if (lastPrice > ma200) trendScore += 12; else trendScore -= 12;
   if (lastPrice > vwap) trendScore += 10; else trendScore -= 10;
+  if (topDown && topDown.isAligned) {
+    if (topDown.alignmentStatus === 'ALIGNED_BULLISH') trendScore = Math.min(98, trendScore + 8);
+    else if (topDown.alignmentStatus === 'ALIGNED_BEARISH') trendScore = Math.max(2, trendScore - 8);
+  }
   trendScore = Math.max(5, Math.min(96, trendScore));
   // 2. Modern Institutional Structure (SMC BOS/CHoCH + VPVR POC + TPO + Liquidity Sweep + FVG)
   let structureScore = 50;
@@ -752,6 +1003,10 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   structureScore += modern.sweepBias * 12;
   if (lastPrice > vp.poc) structureScore += 8; else structureScore -= 8;
   if (lastPrice > vp.tpoPoc) structureScore += 6; else structureScore -= 6;
+  if (topDown && topDown.sessionFlow && topDown.sessionFlow.orderFlowBias !== 'NEUTRAL') {
+    if (topDown.sessionFlow.orderFlowBias === 'BULLISH') structureScore = Math.min(98, structureScore + 6);
+    else if (topDown.sessionFlow.orderFlowBias === 'BEARISH') structureScore = Math.max(2, structureScore - 6);
+  }
   structureScore = Math.max(8, Math.min(96, structureScore));
   // 3. Momentum & Volatility Oscillator (RSI 14 + MACD + Bollinger Position)
   let momentumScore = 50;
@@ -1059,6 +1314,13 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     ictAdj.val = Number(val.toFixed(1));
     rawAdj += val;
   }
+  if (topDown && topDown.isAligned) {
+    if (topDown.alignmentStatus === 'ALIGNED_BULLISH' && rawAdj >= 50) rawAdj += 3;
+    else if (topDown.alignmentStatus === 'ALIGNED_BEARISH' && rawAdj <= 50) rawAdj -= 3;
+  }
+  if (sessionInfo && sessionInfo.isOptimal) {
+    if (rawAdj >= 50) rawAdj += 1.5; else rawAdj -= 1.5;
+  }
   const analystScore = Math.round(Math.max(12, Math.min(98, rawAdj)));
   // Soft bias (pra-gate) — arah analitis sebelum gerbang ketat diterapkan
   let softBias = 'NEUTRAL';
@@ -1075,6 +1337,13 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     oldHigh: liqPools.oldHigh, oldLow: liqPools.oldLow
   };
   const vetoes = evaluateHardVetoes(htfCtx);
+  if (mode === 'trader' && topDown) {
+    if (topDown.macroBias === 'BULLISH' && !vetoes.short.includes('COUNTER_HTF_ALIGNMENT')) {
+      vetoes.short.push('COUNTER_HTF_ALIGNMENT');
+    } else if (topDown.macroBias === 'BEARISH' && !vetoes.long.includes('COUNTER_HTF_ALIGNMENT')) {
+      vetoes.long.push('COUNTER_HTF_ALIGNMENT');
+    }
+  }
   // Konfirmasi VOLUME institusional (aturan sweep->BOS WAJIB disertai kaki impulsif):
   // volume maksimal 3 candle terakhir harus >= 1.25x rata-rata 20 candle. Feed tanpa
   // data volume diperlakukan netral (tidak menghukum).
@@ -1294,7 +1563,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     }[ict.amd.phase] || 'Belum terbaca'} | Draw on liquidity atas ${ict.draw.aboveDistAtr != null ? ict.draw.aboveDistAtr + ' ATR' : '-'} / bawah ${ict.draw.belowDistAtr != null ? ict.draw.belowDistAtr + ' ATR' : '-'}${ict.fvg.bpr ? ' | BPR aktif (zona seimbang kuat)' : ''}${ict.bm.bearBreaker || ict.bm.bullBreaker ? ' | Breaker ' + (ict.bm.bullBreaker ? 'BULL (support flip)' : 'BEAR (resisten flip)') : ''} | AdjAtlas ${ictAdj.val != null ? (ictAdj.val > 0 ? '+' : '') + ictAdj.val : 0}.`,
     `[Rencana Master] Mode ${masterProfile.mode} | Risiko ${masterProfile.riskPct}% per posisi | Setengah di TP1 -> SL geser Break-Even | Runner TP2/TP3 | Maks ${masterProfile.maxActivePositions} posisi aktif berjalan.`,
     ...((!eligible && (cisdCounterVeto || fomoVeto || !persistOk || !seqOk)) ? [`[Sabar Master] Disiplin master = MENUNGGU: ${cisdCounterVeto ? 'CISD masih lawan arah (delivery berbalik)' : fomoVeto ? 'harga sudah terlalu jauh dari zona OTE — jangan mengejar kereta' : !persistOk ? 'candle ke-2 searah belum lahir' : 'sweep→BOS + volume belum lengkap'}. Entry tergesa adalah penyebab loss terbesar; setup berikutnya pasti datang.`] : []),
-    `[${brain === 'SCALP' ? 'SCALP Micro' : 'SNIPER Struktur'}] ${brain === 'SCALP' ? `VWAP30 ${brainMetrics.microVwap} | EMA9/21 ${brainMetrics.ema9}/${brainMetrics.ema21} | RSI(7) ${brainMetrics.rsi7} | Tekanan orderflow BUY ${brainMetrics.buyVolPct}% | Kecepatan tape ${brainMetrics.tapeVelPct}%` : `Posisi range 90 candle ${brainMetrics.posInRangePct}% | BOS50 ${brainMetrics.bosDir > 0 ? 'NAIK' : brainMetrics.bosDir < 0 ? 'TURUN' : '-'} | Trend EMA200 ${brainMetrics.ema200Aligned ? 'SELARAS' : 'TIDAK'} | Zona demand ${brainMetrics.distDemandAtr} ATR / supply ${brainMetrics.distSupplyAtr} ATR`} | AdjOtak ${brainMetrics.brainAdj > 0 ? '+' : ''}${brainMetrics.brainAdj}.`
+    `[${brain === 'SCALP' ? 'SCALP Micro' : 'SNIPER Struktur'}] ${brain === 'SCALP' ? `VWAP30 ${brainMetrics.microVwap} | EMA9/21 ${brainMetrics.ema9}/${brainMetrics.ema21} | RSI(7) ${brainMetrics.rsi7} | Tekanan orderflow BUY ${brainMetrics.buyVolPct}% | Kecepatan tape ${brainMetrics.tapeVelPct}%` : `Posisi range 90 candle ${brainMetrics.posInRangePct}% | BOS50 ${brainMetrics.bosDir > 0 ? 'NAIK' : brainMetrics.bosDir < 0 ? 'TURUN' : '-'} | Trend EMA200 ${brainMetrics.ema200Aligned ? 'SELARAS' : 'TIDAK'} | Zona demand ${brainMetrics.distDemandAtr} ATR / supply ${brainMetrics.distSupplyAtr} ATR`} | AdjOtak ${brainMetrics.brainAdj > 0 ? '+' : ''}${brainMetrics.brainAdj}.`,
+    ...(topDown ? [`[Top-Down Alignment] ${topDown.alignmentLabel} | 1D–4H Bias: ${topDown.macroBias} | 1H–15m Bias: ${topDown.structBias}${topDown.sessionFlow ? ' | Order Flow: ' + topDown.sessionFlow.story : ''}.`] : []),
+    ...(sessionInfo ? [`[Sesi Pasar] Sesi Optimal: ${sessionInfo.bestSession} | Sesi Aktif: ${sessionInfo.activeSessionName} (${sessionInfo.isOptimal ? 'Puncak Likuiditas' : 'Sesi Reguler'}).`] : [])
   ];
   return {
     symbol: meta.symbol,
@@ -1333,6 +1604,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     confluenceScore,
     regime: regimeLabel,
     structureTag: modern.smcStatus,
+    sessionInfo,
+    topDown,
     subScores: {
       trend: Math.round(trendScore),
       structure: Math.round(structureScore),
@@ -1763,4 +2036,5 @@ export function runWalkForwardBacktest(candles, ema20, ema50, rsi, atr, isCrypto
 export const computeSignal = runFullAnalysis;
 export const computeFullSignal = runFullAnalysis;
 export const analyzeCandles = runFullAnalysis;
+
 
