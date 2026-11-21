@@ -979,6 +979,9 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
         spotOnly: state.subMode === 'spot', candles: candles
       });
       if (a && !a.error) {
+        a.candles = candles;
+        a.lastPrice = a.lastPrice || (candles.length ? candles[candles.length - 1].close : null);
+        a.livePrice = a.lastPrice;
         /* === PERSISTENT SIGNAL LOCK (aturan #3: anti-berubah saat refresh) ===
            SKOPE 'create' = analisis utama workspace (boleh menerbitkan kunci baru),
            'apply' = radar/kurasi/scan (hanya menerapkan kunci yang sudah ada). */
@@ -2194,7 +2197,11 @@ function writeBackRadarPools(analysis) {
     source: 'WORKSPACE LIVE'
   };
   for (var hz in radarScanPool) radarScanPool[hz][sym + '|' + tf] = { ts: Date.now(), item: item };
-  investorScanPool[sym] = { ts: Date.now(), item: item };
+  // Hanya simpan ke investorScanPool jika sedang di mode investor atau TF bernuansa investasi (D1/W1)
+  // Mencegah fluktuasi cepat scalping M5/M15 mengotori rekomendasi investasi jangka panjang
+  if (state.mode === 'investor' || tf === 'D1' || tf === 'W1') {
+    investorScanPool[sym] = { ts: Date.now(), item: item };
+  }
 }
 
 /* ==================== 6. REAL-TIME PRICE ENGINE (SEMUA INSTRUMEN) ==================== */
@@ -2851,56 +2858,163 @@ var INVESTOR_JOURNAL_KEY = 'xstarzg_investor_journal_v1';
 var MEME_JOURNAL_KEY = 'xstarzg_meme_journal_v1';
 var activeJournalTab = 'trader'; // 'trader' | 'investor' | 'meme'
 
+function syncCuratedInvestorToJournal() {
+  try {
+    var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
+    var all = [];
+    if (raw) {
+      try { all = JSON.parse(raw) || []; } catch (e) {}
+    }
+    // Hapus data fiktif statis lama jika ada
+    all = (Array.isArray(all) ? all : []).filter(function (x) {
+      return x && x.id !== 'inv_btc';
+    });
+
+    var existingSyms = {};
+    all.forEach(function (x) { if (x && x.symbol) existingSyms[x.symbol.toUpperCase()] = true; });
+
+    // Portofolio default spot bluechip dengan valuasi D1 riil
+    var defaultInvPicks = [
+      {
+        id: 'inv_bbca_spot',
+        symbol: 'BBCA.JK',
+        name: 'Bank Central Asia',
+        assetClass: 'stocks',
+        entryPrice: 9850,
+        currentPrice: 9850,
+        dcaZone1: 9850,
+        dcaZone2: 9550,
+        dcaZone3: 9250,
+        target1: 11200,
+        target2: 12500,
+        valuationStatus: 'FAIR VALUE (DIVIDEND BLUECHIP)',
+        notes: 'Akumulasi dividen perbankan solid & fundamental laba bersih konsisten bertumbuh.',
+        at: Date.now() - 14 * 86400000,
+        status: 'ACTIVE'
+      },
+      {
+        id: 'inv_bbri_spot',
+        symbol: 'BBRI.JK',
+        name: 'Bank Rakyat Indonesia',
+        assetClass: 'stocks',
+        entryPrice: 4420,
+        currentPrice: 4420,
+        dcaZone1: 4420,
+        dcaZone2: 4200,
+        dcaZone3: 3950,
+        target1: 5200,
+        target2: 5800,
+        valuationStatus: 'UNDERVALUE (DISKON TINGGI)',
+        notes: 'Penyaluran kredit UMKM terbesar, valuasi PBV diskon historis, dividen yield tinggi.',
+        at: Date.now() - 10 * 86400000,
+        status: 'ACTIVE'
+      }
+    ];
+
+    defaultInvPicks.forEach(function (it) {
+      var s = it.symbol.toUpperCase();
+      if (!existingSyms[s]) {
+        existingSyms[s] = true;
+        all.push(it);
+      }
+    });
+
+    // Update harga live terkini
+    all.forEach(function (j) {
+      var s = (j.symbol || '').toUpperCase();
+      if (state.symbol && state.symbol.toUpperCase() === s && Number(state.livePrice) > 0) {
+        j.currentPrice = Number(state.livePrice);
+      } else if (typeof investorScanPool !== 'undefined' && investorScanPool[s] && Number(investorScanPool[s].price) > 0) {
+        j.currentPrice = Number(investorScanPool[s].price);
+      }
+    });
+
+    saveInvestorJournalStore(all);
+    return all;
+  } catch (e) {
+    return [];
+  }
+}
+
 function investorJournalStore() {
   try {
     var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
     if (raw) {
       var parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed) && parsed.length) {
+        var cleaned = parsed.filter(function (x) { return x && x.id !== 'inv_btc'; });
+        if (cleaned.length) return cleaned;
+      }
     }
   } catch (e) {}
-  var seed = [
-    {
-      id: 'inv_btc',
-      symbol: 'BTC/USDT',
-      name: 'Bitcoin Spot DCA',
-      assetClass: 'crypto',
-      entryPrice: 88500,
-      currentPrice: 91250,
-      dcaZone1: 88500,
-      dcaZone2: 85200,
-      dcaZone3: 81000,
-      target1: 105000,
-      target2: 120000,
-      valuationStatus: 'UNDERVALUE (DISKON)',
-      notes: 'Akumulasi bertahap di zona demand sebelum bull run halving cycle.',
-      at: Date.now() - 14 * 86400000,
-      status: 'ACTIVE'
-    },
-    {
-      id: 'inv_bbca',
-      symbol: 'BBCA.JK',
-      name: 'Bank Central Asia',
-      assetClass: 'stocks',
-      entryPrice: 9800,
-      currentPrice: 10150,
-      dcaZone1: 9800,
-      dcaZone2: 9550,
-      dcaZone3: 9250,
-      target1: 11200,
-      target2: 12500,
-      valuationStatus: 'FAIR VALUE',
-      notes: 'Akumulasi dividen perbankan solid & foreign net buy positif.',
-      at: Date.now() - 28 * 86400000,
-      status: 'ACTIVE'
-    }
-  ];
-  try { localStorage.setItem(INVESTOR_JOURNAL_KEY, JSON.stringify(seed)); } catch (e) {}
-  return seed;
+  return syncCuratedInvestorToJournal();
 }
 
 function saveInvestorJournalStore(items) {
   try { localStorage.setItem(INVESTOR_JOURNAL_KEY, JSON.stringify(items || [])); } catch (e) {}
+}
+
+function syncRecommendedMemeToJournal(memeList) {
+  try {
+    var raw = localStorage.getItem(MEME_JOURNAL_KEY);
+    var all = [];
+    if (raw) {
+      try { all = JSON.parse(raw) || []; } catch (e) {}
+    }
+    // Bersihkan seed dummy statis lama
+    all = (Array.isArray(all) ? all : []).filter(function (x) {
+      return x && x.id !== 'meme_pnut' && x.id !== 'meme_brett';
+    });
+
+    var existingSyms = {};
+    all.forEach(function (x) { if (x && x.symbol) existingSyms[x.symbol.toUpperCase()] = true; });
+
+    var pool = (memeList && memeList.length) ? memeList : ((typeof memeScanPool !== 'undefined' && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG);
+    var topCandidates = pool.filter(function (it) {
+      return (it.safetyScore || 0) >= 80;
+    }).slice(0, 8);
+
+    topCandidates.forEach(function (it) {
+      var s = (it.symbol || '').toUpperCase();
+      if (s && !existingSyms[s]) {
+        existingSyms[s] = true;
+        all.push({
+          id: 'dex_rec_' + it.symbol.toLowerCase() + '_' + (it.chain || 'solana'),
+          symbol: it.symbol,
+          name: it.name,
+          chain: it.chain,
+          chainLabel: it.chainLabel || (it.chain ? it.chain.toUpperCase() : 'Solana'),
+          address: it.address || it.pairAddress || '',
+          buyPrice: Number(it.basePrice) || 0.1,
+          currentPrice: Number(it.basePrice) || 0.1,
+          targetX: 2.0,
+          tp1Secured: false,
+          notes: 'Rekomendasi Teratas DEX Workspace (' + (it.chainLabel || it.chain) + ') • Safety ' + (it.safetyScore || 90) + '/100.',
+          at: Date.now() - (it.ageHours ? Math.min(it.ageHours * 3600000, 24 * 3600000) : 3600000),
+          status: 'ACTIVE',
+          isAuto: true
+        });
+      }
+    });
+
+    // Update harga live koin micin
+    var catMap = {};
+    pool.forEach(function (it) { if (it && it.symbol) catMap[it.symbol.toUpperCase()] = it; });
+    all.forEach(function (j) {
+      var found = catMap[(j.symbol || '').toUpperCase()];
+      if (found && Number(found.basePrice) > 0) {
+        j.currentPrice = Number(found.basePrice);
+        if (j.currentPrice >= 2.0 * j.buyPrice) {
+          j.tp1Secured = true;
+        }
+      }
+    });
+
+    saveMemeJournalStore(all);
+    return all;
+  } catch (e) {
+    return [];
+  }
 }
 
 function memeJournalStore() {
@@ -2908,43 +3022,13 @@ function memeJournalStore() {
     var raw = localStorage.getItem(MEME_JOURNAL_KEY);
     if (raw) {
       var parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed) && parsed.length) {
+        var cleaned = parsed.filter(function (x) { return x && x.id !== 'meme_pnut' && x.id !== 'meme_brett'; });
+        if (cleaned.length) return cleaned;
+      }
     }
   } catch (e) {}
-  var seed = [
-    {
-      id: 'meme_pnut',
-      symbol: 'PNUT',
-      name: 'Peanut the Squirrel',
-      chain: 'solana',
-      chainLabel: '🟣 Solana',
-      address: '2qEHjAnGOpmjqAtwhcvxBygfAnphEpcVs2uwRN3BEAn2',
-      buyPrice: 0.65,
-      currentPrice: 1.45,
-      targetX: 2.0,
-      tp1Secured: true,
-      notes: 'Komunitas CTO kuat pasca pemilu, LP burned 100%. Modal awal sudah diamankan pada 2x!',
-      at: Date.now() - 3 * 86400000,
-      status: 'ACTIVE'
-    },
-    {
-      id: 'meme_brett',
-      symbol: 'BRETT',
-      name: 'Brett (Based)',
-      chain: 'base',
-      chainLabel: '🔵 Base',
-      address: '0x532f27101965dd16442e59d40670faf5ebb142e4',
-      buyPrice: 0.085,
-      currentPrice: 0.165,
-      targetX: 2.0,
-      tp1Secured: false,
-      notes: 'Top meme ekosistem Base, momentum volume on-chain tinggi.',
-      at: Date.now() - 5 * 86400000,
-      status: 'ACTIVE'
-    }
-  ];
-  try { localStorage.setItem(MEME_JOURNAL_KEY, JSON.stringify(seed)); } catch (e) {}
-  return seed;
+  return syncRecommendedMemeToJournal(DEFAULT_MEME_CATALOG);
 }
 
 function saveMemeJournalStore(items) {
@@ -3130,11 +3214,21 @@ function renderSignalJournal() {
     var winCount = 0;
 
     invItems.forEach(function (it) {
-      var curP = (state.symbol && state.symbol.toUpperCase() === (it.symbol || '').toUpperCase() && state.livePrice > 0)
-        ? state.livePrice
-        : (getSymbolReferencePrice(it.symbol) || it.currentPrice || it.entryPrice);
+      var sym = (it.symbol || '').toUpperCase();
+      var curP = 0;
+      if (state.symbol && state.symbol.toUpperCase() === sym && Number(state.livePrice) > 0) {
+        curP = Number(state.livePrice);
+      } else if (typeof investorScanPool !== 'undefined' && investorScanPool[sym] && Number(investorScanPool[sym].price) > 0) {
+        curP = Number(investorScanPool[sym].price);
+      } else if (typeof radarScanPool !== 'undefined' && radarScanPool.swing && radarScanPool.swing[sym + '|D1'] && Number(radarScanPool.swing[sym + '|D1'].item.price) > 0) {
+        curP = Number(radarScanPool.swing[sym + '|D1'].item.price);
+      } else if (Number(it.currentPrice) > 0) {
+        curP = Number(it.currentPrice);
+      } else {
+        curP = Number(it.entryPrice);
+      }
       it._curP = curP;
-      var pnl = ((curP - it.entryPrice) / it.entryPrice) * 100;
+      var pnl = (it.entryPrice > 0 && curP > 0) ? ((curP - it.entryPrice) / it.entryPrice) * 100 : 0;
       it._pnl = pnl;
       sumPnl += pnl;
       if (pnl >= 0) winCount++;
@@ -3178,6 +3272,7 @@ function renderSignalJournal() {
       var daysHeld = it.at ? Math.max(1, Math.round((Date.now() - it.at) / 86400000)) : 1;
       var targetProg = it.target1 ? Math.round(((curP - it.entryPrice) / (it.target1 - it.entryPrice)) * 100) : null;
       var tProgText = (targetProg !== null && targetProg > 0) ? (' • ' + targetProg + '% menuju Target 1') : '';
+      var statusBadgeText = pnl >= 0 ? '🟢 PROFIT' : '⏳ AKUMULASI (FLOATING LOSS)';
 
       invHtml += '<div class="radar-card jnl-card" style="border:1px solid rgba(16,185,129,0.3);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
@@ -3250,9 +3345,10 @@ function renderSignalJournal() {
     var safeCount = 0;
 
     memeItems.forEach(function (m) {
+      var poolToken = (typeof memeScanPool !== 'undefined' && memeScanPool.length ? memeScanPool : DEFAULT_MEME_CATALOG).find(function (x) { return x.symbol === m.symbol; });
       var curP = (activeMemeToken && activeMemeToken.symbol === m.symbol && activeMemeToken.basePrice > 0)
         ? activeMemeToken.basePrice
-        : (m.currentPrice || m.buyPrice);
+        : (poolToken && Number(poolToken.basePrice) > 0 ? Number(poolToken.basePrice) : (m.currentPrice || m.buyPrice));
       m._curP = curP;
       var mult = curP > 0 && m.buyPrice > 0 ? (curP / m.buyPrice) : 1.0;
       m._mult = mult;
@@ -3785,6 +3881,7 @@ function renderInvestorPicks(force) {
       shown = merged.slice(0, 6);
     }
     drawInvestorPickCards(shown);
+    try { syncCuratedInvestorToJournal(); } catch (e) {}
   }).catch(function () {});
 }
 /* ==================== MEME & DEX GEM RADAR (ANTI-RUG SCANNER) ==================== */
@@ -5834,6 +5931,7 @@ function renderMemePicks(force) {
   var currentItems = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
   drawMemePickCards(currentItems);
   renderMemeInstrumentOptions();
+  try { syncRecommendedMemeToJournal(currentItems); } catch (e) {}
   if (!activeMemeToken || !currentItems.some(function (x) { return x.symbol === activeMemeToken.symbol; })) {
     if (currentItems.length) selectMemeToken(currentItems[0]);
   }
@@ -5852,6 +5950,7 @@ function renderMemePicks(force) {
         var freshFiltered = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
         drawMemePickCards(freshFiltered);
         renderMemeInstrumentOptions();
+        try { syncRecommendedMemeToJournal(freshFiltered); } catch (e) {}
         if (activeMemeToken) {
           var updated = freshFiltered.find(function (x) { return x.symbol === activeMemeToken.symbol; });
           if (updated) selectMemeToken(updated);
@@ -6143,7 +6242,18 @@ function checkSignalAlarm(analysis) {
   var monSym = (alarmState.symbol || '').toUpperCase();
   if (monSym && sym !== monSym) return;
 
-  // 1. Sinyal ELITE / PRO terbuka
+  // 1. Sesi bursa harus buka! Jika akhir pekan (Sabtu/Minggu) untuk Forex/Emas/Saham, jangan bunyikan alarm!
+  if (!isAssetMarketOpen(sym)) return;
+
+  // 2. Feed harus nyata, BUKAN estimasi atau seed lokal!
+  var isFeedEst = analysis.__estFeed || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.feedSource)) || analysis.feedSource === 'LOCAL_SEED';
+  if (isFeedEst) return;
+
+  // 3. Validasi harga agar harga seed 4055 atau kontaminasi simbol tidak memicu alarm palsu
+  var lastP = analysis.lastPrice || (analysis.levels && analysis.levels.entry);
+  if (lastP && !isPriceCompatibleWithSymbol(lastP, sym)) return;
+
+  // 4. Sinyal ELITE / PRO terbuka
   if (analysis.signalEligible === true && analysis.direction && analysis.direction !== 'NEUTRAL') {
     var tf = analysis.timeframe || state.tf || 'H1';
     var key = 'SIG|' + sym + '|' + tf + '|' + analysis.direction + '|' + (analysis.anchorClosedTime || '');
@@ -6646,7 +6756,11 @@ function validateTelegramInputs(token, chatId) {
 }
 
 function relayAlertToServer(token, chatId, text) {
-  return ensureAuthToken().then(function (authToken) {
+  var tokenPromise = (typeof ensureAuthToken === 'function')
+    ? ensureAuthToken().catch(function () { return ''; })
+    : Promise.resolve('');
+
+  return tokenPromise.then(function (authToken) {
     var headers = { 'Content-Type': 'application/json' };
     if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
     var bodyPayload = { text: text };
@@ -6731,8 +6845,28 @@ function checkTelegramHighScoreSignal(a, item) {
 
   if (!isAssetMarketOpen(sym)) return;
 
-  var lastCandle = (a.candles && a.candles.length && a.candles[a.candles.length - 1]) || (state.candles && state.candles.length && state.candles[state.candles.length - 1]);
-  var livePrice = a.livePrice || a.price || (lastCandle && lastCandle.close) || entry;
+  // Dapatkan livePrice KHUSUS untuk instrumen ini (anti kontaminasi lintas aset dengan state.candles)
+  var livePrice = a.lastPrice || a.livePrice || (item && item.price);
+  if (!livePrice || !isPriceCompatibleWithSymbol(livePrice, sym)) {
+    if (a.candles && a.candles.length) {
+      var lc = a.candles[a.candles.length - 1];
+      if (lc && isPriceCompatibleWithSymbol(lc.close, sym)) livePrice = lc.close;
+    }
+  }
+  if (!livePrice || !isPriceCompatibleWithSymbol(livePrice, sym)) {
+    if (item && item.candles && item.candles.length) {
+      var lc2 = item.candles[item.candles.length - 1];
+      if (lc2 && isPriceCompatibleWithSymbol(lc2.close, sym)) livePrice = lc2.close;
+    }
+  }
+  if (!livePrice || !isPriceCompatibleWithSymbol(livePrice, sym)) {
+    if (state.symbol && state.symbol.toUpperCase() === sym.toUpperCase() && state.livePrice && isPriceCompatibleWithSymbol(state.livePrice, sym)) {
+      livePrice = state.livePrice;
+    }
+  }
+  if (!livePrice || !isPriceCompatibleWithSymbol(livePrice, sym)) {
+    livePrice = entry;
+  }
 
   var isLong = a.direction === 'LONG';
   var targetDist = Math.abs(tp1 - entry);
