@@ -345,12 +345,15 @@ function loadPersistedRadarPool() {
     for (var hz in parsed) {
       radarScanPool[hz] = radarScanPool[hz] || {};
       for (var k in parsed[hz]) {
-        if (now - parsed[hz][k].ts < 15 * 60000) {
-          radarScanPool[hz][k] = parsed[hz][k];
+        var entry = parsed[hz][k];
+        if (entry && entry.item && entry.item.analysis && (now - entry.ts < 15 * 60000)) {
+          radarScanPool[hz][k] = entry;
         }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    try { sessionStorage.removeItem(RADAR_STORAGE_KEY); } catch (e2) {}
+  }
 }
 function persistRadarPool() {
   try {
@@ -359,7 +362,7 @@ function persistRadarPool() {
       copy[hz] = {};
       for (var k in radarScanPool[hz]) {
         var it = radarScanPool[hz][k];
-        if (it && it.item) {
+        if (it && it.item && it.item.analysis) {
           copy[hz][k] = {
             ts: it.ts,
             item: {
@@ -3742,8 +3745,9 @@ function isActionableRadarSignal(it) {
 }
 
 function renderRadarCardHtml(it) {
+  if (!it || !it.analysis) return '';
   var a = it.analysis;
-  var meta = getMeta(it.sym);
+  var meta = getMeta(it.sym) || {};
   var badge = radarBadgeFor(a);
   if (a.__estFeed) badge = { cls: 'wait', txt: T('ui.eEstFeed', '○ Data estimasi — sinyal nonaktif') };
   var chg = num(it.changePct, num(a.changePct));
@@ -3783,7 +3787,7 @@ function renderRadarCardHtml(it) {
       '<span class="r-sym">' + it.sym + ' <small style="color:#64748b;font-weight:700;">' + it.tf + '</small></span>' +
       '<span class="r-live">' + (feedIsEstimate(it.source) ? '○ EST' : '● LIVE') + '</span>' +
     '</div>' +
-    '<span class="r-name">' + (meta.name || it.sym) + '</span>' +
+    '<span class="r-name">' + escH(meta.name || it.sym) + '</span>' +
     '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
       '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
       '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
@@ -3791,18 +3795,18 @@ function renderRadarCardHtml(it) {
     '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' + outBadge +
     (function () {
       var tdHtml = '';
-      if (a.topDown) {
+      if (a && a.topDown) {
         var td = a.topDown;
         if (td.isAligned) {
           tdHtml = '<div style="font-size:10px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
-            '🟢 ALIGNED: 1D/4H (' + td.macroBias + ') ➔ 1H/15m ➔ 5m</div>';
+            '🟢 ALIGNED: 1D/4H (' + escH(td.macroBias) + ') ➔ 1H/15m ➔ 5m</div>';
         } else {
           tdHtml = '<div style="font-size:10px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.1);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
-            '🟡 Menunggu Keselarasan (' + td.macroBias + ' vs ' + td.structBias + ')</div>';
+            '🟡 Menunggu Keselarasan (' + escH(td.macroBias) + ' vs ' + escH(td.structBias) + ')</div>';
         }
       }
       var sessHtml = '';
-      if (a.sessionInfo) {
+      if (a && a.sessionInfo) {
         var sess = a.sessionInfo;
         var sessCol = sess.isOptimal ? '#38bdf8' : '#94a3b8';
         sessHtml = '<div style="font-size:9.5px;color:' + sessCol + ';margin-top:2px;">' +
@@ -3852,7 +3856,7 @@ function paintRadarItems(cfg, items, noneQualified) {
   var curGroups = getRadarGroups();
   if (activeGroup === 'all') {
     curGroups.forEach(function (grp, gIdx) {
-      var grpItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === grp.key && !it.analysis.__estFeed; });
+      var grpItems = items.filter(function (it) { return it && it.analysis && radarAssetGroupOf(it.sym) === grp.key && !it.analysis.__estFeed; });
       var strongGrp = grpItems.filter(isActionableRadarSignal);
       // TAMPILKAN SEMUA sinyal kuat yang lolos (jangan dipotong/disembunyikan)!
       // Jika belum ada sinyal kuat, tampilkan kandidat pantauan terdekat.
@@ -3901,7 +3905,7 @@ function paintRadarItems(cfg, items, noneQualified) {
     });
   } else {
     var selGrp = curGroups.find(function (g) { return g.key === activeGroup; }) || curGroups[0];
-    var selItems = items.filter(function (it) { return radarAssetGroupOf(it.sym) === activeGroup && !it.analysis.__estFeed; });
+    var selItems = items.filter(function (it) { return it && it.analysis && radarAssetGroupOf(it.sym) === activeGroup && !it.analysis.__estFeed; });
     var strongSel = selItems.filter(isActionableRadarSignal);
     var showSel = strongSel.length ? strongSel : selItems;
     var statusBadge = strongSel.length
@@ -3961,7 +3965,7 @@ function paintRadarItems(cfg, items, noneQualified) {
 function syncHorizonTabs() {
   var bar = $id('radarHorizonBar');
   if (!bar) return;
-  Array.prototype.forEach.call(bar.querySelectorAll('.hz-btn'), function (b) {
+  Array.prototype.forEach.call(bar.querySelectorAll('.hz-btn[data-hz]'), function (b) {
     b.classList.toggle('active', b.getAttribute('data-hz') === state.radarHorizon);
   });
 }
@@ -6199,12 +6203,20 @@ function renderOpportunityRadar(force) {
   var pool = radarScanPool[cacheKey] = radarScanPool[cacheKey] || {};
   var fresh = [];
   var now = Date.now();
-  for (var k in pool) if (now - pool[k].ts < 15 * 60000 && !pool[k].item.analysis.__estFeed) fresh.push(pool[k].item);
+  for (var k in pool) {
+    if (pool[k] && pool[k].item && pool[k].item.analysis) {
+      if (now - pool[k].ts < 15 * 60000 && !pool[k].item.analysis.__estFeed) {
+        fresh.push(pool[k].item);
+      }
+    }
+  }
   fresh.sort(function (x, y) {
-    var xAligned = (x.analysis && x.analysis.topDown && x.analysis.topDown.isAligned) ? 1 : 0;
-    var yAligned = (y.analysis && y.analysis.topDown && y.analysis.topDown.isAligned) ? 1 : 0;
+    var xAligned = (x && x.analysis && x.analysis.topDown && x.analysis.topDown.isAligned) ? 1 : 0;
+    var yAligned = (y && y.analysis && y.analysis.topDown && y.analysis.topDown.isAligned) ? 1 : 0;
     if (xAligned !== yAligned) return yAligned - xAligned;
-    return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0);
+    var xScore = (x && x.analysis) ? num(x.analysis.convictionScore, 0) : 0;
+    var yScore = (y && y.analysis) ? num(y.analysis.convictionScore, 0) : 0;
+    return yScore - xScore;
   });
   // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
   // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
@@ -7539,26 +7551,38 @@ function ensureQuotaFor(symbol) {
   return false;
 }
 function showScreen(name) {
-  var front = $id('frontLandingScreen'), gate = $id('loginGateScreen'), work = $id('appWorkspaceWrapper');
-  if (front) front.classList.toggle('hidden', name !== 'front');
-  if (gate) gate.classList.toggle('hidden', name !== 'gate');
-  if (work) work.classList.toggle('hidden', name !== 'work');
-  var dd = $id('userProfileDropdown');
-  if (dd) dd.classList.add('hidden');
-  try { window.scrollTo({ top: 0 }); } catch (e) {}
+  try {
+    var front = $id('frontLandingScreen'), gate = $id('loginGateScreen'), work = $id('appWorkspaceWrapper');
+    if (front) front.classList.toggle('hidden', name !== 'front');
+    if (gate) gate.classList.toggle('hidden', name !== 'gate');
+    if (work) work.classList.toggle('hidden', name !== 'work');
+    var dd = $id('userProfileDropdown');
+    if (dd) dd.classList.add('hidden');
+    try { window.scrollTo({ top: 0 }); } catch (e) {}
+  } catch (e) {
+    console.warn('showScreen error:', e);
+  }
 }
 function enterWorkspace() {
-  showScreen('work');
-  updateUserUi();
-  setTimeout(function () {
-    initChart();
-    try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-    if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-    connectRealtimeStream();
-    // Hemat kuotasi: section yang sedang tersembunyi tidak perlu mem-fetch feed
-    if (state.mode === 'investor') renderInvestorPicks();
-    else renderOpportunityRadar();
-  }, 60);
+  try {
+    showScreen('work');
+    updateUserUi();
+    syncModeSections();
+    setTimeout(function () {
+      try { initChart(); } catch (e) { console.warn('initChart error:', e); }
+      try { window.dispatchEvent(new Event('resize')); } catch (e) {}
+      try {
+        if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
+      } catch (e) { console.warn('runFullAnalysis error:', e); }
+      try { connectRealtimeStream(); } catch (e) {}
+      try {
+        if (state.mode === 'investor') renderInvestorPicks();
+        else renderOpportunityRadar();
+      } catch (e) { console.warn('renderOpportunityRadar error:', e); }
+    }, 60);
+  } catch (e) {
+    console.error('enterWorkspace error:', e);
+  }
 }
 
 /* ==================== 10. VIP PAYMENT (ON-CHAIN BSC VERIFY) ==================== */
@@ -7706,7 +7730,14 @@ function bindVipFlow() {
 
 /* ==================== 11. BINDING SEMUA TOMBOL & ALUR ==================== */
 function bindUiEvents() {
-  var bind = function (id, fn) { var el = $id(id); if (el) el.addEventListener('click', fn); };
+  var bind = function (id, fn) {
+    var el = $id(id);
+    if (el) {
+      el.addEventListener('click', function (e) {
+        try { fn(e); } catch (err) { console.error('Click error on ' + id + ':', err); }
+      });
+    }
+  };
   /* ---- Landing & Login gate ---- */
   bind('btnNavLoginGate', function () {
     if (state.user) enterWorkspace(); else showScreen('gate');
@@ -7716,15 +7747,22 @@ function bindUiEvents() {
   });
   bind('btnHeroPreview', function () {
     state.user = state.user || { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+    saveSession();
     enterWorkspace();
   });
   bind('btnBackToLanding', function () { showScreen('front'); });
   bind('btnBrandLogoHome', function () { showScreen('front'); });
   bind('btnTriggerGooglePopup', function () {
-    var gm = $id('googleAuthModal'); if (gm) gm.classList.remove('hidden');
+    var gm = $id('googleAuthModal');
+    if (gm) {
+      gm.classList.remove('hidden');
+      var inp = $id('googleEmailInput');
+      if (inp) setTimeout(function () { try { inp.focus(); } catch (e) {} }, 80);
+    }
   });
   bind('btnInstantPreview', function () {
     state.user = { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+    saveSession();
     enterWorkspace();
   });
   var closeGoogle = function () { var gm = $id('googleAuthModal'); if (gm) gm.classList.add('hidden'); };
@@ -9076,7 +9114,12 @@ if (document.readyState === 'loading') {
       var deferredPwaPrompt = null;
       var btnNavInstall = $id('btnNavInstallPwa');
       var btnInstallPwa = $id('btnInstallPwa');
-      var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      var isStandalone = false;
+      try {
+        isStandalone = (typeof window !== 'undefined' && window.matchMedia && typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)') && window.matchMedia('(display-mode: standalone)').matches) || (typeof window !== 'undefined' && window.navigator && window.navigator.standalone === true);
+      } catch (e) {
+        isStandalone = false;
+      }
 
       function updatePwaInstallUI(show) {
         if (isStandalone) {
