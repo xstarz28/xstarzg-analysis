@@ -786,6 +786,39 @@ function saveSignalLock(symbol, tf, lock) {
     localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
   } catch (e) {}
   try { renderSignalJournal(); } catch (e) {}
+  if (lock) {
+    try {
+      fetch('/api/market/journal-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_lock', lock: lock })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+}
+
+function syncCloudSignalJournal() {
+  fetch('/api/market/journal-sync')
+    .then(function (r) { return r && r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.ok) return;
+      var all = signalLockStore();
+      var changed = false;
+      if (Array.isArray(d.activeLocks) && d.activeLocks.length) {
+        d.activeLocks.forEach(function (l) {
+          if (!l || !l.symbol || !l.tf) return;
+          var id = signalLockId(l.symbol, l.tf);
+          if (!all[id] || (l.issuedAt && (!all[id].issuedAt || l.issuedAt > all[id].issuedAt))) {
+            all[id] = l;
+            changed = true;
+          }
+        });
+      }
+      if (changed) {
+        localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+        try { renderSignalJournal(); } catch (e) {}
+      }
+    }).catch(function () {});
 }
 /* --- Outcome tercatat & akurasi radar terukur (loop umpan-balik jujur) --- */
 function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(SIGNAL_OUTCOME_KEY) || '{}') || {}; } catch (e) { return {}; } }
@@ -942,6 +975,22 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
       localStorage.setItem(RADAR_ACC_KEY, JSON.stringify(acc));
     }
     try { notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock); } catch (e) {}
+    try {
+      fetch('/api/market/journal-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'record_outcome',
+          outcome: {
+            symbol: symbol,
+            tf: tf,
+            status: finalStatus,
+            reason: finalReason,
+            at: Date.now()
+          }
+        })
+      }).catch(function () {});
+    } catch (e) {}
     try { renderSignalJournal(); } catch (e) {}
   } catch (e) {}
 }
@@ -1128,14 +1177,14 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
               var verdict = SE.validateSignalLock(lock, closedBars0, a);
               if (verdict && verdict.status === 'ACTIVE') {
                 var lockModified = false;
-                if (verdict.bePlusActive && !lock.bePlusActive) {
-                  lock.bePlusActive = true;
-                  lockModified = true;
-                  try { notifySlPlusTriggered(symbol, tfA, lock); } catch (e) {}
-                }
                 if (verdict.filled && !lock.filled) {
                   lock.filled = true;
                   lockModified = true;
+                }
+                if (verdict.bePlusActive && !lock.bePlusActive && (lock.filled || verdict.filled)) {
+                  lock.bePlusActive = true;
+                  lockModified = true;
+                  try { notifySlPlusTriggered(symbol, tfA, lock); } catch (e) {}
                 }
                 if (lockModified) {
                   saveSignalLock(symbol, tfA, lock);
@@ -6633,6 +6682,7 @@ function loadPersistedSlPlusNotify() {
 function notifySlPlusTriggered(symbol, tf, lock) {
   if (!slPlusNotifyState.enabled) return;
   if (!symbol || !lock) return;
+  if (!lock.filled) return; // Order limit belum terisi di exchange — dilarang kirim alarm geser SL!
 
   var key = symbol + ':' + (tf || '') + ':' + (lock.issuedAt || lock.at || 0);
   if (slPlusNotifyState.lastNotifiedMap[key]) return;
@@ -8382,7 +8432,7 @@ function setMode(mode) {
   else {
     stopMemeLiveTicker();
     if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
-    else if (mode === 'journal') renderSignalJournal();
+    else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
     else renderOpportunityRadar(true);
   }
   renderMacroMap(); // strip peta makro hanya relevan di workspace investor
@@ -8457,6 +8507,7 @@ function bootCore() {
     // analisa dengan simbol/timeframe/mode terakhir (tanpa login ulang).
     state.user = saved.user;
     try { syncTelegramLinkStatus(); } catch (e) {}
+    try { syncCloudSignalJournal(); } catch (e) {}
     try { applyWorkspacePrefs(saved); } catch (e) {}
     try { renderInstrumentCatalog(); } catch (e) {}
     try { updateUserUi(); } catch (e) {}

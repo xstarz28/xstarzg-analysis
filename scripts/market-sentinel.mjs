@@ -40,6 +40,60 @@ function saveCache(cache) {
   } catch (e) {}
 }
 
+export async function syncJournalToCloud(payload) {
+  const apiHosts = [
+    process.env.XSTARZG_API_HOST,
+    'https://xstarzganalysis.pages.dev',
+    'https://xstarzg-analysis.pages.dev'
+  ].filter(Boolean);
+  const secret = process.env.SENTINEL_SECRET || 'xstarzg-2026-quant-secret';
+
+  for (const host of apiHosts) {
+    try {
+      if (typeof fetch !== 'function') break;
+      const res = await fetch(`${host}/api/market/journal-sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Sentinel-Key': secret,
+          'User-Agent': 'XStarZG-Sentinel/1.0'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res && res.ok) return await res.json();
+    } catch (e) {}
+  }
+  return null;
+}
+
+export async function syncActiveLocksFromCloud(cache) {
+  if (!cache || typeof cache !== 'object') return;
+  cache.slPlusLocks = cache.slPlusLocks || {};
+  const apiHosts = [
+    process.env.XSTARZG_API_HOST,
+    'https://xstarzganalysis.pages.dev',
+    'https://xstarzg-analysis.pages.dev'
+  ].filter(Boolean);
+
+  for (const host of apiHosts) {
+    try {
+      if (typeof fetch !== 'function') break;
+      const res = await fetch(`${host}/api/market/journal-sync`);
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.activeLocks)) {
+          for (const l of data.activeLocks) {
+            if (l && l.symbol && !cache.slPlusLocks[l.symbol]) {
+              cache.slPlusLocks[l.symbol] = l;
+            }
+          }
+        }
+        break;
+      }
+    } catch (e) {}
+  }
+}
+
 let RESOLVED_BOT_TOKEN = '';
 
 async function getActiveSubscribers() {
@@ -332,7 +386,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
       // Daftarkan ke pengawasan order
       // PENTING: flag `justCreated = true` MENJAMIN step 2 tidak mengevaluasi SL+ pada cycle yang sama!
-      cache.slPlusLocks[sym] = {
+      const lockObj = {
         symbol: sym,
         tf: tf,
         direction: dir,
@@ -349,8 +403,11 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         notifiedSlPlus: false,
         notifiedTp1: false,
         created: Date.now(),
+        issuedAt: Date.now(),
         justCreated: true
       };
+      cache.slPlusLocks[sym] = lockObj;
+      await syncJournalToCloud({ action: 'save_lock', lock: lockObj });
     }
   }
 
@@ -384,6 +441,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       activeLock.status = 'FILLED';
       activeLock.filledAt = Date.now();
       console.log(`  [${sym} ${tf}] 🔔 Limit Order TERJEMPUT pada ${formatP(entry, sym)}! Posisi aktif dipantau.`);
+      await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
     } else {
       // Cek apakah target sudah tercapai sebelum order sempat dijemput (MISSED)
       const missed = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
@@ -397,6 +455,16 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `⚠️ <b>AKSI WAJIB:</b>\n` +
           `<i>Segera batalkan (cancel) antrian limit order Anda pada exchange/broker sekarang! Target sudah tersentuh duluan tanpa menjemput antrian. Jangan biarkan order menggantung!</i>`;
         await sendFn(cancelMsg);
+        await syncJournalToCloud({
+          action: 'record_outcome',
+          outcome: {
+            symbol: sym,
+            tf: activeLock.tf,
+            status: 'MISSED',
+            reason: 'Target tercapai sebelum limit order terisi',
+            at: Date.now()
+          }
+        });
         delete cache.slPlusLocks[sym];
         return;
       }
@@ -413,6 +481,16 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `⚠️ <b>AKSI WAJIB BAGI TRADER:</b>\n` +
           `<i>Batalkan (cancel) antrian limit order ini sekarang! Durasi setup telah berakhir tanpa terisi (unfilled). Jangan lakukan entry karena momentum dan struktur pasar sudah berubah!</i>`;
         await sendFn(expMsg);
+        await syncJournalToCloud({
+          action: 'record_outcome',
+          outcome: {
+            symbol: sym,
+            tf: activeLock.tf,
+            status: 'EXPIRED',
+            reason: 'Waktu tunggu limit order habis tanpa terisi',
+            at: Date.now()
+          }
+        });
         delete cache.slPlusLocks[sym];
         return;
       }
@@ -430,6 +508,16 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `⚠️ <b>AKSI WAJIB:</b>\n` +
           `<i>Batalkan (cancel) antrian limit order ini sekarang! Harga pasar sudah melaju terlalu jauh tanpa menjemput antrian. Jangan mengejar harga (anti-chasing)!</i>`;
         await sendFn(cancelMsg);
+        await syncJournalToCloud({
+          action: 'record_outcome',
+          outcome: {
+            symbol: sym,
+            tf: activeLock.tf,
+            status: 'CANCELLED',
+            reason: 'Harga pasar melaju terlalu jauh tanpa menjemput antrian limit order',
+            at: Date.now()
+          }
+        });
         delete cache.slPlusLocks[sym];
         return;
       }
@@ -449,6 +537,16 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
       `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
     await sendFn(slMsg);
+    await syncJournalToCloud({
+      action: 'record_outcome',
+      outcome: {
+        symbol: sym,
+        tf: activeLock.tf,
+        status: activeLock.notifiedSlPlus ? 'BE_SAVED' : 'SL_HIT',
+        reason: activeLock.notifiedSlPlus ? 'Proteksi SL+ mengamankan modal (0-Risk)' : 'Stop Loss tersentuh pasar',
+        at: Date.now()
+      }
+    });
     delete cache.slPlusLocks[sym];
     return;
   }
@@ -464,6 +562,16 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       `Target TP1: <b>${formatP(tp1, sym)} TERPENUHI!</b>\n\n` +
       `💰 <i>Tutup 50% lot untuk mengunci profit! Geser Stop Loss ke BE+ untuk sisa posisi yang mengincar TP2/TP3.</i>`;
     await sendFn(tpMsg);
+    await syncJournalToCloud({
+      action: 'record_outcome',
+      outcome: {
+        symbol: sym,
+        tf: activeLock.tf,
+        status: 'TP_HIT',
+        reason: 'Target Take Profit 1 tercapai',
+        at: Date.now()
+      }
+    });
     delete cache.slPlusLocks[sym];
     return;
   }
@@ -498,6 +606,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka ${platTarget} sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
 
       await sendFn(slMsg);
+      await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
     }
   }
 }
@@ -543,6 +652,7 @@ async function runSentinel() {
   }
 
   const cache = loadCache();
+  await syncActiveLocksFromCloud(cache);
   for (const inst of WATCHLIST) {
     await scanInstrument(inst, cache);
   }
