@@ -17,8 +17,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
 
 // Ambil token & chatId dari environment variable (GitHub Secrets)
-const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN || '').trim().replace(/^bot/i, '');
-const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
+const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN || process.env.BOT_TOKEN || '').trim().replace(/^bot/i, '');
+const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID || process.env.CHAT_ID || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
 const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '62', 10) || 62;
 
 console.log('⚡ [XSTARZG SENTINEL] Memulai pemindaian pasar 24/7...');
@@ -110,7 +110,11 @@ async function getActiveSubscribers() {
   for (const apiHost of apiHosts) {
     try {
       const res = await fetch(`${apiHost}/api/notify/telegram-subscribers?key=${encodeURIComponent(secret)}`, {
-        headers: { 'X-Sentinel-Key': secret, 'User-Agent': 'XStarZG-Sentinel/1.0' }
+        headers: {
+          'X-Sentinel-Key': secret,
+          'X-Bot-Token': (BOT_TOKEN || ''),
+          'User-Agent': 'XStarZG-Sentinel/1.0'
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -202,19 +206,25 @@ async function sendTelegramMessage(text) {
 // Fetch crypto candles from Binance public API
 async function fetchBinanceCandles(pair, interval = '1h', limit = 150) {
   const sym = pair.replace('/', '').toUpperCase();
-  const url = `https://data-api.binance.vision/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'XStarZG-Sentinel/1.0' } });
-  if (!res.ok) throw new Error(`Binance HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data)) return [];
-  return data.map(d => ({
-    time: Math.floor(Number(d[0]) / 1000),
-    open: Number(d[1]),
-    high: Number(d[2]),
-    low: Number(d[3]),
-    close: Number(d[4]),
-    volume: Number(d[5])
-  }));
+  const hosts = ['https://data-api.binance.vision', 'https://api.binance.com'];
+  for (const host of hosts) {
+    try {
+      const url = `${host}/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'XStarZG-Sentinel/1.0' } });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!Array.isArray(data) || !data.length) continue;
+      return data.map(d => ({
+        time: Math.floor(Number(d[0]) / 1000),
+        open: Number(d[1]),
+        high: Number(d[2]),
+        low: Number(d[3]),
+        close: Number(d[4]),
+        volume: Number(d[5])
+      }));
+    } catch (e) {}
+  }
+  return [];
 }
 
 // Fetch forex / commodities candles from Yahoo Finance
@@ -414,6 +424,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   // 2. Pemantauan Posisi & SL+ (0-Risk Break-Even Plus Trigger)
   const activeLock = cache.slPlusLocks[sym];
   if (!activeLock) return;
+  if (activeLock.tf && activeLock.tf !== tf) return;
 
   // 2a. Guard anti double-ping: jika order baru saja diterbitkan di tick ini, lewati
   if (activeLock.justCreated) {
@@ -620,7 +631,7 @@ async function scanInstrument(inst, cache) {
   try {
     let candles = [];
     if (type === 'crypto') {
-      const interval = tf === 'M15' ? '15m' : (tf === 'H4' ? '4h' : '1h');
+      const interval = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
       candles = await fetchBinanceCandles(sym, interval);
     } else {
       candles = await fetchYahooCandles(sym, tf);
