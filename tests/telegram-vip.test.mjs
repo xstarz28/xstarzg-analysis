@@ -13,7 +13,16 @@ let failed = 0;
 
 function test(name, fn) {
   try {
-    fn();
+    const res = fn();
+    if (res && typeof res.then === 'function') {
+      return res.then(() => {
+        console.log(`  ✅ PASS: ${name}`);
+        passed++;
+      }).catch(err => {
+        console.error(`  ❌ FAIL: ${name}\n`, err);
+        failed++;
+      });
+    }
     console.log(`  ✅ PASS: ${name}`);
     passed++;
   } catch (err) {
@@ -865,7 +874,10 @@ await test('telegram-subscribers maps language preference and sentinel dispatche
     .bind('111222333', 'vip_foreigner@uk-capital.com', 'VIP', Date.now() + 86400000, 0, 0, new Date().toISOString())
     .run();
   await mockDb.prepare('INSERT INTO telegram_subscribers VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind('444555666', 'sevenfoldarmy2822@gmail.com', 'OWNER_VIP', null, 1, 0, new Date().toISOString())
+    .bind('444555666', 'trader_vip@sekuritas.co.id', 'VIP', Date.now() + 86400000, 0, 0, new Date().toISOString())
+    .run();
+  await mockDb.prepare('INSERT INTO telegram_subscribers VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind('777888999', 'sevenfoldarmy2822@gmail.com', 'OWNER_VIP', null, 1, 0, new Date().toISOString())
     .run();
 
   const req = new Request('https://xstarzg.com/api/notify/telegram-subscribers', {
@@ -879,8 +891,10 @@ await test('telegram-subscribers maps language preference and sentinel dispatche
 
   const subEn = data.subscribers.find(s => s.chat_id === '111222333');
   const subId = data.subscribers.find(s => s.chat_id === '444555666');
+  const subOwner = data.subscribers.find(s => s.chat_id === '777888999');
   assert.strictEqual(subEn.lang, 'en');
   assert.strictEqual(subId.lang, 'id');
+  assert.strictEqual(subOwner.lang, 'en');
 
   // Verify market-sentinel.mjs supports both ID and EN alerts without mixed terms
   const fs = await import('fs');

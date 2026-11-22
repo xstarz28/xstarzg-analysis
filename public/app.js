@@ -475,6 +475,7 @@ var REFERENCE_PRICES = {
   'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00, 'XRP/USDT': 2.55, 'ADA/USDT': 0.82,
   'DOGE/USDT': 0.26, 'AVAX/USDT': 26.4, 'LINK/USDT': 18.9, 'TON/USDT': 3.85, 'SUI/USDT': 3.42, 'DOT/USDT': 5.20,
   'NEAR/USDT': 3.60, 'APT/USDT': 6.40, 'LTC/USDT': 124, 'BCH/USDT': 345, 'SEI/USDT': 0.28, 'KAS/USDT': 0.15,
+  'LDO/USDT': 1.45, 'KCS/USDT': 5.82, 'FET/USDT': 1.15, 'TAO/USDT': 450.00, 'RENDER/USDT': 4.80, 'PEPE/USDT': 0.00001,
   // Equities
   'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880, 'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620,
   'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00, 'TSLA': 262.00, 'SPY': 590.0, 'QQQ': 510.0
@@ -867,7 +868,7 @@ function notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock) {
            'Setup: <b>' + dirEmoji + '</b> @ ' + entryP + '\n' +
            'Status: <b>KADALUWARSA (12 Bar Berlalu Belum Terjemput)</b>\n\n' +
            '⚠️ <b>AKSI WAJIB BAGI TRADER:</b>\n' +
-           '<i>Segera <b>BATALKAN (CANCEL)</b> antrian Limit Order Anda pada exchange/broker sekarang! Masa berlaku setup telah berakhir (12 candle berlalu tanpa terisi). Jangan biarkan order menggantung agar terhindar dari posisi zonk!</i>');
+           '<i>Segera <b>BATALKAN (CANCEL) antrian Limit Order</b> Anda pada exchange/broker sekarang! Masa berlaku setup telah berakhir (12 candle berlalu tanpa terisi). Jangan biarkan order menggantung agar terhindar dari posisi zonk!</i>');
       } else {
         msg = isEn ?
           ('⌛ <b>[POSITION TIME HORIZON EXPIRED]</b>\n\n' +
@@ -1656,8 +1657,18 @@ function drawChartLevels(analysis) {
         add(slP, '#f43f5e', 'SL HIT ✗', 0);
         add(entryP, 'rgba(56,189,248,0.3)', 'ENTRY', 2);
       } else {
+        var isBeActive = (analysis.tradeManagement && analysis.tradeManagement.bePlusActive) || (L && L.bePlusActive) || (analysis.lockedSignal && analysis.lockedSignal.bePlusActive);
+        var slPlusVal = (L && L.slPlus) || (analysis.lockedSignal && analysis.lockedSignal.slPlus);
+
         add(L.entry, '#38bdf8', 'ENTRY', 0);
-        add(L.sl, '#f43f5e', 'STOP LOSS', 2);
+
+        if (isBeActive && num(slPlusVal) > 0) {
+          add(slPlusVal, '#10b981', 'SL+ (0-RISK BE+)', 0);
+          add(L.sl, 'rgba(244,63,94,0.35)', 'INITIAL SL (BE PROTECTED)', 3);
+        } else {
+          add(L.sl, '#f43f5e', 'STOP LOSS', 2);
+        }
+
         add(L.tp1, '#10b981', 'TP1', 2);
         add(L.tp2, '#10b981', 'TP2', 2);
         add(L.tp3, '#34d399', 'TP3', 2);
@@ -2507,8 +2518,9 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var brain = lock.brain || (['M1', 'M5', 'M15'].indexOf(tf) > -1 ? 'SCALP' : 'SNIPER');
   var beTriggerRatio = brain === 'SCALP' ? 0.35 : 0.40;
 
+  var effectiveSl = (lock.bePlusActive && num(lock.slPlus) > 0) ? num(lock.slPlus) : sl;
   var tpHit = isLong ? (high >= tp1) : (low <= tp1);
-  var slHit = isLong ? (low <= sl) : (high >= sl);
+  var slHit = isLong ? (low <= effectiveSl) : (high >= effectiveSl);
 
   if (tpHit) {
     var verdict = { status: 'TP_HIT', reason: T('ui.jnlTpHitReason', 'TP tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(tp1, symbol) + ')', at: Date.now(), exitPrice: tp1 };
@@ -2520,7 +2532,17 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   }
 
   if (slHit) {
-    var verdict = { status: 'SL_HIT', reason: T('ui.jnlSlHitReason', 'SL tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(sl, symbol) + ')', at: Date.now(), beProtected: !!lock.bePlusActive, slPlus: lock.slPlus, exitPrice: sl };
+    var isBeExit = !!lock.bePlusActive && num(lock.slPlus) > 0;
+    var verdict = {
+      status: isBeExit ? 'BE_SAVED' : 'SL_HIT',
+      reason: isBeExit
+        ? (T('ui.jnlBeSavedReason', 'Terselamatkan oleh proteksi SL+ (0-Risk, modal aman)') + ' (' + formatPrice(effectiveSl, symbol) + ')')
+        : (T('ui.jnlSlHitReason', 'SL tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(effectiveSl, symbol) + ')'),
+      at: Date.now(),
+      beProtected: isBeExit,
+      slPlus: lock.slPlus,
+      exitPrice: effectiveSl
+    };
     if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
     recordSignalOutcome(symbol, tf, verdict, lock);
     saveSignalLock(symbol, tf, null);
@@ -6724,6 +6746,7 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   if (!slPlusNotifyState.enabled) return;
   if (!symbol || !lock) return;
   if (!lock.filled) return; // Order limit belum terisi di exchange — dilarang kirim alarm geser SL!
+  if (lock.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(lock.source))) return;
 
   var key = symbol + ':' + (tf || '') + ':' + (lock.issuedAt || lock.at || 0);
   if (slPlusNotifyState.lastNotifiedMap[key]) return;
@@ -6732,6 +6755,8 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
   var isEn = curLang !== 'id';
 
+  var isLong = lock.direction === 'LONG';
+  var entryTxt = lock.entry ? formatPrice(lock.entry, symbol) : '—';
   var slPriceFormatted = lock.slPlus ? formatPrice(lock.slPlus, symbol) : (lock.entry ? formatPrice(lock.entry, symbol) : '');
   var title = isEn ? '🛡️ SL+ TRIGGERED (0-RISK): ' + symbol : '🛡️ SL+ TERPICU (0-RISK): ' + symbol;
   var body = isEn ?
@@ -6745,19 +6770,27 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   // Kirim notifikasi darurat instan ke bot Telegram di HP trader (Bahasa dinamis sesuai sistem)
   if (telegramConfig && telegramConfig.notifySlPlus && (telegramConfig.chatId || state.user)) {
     var tgSlPlusMsg = isEn ? (
-      '🛡️ <b>[SL+ TRIGGERED — 0-RISK ALERT]</b>\n\n' +
+      '🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TRIGGERED — 0-RISK ALERT]</b>\n\n' +
       'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ')\n' +
-      'Direction: <b>' + (lock.direction || '—') + '</b>\n' +
-      'Initial Entry: <b>' + (lock.entry ? formatPrice(lock.entry, symbol) : '—') + '</b>\n' +
-      'Move SL to: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk)</b>\n\n' +
-      '⚠️ <i>Price has entered the 0-Risk safety zone! Open your trading platform / exchange now and move Stop Loss to the BE+ level above to protect 100% of your capital!</i>'
+      'Direction: <b>' + (isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT') + '</b>\n' +
+      'Initial Entry: <b>' + entryTxt + '</b>\n' +
+      (isLong ?
+        ('Move Stop Loss to: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk BE+)</b>\n<i>(Placed ABOVE entry price ' + entryTxt + ' to lock in profit / risk-free trade)</i>\n\n' +
+         '⚠️ <i>Price reached the 0-Risk safety threshold! Open your exchange/broker now and adjust your Stop Loss up to ' + (slPriceFormatted || 'BE+') + ' to protect 100% of your capital!</i>') :
+        ('Move Stop Loss to: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk BE+)</b>\n<i>(Placed BELOW entry price ' + entryTxt + ' to lock in profit / risk-free trade)</i>\n\n' +
+         '⚠️ <i>Price reached the 0-Risk safety threshold! Open your exchange/broker now and adjust your Stop Loss down to ' + (slPriceFormatted || 'BE+') + ' to protect 100% of your capital!</i>')
+      )
     ) : (
-      '🛡️ <b>[SL+ TERPICU — 0-RISK ALERT]</b>\n\n' +
+      '🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TERPICU — 0-RISK ALERT]</b>\n\n' +
       'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ')\n' +
-      'Arah: <b>' + (lock.direction || '—') + '</b>\n' +
-      'Entry Awal: <b>' + (lock.entry ? formatPrice(lock.entry, symbol) : '—') + '</b>\n' +
-      'Geser SL ke: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk)</b>\n\n' +
-      '⚠️ <i>Harga telah mencapai zona aman 0-Risk! Segera buka aplikasi trading / exchange Anda sekarang dan geser Stop Loss ke level BE+ di atas agar modal aman 100%!</i>'
+      'Arah: <b>' + (isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT') + '</b>\n' +
+      'Entry Awal: <b>' + entryTxt + '</b>\n' +
+      (isLong ?
+        ('Target Geser SL: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk BE+)</b>\n<i>(Pasang DI ATAS harga entry ' + entryTxt + ' untuk mengunci profit / posisi bebas risiko)</i>\n\n' +
+         '⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka exchange/broker Anda sekarang dan naikkan Stop Loss ke ' + (slPriceFormatted || 'BE+') + ' agar modal terlindungi 100%!</i>') :
+        ('Target Geser SL: <b>' + (slPriceFormatted || 'BE+') + ' (0-Risk BE+)</b>\n<i>(Pasang DI BAWAH harga entry ' + entryTxt + ' untuk mengunci profit / posisi bebas risiko)</i>\n\n' +
+         '⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka exchange/broker Anda sekarang dan turunkan Stop Loss ke ' + (slPriceFormatted || 'BE+') + ' agar modal terlindungi 100%!</i>')
+      )
     );
     try { sendTelegramAlert(tgSlPlusMsg); } catch (e) {}
   }
@@ -6805,9 +6838,11 @@ function loadPersistedTelegramConfig() {
 
 function syncTelegramLinkStatus() {
   if (!state.user) return Promise.resolve(null);
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var clientLang = (curLang === 'id' || String(curLang).toLowerCase().indexOf('id') === 0) ? 'id' : 'en';
   return ensureAuthToken().then(function (token) {
     if (!token) return null;
-    return fetch('/api/notify/telegram-link', { headers: { 'Authorization': 'Bearer ' + token } })
+    return fetch('/api/notify/telegram-link?lang=' + encodeURIComponent(clientLang), { headers: { 'Authorization': 'Bearer ' + token } })
       .then(function (r) { return r && r.ok ? r.json() : null; })
       .then(function (d) {
         if (d && d.linkedChatId) {
@@ -7079,6 +7114,15 @@ function checkTelegramHighScoreSignal(a, item) {
   if (!telegramConfig.chatId && !state.user) return;
   if (!a || a.error || !a.signalEligible || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return;
 
+  // STRICT GUARD: Dilarang keras mengirim notifikasi jika data feed adalah estimasi / seed lokal / unverified!
+  if (a.__estFeed || a.source === 'LOCAL_SEED' || a.feedUnverified) return;
+  var src = a.source || (item && item.source) || state.feedSource;
+  if (typeof feedIsEstimate === 'function' && feedIsEstimate(src)) return;
+  if (typeof feedIsReal === 'function' && !feedIsReal(src)) return;
+
+  // STRICT GUARD: Verifikasi keselarasan pasar Top-Down (1D/4H vs 1H/15m) — anti counter-trend noise
+  if (a.topDown && !a.topDown.isAligned) return;
+
   var minThresh = Math.min(telegramConfig.minScore || 62, 62);
   var score = num(a.confluenceScore, a.confidence || 0);
   if (score < minThresh) return;
@@ -7098,6 +7142,7 @@ function checkTelegramHighScoreSignal(a, item) {
   if (!entry || !sl || !tp1) return;
 
   if (!isAssetMarketOpen(sym)) return;
+  if (!isPriceCompatibleWithSymbol(entry, sym) || !isPriceCompatibleWithSymbol(sl, sym) || !isPriceCompatibleWithSymbol(tp1, sym)) return;
 
   // Dapatkan livePrice KHUSUS untuk instrumen ini (anti kontaminasi lintas aset dengan state.candles)
   var livePrice = a.lastPrice || a.livePrice || (item && item.price);
@@ -7205,32 +7250,79 @@ function checkTelegramHighScoreSignal(a, item) {
     }
   }
 
+  var topDownBlock = '';
+  if (a.topDown) {
+    var td = a.topDown;
+    topDownBlock = isEn ?
+      ('📊 <b>MARKET ALIGNMENT (TOP-DOWN ALIGNED):</b>\n' +
+       '• 1D–4H Macro: <b>' + escH(td.macroBias) + '</b> (Direction & Liquidity)\n' +
+       '• 1H–15m Structure: <b>' + escH(td.structBias) + '</b> (OB & FVG)\n' +
+       '• 5m–1m Execution: <b>' + escH(a.direction) + '</b> (Entry Confirmation)\n' +
+       (td.sessionFlow && td.sessionFlow.story ? ('⚡ Order Flow: <i>' + escH(td.sessionFlow.story) + '</i>\n') : '')) :
+      ('📊 <b>KESELARASAN PASAR (TOP-DOWN ALIGNED):</b>\n' +
+       '• 1D–4H Makro: <b>' + escH(td.macroBias) + '</b> (Arah & Likuiditas)\n' +
+       '• 1H–15m Struktur: <b>' + escH(td.structBias) + '</b> (Order Block & FVG)\n' +
+       '• 5m–1m Eksekusi: <b>' + escH(a.direction) + '</b> (Konfirmasi Entry)\n' +
+       (td.sessionFlow && td.sessionFlow.story ? ('⚡ Order Flow: <i>' + escH(td.sessionFlow.story) + '</i>\n') : ''));
+  }
+
+  var sessionBlock = '';
+  if (a.sessionInfo) {
+    var sess = a.sessionInfo;
+    sessionBlock = isEn ?
+      ('🏛️ <b>Optimal Session:</b> <code>' + escH(sess.bestSession) + '</code> (' + (sess.isOptimal ? 'Peak Liquidity 🔥' : 'Regular Hours') + ')\n') :
+      ('🏛️ <b>Sesi Optimal:</b> <code>' + escH(sess.bestSession) + '</code> (' + (sess.isOptimal ? 'Puncak Likuiditas 🔥' : 'Sesi Reguler') + ')\n');
+  }
+
+  var isCrypto = (sym || '').indexOf('/USDT') > -1 || (sym || '').indexOf('BTC') > -1 || (sym || '').indexOf('ETH') > -1 || (sym || '').indexOf('SOL') > -1;
+  var isStock = (sym || '').indexOf('.JK') > -1 || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].indexOf(sym) > -1;
+  var platformName = isEn ?
+    (isCrypto ? 'your crypto exchange (Binance/Bybit/OKX/etc.)' : isStock ? 'your stock brokerage account' : 'your trading platform / broker') :
+    (isCrypto ? 'exchange kripto pilihan Anda (Binance/Bybit/Tokocrypto/OKX)' : isStock ? 'aplikasi sekuritas/broker saham Anda' : 'broker/aplikasi trading Anda');
+
+  var orderType = '';
+  if (isLong) {
+    if (diff < -0.08 * atr) orderType = 'BUY LIMIT (Diskon Pullback)';
+    else if (diff > 0.08 * atr) orderType = 'BUY STOP (Breakout Resistance)';
+    else orderType = 'BUY NOW (Market / Instan)';
+  } else {
+    if (diff > 0.08 * atr) orderType = 'SELL LIMIT (Premium Pullback)';
+    else if (diff < -0.08 * atr) orderType = 'SELL STOP (Breakdown Support)';
+    else orderType = 'SELL NOW (Market / Instan)';
+  }
+
   var tgMsg = isEn ? (
-    '🚀 <b>[NEW HIGH-SCORE OPPORTUNITY — ' + tierTxt + ']</b>\n\n' +
+    '🚀 <b>[XSTARZG 24/7 CLOUD — NEW HIGH-SCORE OPPORTUNITY (' + tierTxt + ')]</b>\n\n' +
     'Asset: <b>' + sym + '</b> (' + tf + ' • ' + hzLabel + ')\n' +
-    'Setup: <b>' + dirEmoji + '</b> (R:R 1:' + rrRatio + ')\n' +
+    'Setup: <b>' + dirEmoji + ' (' + tierTxt + ' SETUP)</b>\n' +
     'Confidence Score: <b>' + score + '%</b>\n' +
-    'Market Regime: <i>' + (a.regime || 'Institutional Flow') + '</i>\n\n' +
+    'Market Regime: <i>' + (a.regime || 'Institutional Flow') + '</i>\n' +
+    (sessionBlock ? sessionBlock : '') +
+    (topDownBlock ? ('\n' + topDownBlock + '\n') : '\n') +
+    '📌 <b>Order Type:</b> <code>' + orderType + '</code>\n' +
     orderInstruction + '\n\n' +
-    '🎯 <b>Entry:</b> ' + formatPrice(entry, sym) + '\n' +
+    '🎯 <b>Entry Level:</b> ' + formatPrice(entry, sym) + '\n' +
     '🛡️ <b>Stop Loss:</b> ' + formatPrice(sl, sym) + '\n' +
     '✅ <b>Take Profit 1:</b> ' + formatPrice(tp1, sym) + '\n' +
     (tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(tp2, sym) + '\n') : '') +
     (tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(tp3, sym) + '\n') : '') +
-    '\n📱 <i>Open your trading platform / exchange and execute according to the instructions above!</i>'
+    '\n📱 <i>Open ' + platformName + ' and execute according to the instructions above. Cloud bot will monitor this position 24/7 and alert you when SL+ (0-Risk) triggers!</i>'
   ) : (
-    '🚀 <b>[PELUANG BARU SKOR BESAR — ' + tierTxt + ']</b>\n\n' +
+    '🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG BARU SKOR BESAR (' + tierTxt + ')]</b>\n\n' +
     'Aset: <b>' + sym + '</b> (' + tf + ' • ' + hzLabel + ')\n' +
-    'Setup: <b>' + dirEmoji + '</b> (R:R 1:' + rrRatio + ')\n' +
+    'Setup: <b>' + dirEmoji + ' (' + tierTxt + ' SETUP)</b>\n' +
     'Confidence Score: <b>' + score + '%</b>\n' +
-    'Regime Pasar: <i>' + (a.regime || 'Institutional Flow') + '</i>\n\n' +
+    'Regime Pasar: <i>' + (a.regime || 'Institutional Flow') + '</i>\n' +
+    (sessionBlock ? sessionBlock : '') +
+    (topDownBlock ? ('\n' + topDownBlock + '\n') : '\n') +
+    '📌 <b>Tipe Order:</b> <code>' + orderType + '</code>\n' +
     orderInstruction + '\n\n' +
-    '🎯 <b>Entry:</b> ' + formatPrice(entry, sym) + '\n' +
+    '🎯 <b>Titik Entry:</b> ' + formatPrice(entry, sym) + '\n' +
     '🛡️ <b>Stop Loss:</b> ' + formatPrice(sl, sym) + '\n' +
     '✅ <b>Take Profit 1:</b> ' + formatPrice(tp1, sym) + '\n' +
     (tp2 ? ('✅ <b>Take Profit 2:</b> ' + formatPrice(tp2, sym) + '\n') : '') +
     (tp3 ? ('🚀 <b>Target TP3:</b> ' + formatPrice(tp3, sym) + '\n') : '') +
-    '\n📱 <i>Buka aplikasi broker / exchange Anda dan pasang order sesuai instruksi di atas!</i>'
+    '\n📱 <i>Buka aplikasi broker / exchange Anda dan pasang order sesuai instruksi di atas. Bot memantau posisi 24/7 dan akan mengirim peringatan SL+ (0-Risk) setelah order terjemput!</i>'
   );
 
   try { sendTelegramAlert(tgMsg); } catch (e) {}
@@ -8752,6 +8844,7 @@ if (document.readyState === 'loading') {
     'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
     'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
     'SEI/USDT': 0.28, 'SEI': 0.28, 'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00,
+    'LDO/USDT': 1.45, 'KCS/USDT': 5.82, 'FET/USDT': 1.15, 'TAO/USDT': 450.00, 'RENDER/USDT': 4.80, 'PEPE/USDT': 0.00001,
     'NZD/JPY': 87.35, 'NZDJPY': 87.35, 'AUD/JPY': 100.25, 'CAD/JPY': 109.60, 'CHF/JPY': 176.10, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50
   };
   function generateSeedCandles(symbol, tf) {
@@ -8957,8 +9050,15 @@ if (document.readyState === 'loading') {
         lvTag(L.dcaZone1, '#10b981', 'DCA1'); lvTag(L.dcaZone2, '#34d399', 'DCA2'); lvTag(L.dcaZone3, '#6ee7b7', 'DCA3');
         lvTag(L.invTarget1, '#38bdf8', 'T1'); lvTag(L.invTarget2, '#818cf8', 'T2');
       } else {
+        const isBeActive = (analysis && analysis.tradeManagement && analysis.tradeManagement.bePlusActive) || (L && L.bePlusActive) || (analysis && analysis.lockedSignal && analysis.lockedSignal.bePlusActive);
+        const slPlusVal = (L && L.slPlus) || (analysis && analysis.lockedSignal && analysis.lockedSignal.slPlus);
         lvTag(L.entry, '#38bdf8', 'ENTRY', 0);
-        lvTag(L.sl, '#f43f5e', 'SL', 1);
+        if (isBeActive && Number(slPlusVal) > 0) {
+          lvTag(slPlusVal, '#10b981', 'SL+ (0-RISK)', 0);
+          lvTag(L.sl, 'rgba(244,63,94,0.35)', 'SL (BE+)', 1);
+        } else {
+          lvTag(L.sl, '#f43f5e', 'SL', 1);
+        }
         lvTag(L.tp1, '#10b981', 'TP1', 1);
         lvTag(L.tp2, '#34d399', 'TP2', 1);
       }

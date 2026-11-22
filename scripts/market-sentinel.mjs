@@ -322,7 +322,11 @@ const TOP_CRYPTO_SYMBOLS = [
   'ICP/USDT', 'INJ/USDT', 'HBAR/USDT', 'STX/USDT', 'BNB/USDT',
   'XRP/USDT', 'DOGE/USDT', 'ADA/USDT', 'AVAX/USDT', 'NEAR/USDT',
   'SUI/USDT', 'APT/USDT', 'RENDER/USDT', 'TAO/USDT', 'FET/USDT',
-  'PENDLE/USDT', 'PEPE/USDT'
+  'PENDLE/USDT', 'PEPE/USDT', 'KCS/USDT', 'LDO/USDT', 'AR/USDT',
+  'TIA/USDT', 'SEI/USDT', 'ENA/USDT', 'WIF/USDT', 'BONK/USDT',
+  'FLOKI/USDT', 'SHIB/USDT', 'GALA/USDT', 'FTM/USDT', 'RUNE/USDT',
+  'AAVE/USDT', 'UNI/USDT', 'ATOM/USDT', 'DOT/USDT', 'LTC/USDT',
+  'ETC/USDT'
 ];
 
 // Watchlist instrumen institusional utama
@@ -422,7 +426,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       }
 
       const alertMsg =
-        `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR]</b>\n\n` +
+        `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR (${tierTxt})]</b>\n\n` +
         `Aset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
         `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
         `Confidence Score: <b>${score}%</b>\n` +
@@ -468,7 +472,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       }
 
       const alertMsgEn =
-        `🚀 <b>[XSTARZG 24/7 CLOUD — HIGH CONVICTION SETUP]</b>\n\n` +
+        `🚀 <b>[XSTARZG 24/7 CLOUD — NEW HIGH-SCORE OPPORTUNITY (${tierTxt})]</b>\n\n` +
         `Asset: <b>${sym}</b> (${tf} • ${hzLabelEn})\n` +
         `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
         `Confidence Score: <b>${score}%</b>\n` +
@@ -650,16 +654,30 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   }
 
   // 2c. Posisi SUDAH TERISI: Cek eksekusi Stop Loss atau TP1
-  const slHit = isLong ? (lastBar.low <= sl || livePrice <= sl) : (lastBar.high >= sl || livePrice >= sl);
+  const effectiveSl = (activeLock.notifiedSlPlus && activeLock.slPlus) ? Number(activeLock.slPlus) : sl;
+  const slHit = isLong ? (lastBar.low <= effectiveSl || livePrice <= effectiveSl) : (lastBar.high >= effectiveSl || livePrice >= effectiveSl);
   if (slHit) {
-    console.log(`  [${sym} ${tf}] ❌ Posisi menyentuh Stop Loss (${formatP(sl, sym)}). Pengawasan selesai.`);
-    const slMsg =
+    const isBeExit = !!activeLock.notifiedSlPlus;
+    console.log(`  [${sym} ${tf}] ${isBeExit ? '🛡️ Posisi terselamatkan SL+ BE+ (0-Risk)' : '❌ Posisi menyentuh Stop Loss'} (${formatP(effectiveSl, sym)}). Pengawasan selesai.`);
+    const slMsg = isBeExit ?
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — TERSELAMATKAN SL+ (0-RISK)]</b>\n\n` +
+      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Level Keluar: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
+      `🛡️ <i>Posisi keluar pada proteksi SL+ 0-Risk! Modal trading Anda terlindungi 100% tanpa kerugian.</i>`
+      :
       `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS TERSENTUH]</b>\n\n` +
       `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
       `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
       `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
       `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
-    const slMsgEn =
+    const slMsgEn = isBeExit ?
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — SAVED BY SL+ (0-RISK)]</b>\n\n` +
+      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Exit Level: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
+      `🛡️ <i>Position closed at SL+ 0-Risk safety lock! 100% of your trading capital preserved with zero loss.</i>`
+      :
       `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS HIT]</b>\n\n` +
       `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
       `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
@@ -671,8 +689,8 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       outcome: {
         symbol: sym,
         tf: activeLock.tf,
-        status: activeLock.notifiedSlPlus ? 'BE_SAVED' : 'SL_HIT',
-        reason: activeLock.notifiedSlPlus ? 'Proteksi SL+ mengamankan modal (0-Risk)' : 'Stop Loss tersentuh pasar',
+        status: isBeExit ? 'BE_SAVED' : 'SL_HIT',
+        reason: isBeExit ? 'Proteksi SL+ mengamankan modal (0-Risk)' : 'Stop Loss tersentuh pasar',
         at: Date.now()
       }
     });
@@ -725,6 +743,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
       activeLock.notifiedSlPlus = true;
       const beBuffer = Math.max(0.08 * targetDist, 0.15 * (activeLock.atr || 1));
       const slPlusPrice = isLong ? (entry + beBuffer) : (entry - beBuffer);
+      activeLock.slPlus = slPlusPrice;
       const slPriceTxt = formatP(slPlusPrice, sym);
 
       const isCryptoSym = (sym || '').includes('/USDT') || (sym || '').includes('BTC') || (sym || '').includes('ETH') || (sym || '').includes('SOL');
@@ -739,8 +758,12 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         `Status: <b>TEREKSEKUSI & PROFIT BERJALAN (+${Math.round(triggerRatio * 100)}%)</b>\n` +
         `Entry Awal: <b>${formatP(entry, sym)}</b>\n` +
         `Harga Saat Ini: <b>${formatP(livePrice, sym)}</b>\n` +
-        `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
-        `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka ${platTarget} sekarang dan geser Stop Loss ke level BE+ di atas agar modal terlindungi 100%!</i>`;
+        (isLong ?
+          `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n<i>(Pasang DI ATAS harga entry ${formatP(entry, sym)} untuk mengunci profit / posisi bebas risiko)</i>\n\n` +
+          `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka ${platTarget} sekarang dan naikkan Stop Loss ke ${slPriceTxt} agar modal terlindungi 100%!</i>` :
+          `Target Geser SL: <b>${slPriceTxt} (0-Risk BE+)</b>\n<i>(Pasang DI BAWAH harga entry ${formatP(entry, sym)} untuk mengunci profit / posisi bebas risiko)</i>\n\n` +
+          `⚠️ <i>Harga telah mencapai zona aman 0-Risk! Buka ${platTarget} sekarang dan turunkan Stop Loss ke ${slPriceTxt} agar modal terlindungi 100%!</i>`
+        );
 
       const slMsgEn =
         `🛡️ <b>[XSTARZG 24/7 CLOUD — SL+ TRIGGERED (0-RISK)]</b>\n\n` +
@@ -749,8 +772,12 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         `Status: <b>FILLED & PROFIT RUNNING (+${Math.round(triggerRatio * 100)}%)</b>\n` +
         `Initial Entry: <b>${formatP(entry, sym)}</b>\n` +
         `Current Price: <b>${formatP(livePrice, sym)}</b>\n` +
-        `Move Stop Loss to: <b>${slPriceTxt} (0-Risk BE+)</b>\n\n` +
-        `⚠️ <i>Price has entered the 0-Risk safety zone! Open ${platTargetEn} now and move your Stop Loss to the BE+ level above to secure 100% of your capital!</i>`;
+        (isLong ?
+          `Move Stop Loss to: <b>${slPriceTxt} (0-Risk BE+)</b>\n<i>(Placed ABOVE entry price ${formatP(entry, sym)} to lock in profit / risk-free trade)</i>\n\n` +
+          `⚠️ <i>Price reached the 0-Risk safety threshold! Open ${platTargetEn} now and adjust Stop Loss up to ${slPriceTxt} to secure 100% of your capital!</i>` :
+          `Move Stop Loss to: <b>${slPriceTxt} (0-Risk BE+)</b>\n<i>(Placed BELOW entry price ${formatP(entry, sym)} to lock in profit / risk-free trade)</i>\n\n` +
+          `⚠️ <i>Price reached the 0-Risk safety threshold! Open ${platTargetEn} now and adjust Stop Loss down to ${slPriceTxt} to secure 100% of your capital!</i>`
+        );
 
       await sendFn(slMsg, { id: slMsg, en: slMsgEn });
       await syncJournalToCloud({ action: 'save_lock', lock: activeLock });

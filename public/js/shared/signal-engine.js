@@ -1857,6 +1857,7 @@ export function applyLockedSignal(a, lock, verdict) {
     entry: lock.entry, sl: lock.sl,
     tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
     slPlus: lock.slPlus,
+    bePlusActive: beActive,
     rrRatio: lock.rrRatio
   });
   return a;

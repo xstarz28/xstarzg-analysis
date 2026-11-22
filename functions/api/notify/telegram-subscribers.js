@@ -44,17 +44,32 @@ export async function onRequestGet({ request, env }) {
     let subscribers = [];
     if (env && env.DB) {
       const now = Date.now();
-      const res = await env.DB.prepare(`
-        SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate
-        FROM telegram_subscribers
-        WHERE is_owner = 1 OR is_affiliate = 1 OR (vip_until > ?1)
-      `).bind(now).all();
+      try {
+        await env.DB.prepare("ALTER TABLE telegram_subscribers ADD COLUMN lang TEXT DEFAULT 'en'").run();
+      } catch (e) {}
+
+      let res;
+      try {
+        res = await env.DB.prepare(`
+          SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate, lang
+          FROM telegram_subscribers
+          WHERE is_owner = 1 OR is_affiliate = 1 OR (vip_until > ?1)
+        `).bind(now).all();
+      } catch (e) {
+        res = await env.DB.prepare(`
+          SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate
+          FROM telegram_subscribers
+          WHERE is_owner = 1 OR is_affiliate = 1 OR (vip_until > ?1)
+        `).bind(now).all();
+      }
+
       subscribers = ((res && res.results) || []).map(s => {
-        let lang = 'en';
+        let lang = s.lang ? String(s.lang).toLowerCase().trim() : '';
         const em = String(s.email || '').toLowerCase();
-        if (s.is_owner === 1 || em.includes('.id') || em.includes('sevenfoldarmy') || s.lang === 'id') {
-          lang = 'id';
+        if (!lang) {
+          lang = em.endsWith('.id') ? 'id' : 'en';
         }
+        if (lang !== 'id') lang = 'en';
         return { ...s, lang };
       });
     }

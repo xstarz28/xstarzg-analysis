@@ -142,6 +142,9 @@ export async function onRequest(context) {
           registered_at TEXT NOT NULL
         )
       `).run();
+      try {
+        await env.DB.prepare("ALTER TABLE telegram_subscribers ADD COLUMN lang TEXT DEFAULT 'en'").run();
+      } catch (e) {}
       await env.DB.prepare(`
         CREATE TABLE IF NOT EXISTS telegram_activations (
           code          TEXT PRIMARY KEY,
@@ -164,7 +167,7 @@ export async function onRequest(context) {
   }
 
   // GET: Menghasilkan link deep-link terotentikasi & status subscriber saat ini
-  if (request.method === 'GET') {
+    if (request.method === 'GET') {
     let linkedChatId = null;
     try {
       if (env && env.DB) {
@@ -172,6 +175,14 @@ export async function onRequest(context) {
         if (row && row.chat_id) linkedChatId = row.chat_id;
       }
     } catch (e) {}
+
+    const url = new URL(request.url);
+    const paramLang = (url.searchParams.get('lang') || '').slice(0, 5).toLowerCase();
+    if (paramLang && env && env.DB && linkedChatId) {
+      try {
+        await env.DB.prepare('UPDATE telegram_subscribers SET lang = ?1 WHERE email = ?2').bind(paramLang === 'id' ? 'id' : 'en', user.email).run();
+      } catch (e) {}
+    }
 
     const tier = isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP');
     const vipUntil = isOwner ? 9999999999999 : (d1Until || user.vipUntil || 0);
@@ -361,27 +372,52 @@ export async function onRequest(context) {
 
       const tier = isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP');
       const vipUntil = isOwner ? 9999999999999 : (d1Until || user.vipUntil || 0);
+      const clientLang = (body.lang || '').slice(0, 5).toLowerCase() === 'id' ? 'id' : 'en';
 
       if (env && env.DB) {
-        await env.DB.prepare(`
-          INSERT INTO telegram_subscribers (chat_id, email, tier, vip_until, is_owner, is_affiliate, registered_at)
-          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-          ON CONFLICT(chat_id) DO UPDATE SET
-            email = excluded.email,
-            tier = excluded.tier,
-            vip_until = excluded.vip_until,
-            is_owner = excluded.is_owner,
-            is_affiliate = excluded.is_affiliate,
-            registered_at = excluded.registered_at
-        `).bind(
-          chatId,
-          user.email,
-          tier,
-          vipUntil,
-          isOwner ? 1 : 0,
-          isAffiliate ? 1 : 0,
-          new Date().toISOString()
-        ).run();
+        try {
+          await env.DB.prepare(`
+            INSERT INTO telegram_subscribers (chat_id, email, tier, vip_until, is_owner, is_affiliate, registered_at, lang)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            ON CONFLICT(chat_id) DO UPDATE SET
+              email = excluded.email,
+              tier = excluded.tier,
+              vip_until = excluded.vip_until,
+              is_owner = excluded.is_owner,
+              is_affiliate = excluded.is_affiliate,
+              registered_at = excluded.registered_at,
+              lang = excluded.lang
+          `).bind(
+            chatId,
+            user.email,
+            tier,
+            vipUntil,
+            isOwner ? 1 : 0,
+            isAffiliate ? 1 : 0,
+            new Date().toISOString(),
+            clientLang
+          ).run();
+        } catch (e) {
+          await env.DB.prepare(`
+            INSERT INTO telegram_subscribers (chat_id, email, tier, vip_until, is_owner, is_affiliate, registered_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            ON CONFLICT(chat_id) DO UPDATE SET
+              email = excluded.email,
+              tier = excluded.tier,
+              vip_until = excluded.vip_until,
+              is_owner = excluded.is_owner,
+              is_affiliate = excluded.is_affiliate,
+              registered_at = excluded.registered_at
+          `).bind(
+            chatId,
+            user.email,
+            tier,
+            vipUntil,
+            isOwner ? 1 : 0,
+            isAffiliate ? 1 : 0,
+            new Date().toISOString()
+          ).run();
+        }
       }
 
       // Kirim pesan sambutan langsung ke Telegram pengguna jika bot token terpasang

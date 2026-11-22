@@ -40,6 +40,9 @@ export async function onRequestPost({ request, env }) {
             registered_at TEXT NOT NULL
           )
         `).run();
+        try {
+          await env.DB.prepare("ALTER TABLE telegram_subscribers ADD COLUMN lang TEXT DEFAULT 'en'").run();
+        } catch (e) {}
         await env.DB.prepare(`
           CREATE TABLE IF NOT EXISTS telegram_activations (
             code          TEXT PRIMARY KEY,
