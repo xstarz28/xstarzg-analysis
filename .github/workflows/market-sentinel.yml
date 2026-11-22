@@ -2,7 +2,7 @@ name: XStarZG 24/7 Market Sentinel
 
 on:
   schedule:
-    # Berjalan otomatis di cloud GitHub setiap 15 menit nonstop (24/7, 0 kuota Cloudflare)
+    # Berjalan otomatis di cloud GitHub setiap 10-15 menit nonstop (24/7, 0 kuota Cloudflare)
     - cron: '*/30 * * * *'
     - cron: '15,45 * * * *'
   push:
@@ -44,6 +44,8 @@ jobs:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN || secrets.BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID || secrets.CHAT_ID }}
+          XSTARZG_API_HOST: 'https://xstarzganalysis.pages.dev'
+          SENTINEL_SECRET: 'xstarzg-2026-quant-secret'
           SENTINEL_MIN_SCORE: '62'
         run: |
           if [ "${{ inputs.test_mode }}" = "true" ]; then
