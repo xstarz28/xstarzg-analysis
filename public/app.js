@@ -429,11 +429,12 @@ function catLabelOf(meta) {
 }
 
 /* Memeriksa apakah sesi bursa untuk instrumen ini sedang buka.
-   Kripto & DEX buka 24/7/365. Forex, Emas/Logam, Komoditas & Saham tutup di akhir pekan. */
+   Kripto & DEX buka 24/7/365. Forex, Emas/Logam, Komoditas & Saham tutup di akhir pekan.
+   Saham IDX buka 09:00 - 16:00 WIB (02:00 - 09:00 UTC). Saham US buka 09:30 - 16:00 EST (14:30 - 21:00 UTC). */
 function isAssetMarketOpen(symbol) {
   var s = String(symbol || '').toUpperCase().trim();
   // Kripto dan token DEX selalu buka 24/7/365 nonstop
-  if (s.indexOf('/USDT') > -1 || s.indexOf('/USDC') > -1 || s.indexOf('/SOL') > -1 || s.indexOf('BTC') > -1 || s.indexOf('ETH') > -1) {
+  if (s.indexOf('/USDT') > -1 || s.indexOf('/USDC') > -1 || s.indexOf('/SOL') > -1 || s.indexOf('BTC') > -1 || s.indexOf('ETH') > -1 || s.indexOf('/BNB') > -1) {
     return true;
   }
   var meta = (typeof guessInstrumentMeta === 'function') ? guessInstrumentMeta(s) : {};
@@ -442,16 +443,31 @@ function isAssetMarketOpen(symbol) {
   var now = new Date();
   var dayUtc = now.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
   var hourUtc = now.getUTCHours();
+  var minuteUtc = now.getUTCMinutes();
+  var timeUtc = hourUtc + minuteUtc / 60;
 
-  // Akhir pekan:
+  // Akhir pekan global:
   // Pasar Forex, Logam Spot (XAU/XAG) & Komoditas tutup dari Sabtu s/d Minggu 21:00 UTC
   if (dayUtc === 6) return false;
   if (dayUtc === 0 && hourUtc < 21) return false;
   if (dayUtc === 5 && hourUtc >= 22) return false;
 
-  // Pasar Saham (US & IDX): Tutup Sabtu & Minggu seharian
-  if (meta.assetClass === 'stocks') {
+  // Pasar Saham Indonesia (IDX / .JK / IHSG):
+  // Buka Senin - Jumat jam 09:00 - 16:00 WIB (02:00 - 09:00 UTC)
+  var isIdx = s.slice(-3) === '.JK' || s === 'IHSG';
+  if (isIdx) {
     if (dayUtc === 0 || dayUtc === 6) return false;
+    if (timeUtc < 2.0 || timeUtc >= 9.0) return false;
+    return true;
+  }
+
+  // Pasar Saham Wall Street US:
+  // Buka Senin - Jumat jam 09:30 - 16:00 EST (14:30 - 21:00 UTC)
+  var isUsStock = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMD', 'AMZN', 'META', 'GOOGL', 'SPY', 'QQQ', 'COIN', 'MSTR'].indexOf(s) > -1 || meta.assetClass === 'stocks';
+  if (isUsStock) {
+    if (dayUtc === 0 || dayUtc === 6) return false;
+    if (timeUtc < 14.5 || timeUtc >= 21.0) return false;
+    return true;
   }
 
   return true;
