@@ -8577,6 +8577,72 @@ function bindUiEvents() {
       });
     });
   }
+
+  /* ---- Instagram & Sosmed Feedback Modal Flow ---- */
+  var modalIg = $id('instagramFeedbackModal');
+  var btnCloseIg = $id('btnCloseInstagramModal');
+  var btnCopyIg = $id('btnCopyIgLink');
+  var toastIg = $id('copyIgSuccessToast');
+  var IG_URL = 'https://www.instagram.com/xstarzganalysis?avpt=ZWF1dThxYzQwNmNj';
+
+  function openInstagramModal() {
+    if (modalIg) modalIg.classList.remove('hidden');
+    if (toastIg) toastIg.textContent = '';
+  }
+
+  function closeInstagramModal() {
+    if (modalIg) modalIg.classList.add('hidden');
+  }
+
+  bind('btnOpenInstagramModal', openInstagramModal);
+  bind('btnOpenInstagramModalJnl', openInstagramModal);
+  bind('btnOpenInstagramFromMenu', function () {
+    var dd = $id('userProfileDropdown');
+    if (dd) dd.classList.add('hidden');
+    openInstagramModal();
+  });
+  bind('btnCloseInstagramModal', closeInstagramModal);
+
+  if (modalIg) {
+    modalIg.addEventListener('click', function (e) {
+      if (e.target === modalIg) closeInstagramModal();
+    });
+  }
+
+  function fallbackCopyIgText(text) {
+    try {
+      var t = document.createElement('textarea');
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      document.body.removeChild(t);
+      if (toastIg) {
+        toastIg.style.color = '#10b981';
+        toastIg.textContent = '✅ Link Instagram @xstarzganalysis berhasil disalin!';
+        setTimeout(function () { if (toastIg) toastIg.textContent = ''; }, 3500);
+      }
+    } catch (e) {}
+  }
+
+  if (btnCopyIg) {
+    btnCopyIg.addEventListener('click', function () {
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(IG_URL).then(function () {
+          if (toastIg) {
+            toastIg.style.color = '#10b981';
+            toastIg.textContent = '✅ Link Instagram @xstarzganalysis berhasil disalin ke clipboard!';
+            setTimeout(function () { if (toastIg) toastIg.textContent = ''; }, 3500);
+          }
+        }).catch(function () {
+          fallbackCopyIgText(IG_URL);
+        });
+      } else {
+        fallbackCopyIgText(IG_URL);
+      }
+    });
+  }
+
   /* ---- Risk calc inputs ---- */
   ['inpCalcBalance', 'inpCalcRiskPct'].forEach(function (id) {
     var el = $id(id);
