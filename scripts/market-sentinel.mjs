@@ -250,16 +250,69 @@ async function fetchBinanceCandles(pair, interval = '1h', limit = 150) {
 
 // Fetch forex / commodities candles from Yahoo Finance
 const YAHOO_SYMBOLS = {
+  // Metals
   'XAU/USD': 'GC=F',
+  'GOLD': 'GC=F',
+  'XAG/USD': 'SI=F',
+  'SILVER': 'SI=F',
+  'XPT/USD': 'PL=F',
+  'PLATINUM': 'PL=F',
+  'XPD/USD': 'PA=F',
+  'PALLADIUM': 'PA=F',
+  'HG/USD': 'HG=F',
+  'COPPER': 'HG=F',
+  // Commodities
+  'WTI/OIL': 'CL=F',
+  'WTI': 'CL=F',
+  'BRENT': 'BZ=F',
+  'NATGAS': 'NG=F',
+  'CPO': 'FCPO=F',
+  'COAL': 'NCF=F',
+  // Forex Majors & Crosses
   'EUR/USD': 'EURUSD=X',
   'GBP/USD': 'GBPUSD=X',
   'USD/JPY': 'USDJPY=X',
-  'WTI/OIL': 'CL=F',
-  'SILVER': 'SI=F'
+  'AUD/USD': 'AUDUSD=X',
+  'USD/CAD': 'USDCAD=X',
+  'USD/CHF': 'USDCHF=X',
+  'NZD/USD': 'NZDUSD=X',
+  'USD/IDR': 'USDIDR=X',
+  'EUR/JPY': 'EURJPY=X',
+  'GBP/JPY': 'GBPJPY=X',
+  'AUD/JPY': 'AUDJPY=X',
+  'CAD/JPY': 'CADJPY=X',
+  'CHF/JPY': 'CHFJPY=X',
+  'NZD/JPY': 'NZDJPY=X',
+  'EUR/GBP': 'EURGBP=X',
+  'EUR/AUD': 'EURAUD=X',
+  'GBP/AUD': 'GBPAUD=X',
+  'EUR/CAD': 'EURCAD=X',
+  'GBP/CAD': 'GBPCAD=X',
+  'AUD/CAD': 'AUDCAD=X',
+  'AUD/NZD': 'AUDNZD=X',
+  // Index & Equities
+  'IHSG': '^JKSE',
+  'SPY': 'SPY',
+  'QQQ': 'QQQ',
+  'NVDA': 'NVDA',
+  'AAPL': 'AAPL',
+  'MSFT': 'MSFT',
+  'TSLA': 'TSLA',
+  'AMD': 'AMD',
+  'AMZN': 'AMZN',
+  'META': 'META',
+  'GOOGL': 'GOOGL'
 };
 
 async function fetchYahooCandles(symbol, tf = 'H1') {
-  const ySym = YAHOO_SYMBOLS[symbol] || (symbol.includes('/') ? symbol.replace('/', '') + '=X' : symbol);
+  let ySym = YAHOO_SYMBOLS[symbol];
+  if (!ySym) {
+    if (symbol.includes('/')) {
+      ySym = symbol.replace('/', '') + '=X';
+    } else {
+      ySym = symbol;
+    }
+  }
   const tfMap = { 'M15': { i: '15m', r: '5d' }, 'H1': { i: '60m', r: '1mo' }, 'H4': { i: '60m', r: '3mo', resample: 4 }, 'D1': { i: '1d', r: '1y' } };
   const cfg = tfMap[tf] || tfMap['H1'];
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ySym)}?interval=${cfg.i}&range=${cfg.r}`;
@@ -304,41 +357,103 @@ export function formatP(val, sym) {
 
 export function isAssetMarketOpen(symbol) {
   const s = String(symbol || '').toUpperCase().trim();
-  if (s.includes('/USDT') || s.includes('BTC') || s.includes('ETH') || s.includes('SOL')) return true;
+  // 1. Kripto selalu buka 24/7/365 nonstop
+  if (s.includes('/USDT') || s.includes('BTC') || s.includes('ETH') || s.includes('SOL') || s.includes('/USDC') || s.includes('/BNB')) return true;
 
   const now = new Date();
-  const dayUtc = now.getUTCDay(); // 0 = Sun, 6 = Sat
+  const dayUtc = now.getUTCDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
   const hourUtc = now.getUTCHours();
+  const minuteUtc = now.getUTCMinutes();
+  const timeUtc = hourUtc + minuteUtc / 60;
 
+  // 2. Akhir Pekan Global (Sabtu & Minggu sebelum sesi Asia buka jam 21:00 UTC)
   if (dayUtc === 6) return false;
   if (dayUtc === 0 && hourUtc < 21) return false;
   if (dayUtc === 5 && hourUtc >= 22) return false;
 
+  // 3. Saham Indonesia (IDX / .JK / IHSG):
+  // Jam bursa: Senin - Jumat, 09:00 - 16:00 WIB (02:00 - 09:00 UTC)
+  const isIdx = s.endsWith('.JK') || s === 'IHSG';
+  if (isIdx) {
+    if (dayUtc === 0 || dayUtc === 6) return false;
+    if (timeUtc < 2.0 || timeUtc >= 9.0) return false;
+    return true;
+  }
+
+  // 4. Saham Wall Street US (NVDA, AAPL, MSFT, TSLA, SPY, QQQ, dll.):
+  // Jam bursa reguler: Senin - Jumat, 09:30 - 16:00 EST (14:30 - 21:00 UTC)
+  const isUsStock = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMD', 'AMZN', 'META', 'GOOGL', 'SPY', 'QQQ', 'COIN', 'MSTR'].includes(s);
+  if (isUsStock) {
+    if (dayUtc === 0 || dayUtc === 6) return false;
+    if (timeUtc < 14.5 || timeUtc >= 21.0) return false;
+    return true;
+  }
+
+  // 5. Forex & Komoditas/Metals (XAU/USD, EUR/USD, WTI, dll.):
+  // Buka 24 jam nonstop dari Minggu 21:00 UTC s/d Jumat 22:00 UTC
   return true;
 }
 
+// 75 Koin Kripto Likuiditas Teratas (M5 scalping, M15 scalping, H1 intraday)
 const TOP_CRYPTO_SYMBOLS = [
-  'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'LINK/USDT', 'BCH/USDT',
-  'ICP/USDT', 'INJ/USDT', 'HBAR/USDT', 'STX/USDT', 'BNB/USDT',
-  'XRP/USDT', 'DOGE/USDT', 'ADA/USDT', 'AVAX/USDT', 'NEAR/USDT',
-  'SUI/USDT', 'APT/USDT', 'RENDER/USDT', 'TAO/USDT', 'FET/USDT',
-  'PENDLE/USDT', 'PEPE/USDT', 'KCS/USDT', 'LDO/USDT', 'AR/USDT',
-  'TIA/USDT', 'SEI/USDT', 'ENA/USDT', 'WIF/USDT', 'BONK/USDT',
-  'FLOKI/USDT', 'SHIB/USDT', 'GALA/USDT', 'FTM/USDT', 'RUNE/USDT',
-  'AAVE/USDT', 'UNI/USDT', 'ATOM/USDT', 'DOT/USDT', 'LTC/USDT',
-  'ETC/USDT'
+  'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'ADA/USDT', 'DOGE/USDT', 'AVAX/USDT',
+  'LINK/USDT', 'TON/USDT', 'SUI/USDT', 'DOT/USDT', 'NEAR/USDT', 'APT/USDT', 'ARB/USDT', 'OP/USDT',
+  'MATIC/USDT', 'POL/USDT', 'LDO/USDT', 'TIA/USDT', 'SEI/USDT', 'INJ/USDT', 'SATS/USDT', 'ORDI/USDT',
+  'RUNE/USDT', 'ICP/USDT', 'HBAR/USDT', 'STX/USDT', 'FIL/USDT', 'KAS/USDT', 'RENDER/USDT', 'FET/USDT',
+  'TAO/USDT', 'GRT/USDT', 'WIF/USDT', 'PEPE/USDT', 'BONK/USDT', 'FLOKI/USDT', 'SHIB/USDT', 'BCH/USDT',
+  'LTC/USDT', 'ETC/USDT', 'UNI/USDT', 'AAVE/USDT', 'MKR/USDT', 'CRV/USDT', 'PENDLE/USDT', 'ENA/USDT',
+  'JUP/USDT', 'PYTH/USDT', 'WLD/USDT', 'STRK/USDT', 'BLUR/USDT', 'DYDX/USDT', 'GALA/USDT', 'SAND/USDT',
+  'MANA/USDT', 'AXS/USDT', 'ALGO/USDT', 'ATOM/USDT', 'FTM/USDT', 'KCS/USDT', 'AR/USDT', 'CHZ/USDT',
+  'ENJ/USDT', 'ZIL/USDT', 'THETA/USDT', 'FLOW/USDT', 'SNX/USDT', 'COMP/USDT', 'AGIX/USDT', 'MEME/USDT',
+  'JTO/USDT', 'ONDO/USDT', '1INCH/USDT', 'ENS/USDT', 'SUSHI/USDT'
 ];
 
-// Watchlist instrumen institusional utama
+// Logam Mulia & Komoditas Energi (M15 scalping & H1 intraday)
+const COMMODITY_WATCHLIST = [
+  'XAU/USD', 'XAG/USD', 'WTI/OIL', 'BRENT', 'NATGAS', 'HG/USD', 'XPT/USD'
+];
+
+// Pasangan Forex Major & Crosses Lengkap (M15 scalping & H1 intraday)
+const FOREX_WATCHLIST = [
+  'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'USD/CHF', 'NZD/USD',
+  'EUR/JPY', 'GBP/JPY', 'AUD/JPY', 'CAD/JPY', 'CHF/JPY', 'NZD/JPY', 'EUR/GBP',
+  'EUR/AUD', 'GBP/AUD', 'EUR/CAD', 'GBP/CAD', 'AUD/CAD', 'AUD/NZD', 'USD/IDR'
+];
+
+// Saham Bluechip Unggulan IHSG Indonesia (H1 intraday)
+const IDX_STOCKS_WATCHLIST = [
+  'BBCA.JK', 'BBRI.JK', 'BMRI.JK', 'BBNI.JK', 'TLKM.JK', 'ASII.JK', 'ANTM.JK',
+  'BRIS.JK', 'ICBP.JK', 'INDF.JK', 'KLBF.JK', 'UNVR.JK', 'PGAS.JK', 'ADRO.JK',
+  'PTBA.JK', 'MDKA.JK', 'CPIN.JK', 'AMRT.JK', 'GOTO.JK', 'IHSG'
+];
+
+// Saham Raksasa Wall Street & Indeks AS (H1 intraday & M15 scalping)
+const US_STOCKS_WATCHLIST = [
+  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMD', 'AMZN', 'META', 'GOOGL', 'SPY', 'QQQ'
+];
+
+// Watchlist instrumen institusional utama adaptif lintas kelas aset
 export const WATCHLIST = [
-  { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
-  { sym: 'XAU/USD', tf: 'M15', type: 'commodity', hz: 'scalping' },
-  { sym: 'EUR/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
-  { sym: 'EUR/USD', tf: 'M15', type: 'forex', hz: 'scalping' },
-  { sym: 'GBP/USD', tf: 'H1', type: 'forex', hz: 'intraday' },
-  { sym: 'USD/JPY', tf: 'H1', type: 'forex', hz: 'intraday' },
-  { sym: 'WTI/OIL', tf: 'H1', type: 'commodity', hz: 'intraday' },
-  // Seluruh koin kripto likuiditas teratas (M5 scalping, M15 scalping, H1 intraday)
+  // Logam Mulia & Komoditas (H1 & M15)
+  ...COMMODITY_WATCHLIST.flatMap(sym => [
+    { sym, tf: 'H1', type: 'commodity', hz: 'intraday' },
+    { sym, tf: 'M15', type: 'commodity', hz: 'scalping' }
+  ]),
+  // Forex Majors & Crosses (H1 & M15)
+  ...FOREX_WATCHLIST.flatMap(sym => [
+    { sym, tf: 'H1', type: 'forex', hz: 'intraday' },
+    { sym, tf: 'M15', type: 'forex', hz: 'scalping' }
+  ]),
+  // Saham Bluechip IDX Indonesia (H1 Intraday saat jam bursa BEI)
+  ...IDX_STOCKS_WATCHLIST.flatMap(sym => [
+    { sym, tf: 'H1', type: 'stock_id', hz: 'intraday' }
+  ]),
+  // Saham Wall Street US & ETF Indeks (H1 & M15 saat sesi US)
+  ...US_STOCKS_WATCHLIST.flatMap(sym => [
+    { sym, tf: 'H1', type: 'stock_us', hz: 'intraday' },
+    { sym, tf: 'M15', type: 'stock_us', hz: 'scalping' }
+  ]),
+  // Seluruh Koin Kripto Likuiditas Teratas (24/7/365: H1, M15, M5)
   ...TOP_CRYPTO_SYMBOLS.flatMap(sym => [
     { sym, tf: 'H1', type: 'crypto', hz: 'intraday' },
     { sym, tf: 'M15', type: 'crypto', hz: 'scalping' },
