@@ -76,6 +76,39 @@ export async function onRequest(context) {
   const { request, env } = context;
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
+  const url = new URL(request.url);
+  const sentinelKey = request.headers.get('X-Sentinel-Key') || url.searchParams.get('key');
+  const isSentinel = sentinelKey && (sentinelKey === (env && env.SENTINEL_SECRET ? env.SENTINEL_SECRET : 'xstarzg-2026-quant-secret'));
+
+  // Jika dipanggil oleh 24/7 Cloud Sentinel via background automation
+  if (isSentinel && request.method === 'POST') {
+    try {
+      const body = await request.clone().json();
+      if (body && (body.action === 'send_alert' || body.action === 'send_signal')) {
+        let targetChatId = body.chatId;
+        const alertText = String(body.text || '').slice(0, 4000);
+        let activeBotToken = (env && env.TELEGRAM_BOT_TOKEN) || '';
+        if (!activeBotToken && env && env.DB) {
+          try {
+            const row = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'telegram_bot_token'").first();
+            if (row && row.value) activeBotToken = String(row.value).trim();
+          } catch (e) {}
+        }
+        if (!activeBotToken || !targetChatId || !alertText) {
+          return Response.json({ ok: false, error: 'Parameter botToken, chatId, atau text tidak lengkap' }, { status: 400, headers: CORS });
+        }
+        const cleanTok = String(activeBotToken).trim().replace(/^bot/i, '');
+        const tRes = await fetch(`https://api.telegram.org/bot${cleanTok}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: targetChatId, text: alertText, parse_mode: 'HTML' })
+        });
+        const tData = await tRes.json();
+        return Response.json(tData, { status: tRes.ok ? 200 : 400, headers: CORS });
+      }
+    } catch (e) {}
+  }
+
   const user = await authenticateRequest(request, env);
   if (!user || !user.email) {
     return Response.json({ ok: false, isVip: false, error: 'Silakan login terlebih dahulu.' }, { status: 401, headers: CORS });

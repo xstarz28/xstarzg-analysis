@@ -78,12 +78,23 @@ export async function onRequestGet(context) {
 
     const formattedActive = activeLocks.map(r => {
       try {
-        if (r.payload) return JSON.parse(r.payload);
+        if (r.payload) {
+          const parsed = JSON.parse(r.payload);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              ...parsed,
+              bePlusActive: !!(parsed.bePlusActive || r.be_plus_active),
+              notifiedSlPlus: !!(parsed.notifiedSlPlus || parsed.slPlusAlerted),
+              slPlusAlerted: !!(parsed.notifiedSlPlus || parsed.slPlusAlerted)
+            };
+          }
+        }
       } catch (e) {}
       return {
         id: r.id, symbol: r.symbol, tf: r.tf, direction: r.direction,
         entry: r.entry, sl: r.sl, tp1: r.tp1, tp2: r.tp2, tp3: r.tp3,
         slPlus: r.sl_plus, bePlusActive: !!r.be_plus_active, filled: !!r.filled,
+        notifiedSlPlus: !!r.be_plus_active, slPlusAlerted: !!r.be_plus_active,
         score: r.score, status: r.status, issuedAt: r.issued_at
       };
     });

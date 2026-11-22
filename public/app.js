@@ -925,18 +925,34 @@ function notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock) {
          'Level SL: <b>' + slP + ' tersentuh</b>\n\n' +
          '🛡️ <i>Disiplin cut loss menjaga modal trading Anda tetap aman dan utuh untuk setup peluang berikutnya.</i>');
     } else if (finalStatus === 'BE_SAVED') {
-      var beP = lock.slPlus ? formatPrice(lock.slPlus, symbol) : 'BE+';
-      msg = isEn ?
-        ('🛡️ <b>[SAVED BY 0-RISK (BE+ EXIT)]</b>\n\n' +
-         'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
-         'Setup: <b>' + dirEmoji + '</b>\n' +
-         'Exit Level: <b>' + beP + ' (0-Risk)</b>\n\n' +
-         '✅ <i>Position exited at BE+ safety lock! 100% capital preserved with 0 loss!</i>') :
-        ('🛡️ <b>[MODAL AMAN 100% (BE+ EXIT)]</b>\n\n' +
-         'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
-         'Setup: <b>' + dirEmoji + '</b>\n' +
-         'Keluar di Level: <b>' + beP + ' (0-Risk)</b>\n\n' +
-         '✅ <i>Posisi keluar pada pengaman BE+! Modal Anda terselamatkan 100% tanpa kerugian!</i>');
+      var wasAlerted = !!(lock && (lock.notifiedSlPlus || lock.slPlusAlerted || lock.slPlusNotified));
+      if (!wasAlerted) {
+        var slP = lock.sl ? formatPrice(lock.sl, symbol) : '—';
+        msg = isEn ?
+          ('🛡️ <b>[STOP LOSS HIT]</b>\n\n' +
+           'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b>\n' +
+           'Stop Loss: <b>' + slP + ' hit</b>\n\n' +
+           '🛡️ <i>Disciplined cut loss preserves trading capital for subsequent high-probability opportunities.</i>') :
+          ('🛡️ <b>[STOP LOSS TERSENTUH (CUT LOSS)]</b>\n\n' +
+           'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b>\n' +
+           'Level SL: <b>' + slP + ' tersentuh</b>\n\n' +
+           '🛡️ <i>Disiplin cut loss menjaga modal trading Anda tetap aman dan utuh untuk setup peluang berikutnya.</i>');
+      } else {
+        var beP = lock.slPlus ? formatPrice(lock.slPlus, symbol) : 'BE+';
+        msg = isEn ?
+          ('🛡️ <b>[SAVED BY 0-RISK (BE+ EXIT)]</b>\n\n' +
+           'Asset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b>\n' +
+           'Exit Level: <b>' + beP + ' (0-Risk)</b>\n\n' +
+           '✅ <i>Position exited at BE+ safety lock! 100% capital preserved with 0 loss!</i>') :
+          ('🛡️ <b>[MODAL AMAN 100% (BE+ EXIT)]</b>\n\n' +
+           'Aset: <b>' + symbol + '</b> (' + (tf || 'M5') + ' • ' + hzLabel + ')\n' +
+           'Setup: <b>' + dirEmoji + '</b>\n' +
+           'Keluar di Level: <b>' + beP + ' (0-Risk)</b>\n\n' +
+           '✅ <i>Posisi keluar pada pengaman BE+! Modal Anda terselamatkan 100% tanpa kerugian!</i>');
+      }
     } else if (finalStatus === 'STRUCTURE_INVALID' || finalStatus === 'CANCELLED' || finalStatus === 'MISSED') {
       msg = isEn ?
         ('🚫 <b>[SETUP INVALIDATED / CANCELLED]</b>\n\n' +
@@ -964,7 +980,8 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     // v2026.65: EXPIRED dicatat juga ke jurnal (transparansi penuh) namun TIDAK
     // memengaruhi winrate adaptif (bukan kemenangan/kekalahan — netral usia setup).
     if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED' && oc !== 'BE_SAVED' && oc !== 'MISSED' && oc !== 'CANCELLED') return;
-    var beSaved = !!(verdict && verdict.beProtected) || !!(lock && lock.bePlusActive);
+    var wasSlPlusAlerted = !!(lock && (lock.notifiedSlPlus || lock.slPlusAlerted || lock.slPlusNotified));
+    var beSaved = ((verdict && verdict.status === 'BE_SAVED') || (!!(verdict && verdict.beProtected) || !!(lock && lock.bePlusActive))) && wasSlPlusAlerted;
     var finalStatus = (oc !== 'TP_HIT' && oc !== 'MISSED' && oc !== 'CANCELLED' && beSaved) ? 'BE_SAVED' : oc;
     var finalReason = (finalStatus === 'BE_SAVED')
       ? ((verdict && verdict.reason ? verdict.reason + ' • ' : '') + 'Terselamatkan oleh proteksi SL+ (0-Risk, modal aman)')
@@ -1203,6 +1220,8 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
                 }
                 if (verdict.bePlusActive && !lock.bePlusActive && (lock.filled || verdict.filled)) {
                   lock.bePlusActive = true;
+                  lock.notifiedSlPlus = true;
+                  lock.slPlusAlerted = true;
                   lockModified = true;
                   try { notifySlPlusTriggered(symbol, tfA, lock); } catch (e) {}
                 }
@@ -2548,7 +2567,8 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   }
 
   if (slHit) {
-    var isBeExit = !!lock.bePlusActive && num(lock.slPlus) > 0;
+    var wasAlerted = !!(lock.notifiedSlPlus || lock.slPlusAlerted || lock.slPlusNotified);
+    var isBeExit = !!lock.bePlusActive && num(lock.slPlus) > 0 && wasAlerted;
     var verdict = {
       status: isBeExit ? 'BE_SAVED' : 'SL_HIT',
       reason: isBeExit
@@ -2569,6 +2589,8 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var favDist = isLong ? (high - entry) : (entry - low);
   if (!lock.bePlusActive && favDist >= beTriggerRatio * targetDist) {
     lock.bePlusActive = true;
+    lock.notifiedSlPlus = true;
+    lock.slPlusAlerted = true;
     try { notifySlPlusTriggered(symbol, tf, lock); } catch (e) {}
     saveSignalLock(symbol, tf, lock);
     if (state.lastAnalysis && state.lastAnalysis.lockedSignal) {
@@ -6759,6 +6781,10 @@ function loadPersistedSlPlusNotify() {
 }
 
 function notifySlPlusTriggered(symbol, tf, lock) {
+  if (lock) {
+    lock.notifiedSlPlus = true;
+    lock.slPlusAlerted = true;
+  }
   if (!slPlusNotifyState.enabled) return;
   if (!symbol || !lock) return;
   if (!lock.filled) return; // Order limit belum terisi di exchange — dilarang kirim alarm geser SL!

@@ -201,23 +201,59 @@ async function sendTelegramMessage(text, payload = {}) {
     'https://xstarzg-analysis.pages.dev'
   ].filter(Boolean);
 
-  for (const host of apiHosts) {
-    for (const rec of recipients) {
-      const cid = typeof rec === 'object' ? rec.chatId : rec;
-      const lang = typeof rec === 'object' ? (rec.lang || 'id') : 'id';
-      const msgText = (lang === 'id' || lang === 'ms') ? (payload.id || text) : (payload.en || text);
+  let successCount = 0;
+  for (const rec of recipients) {
+    const cid = typeof rec === 'object' ? rec.chatId : rec;
+    const lang = typeof rec === 'object' ? (rec.lang || 'id') : 'id';
+    const msgText = (lang === 'id' || lang === 'ms') ? (payload.id || text) : (payload.en || text);
+    let sentThisRec = false;
 
+    for (const host of apiHosts) {
+      if (sentThisRec) break;
+      // 1. Coba endpoint relay /api/notify/telegram
+      try {
+        const res = await fetch(`${host}/api/notify/telegram`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sentinel-Key': secret
+          },
+          body: JSON.stringify({ chatId: cid, text: msgText })
+        });
+        const json = await res.json();
+        if (json && json.ok) {
+          sentThisRec = true;
+          successCount++;
+          break;
+        }
+      } catch (e) {}
+
+      // 2. Coba endpoint /api/notify/telegram-link dengan X-Sentinel-Key
       try {
         const res = await fetch(`${host}/api/notify/telegram-link`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sentinel-Key': secret
+          },
           body: JSON.stringify({ action: 'send_alert', chatId: cid, text: msgText })
         });
         const json = await res.json();
-        if (json && json.ok) return true;
+        if (json && json.ok) {
+          sentThisRec = true;
+          successCount++;
+          break;
+        }
       } catch (e) {}
     }
+    await new Promise(r => setTimeout(r, 40));
   }
+
+  if (successCount > 0) {
+    console.log(`✅ [Telegram Relay] Notifikasi sukses terkirim ke ${successCount}/${recipients.length} penerima via Cloudflare.`);
+    return true;
+  }
+  return false;
 
   console.log('⚠️ [Telegram] Token belum disetel di GitHub Secrets. Pesan hanya dicetak ke console:');
   console.log(text.replace(/<[^>]+>/g, ''));
@@ -768,85 +804,9 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     }
   }
 
-  // 2c. Posisi SUDAH TERISI: Cek eksekusi Stop Loss atau TP1
-  const effectiveSl = (activeLock.notifiedSlPlus && activeLock.slPlus) ? Number(activeLock.slPlus) : sl;
-  const slHit = isLong ? (lastBar.low <= effectiveSl || livePrice <= effectiveSl) : (lastBar.high >= effectiveSl || livePrice >= effectiveSl);
-  if (slHit) {
-    const isBeExit = !!activeLock.notifiedSlPlus;
-    console.log(`  [${sym} ${tf}] ${isBeExit ? '🛡️ Posisi terselamatkan SL+ BE+ (0-Risk)' : '❌ Posisi menyentuh Stop Loss'} (${formatP(effectiveSl, sym)}). Pengawasan selesai.`);
-    const slMsg = isBeExit ?
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — TERSELAMATKAN SL+ (0-RISK)]</b>\n\n` +
-      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Level Keluar: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
-      `🛡️ <i>Posisi keluar pada proteksi SL+ 0-Risk! Modal trading Anda terlindungi 100% tanpa kerugian.</i>`
-      :
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS TERSENTUH]</b>\n\n` +
-      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
-      `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
-    const slMsgEn = isBeExit ?
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — SAVED BY SL+ (0-RISK)]</b>\n\n` +
-      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Exit Level: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
-      `🛡️ <i>Position closed at SL+ 0-Risk safety lock! 100% of your trading capital preserved with zero loss.</i>`
-      :
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS HIT]</b>\n\n` +
-      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Stop Loss Level: <b>${formatP(sl, sym)} HIT</b>\n\n` +
-      `🛡️ <i>Disciplined cut loss protects your trading capital according to Money Management rules. Position closed.</i>`;
-    await sendFn(slMsg, { id: slMsg, en: slMsgEn });
-    await syncJournalToCloud({
-      action: 'record_outcome',
-      outcome: {
-        symbol: sym,
-        tf: activeLock.tf,
-        status: isBeExit ? 'BE_SAVED' : 'SL_HIT',
-        reason: isBeExit ? 'Proteksi SL+ mengamankan modal (0-Risk)' : 'Stop Loss tersentuh pasar',
-        at: Date.now()
-      }
-    });
-    delete cache.slPlusLocks[sym];
-    return;
-  }
-
-  const tpHit = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
-  if (tpHit && !activeLock.notifiedTp1) {
-    activeLock.notifiedTp1 = true;
-    const tpMsg =
-      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 TERCAPAI!]</b>\n\n` +
-      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
-      `Target TP1: <b>${formatP(tp1, sym)} TERPENUHI!</b>\n\n` +
-      `💰 <i>Tutup 50% lot untuk mengunci profit! Geser Stop Loss ke BE+ untuk sisa posisi yang mengincar TP2/TP3.</i>`;
-    const tpMsgEn =
-      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 REACHED!]</b>\n\n` +
-      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Entry Level: <b>${formatP(entry, sym)}</b>\n` +
-      `Target TP1: <b>${formatP(tp1, sym)} HIT!</b>\n\n` +
-      `💰 <i>Close 50% position to lock in profit! Move Stop Loss to BE+ for the remainder targeting TP2/TP3.</i>`;
-    await sendFn(tpMsg, { id: tpMsg, en: tpMsgEn });
-    await syncJournalToCloud({
-      action: 'record_outcome',
-      outcome: {
-        symbol: sym,
-        tf: activeLock.tf,
-        status: 'TP_HIT',
-        reason: 'Target Take Profit 1 tercapai',
-        at: Date.now()
-      }
-    });
-    delete cache.slPlusLocks[sym];
-    return;
-  }
-
-  // 2d. Pemantauan SL+ (0-Risk BE+ Trigger)
-  // Syarat mutlak: Posisi terisi & telah bergerak minimal 38% menuju target TP1 (bukan 15% noise)
+  // 2c. Pemantauan SL+ (0-Risk BE+ Trigger)
+  // PENTING: Evaluasi SL+ dijalankan TERLEBIH DAHULU agar trader PASTI menerima peringatan pasang SL+
+  // sebelum posisi pernah dinyatakan keluar atau terselamatkan oleh SL+!
   if (!activeLock.notifiedSlPlus && targetDist > 0) {
     const triggerRatio = 0.38;
     const beTriggerPrice = isLong ? (entry + triggerRatio * targetDist) : (entry - triggerRatio * targetDist);
@@ -856,6 +816,9 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
     if (slPlusHit) {
       activeLock.notifiedSlPlus = true;
+      activeLock.slPlusAlerted = true;
+      activeLock.bePlusActive = true;
+      activeLock.slPlusBarTime = lastBar.time;
       const beBuffer = Math.max(0.08 * targetDist, 0.15 * (activeLock.atr || 1));
       const slPlusPrice = isLong ? (entry + beBuffer) : (entry - beBuffer);
       activeLock.slPlus = slPlusPrice;
@@ -896,7 +859,91 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
       await sendFn(slMsg, { id: slMsg, en: slMsgEn });
       await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
+      return;
     }
+  }
+
+  // 2d. Cek eksekusi Take Profit 1
+  const tpHit = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
+  if (tpHit && !activeLock.notifiedTp1) {
+    activeLock.notifiedTp1 = true;
+    const tpMsg =
+      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 TERCAPAI!]</b>\n\n` +
+      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
+      `Target TP1: <b>${formatP(tp1, sym)} TERPENUHI!</b>\n\n` +
+      `💰 <i>Tutup 50% lot untuk mengunci profit! Geser Stop Loss ke BE+ untuk sisa posisi yang mengincar TP2/TP3.</i>`;
+    const tpMsgEn =
+      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 REACHED!]</b>\n\n` +
+      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Entry Level: <b>${formatP(entry, sym)}</b>\n` +
+      `Target TP1: <b>${formatP(tp1, sym)} HIT!</b>\n\n` +
+      `💰 <i>Close 50% position to lock in profit! Move Stop Loss to BE+ for the remainder targeting TP2/TP3.</i>`;
+    await sendFn(tpMsg, { id: tpMsg, en: tpMsgEn });
+    await syncJournalToCloud({
+      action: 'record_outcome',
+      outcome: {
+        symbol: sym,
+        tf: activeLock.tf,
+        status: 'TP_HIT',
+        reason: 'Target Take Profit 1 tercapai',
+        at: Date.now()
+      }
+    });
+    delete cache.slPlusLocks[sym];
+    return;
+  }
+
+  // 2e. Cek eksekusi Stop Loss atau BE+ Exit
+  // HANYA dianggap BE_SAVED jika trader MEMANG TELAH DIBERI TAHU untuk memasang SL+ sebelumnya!
+  const wasAlertedSlPlus = !!(activeLock.notifiedSlPlus || activeLock.slPlusAlerted);
+  const effectiveSl = (wasAlertedSlPlus && activeLock.slPlus) ? Number(activeLock.slPlus) : sl;
+  const sameBarAsSlPlus = wasAlertedSlPlus && activeLock.slPlusBarTime === lastBar.time;
+  const slHit = isLong
+    ? (livePrice <= effectiveSl || (!sameBarAsSlPlus && lastBar.low <= effectiveSl))
+    : (livePrice >= effectiveSl || (!sameBarAsSlPlus && lastBar.high >= effectiveSl));
+  if (slHit) {
+    const isBeExit = wasAlertedSlPlus;
+    console.log(`  [${sym} ${tf}] ${isBeExit ? '🛡️ Posisi terselamatkan SL+ BE+ (0-Risk)' : '❌ Posisi menyentuh Stop Loss'} (${formatP(effectiveSl, sym)}). Pengawasan selesai.`);
+    const slMsg = isBeExit ?
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — TERSELAMATKAN SL+ (0-RISK)]</b>\n\n` +
+      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Level Keluar: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
+      `🛡️ <i>Posisi keluar pada proteksi SL+ 0-Risk! Modal trading Anda terlindungi 100% tanpa kerugian.</i>`
+      :
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS TERSENTUH]</b>\n\n` +
+      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
+      `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
+    const slMsgEn = isBeExit ?
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — SAVED BY SL+ (0-RISK)]</b>\n\n` +
+      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Exit Level: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
+      `🛡️ <i>Position closed at SL+ 0-Risk safety lock! 100% of your trading capital preserved with zero loss.</i>`
+      :
+      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS HIT]</b>\n\n` +
+      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+      `Stop Loss Level: <b>${formatP(sl, sym)} HIT</b>\n\n` +
+      `🛡️ <i>Disciplined cut loss protects your trading capital according to Money Management rules. Position closed.</i>`;
+    await sendFn(slMsg, { id: slMsg, en: slMsgEn });
+    await syncJournalToCloud({
+      action: 'record_outcome',
+      outcome: {
+        symbol: sym,
+        tf: activeLock.tf,
+        status: isBeExit ? 'BE_SAVED' : 'SL_HIT',
+        reason: isBeExit ? 'Proteksi SL+ mengamankan modal (0-Risk)' : 'Stop Loss tersentuh pasar',
+        at: Date.now()
+      }
+    });
+    delete cache.slPlusLocks[sym];
+    return;
   }
 }
 

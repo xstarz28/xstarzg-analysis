@@ -53,13 +53,13 @@ export async function onRequestGet({ request, env }) {
         res = await env.DB.prepare(`
           SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate, lang
           FROM telegram_subscribers
-          WHERE is_owner = 1 OR is_affiliate = 1 OR (vip_until > ?1)
+          WHERE is_owner = 1 OR is_affiliate = 1 OR tier = 'OWNER' OR tier = 'OWNER_VIP' OR LOWER(email) = 'sevenfoldarmy2822@gmail.com' OR LOWER(email) = 'gilfanputra@gmail.com' OR (vip_until IS NOT NULL AND vip_until > ?1)
         `).bind(now).all();
       } catch (e) {
         res = await env.DB.prepare(`
           SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate
           FROM telegram_subscribers
-          WHERE is_owner = 1 OR is_affiliate = 1 OR (vip_until > ?1)
+          WHERE is_owner = 1 OR is_affiliate = 1 OR tier = 'OWNER' OR tier = 'OWNER_VIP' OR LOWER(email) = 'sevenfoldarmy2822@gmail.com' OR LOWER(email) = 'gilfanputra@gmail.com' OR (vip_until IS NOT NULL AND vip_until > ?1)
         `).bind(now).all();
       }
 
