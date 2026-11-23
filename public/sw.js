@@ -1,5 +1,5 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-const CACHE_NAME = 'xstarzg-pwa-v2026.81';
+const CACHE_NAME = 'xstarzg-pwa-v2026.85';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -54,7 +54,8 @@ self.addEventListener('message', (event) => {
 // Cache strategy:
 // 1) /api/ -> Network-only (realtime market quotes & auth)
 // 2) Navigation (HTML) -> Network-first (timeout 1200ms) with instant offline cache fallback (anti-freeze di splash APK)
-// 3) Static assets (.js, .css, images, fonts) -> Stale-while-revalidate (instant 0ms render + background update)
+// 3) Core scripts (/app.js, /styles.css, /js/, /i18n/) -> Network-first (timeout 1200ms) dengan fallback cache
+// 4) Static assets (vendor charts, images, fonts) -> Stale-while-revalidate (instant 0ms render + background update)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -104,7 +105,41 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Aset statis lokal (.js, .css, gambar, font): Stale-While-Revalidate
+  // Permintaan skrip aplikasi inti & stylesheet: Network-first cepat (1200ms) agar update kode segera aktif di browser
+  if (url.pathname === '/app.js' || url.pathname === '/styles.css' || url.pathname.startsWith('/js/') || url.pathname.startsWith('/i18n/')) {
+    event.respondWith(
+      (async () => {
+        const netFetch = fetch(event.request).then(async (res) => {
+          if (res && res.status === 200 && event.request.method === 'GET') {
+            try {
+              const cache = await caches.open(CACHE_NAME);
+              cache.put(event.request, res.clone()).catch(() => {});
+            } catch (ePut) {}
+          }
+          return res;
+        }).catch(() => null);
+
+        try {
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200));
+          const netRes = await Promise.race([netFetch, timeoutPromise]);
+          if (netRes && netRes.status === 200) {
+            return netRes;
+          }
+        } catch (e) {}
+
+        const cached = await caches.match(event.request, { ignoreSearch: true });
+        if (cached) return cached;
+        try {
+          const fallbackNet = await netFetch;
+          if (fallbackNet && fallbackNet.status === 200) return fallbackNet;
+        } catch (e2) {}
+        return new Response('/* script unavailable */', { status: 503, headers: { 'Content-Type': 'application/javascript' } });
+      })()
+    );
+    return;
+  }
+
+  // Aset statis lokal lain (vendor, gambar, font): Stale-While-Revalidate
   // Sajikan dari cache seketika (0ms!), lalu sinkronkan versi baru di latar belakang
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true }).then((cached) => {
