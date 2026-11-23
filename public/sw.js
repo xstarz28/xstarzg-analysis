@@ -74,7 +74,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         // Cek cache lokal terlebih dahulu (0ms instant startup - anti-freeze logo WebAPK)
-        const cached = (await caches.match('/', { ignoreSearch: true })) || (await caches.match('/index.html', { ignoreSearch: true }));
+        const cached = (await caches.match(event.request, { ignoreSearch: true })) || (await caches.match('/', { ignoreSearch: true })) || (await caches.match('/index.html', { ignoreSearch: true }));
 
         // Background fetch untuk sinkronisasi versi HTML terbaru dari Cloudflare
         const networkFetch = fetch(event.request).then(async (res) => {
@@ -129,7 +129,7 @@ self.addEventListener('fetch', (event) => {
         return cached;
       }
       // Belum ada di cache: tunggu respon dari jaringan secara aman
-      return fetchPromise;
+      return fetchPromise.catch(() => new Response('/* asset offline */', { status: 503 }));
     })
   );
 });
