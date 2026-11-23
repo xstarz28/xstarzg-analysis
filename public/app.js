@@ -2524,20 +2524,31 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
     return;
   }
 
-  // Verifikasi keterisian order limit
+  // Verifikasi keterisian order limit:
+  // DILARANG memakai low/high lampau dari candle yang sama saat sinyal dipasang!
+  // Pada candle yang sama saat sinyal terbit, order limit HANYA terisi bila harga live saat ini
+  // benar-benar menyentuh level antrean (price <= entry untuk LONG, price >= entry untuk SHORT).
+  // Pada candle baru di masa depan (currentBarTime > lock.anchorClosedTime), barulah low/high candle baru boleh mengisi order.
   var filled = lock.filled === true;
+  var currentBarTime = (state.candles && state.candles.length) ? state.candles[state.candles.length - 1].time : 0;
   if (!filled) {
-    if (isLong && low <= entry) filled = true;
-    if (!isLong && high >= entry) filled = true;
+    var isNewBar = lock.anchorClosedTime && currentBarTime > lock.anchorClosedTime;
+    if (isLong) {
+      if (price <= entry || (isNewBar && low <= entry)) filled = true;
+    } else {
+      if (price >= entry || (isNewBar && high >= entry)) filled = true;
+    }
     if (filled) {
       lock.filled = true;
+      lock.filledAt = Date.now();
+      lock.fillBarTime = currentBarTime;
       saveSignalLock(symbol, tf, lock);
     }
   }
 
-  // Jika order belum terjemput dan harga sudah mencapai target -> MISSED (bukan TP hit)
+  // Jika order belum terisi, DILARANG memantau SL+ atau TP!
   if (!filled) {
-    var missed = isLong ? (high >= tp1) : (low <= tp1);
+    var missed = isLong ? (price >= tp1) : (price <= tp1);
     if (missed) {
       var verdict = { status: 'MISSED', reason: 'Target tercapai sebelum order limit terjemput (unfilled)', at: Date.now() };
       if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
@@ -2554,8 +2565,9 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   var beTriggerRatio = brain === 'SCALP' ? 0.35 : 0.40;
 
   var effectiveSl = (lock.bePlusActive && num(lock.slPlus) > 0) ? num(lock.slPlus) : sl;
-  var tpHit = isLong ? (high >= tp1) : (low <= tp1);
-  var slHit = isLong ? (low <= effectiveSl) : (high >= effectiveSl);
+  var isPostFillBar = lock.fillBarTime && currentBarTime > lock.fillBarTime;
+  var tpHit = isLong ? (price >= tp1 || (isPostFillBar && high >= tp1)) : (price <= tp1 || (isPostFillBar && low <= tp1));
+  var slHit = isLong ? (price <= effectiveSl || (isPostFillBar && low <= effectiveSl)) : (price >= effectiveSl || (isPostFillBar && high >= effectiveSl));
 
   if (tpHit) {
     var verdict = { status: 'TP_HIT', reason: T('ui.jnlTpHitReason', 'TP tersentuh pada pemantauan harga langsung') + ' (' + formatPrice(tp1, symbol) + ')', at: Date.now(), exitPrice: tp1 };
@@ -2586,7 +2598,10 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
     return;
   }
 
-  var favDist = isLong ? (high - entry) : (entry - low);
+  // Pemicu SL+ (0-Risk):
+  // HANYA boleh dihitung dari harga LIVE saat ini setelah order terisi,
+  // BUKAN dari high lampau candle sebelum order terjemput!
+  var favDist = isLong ? (price - entry) : (entry - price);
   if (!lock.bePlusActive && favDist >= beTriggerRatio * targetDist) {
     lock.bePlusActive = true;
     lock.notifiedSlPlus = true;

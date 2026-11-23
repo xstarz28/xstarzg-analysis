@@ -699,6 +699,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
       // Daftarkan ke pengawasan order
       // PENTING: flag `justCreated = true` MENJAMIN step 2 tidak mengevaluasi SL+ pada cycle yang sama!
+      const anchorClosedTime = lastBar ? lastBar.time : (a.anchorClosedTime || Date.now());
       const lockObj = {
         symbol: sym,
         tf: tf,
@@ -717,6 +718,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         notifiedTp1: false,
         created: Date.now(),
         issuedAt: Date.now(),
+        anchorClosedTime: anchorClosedTime,
         justCreated: true
       };
       cache.slPlusLocks[sym] = lockObj;
@@ -744,21 +746,27 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   // 2b. Verifikasi Keterisian Limit Order (hanya jika belum terisi)
   if (!activeLock.filled) {
     let gotFilled = false;
+    // PENTING: Limit order hanya boleh terisi jika:
+    // 1. livePrice saat ini benar-benar menyentuh level antrian entry (livePrice <= entry untuk LONG, livePrice >= entry untuk SHORT)
+    // 2. ATAU candle BARU yang terbentuk setelah sinyal terbit (lastBar.time > activeLock.anchorClosedTime) menjemput entry.
+    // DILARANG memakai lastBar.low/high dari candle yang sama saat sinyal terbit, karena terjadi di masa lalu sebelum order limit dipasang!
+    const isNewBar = lastBar && activeLock.anchorClosedTime && (lastBar.time > activeLock.anchorClosedTime);
     if (isLong) {
-      if (lastBar.low <= entry || livePrice <= entry) gotFilled = true;
+      if (livePrice <= entry || (isNewBar && lastBar.low <= entry)) gotFilled = true;
     } else {
-      if (lastBar.high >= entry || livePrice >= entry) gotFilled = true;
+      if (livePrice >= entry || (isNewBar && lastBar.high >= entry)) gotFilled = true;
     }
 
     if (gotFilled) {
       activeLock.filled = true;
       activeLock.status = 'FILLED';
       activeLock.filledAt = Date.now();
+      activeLock.fillBarTime = lastBar ? lastBar.time : Date.now();
       console.log(`  [${sym} ${tf}] 🔔 Limit Order TERJEMPUT pada ${formatP(entry, sym)}! Posisi aktif dipantau.`);
       await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
     } else {
       // Cek apakah target sudah tercapai sebelum order sempat dijemput (MISSED)
-      const missed = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
+      const missed = isLong ? (livePrice >= tp1 || (isNewBar && lastBar.high >= tp1)) : (livePrice <= tp1 || (isNewBar && lastBar.low <= tp1));
       if (missed) {
         console.log(`  [${sym} ${tf}] ↗️ Order terlewat (MISSED) — target tercapai sebelum terjemput.`);
         const cancelMsg =
@@ -868,9 +876,12 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     const isGold = (sym || '').includes('XAU');
     const triggerRatio = isGold ? 0.35 : 0.38;
     const beTriggerPrice = isLong ? (entry + triggerRatio * targetDist) : (entry - triggerRatio * targetDist);
+    // Evaluasi SL+ hanya berdasarkan pergerakan nyata setelah terisi:
+    // Pada bar pengisian (same bar as fill), gunakan livePrice agar tidak tertipu high/low sebelum penjemputan!
+    const isPostFillBar = lastBar && activeLock.fillBarTime && (lastBar.time > activeLock.fillBarTime);
     const slPlusHit = isLong
-      ? (lastBar.high >= beTriggerPrice || livePrice >= beTriggerPrice)
-      : (lastBar.low <= beTriggerPrice || livePrice <= beTriggerPrice);
+      ? (livePrice >= beTriggerPrice || (isPostFillBar && lastBar.high >= beTriggerPrice))
+      : (livePrice <= beTriggerPrice || (isPostFillBar && lastBar.low <= beTriggerPrice));
 
     if (slPlusHit) {
       activeLock.notifiedSlPlus = true;

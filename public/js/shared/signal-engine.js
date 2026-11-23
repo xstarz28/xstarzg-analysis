@@ -1693,7 +1693,8 @@ export function createSignalLock(a, symbol, mode, subMode) {
   const slPlus = a.direction === 'LONG' ? entry + beBuffer : entry - beBuffer;
 
   const lastP = Number(a.lastPrice || a.anchorClosedClose || entry);
-  const isMarket = a.entryType === 'MARKET' || Math.abs(entry - lastP) <= 0.05 * (a.atr || 1);
+  const isExplicitLimit = a.entryType === 'LIMIT' || (a.atr ? Math.abs(entry - lastP) > 0.05 * a.atr : Math.abs(entry - lastP) > 1e-6);
+  const isMarket = !isExplicitLimit && (a.entryType === 'MARKET' || Math.abs(entry - lastP) <= 1e-6);
 
   return {
     v: 3,
@@ -1705,7 +1706,7 @@ export function createSignalLock(a, symbol, mode, subMode) {
     tp1: a.levels.tp1, tp2: a.levels.tp2, tp3: a.levels.tp3,
     slPlus: slPlus,
     bePlusActive: false,
-    filled: isMarket, // Order Limit BARU terisi jika pasar masa depan menjemput titik entry!
+    filled: isMarket, // Order Limit SELALU pending fill (false) sampai pasar masa depan menjemput titik entry!
     rrRatio: a.levels.rrRatio,
     score: a.confluenceScore,
     winRate: a.gating ? a.gating.winRate : (a.backtest ? a.backtest.winRate : 0),

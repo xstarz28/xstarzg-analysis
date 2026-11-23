@@ -377,5 +377,126 @@ await asyncChk('Sentinel menyinkronkan active locks dari cloud secara otomatis',
   }
 });
 
+// 6. Kasus Nyata EUR/USD (H1): BUY LIMIT @ 1.0978, Live Price 1.0988, Low Candle 1.0972
+await asyncChk('Kasus Nyata EUR/USD: Mencegah Premature Fill & False SL+ pada Candle Penerbitan Sinyal', async () => {
+  const sentMessages = [];
+  const mockSend = async (msg) => { sentMessages.push(msg); };
+  const cache = { notified: {}, slPlusLocks: {} };
+
+  const inst = { sym: 'EUR/USD', tf: 'H1', type: 'forex', hz: 'intraday' };
+  // Candle yang sedang berjalan: open 1.0970, high 1.0990, low 1.0972, close/livePrice 1.0988
+  // Perhatikan: low 1.0972 terbentuk di masa lalu sebelum sinyal terbit!
+  const candles = [];
+  for (let i = 0; i < 50; i++) {
+    candles.push({ time: 1000 + i * 3600, open: 1.0960, high: 1.0975, low: 1.0955, close: 1.0970, volume: 1000 });
+  }
+  candles[candles.length - 1] = {
+    time: 1000 + 49 * 3600,
+    open: 1.0970,
+    high: 1.0990,
+    low: 1.0972, // low di bawah entry 1.0978, TAPI terjadi SEBELUM sinyal BUY LIMIT terbit!
+    close: 1.0988, // live price saat ini di atas entry
+    volume: 2500
+  };
+
+  const eurAnalysis = {
+    direction: 'LONG',
+    confluenceScore: 84,
+    signalEligible: true,
+    signalTier: 'ELITE',
+    atr: 0.0018,
+    regime: 'Bullish Institutional Order Flow',
+    anchorClosedTime: 1000 + 49 * 3600,
+    lastPrice: 1.0988,
+    entryType: 'LIMIT',
+    levels: {
+      entry: 1.0978, // Limit order di bawah live price 1.0988
+      sl: 1.0955,
+      tp1: 1.1002,
+      tp2: 1.1020,
+      tp3: 1.1040
+    }
+  };
+
+  // Siklus 1: Sinyal EUR/USD diterbitkan
+  await processInstrumentAnalysis({
+    inst,
+    candles,
+    a: eurAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Hanya sinyal BUY LIMIT yang terkirim pada siklus 1', sentMessages.length === 1);
+  chk('Pesan memuat instruksi BUY LIMIT @ 1.0978', sentMessages[0].includes('BUY LIMIT') && sentMessages[0].includes('1.0978'));
+  chk('Order EUR/USD berstatus PENDING_FILL', cache.slPlusLocks['EUR/USD'].status === 'PENDING_FILL');
+  chk('Order EUR/USD filled adalah false', cache.slPlusLocks['EUR/USD'].filled === false);
+  chk('Order EUR/USD notifiedSlPlus adalah false', cache.slPlusLocks['EUR/USD'].notifiedSlPlus === false);
+
+  // Siklus 2: 1 Menit kemudian (harga masih di candle yang sama, tick 1.0989, belum pullback ke 1.0978)
+  const candlesSameBar = [...candles];
+  candlesSameBar[candlesSameBar.length - 1] = {
+    ...candlesSameBar[candlesSameBar.length - 1],
+    high: 1.0991,
+    close: 1.0989 // harga live masih 1.0989, belum jemput entry
+  };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles: candlesSameBar,
+    a: eurAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Pesan TIDAK bertambah pada siklus 2 (SL+ DILARANG terpicu karena order belum terjemput)', sentMessages.length === 1);
+  chk('Order EUR/USD tetap PENDING_FILL pada candle yang sama', cache.slPlusLocks['EUR/USD'].status === 'PENDING_FILL');
+  chk('Order EUR/USD tetap filled === false', cache.slPlusLocks['EUR/USD'].filled === false);
+
+  // Siklus 3: Candle berikutnya turun menjemput entry limit (low: 1.0976 <= 1.0978)
+  const candlesNextBarFill = [...candles, {
+    time: 1000 + 50 * 3600,
+    open: 1.0988,
+    high: 1.0989,
+    low: 1.0976, // jemput entry limit!
+    close: 1.0980,
+    volume: 3000
+  }];
+
+  await processInstrumentAnalysis({
+    inst,
+    candles: candlesNextBarFill,
+    a: eurAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Order EUR/USD berhasil terisi setelah candle baru menjemput entry', cache.slPlusLocks['EUR/USD'].filled === true);
+  chk('SL+ belum terpicu karena profit baru +2 pip (belum 38% target)', sentMessages.length === 1);
+
+  // Siklus 4: Harga melaju mencapai ambang SL+ (38% dari 24 pips = +9.1 pips -> harga >= 1.0988)
+  const candlesNextBarRally = [...candlesNextBarFill];
+  candlesNextBarRally[candlesNextBarRally.length - 1] = {
+    ...candlesNextBarRally[candlesNextBarRally.length - 1],
+    high: 1.0992,
+    close: 1.0990
+  };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles: candlesNextBarRally,
+    a: eurAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Pesan SL+ (0-Risk) kini terkirim sah setelah order terjemput dan mencapai zona aman', sentMessages.length === 2);
+  chk('Pesan ke-2 memuat peringatan SL+ (0-Risk)', sentMessages[1].includes('SL+ TERPICU (0-RISK)'));
+});
+
 console.log(`\nSENTINEL & JOURNAL REGRESSION SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
