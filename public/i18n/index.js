@@ -29,13 +29,9 @@ export function detectInitialLanguage() {
   if (saved && SUPPORTED_LANGUAGES.some((l) => l.code === saved)) {
     return saved;
   }
-  const nav = (navigator.language || 'id').toLowerCase();
-  if (nav.startsWith('id')) return 'id';
-  if (nav.startsWith('zh-tw') || nav.startsWith('zh-hk')) return 'zh-TW';
-  if (nav.startsWith('zh')) return 'zh-CN';
-  const base = nav.split('-')[0];
-  const matched = SUPPORTED_LANGUAGES.find((l) => l.code.toLowerCase() === base);
-  return matched ? matched.code : 'id';
+  // Default mutlak Bahasa Indonesia (id) sebagai bahasa primer terminal
+  // agar HP Android / iOS lokal tidak salah terdeteksi menjadi bahasa Inggris.
+  return 'id';
 }
 export async function setLanguage(langCode) {
   const meta = SUPPORTED_LANGUAGES.find((l) => l.code === langCode) || SUPPORTED_LANGUAGES[0];

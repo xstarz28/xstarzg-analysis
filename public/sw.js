@@ -1,5 +1,5 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-const CACHE_NAME = 'xstarzg-pwa-v2026.75';
+const CACHE_NAME = 'xstarzg-pwa-v2026.76';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -11,6 +11,9 @@ const STATIC_ASSETS = [
   '/js/shared/quant-core.js',
   '/js/shared/signal-engine.js',
   '/i18n/boot.js',
+  '/i18n/index.js',
+  '/i18n/locales/id.json',
+  '/i18n/locales/en.json',
   '/assets/favicon.svg',
   '/assets/logo.svg',
   '/manifest.webmanifest'
@@ -58,24 +61,26 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
       (async () => {
+        let networkResponse = null;
         try {
           const networkPromise = fetch(event.request);
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1800));
-          const response = await Promise.race([networkPromise, timeoutPromise]);
-          if (response && response.status === 200) {
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+          networkResponse = await Promise.race([networkPromise, timeoutPromise]);
+          if (networkResponse && networkResponse.status === 200) {
             const cache = await caches.open(CACHE_NAME);
-            cache.put('/', response.clone()).catch(() => {});
-            cache.put('/index.html', response.clone()).catch(() => {});
-            return response;
+            cache.put('/', networkResponse.clone()).catch(() => {});
+            cache.put('/index.html', networkResponse.clone()).catch(() => {});
+            return networkResponse;
           }
         } catch (e) {
-          // Jaringan lambat / offline -> ambil dari cache instan
+          // Jaringan lambat / timeout -> coba ambil dari cache lokal instan
         }
         const cached = await caches.match('/', { ignoreSearch: true });
         if (cached) return cached;
         const cachedIndex = await caches.match('/index.html', { ignoreSearch: true });
         if (cachedIndex) return cachedIndex;
-        return fetch(event.request);
+        if (networkResponse) return networkResponse;
+        return new Response('Network unavailable and no cached version found.', { status: 503, headers: { 'Content-Type': 'text/plain' } });
       })()
     );
     return;
@@ -91,12 +96,15 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
         }
         return networkResponse;
-      }).catch((err) => {
-        // Jangan pernah kembalikan HTML untuk file JS/CSS saat offline/gagal!
-        return cached || null;
       });
 
-      return cached || fetchPromise;
+      if (cached) {
+        // Ada di cache lokal: sajikan seketika 0ms, perbarui cache di latar belakang
+        fetchPromise.catch(() => {});
+        return cached;
+      }
+      // Belum ada di cache: tunggu respon dari jaringan secara aman
+      return fetchPromise;
     })
   );
 });

@@ -430,6 +430,21 @@ function catLabelOf(meta) {
   return meta.region === 'ID' ? 'IDX STOCKS' : 'GLOBAL STOCKS';
 }
 
+function generateSeedCandles(symbol, tf) {
+  if (typeof window !== 'undefined' && typeof window.generateSeedCandles === 'function') {
+    return window.generateSeedCandles(symbol, tf);
+  }
+  var sym = (symbol || 'XAU/USD').toUpperCase();
+  var meta = (typeof getMeta === 'function' ? getMeta(sym) : null);
+  var baseP = (meta && Number(meta.basePrice) > 0) ? Number(meta.basePrice) : (sym === 'XAU/USD' ? 2680 : 100);
+  return { price: baseP, candles: [] };
+}
+function drawCanvasFallbackChart(candles, analysis) {
+  if (typeof window !== 'undefined' && typeof window.drawCanvasFallbackChart === 'function') {
+    return window.drawCanvasFallbackChart(candles, analysis);
+  }
+}
+
 /* Memeriksa apakah sesi bursa untuk instrumen ini sedang buka.
    Kripto & DEX buka 24/7/365. Forex, Emas/Logam, Komoditas & Saham tutup di akhir pekan.
    Saham IDX buka 09:00 - 16:00 WIB (02:00 - 09:00 UTC). Saham US buka 09:30 - 16:00 EST (14:30 - 21:00 UTC). */
@@ -1524,8 +1539,9 @@ function fetchRealMarketCandles(symbol, tf) {
         }
         local = arr;
       }
-      var lc = local[local.length - 1];
-      resolve({ candles: local, price: lc.close, changePct: 0.1, source: 'EDGE_SYNTHETIC_CALIBRATED', symbol: symbol, tf: tf });
+      var lc = (local && local.length) ? local[local.length - 1] : null;
+      var lastP = lc ? lc.close : (state.livePrice || 2680);
+      resolve({ candles: local || [], price: lastP, changePct: 0.1, source: 'EDGE_SYNTHETIC_CALIBRATED', symbol: symbol, tf: tf });
     });
   });
 }
@@ -1601,9 +1617,12 @@ function initChart() {
   var el = $id('tvChartContainer');
   if (!el) return false;
   if (chartInstance) return true;
+  var sk = $id('tvChartLoadingSkeleton');
+  var fnFallback = (typeof drawCanvasFallbackChart === 'function') ? drawCanvasFallbackChart : (typeof window !== 'undefined' ? window.drawCanvasFallbackChart : null);
   if (typeof LightweightCharts === 'undefined') {
-    if (state.candles && state.candles.length && typeof drawCanvasFallbackChart === 'function') {
-      try { drawCanvasFallbackChart(state.candles, state.lastAnalysis); } catch (e) {}
+    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
+    if (state.candles && state.candles.length && typeof fnFallback === 'function') {
+      try { fnFallback(state.candles, state.lastAnalysis); } catch (e) {}
     }
     return false; // canvas fallback menangani
   }
@@ -1611,8 +1630,9 @@ function initChart() {
   // tampil) -> tunggu frame berikutnya sampai ada lebar nyata, maksimal ~1.5 dtk.
   // Satu timer pending saja (flag global) agar panggilan berulang tidak menumpuk timer.
   if ((el.clientWidth || 0) < 40) {
-    if (state.candles && state.candles.length && typeof drawCanvasFallbackChart === 'function') {
-      try { drawCanvasFallbackChart(state.candles, state.lastAnalysis); } catch (e) {}
+    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
+    if (state.candles && state.candles.length && typeof fnFallback === 'function') {
+      try { fnFallback(state.candles, state.lastAnalysis); } catch (e) {}
     }
     if (typeof window !== 'undefined' && !window.__chartInitPending) {
       window.__chartInitPending = true;
@@ -1639,7 +1659,6 @@ function initChart() {
   try {
     var oldCanvas = el.querySelector('canvas.xstarzg-fallback-canvas');
     if (oldCanvas) { try { oldCanvas.remove(); } catch (e) {} }
-    var sk = $id('tvChartLoadingSkeleton');
     if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
     chartInstance = LightweightCharts.createChart(el, {
       width: el.clientWidth || 820,
@@ -1651,6 +1670,16 @@ function initChart() {
       timeScale: { borderColor: '#1e293b', timeVisible: true, secondsVisible: false, rightOffset: 6, barSpacing: 9 },
       localization: { locale: 'id-ID' }
     });
+    if (typeof ResizeObserver !== 'undefined') {
+      var ro = new ResizeObserver(function () {
+        try {
+          if (chartInstance && el.clientWidth > 40) {
+            chartInstance.applyOptions({ width: el.clientWidth, height: el.clientHeight || 470 });
+          }
+        } catch (e) {}
+      });
+      ro.observe(el);
+    }
     candleSeries = chartInstance.addCandlestickSeries({
       upColor: '#10b981', downColor: '#f43f5e',
       borderUpColor: '#10b981', borderDownColor: '#f43f5e',
@@ -8503,8 +8532,9 @@ function enterWorkspace() {
     // agar layar HP tidak pernah menggantung dengan placeholder kosong
     try {
       if (!state.candles || !state.candles.length || !state.lastAnalysis) {
-        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : null;
-        if (seeded) {
+        var fnSeed = (typeof generateSeedCandles === 'function') ? generateSeedCandles : (typeof window !== 'undefined' ? window.generateSeedCandles : null);
+        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : (fnSeed ? fnSeed(state.symbol || 'XAU/USD', state.tf || 'H1') : null);
+        if (seeded && seeded.candles && seeded.candles.length) {
           state.candles = seeded.candles;
           state.livePrice = seeded.price;
           state.liveChangePct = 0.25;
@@ -10031,6 +10061,8 @@ if (document.readyState === 'loading') {
   }
     // Expose untuk heartbeat live-tick (anti-desync chart vs harga saat CDN diblokir)
   window.drawCanvasFallbackChart = drawCanvasFallbackChart;
+  window.generateSeedCandles = generateSeedCandles;
+  window.SEED_PRICES = SEED_PRICES;
   let analysisRequestSeq = 0;
   // Override runFullAnalysis agar 100% langsung menggambar data & chart dalam 0 detik lalu menyinkronkan harga live
   window.runFullAnalysis = async function (forceRecalc = false) {
@@ -10169,9 +10201,10 @@ if (document.readyState === 'loading') {
         } else {
           window.addEventListener('load', registerSW);
         }
+        var isInitialController = !!navigator.serviceWorker.controller;
         var refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (!refreshing) {
+          if (!refreshing && isInitialController) {
             refreshing = true;
             window.location.reload();
           }
