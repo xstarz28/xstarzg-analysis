@@ -1092,6 +1092,7 @@ function auditAndCleanseCorruptedStorage() {
 
     var lks = signalLockStore();
     var lksMod = false;
+    var nowMs = Date.now();
     for (var k2 in lks) {
       if (k2 === '__migratedV2') continue;
       var lk = lks[k2];
@@ -1103,7 +1104,15 @@ function auditAndCleanseCorruptedStorage() {
       var badPrice2 = !isPriceCompatibleWithSymbol(entry2, sym2);
       var k2Sym = (k2.split('|')[0] || '').toUpperCase();
       var symMismatch2 = (lk.symbol && k2Sym && lk.symbol.toUpperCase() !== k2Sym);
-      if (inv2 || badPrice2 || symMismatch2) {
+      var ageMs2 = nowMs - (lk.issuedAt || lk.created || 0);
+      var maxAgeMs2 = (lk.tf === 'M1' || lk.tf === 'M5' || lk.tf === 'M15') ? (60 * 60 * 1000) : (lk.tf === 'M30' || lk.tf === 'H1') ? (8 * 3600 * 1000) : (24 * 3600 * 1000);
+      var staleUnfilled = (!lk.filled && ageMs2 > maxAgeMs2);
+      if (inv2 || badPrice2 || symMismatch2 || staleUnfilled) {
+        if (staleUnfilled && typeof recordSignalOutcome === 'function') {
+          try {
+            recordSignalOutcome(sym2, lk.tf, { status: 'EXPIRED', reason: 'Batas waktu tunggu limit order habis (>12 candle tanpa terjemput)', at: nowMs }, lk);
+          } catch (e) {}
+        }
         delete lks[k2];
         lksMod = true;
       }
@@ -2440,6 +2449,23 @@ function writeBackRadarPools(analysis) {
   if (!state.candles || !state.candles.length) return;
   var lastBar = state.candles[state.candles.length - 1];
   if (!lastBar || !isPriceCompatibleWithSymbol(lastBar.close, sym)) return;
+
+  // STRICT GUARD: Jika instrumen sedang dalam masa pendinginan (cooldown pasca outcome):
+  // DILARANG MEMBANGKITKAN KEMBALI kartu ke radar! Bersihkan dari radarScanPool agar tidak mencemari radar!
+  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
+    for (var hz0 in radarScanPool) {
+      if (radarScanPool[hz0]) delete radarScanPool[hz0][sym + '|' + tf];
+    }
+    return;
+  }
+  // Cegah membangkitkan sinyal yang sudah basi / tidak layak ke radar
+  if (typeof evaluateSignalViability === 'function') {
+    var vCheck = evaluateSignalViability(analysis, num(state.livePrice, analysis.lastPrice));
+    if (vCheck && vCheck.worth === false && vCheck.key !== 'PULLBACK') {
+      return;
+    }
+  }
+
   var item = {
     sym: sym, tf: tf, analysis: analysis,
     candles: (state.candles || []).slice(-240),
@@ -4055,10 +4081,45 @@ function evaluateSignalViability(it) {
     };
   }
 
+  // 6. Masa Pendinginan / Siklus Selesai (Cooldown pasca outcome)
+  // Sinyal yang sedang dalam masa pendinginan (cooldown) DILARANG masuk radar sebagai FRESH!
+  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
+    return {
+      key: 'COOLDOWN',
+      label: isEn ? '⚪ COMPLETED / COOLDOWN' : '⚪ SELESAI / COOLDOWN',
+      sub: isEn ? 'Setup Finished / Cooling Down • Awaiting Next Cycle' : 'Siklus Setup Selesai • Masa Pendinginan (Anti-FOMO)',
+      worth: false,
+      badgeCls: 'wait',
+      priority: 85,
+      color: '#94a3b8',
+      bg: 'rgba(148,163,184,0.12)'
+    };
+  }
+
   var entry = Number(L.entry || 0);
   var sl = Number(L.sl || 0);
   var tp1 = Number(L.tp1 || 0);
   var atr = Number(a.atr || 1);
+
+  var lock = (typeof getSignalLock === 'function') ? getSignalLock(sym, tf) : null;
+  var isFilled = lock && lock.filled === true;
+  var isBePlusActive = lock && (lock.bePlusActive === true || lock.notifiedSlPlus === true || lock.slPlusAlerted === true);
+
+  // 7. Proteksi Setup Usang / Pending Limit Terlalu Lama (Timeout > 12 lilin)
+  var ageMs = lock ? (Date.now() - (lock.issuedAt || lock.created || 0)) : 0;
+  var maxPendingMs = (tf === 'M1' || tf === 'M5' || tf === 'M15') ? (60 * 60 * 1000) : (tf === 'M30' || tf === 'H1') ? (8 * 3600 * 1000) : (24 * 3600 * 1000);
+  if (lock && !isFilled && ageMs > maxPendingMs) {
+    return {
+      key: 'EXPIRED',
+      label: isEn ? '⌛ EXPIRED (TIMEOUT)' : '⌛ KEDALUWARSA (TIMEOUT)',
+      sub: isEn ? 'Pending Window Closed (>12 Bars) • Setup Stale' : 'Batas Waktu Tunggu Habis (>12 Lilin) • Setup Usang',
+      worth: false,
+      badgeCls: 'wait',
+      priority: 75,
+      color: '#94a3b8',
+      bg: 'rgba(148,163,184,0.12)'
+    };
+  }
 
   if (!entry || !sl || !tp1 || curP <= 0) {
     return {
@@ -4072,10 +4133,6 @@ function evaluateSignalViability(it) {
       bg: 'rgba(16,185,129,0.14)'
     };
   }
-
-  var lock = (typeof getSignalLock === 'function') ? getSignalLock(sym, tf) : null;
-  var isFilled = lock && lock.filled === true;
-  var isBePlusActive = lock && (lock.bePlusActive === true || lock.notifiedSlPlus === true || lock.slPlusAlerted === true);
 
   var targetDist = Math.max(Math.abs(tp1 - entry), 1e-9);
   var riskDist = Math.max(Math.abs(entry - sl), 1e-9);
