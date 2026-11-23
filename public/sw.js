@@ -1,5 +1,5 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-const CACHE_NAME = 'xstarzg-pwa-v2026.80';
+const CACHE_NAME = 'xstarzg-pwa-v2026.81';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -57,6 +57,11 @@ self.addEventListener('message', (event) => {
 // 3) Static assets (.js, .css, images, fonts) -> Stale-while-revalidate (instant 0ms render + background update)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // Hanya tangani same-origin request! Request ke origin lain (Binance, DexScreener, dll.) langsung ke jaringan
+  if (url.origin !== location.origin) {
+    return;
+  }
 
   // Biarkan panggilan API market / auth selalu lewat jaringan (realtime)
   if (url.pathname.startsWith('/api/')) {
