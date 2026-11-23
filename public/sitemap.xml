@@ -4,14 +4,14 @@
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
   <url>
-    <loc>https://xstarzganalysis.pages.dev/</loc>
-    <lastmod>2026-11-19</lastmod>
+    <loc>https://xstarzg-analysis.pages.dev/</loc>
+    <lastmod>2026-11-23</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://xstarzg-analysis.pages.dev/</loc>
-    <lastmod>2026-11-19</lastmod>
+    <loc>https://xstarzganalysis.pages.dev/</loc>
+    <lastmod>2026-11-23</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
