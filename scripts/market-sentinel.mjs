@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runFullAnalysis } from '../public/js/shared/signal-engine.js';
+import { calcEMA, calcSMA } from '../public/js/shared/quant-core.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
@@ -19,7 +20,7 @@ const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
 // Ambil token & chatId dari environment variable (GitHub Secrets)
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN || process.env.BOT_TOKEN || '').trim().replace(/^bot/i, '');
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID || process.env.CHAT_ID || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
-const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '62', 10) || 62;
+const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '78', 10) || 78;
 
 console.log('⚡ [XSTARZG SENTINEL] Memulai pemindaian pasar 24/7...');
 console.log(`📌 Konfigurasi: Min Score: ${MIN_SCORE}% | Bot Token Terpasang: ${BOT_TOKEN ? 'YA' : 'TIDAK'} | Chat ID: ${CHAT_ID ? 'YA' : 'TIDAK'}`);
@@ -284,6 +285,34 @@ async function fetchBinanceCandles(pair, interval = '1h', limit = 150) {
   return [];
 }
 
+let CACHED_BTC_TREND = null;
+
+export async function resolveBtcMacroTrend() {
+  if (CACHED_BTC_TREND) return CACHED_BTC_TREND;
+  try {
+    const btcCandles = await fetchBinanceCandles('BTC/USDT', '1h', 100);
+    if (btcCandles && btcCandles.length >= 35) {
+      const closes = btcCandles.map(c => c.close);
+      const last = closes[closes.length - 1];
+      const ema20 = calcEMA(closes, 20).pop() || last;
+      const ema50 = calcEMA(closes, 50).pop() || last;
+      const sma100 = calcSMA(closes, 100).pop() || ema50;
+      if (last > ema50 && ema20 > ema50 && last >= sma100) {
+        CACHED_BTC_TREND = 'BULLISH';
+      } else if (last < ema50 && ema20 < ema50 && last <= sma100) {
+        CACHED_BTC_TREND = 'BEARISH';
+      } else {
+        CACHED_BTC_TREND = 'NEUTRAL';
+      }
+    } else {
+      CACHED_BTC_TREND = 'NEUTRAL';
+    }
+  } catch (e) {
+    CACHED_BTC_TREND = 'NEUTRAL';
+  }
+  return CACHED_BTC_TREND;
+}
+
 // Fetch forex / commodities candles from Yahoo Finance
 const YAHOO_SYMBOLS = {
   // Metals
@@ -514,50 +543,65 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     console.log(`  [${sym} ${tf}] 🟡 Menunggu keselarasan pasar Top-Down (1D/4H vs 1H/15m) — anti counter-trend noise.`);
   }
 
+  // Anti-Countertrend Crypto Beta Guard:
+  // DILARANG membuka SHORT pada altcoin jika BTC makro sedang BULLISH kuat
+  // DILARANG membuka LONG pada altcoin jika BTC makro sedang BEARISH kuat
+  const btcTrend = inst.btcTrend || null;
+  const isAltcoin = inst.type === 'crypto' && sym !== 'BTC/USDT';
+  if (isAltcoin && btcTrend) {
+    if (btcTrend === 'BULLISH' && dir === 'SHORT') {
+      console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BETA GUARD] SHORT dibatalkan: BTC makro sedang BULLISH kuat. Dilarang melawan arus utama kripto!`);
+      return;
+    }
+    if (btcTrend === 'BEARISH' && dir === 'LONG') {
+      console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BETA GUARD] LONG dibatalkan: BTC makro sedang BEARISH kuat. Dilarang menangkap pisau jatuh!`);
+      return;
+    }
+  }
+
+  // Filter Khusus Emas (XAU/USD) untuk Keakuratan Kompetisi
+  const isGold = sym === 'XAU/USD';
+  if (isGold) {
+    if (a.sessionInfo && !a.sessionInfo.isOptimal && score < 82) {
+      console.log(`  [XAU/USD ${tf}] 🟡 Emas di luar sesi likuiditas puncak London/NY — hanya sinyal Tier ELITE (skor ≥ 82%) yang diizinkan.`);
+      return;
+    }
+  }
+
   if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
     const L = a.levels || {};
     const anchorTime = a.anchorClosedTime || lastBar.time;
     const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
 
     if (!cache.notified[setupKey]) {
+      if ((cache.newAlertsThisRun || 0) >= 2) {
+        console.log(`  [${sym} ${tf}] 🛡️ [ANTI-SPAM] Sinyal skor tinggi (${score}%) ditahan karena batas 2 sinyal terbaik per siklus telah terpenuhi.`);
+        return;
+      }
       cache.notified[setupKey] = Date.now();
+      cache.newAlertsThisRun = (cache.newAlertsThisRun || 0) + 1;
 
       const hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
       const dirEmoji = dir === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
       const tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
-      const entryPrice = L.entry || livePrice;
       const atr = a.atr || (livePrice * 0.005);
-      const entryDiff = entryPrice - livePrice;
 
       const isCrypto = (sym || '').includes('/USDT') || (sym || '').includes('BTC') || (sym || '').includes('ETH') || (sym || '').includes('SOL');
       const isStock = (sym || '').includes('.JK') || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].includes(sym);
       const platformName = isCrypto ? 'exchange kripto pilihan Anda (Binance/Bybit/Tokocrypto/OKX)' : isStock ? 'aplikasi sekuritas/broker saham Anda' : 'broker/aplikasi trading Anda';
+      const platformNameEn = isCrypto ? 'your preferred crypto exchange' : isStock ? 'your stock brokerage app' : 'your trading platform / broker';
 
-      let orderType = '';
-      let orderInstruction = '';
-      if (dir === 'LONG') {
-        if (entryDiff < -0.05 * atr) {
-          orderType = 'BUY LIMIT';
-          orderInstruction = `Pasang <b>BUY LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> (antri beli di harga diskon/pullback).`;
-        } else if (entryDiff > 0.05 * atr) {
-          orderType = 'BUY STOP';
-          orderInstruction = `Pasang <b>BUY STOP</b> di <code>${formatP(entryPrice, sym)}</code> (eksekusi saat breakout ke atas).`;
-        } else {
-          orderType = 'BUY (Market / Instan)';
-          orderInstruction = `Eksekusi <b>BUY SEKARANG</b> di harga pasar (~${formatP(livePrice, sym)}).`;
-        }
-      } else {
-        if (entryDiff > 0.05 * atr) {
-          orderType = 'SELL LIMIT';
-          orderInstruction = `Pasang <b>SELL LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> (antri jual di harga premium/pullback).`;
-        } else if (entryDiff < -0.05 * atr) {
-          orderType = 'SELL STOP';
-          orderInstruction = `Pasang <b>SELL STOP</b> di <code>${formatP(entryPrice, sym)}</code> (eksekusi saat breakout ke bawah).`;
-        } else {
-          orderType = 'SELL (Market / Instan)';
-          orderInstruction = `Eksekusi <b>SELL SEKARANG</b> di harga pasar (~${formatP(livePrice, sym)}).`;
-        }
-      }
+      // Sniper Entry: Wajib Limit Order di zona mitigasi diskon/premium
+      // Dilarang mengejar harga pasar di pucuk atau lembah!
+      const isLong = dir === 'LONG';
+      const entryPrice = L.entry || (isLong ? livePrice - 0.20 * atr : livePrice + 0.20 * atr);
+      const orderType = isLong ? 'BUY LIMIT' : 'SELL LIMIT';
+      const orderInstruction = isLong
+        ? `Pasang antrian <b>BUY LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> pada zona diskon Order Block / FVG mitigasi (jangan kejar harga di pucuk!).`
+        : `Pasang antrian <b>SELL LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> pada zona premium Order Block / FVG mitigasi (jangan kejar harga di lembah!).`;
+      const orderInstructionEn = isLong
+        ? `Place a <b>BUY LIMIT</b> order at <code>${formatP(entryPrice, sym)}</code> in the discount Order Block / FVG mitigation zone (never chase market price at peaks!).`
+        : `Place a <b>SELL LIMIT</b> order at <code>${formatP(entryPrice, sym)}</code> in the premium Order Block / FVG mitigation zone (never chase market price at lows!).`;
 
       let topDownBlock = '';
       if (a.topDown) {
@@ -593,17 +637,6 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         `\n📱 <i>${orderInstruction} Buka ${platformName}. Bot memantau posisi dan akan mengirim peringatan SL+ (0-Risk) setelah order terisi dan meluncur menuju profit!</i>`;
 
       const hzLabelEn = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
-      const platformNameEn = isCrypto ? 'your crypto exchange (Binance/Bybit/OKX/etc.)' : isStock ? 'your stock brokerage account' : 'your trading platform / broker';
-      let orderInstructionEn = '';
-      if (dir === 'LONG') {
-        if (entryDiff < -0.05 * atr) orderInstructionEn = `Place a <b>BUY LIMIT</b> at <code>${formatP(entryPrice, sym)}</code> (discount pullback entry).`;
-        else if (entryDiff > 0.05 * atr) orderInstructionEn = `Place a <b>BUY STOP</b> at <code>${formatP(entryPrice, sym)}</code> (resistance breakout entry).`;
-        else orderInstructionEn = `Execute <b>BUY NOW</b> at market price (~${formatP(livePrice, sym)}).`;
-      } else {
-        if (entryDiff > 0.05 * atr) orderInstructionEn = `Place a <b>SELL LIMIT</b> at <code>${formatP(entryPrice, sym)}</code> (premium pullback entry).`;
-        else if (entryDiff < -0.05 * atr) orderInstructionEn = `Place a <b>SELL STOP</b> at <code>${formatP(entryPrice, sym)}</code> (support breakdown entry).`;
-        else orderInstructionEn = `Execute <b>SELL NOW</b> at market price (~${formatP(livePrice, sym)}).`;
-      }
 
       let topDownBlockEn = '';
       if (a.topDown) {
@@ -653,9 +686,9 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
         tp2: L.tp2,
         tp3: L.tp3,
         atr: atr,
-        status: orderType.includes('Market') ? 'FILLED' : 'PENDING_FILL',
-        filled: orderType.includes('Market'),
-        filledAt: orderType.includes('Market') ? Date.now() : null,
+        status: 'PENDING_FILL',
+        filled: false,
+        filledAt: null,
         notifiedSlPlus: false,
         notifiedTp1: false,
         created: Date.now(),
@@ -808,7 +841,8 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   // PENTING: Evaluasi SL+ dijalankan TERLEBIH DAHULU agar trader PASTI menerima peringatan pasang SL+
   // sebelum posisi pernah dinyatakan keluar atau terselamatkan oleh SL+!
   if (!activeLock.notifiedSlPlus && targetDist > 0) {
-    const triggerRatio = 0.38;
+    const isGold = (sym || '').includes('XAU');
+    const triggerRatio = isGold ? 0.35 : 0.38;
     const beTriggerPrice = isLong ? (entry + triggerRatio * targetDist) : (entry - triggerRatio * targetDist);
     const slPlusHit = isLong
       ? (lastBar.high >= beTriggerPrice || livePrice >= beTriggerPrice)
@@ -989,8 +1023,15 @@ async function runSentinel() {
 
   const cache = loadCache();
   await syncActiveLocksFromCloud(cache);
-  for (const inst of WATCHLIST) {
-    await scanInstrument(inst, cache);
+  cache.newAlertsThisRun = 0;
+
+  const btcTrend = await resolveBtcMacroTrend();
+  console.log(`🪙 [Makro Kripto] Tren Utama Bitcoin: ${btcTrend}`);
+
+  const concurrency = 6;
+  for (let i = 0; i < WATCHLIST.length; i += concurrency) {
+    const chunk = WATCHLIST.slice(i, i + concurrency);
+    await Promise.all(chunk.map(inst => scanInstrument({ ...inst, btcTrend }, cache)));
   }
   saveCache(cache);
   console.log('🏁 [XSTARZG SENTINEL] Pemindaian selesai.');
