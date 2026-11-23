@@ -34,10 +34,25 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.76'), 'sw.js memiliki versi cache segar v2026.76');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.77'), 'sw.js memiliki versi cache segar v2026.77');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
     assert.ok(appJs.includes('isInitialController'), 'app.js mengecek keberadaan controller awal sebelum reload');
+  });
+
+  await t.test('7. generateSeedCandles mengeksekusi langsung tanpa loop rekursi dan mengembalikan 180 candle', () => {
+    assert.ok(appJs.includes('var SEED_PRICES = {'), 'app.js mendefinisikan SEED_PRICES di scope atas');
+    assert.ok(!appJs.includes('if (typeof window !== \'undefined\' && typeof window.generateSeedCandles === \'function\') {\n    return window.generateSeedCandles'), 'generateSeedCandles tidak boleh memanggil dirinya sendiri melalui window');
+  });
+
+  await t.test('8. loginGateScreen menyediakan tombol jalur langsung Owner (btnGateOwnerDirect)', () => {
+    const indexHtml = fs.readFileSync(path.join(rootDir, 'public/index.html'), 'utf8');
+    assert.ok(indexHtml.includes('id="btnGateOwnerDirect"'), 'index.html memiliki tombol btnGateOwnerDirect');
+    assert.ok(appJs.includes("bind('btnGateOwnerDirect'"), 'app.js mengikat event listener btnGateOwnerDirect');
+  });
+
+  await t.test('9. drawCanvasFallbackChart memiliki penjaga anti-rekursi', () => {
+    assert.ok(appJs.includes('window.__canvasRenderer'), 'drawCanvasFallbackChart mendelegasikan render ke canvas renderer');
   });
 });
