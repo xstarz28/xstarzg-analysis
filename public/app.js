@@ -2,6 +2,26 @@
 // === PWA & MOBILE AUTO-ENTRY / DELEGATED CLICK GUARD ===
 var SESSION_KEY = 'xstarzg_user_v3';
 
+// Definisi state global awal di baris 3 agar seketika tersedia bagi semua handler tombol
+var state = {
+  symbol: 'XAU/USD',
+  tf: 'H1', timeframe: 'H1',
+  mode: 'trader',            // 'trader' | 'investor'
+  subMode: 'futures',        // 'futures' | 'spot'
+  chartType: 'candles',      // 'candles' | 'bars' | 'line' | 'area' (ala TradingView)
+  radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
+  radarGroup: 'all',         // 'all' | 'crypto' | 'fx_comm' | 'stocks' (3 bagan terpisah)
+  radarViability: 'actionable', // 'actionable' (layak entry) | 'fresh' | 'running' | 'all'
+  bestTfBoard: null,         // papan hasil scan multi-TF (engine), diisi async
+  candles: [],
+  lastAnalysis: null,
+  livePrice: 2680.00,
+  liveChangePct: 0.25,
+  feedSource: '-',
+  user: null                 // { email, name, tier: 'GUEST'|'FREE'|'VIP'|'OWNER_VIP', vipUntil }
+};
+try { if (typeof window !== 'undefined') window.state = state; } catch (e) {}
+
 // Fungsi alur layar & workspace terdefinisi seketika di baris awal (0ms delay),
 // agar SEMUA klik tombol di landing page langsung merespons tanpa menunggu seluruh file besar selesai di-parse.
 function showScreen(name) {
@@ -25,6 +45,92 @@ function showScreen(name) {
 }
 if (typeof window !== 'undefined') window.showScreen = showScreen;
 
+function saveSession() {
+  if (!state || !state.user) return;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      v: 4,
+      user: state.user,
+      symbol: state.symbol || 'XAU/USD', tf: state.tf || 'H1', mode: state.mode || 'trader', subMode: state.subMode || 'futures',
+      radarHorizon: state.radarHorizon || 'intraday', at: Date.now()
+    }));
+    var tok = (state.user && (state.user.ownerToken || state.user.authToken)) || '';
+    if (tok) localStorage.setItem('xstarzg_jwt', tok);
+  } catch (e) {}
+}
+
+function loadSession() {
+  try {
+    var raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    var p = JSON.parse(raw);
+    if (!p) return null;
+    var user = p.user || (p.email ? p : null);
+    if (!user || !user.email) return null;
+    if (user.tier === 'VIP' && user.vipUntil && Date.now() > user.vipUntil) user.tier = 'FREE';
+    p.user = user;
+    var tok = (user.ownerToken || user.authToken) || '';
+    if (tok) {
+      try { localStorage.setItem('xstarzg_jwt', tok); } catch (e) {}
+    }
+    return p;
+  } catch (e) { return null; }
+}
+
+var enterWorkspaceLock = 0;
+function enterWorkspace() {
+  try {
+    showScreen('work');
+    try { if (typeof updateUserUi === 'function') updateUserUi(); } catch (e) {}
+    try { if (typeof syncModeSections === 'function') syncModeSections(); } catch (e) {}
+    try { if (typeof renderInstrumentCatalog === 'function') renderInstrumentCatalog(); } catch (eCat) {}
+    // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
+    // agar layar HP tidak pernah menggantung dengan placeholder kosong
+    try {
+      if (!state.candles || !state.candles.length || !state.lastAnalysis) {
+        var fnSeed = (typeof generateSeedCandles === 'function') ? generateSeedCandles : (typeof window !== 'undefined' ? window.generateSeedCandles : null);
+        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : (fnSeed ? fnSeed(state.symbol || 'XAU/USD', state.tf || 'H1') : null);
+        if (seeded && seeded.candles && seeded.candles.length) {
+          state.candles = seeded.candles;
+          state.livePrice = seeded.price;
+          state.liveChangePct = 0.25;
+          state.feedSource = 'LOCAL_SEED';
+          var instant = typeof computeQuantEngine === 'function' ? computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED') : null;
+          if (instant && typeof renderAllVisuals === 'function') renderAllVisuals(instant, true);
+        }
+      }
+    } catch (eSeed) {}
+    try { if (typeof initChart === 'function') initChart(); } catch (eInit) {}
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        try { if (typeof initChart === 'function') initChart(); } catch (e) {}
+      });
+    }
+    var now = Date.now();
+    if (now - enterWorkspaceLock > 300) {
+      enterWorkspaceLock = now;
+      setTimeout(function () {
+        try { if (typeof initChart === 'function') initChart(); } catch (e) { console.warn('initChart error:', e); }
+        try { window.dispatchEvent(new Event('resize')); } catch (e) {}
+        try {
+          if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
+        } catch (e) { console.warn('runFullAnalysis error:', e); }
+        try { if (typeof connectRealtimeStream === 'function') connectRealtimeStream(); } catch (e) {}
+        try {
+          if (state.mode === 'investor') {
+            if (typeof renderInvestorPicks === 'function') renderInvestorPicks();
+          } else {
+            if (typeof renderOpportunityRadar === 'function') renderOpportunityRadar();
+          }
+        } catch (e) { console.warn('renderOpportunityRadar error:', e); }
+      }, 60);
+    }
+  } catch (e) {
+    console.error('enterWorkspace error:', e);
+  }
+}
+if (typeof window !== 'undefined') window.enterWorkspace = enterWorkspace;
+
 // 1) Deteksi dini PWA/APK (start_url ?pwa=1 atau mode standalone)
 (function () {
   try {
@@ -43,19 +149,20 @@ if (typeof window !== 'undefined') window.showScreen = showScreen;
 if (typeof document !== 'undefined') {
   document.addEventListener('click', function (e) {
     try {
-      var t = e.target && e.target.closest ? e.target.closest('button, [id]') : null;
+      var t = e.target && e.target.closest ? (e.target.closest('button') || e.target.closest('[id]')) : null;
       if (!t || !t.id) return;
       var id = t.id;
       if (id === 'btnHeroPreview' || id === 'btnInstantPreview') {
+        try { e.preventDefault(); } catch (eP) {}
         if (typeof state !== 'undefined' && state) {
-          state.user = state.user || { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+          state.user = { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
         }
         if (typeof saveSession === 'function') saveSession();
         if (typeof enterWorkspace === 'function') enterWorkspace();
         else if (typeof window !== 'undefined' && typeof window.enterWorkspace === 'function') window.enterWorkspace();
         else showScreen('work');
       } else if (id === 'btnHeroLoginGate' || id === 'btnNavLoginGate') {
-        if (typeof state !== 'undefined' && state && state.user) {
+        if (typeof state !== 'undefined' && state && state.user && state.user.tier && state.user.tier !== 'GUEST') {
           if (typeof enterWorkspace === 'function') enterWorkspace();
           else if (typeof window !== 'undefined' && typeof window.enterWorkspace === 'function') window.enterWorkspace();
           else showScreen('work');
@@ -8710,18 +8817,27 @@ function enterWorkspace() {
       }
     } catch (eSeed) {}
     try { initChart(); } catch (eInit) {}
-    setTimeout(function () {
-      try { initChart(); } catch (e) { console.warn('initChart error:', e); }
-      try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-      try {
-        if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-      } catch (e) { console.warn('runFullAnalysis error:', e); }
-      try { connectRealtimeStream(); } catch (e) {}
-      try {
-        if (state.mode === 'investor') renderInvestorPicks();
-        else renderOpportunityRadar();
-      } catch (e) { console.warn('renderOpportunityRadar error:', e); }
-    }, 60);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        try { if (typeof initChart === 'function') initChart(); } catch (e) {}
+      });
+    }
+    var now = Date.now();
+    if (now - enterWorkspaceLock > 300) {
+      enterWorkspaceLock = now;
+      setTimeout(function () {
+        try { initChart(); } catch (e) { console.warn('initChart error:', e); }
+        try { window.dispatchEvent(new Event('resize')); } catch (e) {}
+        try {
+          if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
+        } catch (e) { console.warn('runFullAnalysis error:', e); }
+        try { connectRealtimeStream(); } catch (e) {}
+        try {
+          if (state.mode === 'investor') renderInvestorPicks();
+          else renderOpportunityRadar();
+        } catch (e) { console.warn('renderOpportunityRadar error:', e); }
+      }, 60);
+    }
   } catch (e) {
     console.error('enterWorkspace error:', e);
   }
@@ -8883,13 +8999,13 @@ function bindUiEvents() {
   };
   /* ---- Landing & Login gate ---- */
   bind('btnNavLoginGate', function () {
-    if (state.user) enterWorkspace(); else showScreen('gate');
+    if (state.user && state.user.tier && state.user.tier !== 'GUEST') enterWorkspace(); else showScreen('gate');
   });
   bind('btnHeroLoginGate', function () {
-    if (state.user) enterWorkspace(); else showScreen('gate');
+    if (state.user && state.user.tier && state.user.tier !== 'GUEST') enterWorkspace(); else showScreen('gate');
   });
   bind('btnHeroPreview', function () {
-    state.user = state.user || { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+    state.user = { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
     saveSession();
     enterWorkspace();
   });
@@ -9824,6 +9940,11 @@ function bootCore() {
     if (isPwaLaunch) {
       state.user = { email: 'pwa-guest@xstarzg.local', name: 'Mode Tamu PWA', tier: 'GUEST' };
       try { saveSession(); } catch (e) {}
+      try { renderInstrumentCatalog(); } catch (e) {}
+      try { updateUserUi(); } catch (e) {}
+      try { syncModeSections(); } catch (e) {}
+      try { enterWorkspace(); } catch (e) {}
+    } else if (state.user) {
       try { renderInstrumentCatalog(); } catch (e) {}
       try { updateUserUi(); } catch (e) {}
       try { syncModeSections(); } catch (e) {}
