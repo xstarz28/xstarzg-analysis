@@ -1,7 +1,6 @@
 'use strict';
 // === PWA & MOBILE AUTO-ENTRY / DELEGATED CLICK GUARD ===
-// 1) Deteksi dini PWA/APK (start_url ?pwa=1 atau mode standalone):
-// Hilangkan landing screen seketika 0ms dan siapkan workspace agar splash screen APK Android langsung tertutup
+// 1) Deteksi dini PWA/APK (start_url ?pwa=1 atau mode standalone)
 (function () {
   try {
     if (typeof window !== 'undefined') {
@@ -9,17 +8,13 @@
                   (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
       if (isPwa) {
         window.__isPwaLaunch = true;
-        var f = document.getElementById('frontLandingScreen');
-        var w = document.getElementById('appWorkspaceWrapper');
-        if (f) f.classList.add('hidden');
-        if (w) w.classList.remove('hidden');
       }
     }
   } catch (ePwa) {}
 })();
 
-// 2) Delegated instant click handler: memastikan tap pada tombol beranda (Mulai Analisis, Pratinjau Tamu,
-// Login Terminal, Jalur Owner) langsung merespons seketika tanpa tertahan jeda unduh/parse file besar
+// 2) Delegated click capture guard: memastikan tap pada tombol beranda (Mulai Analisis, Pratinjau Tamu,
+// Login Terminal, Jalur Owner) langsung merespons dan mengeksekusi alur secara aman
 if (typeof document !== 'undefined') {
   document.addEventListener('click', function (e) {
     try {
@@ -31,24 +26,18 @@ if (typeof document !== 'undefined') {
           state.user = state.user || { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
         }
         if (typeof saveSession === 'function') saveSession();
-        if (typeof enterWorkspace === 'function') enterWorkspace();
-        else {
-          var f = document.getElementById('frontLandingScreen'), g = document.getElementById('loginGateScreen'), w = document.getElementById('appWorkspaceWrapper');
-          if (f) f.classList.add('hidden');
-          if (g) g.classList.add('hidden');
-          if (w) w.classList.remove('hidden');
+        if (typeof enterWorkspace === 'function') {
+          enterWorkspace();
+        } else if (typeof window !== 'undefined' && typeof window.enterWorkspace === 'function') {
+          window.enterWorkspace();
         }
       } else if (id === 'btnHeroLoginGate' || id === 'btnNavLoginGate') {
         if (typeof state !== 'undefined' && state && state.user) {
           if (typeof enterWorkspace === 'function') enterWorkspace();
+          else if (typeof window !== 'undefined' && typeof window.enterWorkspace === 'function') window.enterWorkspace();
         } else {
           if (typeof showScreen === 'function') showScreen('gate');
-          else {
-            var f2 = document.getElementById('frontLandingScreen'), g2 = document.getElementById('loginGateScreen'), w2 = document.getElementById('appWorkspaceWrapper');
-            if (f2) f2.classList.add('hidden');
-            if (g2) g2.classList.remove('hidden');
-            if (w2) w2.classList.add('hidden');
-          }
+          else if (typeof window !== 'undefined' && typeof window.showScreen === 'function') window.showScreen('gate');
         }
       } else if (id === 'btnGateOwnerDirect') {
         var gm = document.getElementById('googleAuthModal');
@@ -1800,6 +1789,16 @@ function initChart() {
     ema50Line = chartInstance.addLineSeries({ color: '#eab308', lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
     ma200Line = chartInstance.addLineSeries({ color: '#a855f7', lineWidth: 2, lastValueVisible: false, priceLineVisible: false });
     vwapLine = chartInstance.addLineSeries({ color: '#ec4899', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+
+    // Render instan 0ms: jika data candle sudah siap, langsung tampilkan di grafik
+    if (candleSeries && state.candles && state.candles.length) {
+      try {
+        candleSeries.setData(mainSeriesPayload(state.candles));
+        if (chartInstance && chartInstance.timeScale) chartInstance.timeScale().fitContent();
+      } catch (eCandle) {}
+    }
+    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
+
     window.addEventListener('resize', function () {
       try {
         var w = el.clientWidth;
@@ -1829,6 +1828,7 @@ function initChart() {
     return false;
   }
 }
+try { if (typeof window !== 'undefined') window.initChart = initChart; } catch (e) {}
 function clearDrawnPriceLines() {
   if (!candleSeries) return;
   for (var i = 0; i < drawnPriceLines.length; i++) {
@@ -6466,6 +6466,7 @@ function drawMemeCandleChart(item, candleList) {
   canvas.style.height = h + 'px';
 
   var ctx = canvas.getContext('2d');
+  if (!ctx) return;
   ctx.save();
   ctx.scale(dpr, dpr);
 
@@ -8647,6 +8648,7 @@ function enterWorkspace() {
     showScreen('work');
     updateUserUi();
     syncModeSections();
+    try { renderInstrumentCatalog(); } catch (eCat) {}
     // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
     // agar layar HP tidak pernah menggantung dengan placeholder kosong
     try {
@@ -8663,6 +8665,7 @@ function enterWorkspace() {
         }
       }
     } catch (eSeed) {}
+    try { initChart(); } catch (eInit) {}
     setTimeout(function () {
       try { initChart(); } catch (e) { console.warn('initChart error:', e); }
       try { window.dispatchEvent(new Event('resize')); } catch (e) {}
@@ -8679,6 +8682,7 @@ function enterWorkspace() {
     console.error('enterWorkspace error:', e);
   }
 }
+try { if (typeof window !== 'undefined') { window.showScreen = showScreen; window.enterWorkspace = enterWorkspace; } } catch (e) {}
 
 /* ==================== 10. VIP PAYMENT (ON-CHAIN BSC VERIFY) ==================== */
 /* v2026.66: verifikasi pembayaran DIPINDAH penuh ke server (/api/billing/verify-bsc).
@@ -10020,6 +10024,7 @@ if (document.readyState === 'loading') {
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     ctx.fillStyle = '#050811';
     ctx.fillRect(0, 0, w, h);
     if (!candles || !candles.length) return;
