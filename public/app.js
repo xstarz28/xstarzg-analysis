@@ -7767,6 +7767,7 @@ function checkTelegramHighScoreSignal(a, item) {
     (isCrypto ? 'your crypto exchange (Binance/Bybit/OKX/etc.)' : isStock ? 'your stock brokerage account' : 'your trading platform / broker') :
     (isCrypto ? 'exchange kripto pilihan Anda (Binance/Bybit/Tokocrypto/OKX)' : isStock ? 'aplikasi sekuritas/broker saham Anda' : 'broker/aplikasi trading Anda');
 
+  var diff = (num(livePrice, 0) || num(entry, 0)) - num(entry, 0);
   var orderType = '';
   if (isLong) {
     if (diff < -0.08 * atr) orderType = 'BUY LIMIT (Diskon Pullback)';
