@@ -34,7 +34,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.79'), 'sw.js memiliki versi cache segar v2026.79');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.80'), 'sw.js memiliki versi cache segar v2026.80');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {

@@ -13,11 +13,14 @@ import {
 
 function fillLangSelects() {
   document.querySelectorAll('select[data-lang-select]').forEach(function (sel) {
-    if (sel.options.length) return; // sudah diisi
+    if (sel.options.length >= SUPPORTED_LANGUAGES.length) return; // sudah lengkap
+    var currentVal = sel.value || getLanguage() || 'id';
+    sel.innerHTML = '';
     SUPPORTED_LANGUAGES.forEach(function (l) {
       var opt = document.createElement('option');
       opt.value = l.code;
       opt.textContent = l.flag + ' ' + l.nativeName;
+      if (l.code === currentVal) opt.selected = true;
       sel.appendChild(opt);
     });
   });

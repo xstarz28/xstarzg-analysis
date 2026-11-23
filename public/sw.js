@@ -1,5 +1,5 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-const CACHE_NAME = 'xstarzg-pwa-v2026.79';
+const CACHE_NAME = 'xstarzg-pwa-v2026.80';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -67,14 +67,21 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
       (async () => {
+        const networkFetch = fetch(event.request).then(async (res) => {
+          if (res && res.status === 200) {
+            try {
+              const cache = await caches.open(CACHE_NAME);
+              cache.put('/', res.clone()).catch(() => {});
+              cache.put('/index.html', res.clone()).catch(() => {});
+            } catch (ePut) {}
+          }
+          return res;
+        }).catch(() => null);
+
         try {
-          const networkPromise = fetch(event.request);
           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200));
-          const networkResponse = await Promise.race([networkPromise, timeoutPromise]);
+          const networkResponse = await Promise.race([networkFetch, timeoutPromise]);
           if (networkResponse && networkResponse.status === 200) {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put('/', networkResponse.clone()).catch(() => {});
-            cache.put('/index.html', networkResponse.clone()).catch(() => {});
             return networkResponse;
           }
         } catch (e) {
@@ -83,7 +90,7 @@ self.addEventListener('fetch', (event) => {
         const cached = (await caches.match('/', { ignoreSearch: true })) || (await caches.match('/index.html', { ignoreSearch: true }));
         if (cached) return cached;
         try {
-          const fallbackNet = await fetch(event.request);
+          const fallbackNet = await networkFetch;
           if (fallbackNet && fallbackNet.status === 200) return fallbackNet;
         } catch (e2) {}
         return new Response('Network unavailable and no cached version found.', { status: 503, headers: { 'Content-Type': 'text/plain' } });

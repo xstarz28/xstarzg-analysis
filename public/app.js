@@ -1713,6 +1713,9 @@ function syncChartPriceFormat() {
     [ema20Line, ema50Line, ma200Line, vwapLine].forEach(function (ser) { try { if (ser) ser.applyOptions({ priceFormat: pf }); } catch (e) {} });
   } catch (e) {}
 }
+var chartResizeRo = null;
+var lastChartWidth = 0;
+var lastChartHeight = 0;
 function initChart() {
   var el = $id('tvChartContainer');
   if (!el) return false;
@@ -1771,14 +1774,22 @@ function initChart() {
       localization: { locale: 'id-ID' }
     });
     if (typeof ResizeObserver !== 'undefined') {
-      var ro = new ResizeObserver(function () {
-        try {
-          if (chartInstance && el.clientWidth > 40) {
-            chartInstance.applyOptions({ width: el.clientWidth, height: el.clientHeight || 470 });
-          }
-        } catch (e) {}
-      });
-      ro.observe(el);
+      if (!chartResizeRo) {
+        chartResizeRo = new ResizeObserver(function () {
+          try {
+            if (!chartInstance || !el) return;
+            var w = el.clientWidth || 0;
+            var h = el.clientHeight || 470;
+            if (w > 40 && (w !== lastChartWidth || h !== lastChartHeight)) {
+              lastChartWidth = w;
+              lastChartHeight = h;
+              chartInstance.applyOptions({ width: w, height: h });
+            }
+          } catch (e) {}
+        });
+      }
+      try { chartResizeRo.disconnect(); } catch (e) {}
+      chartResizeRo.observe(el);
     }
     candleSeries = chartInstance.addCandlestickSeries({
       upColor: '#10b981', downColor: '#f43f5e',
@@ -1801,21 +1812,15 @@ function initChart() {
 
     window.addEventListener('resize', function () {
       try {
-        var w = el.clientWidth;
-        if (chartInstance && w > 0) chartInstance.applyOptions({ width: w });
+        var w = el.clientWidth || 0;
+        var h = el.clientHeight || 470;
+        if (chartInstance && w > 40 && (w !== lastChartWidth || h !== lastChartHeight)) {
+          lastChartWidth = w;
+          lastChartHeight = h;
+          chartInstance.applyOptions({ width: w, height: h });
+        }
       } catch (e) {}
     });
-    // ResizeObserver: rotasi HP / buka-tutup panel / keyboard virtual tetap rapi
-    try {
-      if (typeof ResizeObserver !== 'undefined') {
-        var ro = new ResizeObserver(function () {
-          try {
-            if (chartInstance && el.clientWidth > 0) chartInstance.applyOptions({ width: el.clientWidth });
-          } catch (e) {}
-        });
-        ro.observe(el);
-      }
-    } catch (e) {}
     // Hormati preferensi tipe chart tersimpan
     try {
       var savedCt = localStorage.getItem('xstarzg_chart_type');
@@ -10360,10 +10365,18 @@ if (document.readyState === 'loading') {
         var swPageStartTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
         var refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          // Cegah auto-reload saat startup awal (< 4000ms) agar WebAPK Android tidak terjebak reload loop di splash screen
+          // PROTEKSI ANTI-LOOP MUTLAK (anti-hang & anti-freeze di Android WebAPK / Emulator / Laptop):
+          // 1) Cegah loop: maksimal 1x reload per sesi browser/tab melalui sessionStorage lock
+          // 2) Hindari reload jika sedang dalam fase startup awal (< 4000ms) atau jika sudah pernah reload
+          if (refreshing) return;
+          try {
+            var reloadFlag = sessionStorage.getItem('xs_sw_did_reload');
+            if (reloadFlag) return; // Sudah pernah reload dalam sesi ini -> DILARANG reload lagi!
+          } catch (eSes) {}
           var elapsed = (typeof performance !== 'undefined' && performance.now) ? (performance.now() - swPageStartTime) : 5000;
-          if (!refreshing && isInitialController && elapsed >= 4000) {
+          if (isInitialController && elapsed >= 4000) {
             refreshing = true;
+            try { sessionStorage.setItem('xs_sw_did_reload', '1'); } catch (eSes2) {}
             window.location.reload();
           }
         });
