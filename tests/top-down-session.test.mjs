@@ -200,4 +200,25 @@ test('TOP-DOWN MULTI-TIMEFRAME & INSTITUTIONAL SESSION ARCHITECTURE', async (t) 
     assert.ok(app.includes('COUNTER_HTF_ALIGNMENT'));
   });
 
+  await t.test('8. Setup unaligned (misal NEUTRAL vs BEARISH) di-veto tegas & ambang skor app.js seragam 78%', () => {
+    const app = fs.readFileSync(path.join(process.cwd(), 'public/app.js'), 'utf8');
+
+    // app.js telegram threshold wajib >= 78%
+    assert.ok(app.includes('var minThresh = Math.max(num(telegramConfig.minScore, 78), 78);'));
+    assert.ok(app.includes('return Math.max(SE.radarAdaptiveGate(radarAccStore()[hzOfTf(tf)]).minScore, 78);'));
+
+    // Uji runFullAnalysis saat unaligned (macro Neutral / tidak selaras)
+    const candles = [];
+    let p = 150;
+    for (let i = 0; i < 80; i++) {
+      p += (i % 2 === 0 ? 0.3 : -0.3);
+      candles.push({ time: 1700000000 + i * 3600, open: p - 0.1, high: p + 0.5, low: p - 0.5, close: p, volume: 1000 });
+    }
+    const res = SE.runFullAnalysis({ symbol: 'USD/JPY', timeframe: 'H1', candles, mode: 'trader' });
+    if (res.topDown && !res.topDown.isAligned) {
+      assert.strictEqual(res.signalEligible, false, 'Setup unaligned tidak boleh berstatus eligible');
+      assert.ok(res.gating.vetoShort.includes('COUNTER_HTF_ALIGNMENT') || res.gating.vetoLong.includes('COUNTER_HTF_ALIGNMENT'));
+    }
+  });
+
 });

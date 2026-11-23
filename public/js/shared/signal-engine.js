@@ -1342,6 +1342,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       vetoes.short.push('COUNTER_HTF_ALIGNMENT');
     } else if (topDown.macroBias === 'BEARISH' && !vetoes.long.includes('COUNTER_HTF_ALIGNMENT')) {
       vetoes.long.push('COUNTER_HTF_ALIGNMENT');
+    } else if (!topDown.isAligned) {
+      if (!vetoes.short.includes('COUNTER_HTF_ALIGNMENT')) vetoes.short.push('COUNTER_HTF_ALIGNMENT');
+      if (!vetoes.long.includes('COUNTER_HTF_ALIGNMENT')) vetoes.long.push('COUNTER_HTF_ALIGNMENT');
     }
   }
   // Konfirmasi VOLUME institusional (aturan sweep->BOS WAJIB disertai kaki impulsif):

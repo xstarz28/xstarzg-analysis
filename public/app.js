@@ -1053,9 +1053,9 @@ function latestSignalOutcome(symbol, tf) {
 }
 function adaptiveMinScore(tf) {
   try {
-    if (SE && SE.radarAdaptiveGate) return SE.radarAdaptiveGate(radarAccStore()[hzOfTf(tf)]).minScore;
+    if (SE && SE.radarAdaptiveGate) return Math.max(SE.radarAdaptiveGate(radarAccStore()[hzOfTf(tf)]).minScore, 78);
   } catch (e) {}
-  return 62;
+  return 78;
 }
 function auditAndCleanseCorruptedStorage() {
   try {
@@ -3857,12 +3857,13 @@ function renderRadarCardHtml(it) {
       var tdHtml = '';
       if (a && a.topDown) {
         var td = a.topDown;
+        var isEnTd = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
         if (td.isAligned) {
           tdHtml = '<div style="font-size:10px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
             '🟢 ALIGNED: 1D/4H (' + escH(td.macroBias) + ') ➔ 1H/15m ➔ 5m</div>';
         } else {
           tdHtml = '<div style="font-size:10px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.1);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
-            '🟡 Menunggu Keselarasan (' + escH(td.macroBias) + ' vs ' + escH(td.structBias) + ')</div>';
+            '🟡 ' + (isEnTd ? 'Awaiting Alignment' : 'Menunggu Keselarasan') + ' (' + escH(td.macroBias) + ' vs ' + escH(td.structBias) + ')</div>';
         }
       }
       var sessHtml = '';
@@ -7165,7 +7166,7 @@ function checkTelegramHighScoreSignal(a, item) {
   // STRICT GUARD: Verifikasi keselarasan pasar Top-Down (1D/4H vs 1H/15m) — anti counter-trend noise
   if (a.topDown && !a.topDown.isAligned) return;
 
-  var minThresh = Math.min(telegramConfig.minScore || 62, 62);
+  var minThresh = Math.max(num(telegramConfig.minScore, 78), 78);
   var score = num(a.confluenceScore, a.confidence || 0);
   if (score < minThresh) return;
 
@@ -7247,49 +7248,21 @@ function checkTelegramHighScoreSignal(a, item) {
   var rrRatio = risk > 0 ? (reward / risk).toFixed(1) : '2.0';
 
   var atr = a.atr || (risk * 0.5) || (livePrice * 0.005);
-  var diff = entry - livePrice;
+  var isLong = a.direction === 'LONG';
   var orderInstruction = '';
 
   if (isLong) {
-    if (diff < -0.08 * atr) {
-      orderInstruction = isEn ?
-        ('📌 <b>Action:</b> <code>BUY LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Pending limit order at pullback discount. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
-        ('📌 <b>Aksi Order:</b> <code>BUY LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Pasang antrian Buy Limit di harga diskon/pullback. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
-    } else if (diff > 0.08 * atr) {
-      orderInstruction = isEn ?
-        ('📌 <b>Action:</b> <code>BUY STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Breakout order above resistance. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
-        ('📌 <b>Aksi Order:</b> <code>BUY STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Pasang order Buy Stop pada breakout resistance. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
-    } else {
-      orderInstruction = isEn ?
-        ('📌 <b>Action:</b> <code>BUY NOW (MARKET ORDER)</code>\n' +
-         '⚡ <i>Live price (~' + formatPrice(livePrice, sym) + ') is right at Entry zone! Execute immediately.</i>') :
-        ('📌 <b>Aksi Order:</b> <code>BELI SEKARANG (MARKET ORDER)</code>\n' +
-         '⚡ <i>Harga pasar (~' + formatPrice(livePrice, sym) + ') berada tepat di zona Entry! Buka posisi langsung sekarang.</i>');
-    }
+    orderInstruction = isEn ?
+      ('📌 <b>Action:</b> <code>BUY LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+       '💡 <i>Place pending Buy Limit order in discount Order Block / FVG mitigation zone (never chase peak prices!).</i>') :
+      ('📌 <b>Aksi Order:</b> <code>BUY LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+       '💡 <i>Pasang antrian Buy Limit pada zona diskon Order Block / FVG mitigasi (jangan kejar harga di pucuk!).</i>');
   } else {
-    if (diff > 0.08 * atr) {
-      orderInstruction = isEn ?
-        ('📌 <b>Action:</b> <code>SELL LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Pending limit order at premium pullback. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
-        ('📌 <b>Aksi Order:</b> <code>SELL LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Pasang antrian Sell Limit di harga premium/pullback. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
-    } else if (diff < -0.08 * atr) {
-      orderInstruction = isEn ?
-        ('📌 <b>Action:</b> <code>SELL STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Breakdown order below support. Live price: ~' + formatPrice(livePrice, sym) + '.</i>') :
-        ('📌 <b>Aksi Order:</b> <code>SELL STOP</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
-         '💡 <i>Pasang order Sell Stop pada breakdown support. Harga pasar saat ini: ~' + formatPrice(livePrice, sym) + '.</i>');
-    } else {
-      orderInstruction = isEn ?
-        ('📌 <b>Action:</b> <code>SELL NOW (MARKET ORDER)</code>\n' +
-         '⚡ <i>Live price (~' + formatPrice(livePrice, sym) + ') is right at Entry zone! Execute immediately.</i>') :
-        ('📌 <b>Aksi Order:</b> <code>JUAL SEKARANG (MARKET ORDER)</code>\n' +
-         '⚡ <i>Harga pasar (~' + formatPrice(livePrice, sym) + ') berada tepat di zona Entry! Buka posisi langsung sekarang.</i>');
-    }
+    orderInstruction = isEn ?
+      ('📌 <b>Action:</b> <code>SELL LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+       '💡 <i>Place pending Sell Limit order in premium Order Block / FVG mitigation zone (never chase low prices!).</i>') :
+      ('📌 <b>Aksi Order:</b> <code>SELL LIMIT</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+       '💡 <i>Pasang antrian Sell Limit pada zona premium Order Block / FVG mitigasi (jangan kejar harga di lembah!).</i>');
   }
 
   var topDownBlock = '';
@@ -7474,6 +7447,29 @@ function syncModeButtonLabels() {
   Array.prototype.forEach.call(bBacks, function (b) {
     b.textContent = isEn ? '← Back to Analysis Terminal' : '← Kembali ke Terminal Analisis';
   });
+
+  // Sinkronisasi teks Instagram masukan & kritik agar dinamis mengikuti bahasa sistem
+  var lblIg = $id('lblIgBtnText');
+  if (lblIg) lblIg.textContent = isEn ? 'Instagram DM & Feedback' : 'Masukan & Kritik (Instagram)';
+  var btnIgJnl = $id('btnOpenInstagramModalJnl');
+  if (btnIgJnl) {
+    var sp = btnIgJnl.querySelector('span:last-child');
+    if (sp) sp.textContent = isEn ? 'Instagram Community & DM' : 'Masukan & Kritik Instagram';
+  }
+  var igTitle = $id('lblIgBannerTitle');
+  if (igTitle) igTitle.textContent = isEn ? 'Official Community & Feedback Channel' : 'Komunitas & Saluran Masukan Resmi';
+  var igDesc = $id('lblIgBannerDesc');
+  if (igDesc) {
+    igDesc.innerHTML = isEn
+      ? 'Follow our official <strong>@xstarzganalysis</strong> Instagram to discuss, comment on posts, and send a <strong>Direct Message (DM Chat)</strong> for questions, feedback, or feature suggestions directly to the team.'
+      : 'Follow akun resmi <strong>@xstarzganalysis</strong> untuk berdiskusi, memberikan komentar di postingan kami, serta kirimkan <strong>Direct Message (DM Chat)</strong> pesan pribadi untuk masukan, saran fitur, atau kritik langsung kepada tim pengembang.';
+  }
+  var igBtn = $id('lblIgBannerBtn');
+  if (igBtn) igBtn.textContent = isEn ? 'Visit Instagram @xstarzganalysis' : 'Kunjungi Instagram @xstarzganalysis';
+  var gateIg = $id('lblGateIgText');
+  if (gateIg) gateIg.textContent = isEn ? '💬 Questions, feedback, or suggestions? Contact our Instagram DM:' : '💬 Punya pertanyaan, saran, atau kritik? Hubungi DM kami:';
+  var footerIg = $id('lblFooterIgText');
+  if (footerIg) footerIg.textContent = isEn ? '💬 Have questions or feedback? Connect with us on official Instagram:' : '💬 Punya masukan atau kritik? Terhubung dengan kami di media sosial:';
 }
 // Turunkan tier sesi owner yang tidak bisa dibuktikan ke server (defense-in-depth).
 function downgradeOwnerSession() {
