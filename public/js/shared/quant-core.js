@@ -66,7 +66,7 @@ export const DEFAULT_INSTRUMENTS = [
   mkCrypto('KAS', 'Kaspa PoW Network', 0.15), mkCrypto('SUPER', 'SuperVerse Gaming & NFT', 1.15),
   mkCrypto('POPCAT', 'Popcat Solana Meme', 1.20), mkCrypto('BRETT', 'Brett Base Meme Leader', 0.12),
   mkCrypto('VIRTUAL', 'Virtuals Protocol AI Agent', 1.85), mkCrypto('SPX', 'SPX6900 Cult Meme', 0.75),
-  mkCrypto('RAY', 'Raydium Solana DEX', 5.20), mkCrypto('OM', 'MANTRA RWA Chain', 3.80),
+  mkCrypto('RAY', 'Raydium Solana DEX', 1.35), mkCrypto('OM', 'MANTRA RWA Chain', 3.80),
   mkCrypto('MEW', 'cat in a dogs world', 0.009), mkCrypto('NEIRO', 'First Neiro on Ethereum', 0.0018),
   mkCrypto('MOODENG', 'Moo Deng Viral Meme', 0.45), mkCrypto('GOAT', 'Goatseus Maximus AI Meme', 0.78),
   mkCrypto('PNUT', 'Peanut the Squirrel', 1.10), mkCrypto('ACT', 'Act I The AI Prophecy', 0.48),
@@ -89,10 +89,10 @@ export const DEFAULT_INSTRUMENTS = [
   mkForex('USD/CNH', 'US Dollar / Offshore Yuan China', 7.2650), mkForex('USD/THB', 'US Dollar / Thai Baht', 33.85),
   mkForex('USD/MXN', 'US Dollar / Mexican Peso', 20.35), mkForex('USD/ZAR', 'US Dollar / South African Rand', 18.40),
   // METALS (10 Precious & Industrial Metals)
-  mkMetal('XAU/USD', 'Gold Spot / Emas Dunia (USD)', 2915.0), mkMetal('XAU/IDR', 'Emas Spot / Gram (IDR Proxy)', 1528000),
-  // Harga jangkar logam dikalibrasi ulang ke pasar 2026 (XAG spot ~$50, XPT ~$1.580, tembaga ~$5.10/lb)
-  mkMetal('XAG/USD', 'Silver Spot / Perak (USD)', 50.00), mkMetal('XPT/USD', 'Platinum Spot (USD)', 1580.0),
-  mkMetal('XPD/USD', 'Palladium Spot (USD)', 1050.0), mkMetal('HG/USD', 'Copper LME / Tembaga (USD/lb)', 5.10),
+  mkMetal('XAU/USD', 'Gold Spot / Emas Dunia (USD)', 2680.0), mkMetal('XAU/IDR', 'Emas Spot / Gram (IDR Proxy)', 1405000),
+  // Harga jangkar logam dikalibrasi realistis ke pasar spot aktif
+  mkMetal('XAG/USD', 'Silver Spot / Perak (USD)', 31.50), mkMetal('XPT/USD', 'Platinum Spot (USD)', 980.0),
+  mkMetal('XPD/USD', 'Palladium Spot (USD)', 1050.0), mkMetal('HG/USD', 'Copper LME / Tembaga (USD/lb)', 4.30),
   mkMetal('NI/USD', 'Nickel LME / Nikel (USD/Ton)', 15680), mkMetal('SN/USD', 'Tin LME / Timah (USD/Ton)', 31450),
   mkMetal('AL/USD', 'Aluminum LME (USD/Ton)', 2640), mkMetal('LI/USD', 'Lithium Carbonate (USD/Ton)', 10850),
   // COMMODITIES & CFTC FUTURES (16 Energy, Nusantara & Agriculture)
