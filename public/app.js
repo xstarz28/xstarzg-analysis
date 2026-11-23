@@ -1,5 +1,30 @@
 'use strict';
 // === PWA & MOBILE AUTO-ENTRY / DELEGATED CLICK GUARD ===
+var SESSION_KEY = 'xstarzg_user_v3';
+
+// Fungsi alur layar & workspace terdefinisi seketika di baris awal (0ms delay),
+// agar SEMUA klik tombol di landing page langsung merespons tanpa menunggu seluruh file besar selesai di-parse.
+function showScreen(name) {
+  try {
+    var front = document.getElementById('frontLandingScreen');
+    var gate = document.getElementById('loginGateScreen');
+    var work = document.getElementById('appWorkspaceWrapper');
+    if (front) {
+      if (name === 'front') front.classList.remove('hidden'); else front.classList.add('hidden');
+    }
+    if (gate) {
+      if (name === 'gate') gate.classList.remove('hidden'); else gate.classList.add('hidden');
+    }
+    if (work) {
+      if (name === 'work') work.classList.remove('hidden'); else work.classList.add('hidden');
+    }
+    var dd = document.getElementById('userProfileDropdown');
+    if (dd) dd.classList.add('hidden');
+    try { window.scrollTo({ top: 0 }); } catch (e) {}
+  } catch (e) {}
+}
+if (typeof window !== 'undefined') window.showScreen = showScreen;
+
 // 1) Deteksi dini PWA/APK (start_url ?pwa=1 atau mode standalone)
 (function () {
   try {
@@ -14,7 +39,7 @@
 })();
 
 // 2) Delegated click capture guard: memastikan tap pada tombol beranda (Mulai Analisis, Pratinjau Tamu,
-// Login Terminal, Jalur Owner) langsung merespons dan mengeksekusi alur secara aman
+// Login Terminal, Popup Google, Jalur Owner, Kembali) langsung merespons dan mengeksekusi alur secara aman
 if (typeof document !== 'undefined') {
   document.addEventListener('click', function (e) {
     try {
@@ -26,24 +51,37 @@ if (typeof document !== 'undefined') {
           state.user = state.user || { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
         }
         if (typeof saveSession === 'function') saveSession();
-        if (typeof enterWorkspace === 'function') {
-          enterWorkspace();
-        } else if (typeof window !== 'undefined' && typeof window.enterWorkspace === 'function') {
-          window.enterWorkspace();
-        }
+        if (typeof enterWorkspace === 'function') enterWorkspace();
+        else if (typeof window !== 'undefined' && typeof window.enterWorkspace === 'function') window.enterWorkspace();
+        else showScreen('work');
       } else if (id === 'btnHeroLoginGate' || id === 'btnNavLoginGate') {
         if (typeof state !== 'undefined' && state && state.user) {
           if (typeof enterWorkspace === 'function') enterWorkspace();
           else if (typeof window !== 'undefined' && typeof window.enterWorkspace === 'function') window.enterWorkspace();
+          else showScreen('work');
         } else {
-          if (typeof showScreen === 'function') showScreen('gate');
-          else if (typeof window !== 'undefined' && typeof window.showScreen === 'function') window.showScreen('gate');
+          showScreen('gate');
         }
-      } else if (id === 'btnGateOwnerDirect') {
+      } else if (id === 'btnBackToLanding' || id === 'btnBrandLogoHome') {
+        showScreen('front');
+      } else if (id === 'btnTriggerGooglePopup') {
         var gm = document.getElementById('googleAuthModal');
-        if (gm) gm.classList.remove('hidden');
+        if (gm) {
+          gm.classList.remove('hidden');
+          var inp = document.getElementById('googleEmailInput');
+          if (inp) setTimeout(function () { try { inp.focus(); } catch (e) {} }, 80);
+        }
+      } else if (id === 'btnCloseGoogleModal' || id === 'btnCancelGoogleModal') {
+        var gmClose = document.getElementById('googleAuthModal');
+        if (gmClose) gmClose.classList.add('hidden');
+      } else if (id === 'btnToggleOwnerLogin') {
         var blk = document.getElementById('ownerLoginBlock');
-        if (blk) blk.classList.remove('hidden');
+        if (blk) blk.classList.toggle('hidden');
+      } else if (id === 'btnGateOwnerDirect') {
+        var gm2 = document.getElementById('googleAuthModal');
+        if (gm2) gm2.classList.remove('hidden');
+        var blk2 = document.getElementById('ownerLoginBlock');
+        if (blk2) blk2.classList.remove('hidden');
         var einp = document.getElementById('ownerEmailInput');
         var cinp = document.getElementById('ownerCodeInput');
         if (einp && !einp.value) einp.value = 'sevenfoldarmy2822@gmail.com';
@@ -334,6 +372,7 @@ var state = {
   feedSource: '-',
   user: null                 // { email, name, tier: 'GUEST'|'FREE'|'VIP'|'OWNER_VIP', vipUntil }
 };
+try { if (typeof window !== 'undefined') window.state = state; } catch (e) {}
 var chartInstance = null;
 var candleSeries = null;
 var ema20Line = null, ema50Line = null, ma200Line = null, vwapLine = null;
@@ -10294,21 +10333,50 @@ if (document.readyState === 'loading') {
   // Pre-warm radar & initial analysis on load
   function bootPostDom() {
     setTimeout(function () {
-      const seeded = generateSeedCandles(state.symbol, state.tf);
-      state.candles = seeded.candles;
-      state.livePrice = seeded.price;
-      state.feedSource = 'LOCAL_SEED';
-      const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
-      renderAllVisuals(initAn, false);
-      renderOpportunityRadar();
-      fetchNewsCalendar(false);
-      setInterval(function () { fetchNewsCalendar(false); }, 15 * 60 * 1000);
-      fetchMacroRegime(false);
-      setInterval(function () { fetchMacroRegime(false); }, MACRO_TTL);
-      setInterval(function () { renderMacroMap(); }, 60 * 1000);
-      renderSignalJournal();
-      setInterval(function () { renderSignalJournal(); }, 60 * 1000);
-      try { fetchMemeCatalogLive(true); startMemePoolBackgroundTicker(); } catch (e) {}
+      try {
+        const seeded = generateSeedCandles(state.symbol, state.tf);
+        state.candles = seeded.candles;
+        state.livePrice = seeded.price;
+        state.feedSource = 'LOCAL_SEED';
+        const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
+        renderAllVisuals(initAn, false);
+      } catch (eInitAn) {}
+
+      // Ringankan beban jaringan awal: hanya panggil radar & background feeds bila pengguna sedang di workspace
+      var workEl = document.getElementById('appWorkspaceWrapper');
+      var isInWork = workEl && !workEl.classList.contains('hidden');
+      if (isInWork) {
+        try { renderOpportunityRadar(); } catch (e) {}
+        try { fetchNewsCalendar(false); } catch (e) {}
+        try { fetchMacroRegime(false); } catch (e) {}
+        try { renderMacroMap(); } catch (e) {}
+        try { renderSignalJournal(); } catch (e) {}
+        try { fetchMemeCatalogLive(true); startMemePoolBackgroundTicker(); } catch (e) {}
+      }
+      setInterval(function () {
+        var w = document.getElementById('appWorkspaceWrapper');
+        if (w && !w.classList.contains('hidden')) {
+          try { fetchNewsCalendar(false); } catch (e) {}
+        }
+      }, 15 * 60 * 1000);
+      setInterval(function () {
+        var w = document.getElementById('appWorkspaceWrapper');
+        if (w && !w.classList.contains('hidden')) {
+          try { fetchMacroRegime(false); } catch (e) {}
+        }
+      }, MACRO_TTL);
+      setInterval(function () {
+        var w = document.getElementById('appWorkspaceWrapper');
+        if (w && !w.classList.contains('hidden')) {
+          try { renderMacroMap(); } catch (e) {}
+        }
+      }, 60 * 1000);
+      setInterval(function () {
+        var w = document.getElementById('appWorkspaceWrapper');
+        if (w && !w.classList.contains('hidden')) {
+          try { renderSignalJournal(); } catch (e) {}
+        }
+      }, 60 * 1000);
       try { loadPersistedAlarm(); } catch (e) {}
       var nfBar = $id('newsFilterBar');
       if (nfBar) nfBar.addEventListener('click', function (ev) {
