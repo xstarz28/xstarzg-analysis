@@ -647,6 +647,23 @@
           </div>
           <div id="radarHorizonInfo" style="font-size:11px;color:#94a3b8;"></div>
         </div>
+        <div class="radar-viability-bar" id="radarViabilityBar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 4px;padding:6px 12px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.18);border-radius:10px;">
+          <span style="font-size:11px;font-weight:800;color:#cbd5e1;display:flex;align-items:center;gap:5px;margin-right:2px;">
+            <span>🎯</span> <span id="lblViabTitle">Kelayakan Entry Saat Buka:</span>
+          </span>
+          <button type="button" class="hz-btn active" data-viab="actionable" title="Hanya tampilkan instrumen yang masih bisa dimasuki untuk entry saat membuka XStarZG (Sinyal Baru &amp; Retest Pullback)">
+            <span>🎯 Layak Ikut Saja (Fresh &amp; Pullback)</span>
+          </button>
+          <button type="button" class="hz-btn" data-viab="fresh" title="Hanya tampilkan sinyal baru / antrean limit yang belum terjemput">
+            <span>⚡ Sinyal Baru Saja</span>
+          </button>
+          <button type="button" class="hz-btn" data-viab="running" title="Tampilkan sinyal yang sedang berjalan (termasuk yang pullback &amp; yang sudah jalan jauh)">
+            <span>🕒 Sedang Berjalan</span>
+          </button>
+          <button type="button" class="hz-btn" data-viab="all" title="Tampilkan semua instrumen tanpa filter kelayakan">
+            <span>🌐 Tampilkan Semua</span>
+          </button>
+        </div>
         <div id="opportunityRadarGrid" class="radar-grid" style="margin-top:10px;"></div>
       </div>
       <!-- Rekomendasi khusus INVESTOR (dipisah total dari radar trader) -->
