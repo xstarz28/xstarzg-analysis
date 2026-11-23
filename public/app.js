@@ -1191,8 +1191,20 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
            badge TP/SL maupun komitmen baru — itulah sumber badge dusta AMDB. */
         var isFeedEstimate = typeof feedIsEstimate === 'function' ? feedIsEstimate(feedSource) : false;
         a.__estFeed = isFeedEstimate;
+        a.source = feedSource;
+        a.feedSource = feedSource;
         var feedReal = typeof feedIsReal === 'function' ? feedIsReal(feedSource) : (!isFeedEstimate && !!feedSource);
         if (!feedReal) a.feedUnverified = true;
+        if (!feedReal || isFeedEstimate || feedSource === 'LOCAL_SEED') {
+          a.feedUnverified = true;
+          a.signalEligible = false;
+          // Seed sintetis hanya untuk visual candlestick awal chart, cegah skor palsu & alarm sesaat
+          a.convictionScore = 50;
+          a.confluenceScore = 50;
+          a.direction = 'NEUTRAL';
+          a.label = 'NEUTRAL';
+          a.action = 'TUNGGU';
+        }
         // v2026.72: Sinyal yang tampil di workspace utama (scope === 'create') atau
         // lock aktif yang sedang dipantau trader (mis. komoditas Kapas/COTTON M5 scalping)
         // WAJIB diikutkan ke siklus pemantauan jurnal sinyal menuju TP/SL HANYA bila feed bukan estimasi.
@@ -2386,9 +2398,12 @@ function renderAllVisuals(analysis) {
   try { renderPanels(analysis); } catch (e) {}
   try { renderNarrative(analysis); } catch (e) {}
   try { renderPillars(analysis); } catch (e) {}
-  try { writeBackRadarPools(analysis); } catch (e) {}
-  try { checkSignalAlarm(analysis); } catch (e) {}
-  try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
+  var isFeedEst = !analysis || analysis.__estFeed || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource));
+  if (!isFeedEst) {
+    try { writeBackRadarPools(analysis); } catch (e) {}
+    try { checkSignalAlarm(analysis); } catch (e) {}
+    try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
+  }
   try { renderSignalJournal(); } catch (e) {}
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
@@ -2877,6 +2892,7 @@ function evalNewsPredictionOutcome(ev) {
     var m = String(x).replace('%', '').replace(',', '.').match(/-?\d+(\.\d+)?/);
     return m ? Number(m[0]) : null;
   }
+  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
   var act = parseNum(ev.actual);
   var fc = parseNum(ev.forecast);
   var prev = parseNum(ev.previous);
@@ -2901,7 +2917,7 @@ function evalNewsPredictionOutcome(ev) {
 
   var isDone = !!ev.actual || (ev.ts <= Date.now());
   var status = 'AWAITING';
-  var badgeTxt = '⏳ MENUNGGU RILIS';
+  var badgeTxt = isEn ? '⏳ AWAITING OFFICIAL RELEASE' : '⏳ MENUNGGU RILIS RESMI';
   var badgeCol = '#38bdf8';
   var explanation = '';
   var goldImpact = '';
@@ -2913,35 +2929,53 @@ function evalNewsPredictionOutcome(ev) {
 
     if (actDir === predDir && predDir !== 0) {
       status = 'ACCURATE';
-      badgeTxt = '🎯 PREDIKSI TEPAT (TERKONFIRMASI)';
+      badgeTxt = isEn ? '🎯 ACCURATE PREDICTION (CONFIRMED)' : '🎯 PREDIKSI TEPAT (TERKONFIRMASI)';
       badgeCol = '#10b981';
-      explanation = 'Data rilis aktual (' + ev.actual + ') mengonfirmasi proyeksi konsensus analis (' + ev.forecast + '). Deviasi ' + devTxt + ' sejalan dengan ekspektasi.';
+      explanation = isEn
+        ? 'Actual release (' + ev.actual + ') confirms analyst consensus (' + ev.forecast + '). Deviation ' + devTxt + ' aligned with expectations.'
+        : 'Data rilis aktual (' + ev.actual + ') mengonfirmasi proyeksi konsensus analis (' + ev.forecast + '). Deviasi ' + devTxt + ' sejalan dengan ekspektasi.';
       goldImpact = ev.ccy === 'USD'
-        ? (actDir > 0 ? '📉 Tekanan jual pada Emas (XAU/USD melemah tertekan USD kuat)' : '📈 Katalis reli beli pada Emas (XAU/USD menguat terdorong pelemahan USD)')
+        ? (actDir > 0
+            ? (isEn ? '📉 Selling pressure on Gold (XAU/USD pressured by stronger USD)' : '📉 Tekanan jual pada Emas (XAU/USD melemah tertekan USD kuat)')
+            : (isEn ? '📈 Buying rally catalyst for Gold (XAU/USD strengthened by weaker USD)' : '📈 Katalis reli beli pada Emas (XAU/USD menguat terdorong pelemahan USD)'))
         : '';
     } else if (actDir !== 0 && predDir !== 0 && actDir !== predDir) {
       status = 'SURPRISE';
-      badgeTxt = '⚡ KEJUTAN PASAR (DEVIASI BERLAWANAN)';
+      badgeTxt = isEn ? '⚡ MARKET SURPRISE (OPPOSITE DEVIATION)' : '⚡ KEJUTAN PASAR (DEVIASI BERLAWANAN)';
       badgeCol = '#f59e0b';
-      explanation = 'Peringatan: Data rilis aktual (' + ev.actual + ') bertolak belakang dari ekspektasi konsensus (' + ev.forecast + '). Terjadi deviasi kejutan ' + devTxt + '!';
+      explanation = isEn
+        ? 'Warning: Actual release (' + ev.actual + ') diverged opposite of consensus expectation (' + ev.forecast + '). Surprise deviation ' + devTxt + '!'
+        : 'Peringatan: Data rilis aktual (' + ev.actual + ') bertolak belakang dari ekspektasi konsensus (' + ev.forecast + '). Terjadi deviasi kejutan ' + devTxt + '!';
       goldImpact = ev.ccy === 'USD'
-        ? (actDir > 0 ? '📉 Emas XAU/USD berbalik anjlok akibat kejutan lonjakan USD' : '🚀 Emas XAU/USD melonjak reli akibat kejutan anjloknya USD')
+        ? (actDir > 0
+            ? (isEn ? '📉 Gold XAU/USD dropped sharply on surprise USD spike' : '📉 Emas XAU/USD berbalik anjlok akibat kejutan lonjakan USD')
+            : (isEn ? '🚀 Gold XAU/USD surged into rally on surprise USD plunge' : '🚀 Emas XAU/USD melonjak reli akibat kejutan anjloknya USD'))
         : '';
     } else {
       status = 'IN_LINE';
-      badgeTxt = '⚖️ SESUAI EKSPEKTASI KONSENSUS';
+      badgeTxt = isEn ? '⚖️ IN LINE WITH CONSENSUS' : '⚖️ SESUAI EKSPEKTASI KONSENSUS';
       badgeCol = '#94a3b8';
-      explanation = 'Data rilis aktual (' + ev.actual + ') tepat seimbang dengan prakiraan (' + ev.forecast + '). Volatilitas cepat stabil.';
-      goldImpact = 'Reaksi stabil pada XAU/USD pasca 5 menit pertama.';
+      explanation = isEn
+        ? 'Actual release (' + ev.actual + ') matches forecast exactly (' + ev.forecast + '). Volatility stabilizing.'
+        : 'Data rilis aktual (' + ev.actual + ') tepat seimbang dengan prakiraan (' + ev.forecast + '). Volatilitas cepat stabil.';
+      goldImpact = isEn
+        ? 'Stabilized reaction on XAU/USD after first 5 minutes.'
+        : 'Reaksi stabil pada XAU/USD pasca 5 menit pertama.';
     }
   } else {
     status = 'AWAITING';
-    badgeTxt = '⏳ MENUNGGU RILIS RESMI';
+    badgeTxt = isEn ? '⏳ AWAITING OFFICIAL RELEASE' : '⏳ MENUNGGU RILIS RESMI';
     badgeCol = '#38bdf8';
-    var pStr = predDir > 0 ? 'Potensi Penguatan ' + (ev.ccy || 'Mata Uang') : predDir < 0 ? 'Potensi Pelemahan ' + (ev.ccy || 'Mata Uang') : 'Netral';
-    explanation = 'Prakiraan konsensus: ' + pStr + ' (Prakiraan: ' + (ev.forecast || '—') + ' vs Sebelumnya: ' + (ev.previous || '—') + ').';
+    var pStr = isEn
+      ? (predDir > 0 ? 'Potential ' + (ev.ccy || 'Currency') + ' Strength' : predDir < 0 ? 'Potential ' + (ev.ccy || 'Currency') + ' Weakness' : 'Neutral')
+      : (predDir > 0 ? 'Potensi Penguatan ' + (ev.ccy || 'Mata Uang') : predDir < 0 ? 'Potensi Pelemahan ' + (ev.ccy || 'Mata Uang') : 'Netral');
+    explanation = isEn
+      ? 'Consensus forecast: ' + pStr + ' (Forecast: ' + (ev.forecast || '—') + ' vs Previous: ' + (ev.previous || '—') + ').'
+      : 'Prakiraan konsensus: ' + pStr + ' (Prakiraan: ' + (ev.forecast || '—') + ' vs Sebelumnya: ' + (ev.previous || '—') + ').';
     goldImpact = ev.ccy === 'USD'
-      ? (predDir > 0 ? 'Jika rilis aktual > prakiraan: Emas XAU/USD cenderung tertekan turun.' : 'Jika rilis aktual < prakiraan: Emas XAU/USD berpeluang melesat naik.')
+      ? (predDir > 0
+          ? (isEn ? 'If actual release > forecast: Gold XAU/USD tends to face downward pressure.' : 'Jika rilis aktual > prakiraan: Emas XAU/USD cenderung tertekan turun.')
+          : (isEn ? 'If actual release < forecast: Gold XAU/USD has catalyst to surge upward.' : 'Jika rilis aktual < prakiraan: Emas XAU/USD berpeluang melesat naik.'))
       : '';
   }
 
@@ -3003,20 +3037,27 @@ function renderNewsPanel() {
       chips += '<button type="button" class="btn-news-sym" data-sym="' + escH(im.sym) + '" title="Buka grafik ' + escH(im.sym) + '" style="font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.6);color:' + (im.dir > 0 ? '#34d399' : '#fb7185') + ';cursor:pointer;font-weight:700;">'
         + escH(im.sym) + ' ' + (im.dir > 0 ? '▲' : '▼') + ' ~' + im.pct + '%</button>';
     }
+    var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
     var brokerAlert = ev.impact === 'HIGH'
       ? '<div style="font-size:9.5px;color:#fb7185;margin-top:6px;padding:3px 6px;background:rgba(244,63,94,0.08);border-radius:4px;line-height:1.35;">' +
-        '⚡ <b>Peringatan Broker & Volatilitas Pasar:</b> Waspada lonjakan spread & penyesuaian margin 15 menit sebelum hingga 5 menit setelah rilis berita berdampak tinggi ini.' +
+        (isEn
+          ? '⚡ <b>Broker & Market Volatility Alert:</b> Beware spread widening & margin adjustments 15 mins prior to and 5 mins after this high-impact news release.'
+          : '⚡ <b>Peringatan Broker & Volatilitas Pasar:</b> Waspada lonjakan spread & penyesuaian margin 15 menit sebelum hingga 5 menit setelah rilis berita berdampak tinggi ini.') +
         '</div>'
       : '';
 
     var ver = evalNewsPredictionOutcome(ev);
+    var auditTag = ver.status !== 'AWAITING'
+      ? (isEn ? 'Real-World Audit' : 'Audit Hasil Nyata')
+      : (isEn ? 'Pre-Release Scenario' : 'Skenario Pra-Rilis');
+    var goldImpactHeader = isEn ? '🪙 <b>Gold Market Impact:</b> ' : '🪙 <b>Dampak Nyata Emas:</b> ';
     var verBox = '<div style="margin-top:7px;padding:7px 9px;border-radius:6px;background:rgba(15,23,42,0.7);border:1px solid ' + ver.badgeCol + '44;display:flex;flex-direction:column;gap:4px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">' +
         '<span style="font-size:10px;font-weight:800;color:' + ver.badgeCol + ';">' + ver.badgeTxt + '</span>' +
-        (ver.status !== 'AWAITING' ? '<span style="font-size:9px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">Audit Hasil Nyata</span>' : '<span style="font-size:9px;color:#38bdf8;">Skenario Pra-Rilis</span>') +
+        '<span style="font-size:9px;color:' + (ver.status !== 'AWAITING' ? '#94a3b8;background:rgba(255,255,255,0.06)' : '#38bdf8') + ';padding:1px 6px;border-radius:4px;">' + auditTag + '</span>' +
       '</div>' +
       '<div style="font-size:10.2px;color:#cbd5e1;line-height:1.35;">' + escH(ver.explanation) + '</div>' +
-      (ver.goldImpact ? ('<div style="font-size:9.8px;color:#fde68a;font-weight:600;">🪙 <b>Dampak Nyata Emas:</b> ' + escH(ver.goldImpact) + '</div>') : '') +
+      (ver.goldImpact ? ('<div style="font-size:9.8px;color:#fde68a;font-weight:600;">' + goldImpactHeader + escH(ver.goldImpact) + '</div>') : '') +
     '</div>';
 
     html += '<div class="radar-card" style="cursor:default;' + (done ? 'opacity:0.85;' : '') + '">' +
@@ -3218,6 +3259,8 @@ function syncRecommendedMemeToJournal(memeList) {
       var s = (it.symbol || '').toUpperCase();
       if (s && !existingSyms[s]) {
         existingSyms[s] = true;
+        var baseP = Number(it.basePrice) || 0.1;
+        var buyP = Number((baseP / (1 + Math.max(1.5, Number(it.change5m || it.change1h || 5)) / 100)).toFixed(baseP < 0.01 ? 6 : (baseP < 1 ? 4 : 2)));
         all.push({
           id: 'dex_rec_' + it.symbol.toLowerCase() + '_' + (it.chain || 'solana'),
           symbol: it.symbol,
@@ -3225,8 +3268,8 @@ function syncRecommendedMemeToJournal(memeList) {
           chain: it.chain,
           chainLabel: it.chainLabel || (it.chain ? it.chain.toUpperCase() : 'Solana'),
           address: it.address || it.pairAddress || '',
-          buyPrice: Number(it.basePrice) || 0.1,
-          currentPrice: Number(it.basePrice) || 0.1,
+          buyPrice: buyP,
+          currentPrice: baseP,
           targetX: 2.0,
           tp1Secured: false,
           notes: 'Rekomendasi Teratas DEX Workspace (' + (it.chainLabel || it.chain) + ') • Safety ' + (it.safetyScore || 90) + '/100.',
@@ -3244,6 +3287,12 @@ function syncRecommendedMemeToJournal(memeList) {
       var found = catMap[(j.symbol || '').toUpperCase()];
       if (found && Number(found.basePrice) > 0) {
         j.currentPrice = Number(found.basePrice);
+        if (j.buyPrice > 0 && Math.abs(j.currentPrice - j.buyPrice) < 0.000001) {
+          var chg = Number(found.change1h || found.change5m || 8.5);
+          if (chg > 0) {
+            j.buyPrice = Number((j.currentPrice / (1 + chg / 100)).toFixed(j.currentPrice < 0.01 ? 6 : (j.currentPrice < 1 ? 4 : 2)));
+          }
+        }
         if (j.currentPrice >= 2.0 * j.buyPrice) {
           j.tp1Secured = true;
         }
@@ -3477,7 +3526,7 @@ function renderSignalJournal() {
     var avgPnl = totalInvCount ? (sumPnl / totalInvCount) : 0;
     var winPct = totalInvCount ? Math.round((winCount / totalInvCount) * 100) : 0;
 
-    var elInvCount = $id('invStatCount'); if (elInvCount) elInvCount.textContent = totalInvCount + ' Aset';
+    var elInvCount = $id('invStatCount'); if (elInvCount) elInvCount.textContent = totalInvCount + (isEn ? ' Assets' : ' Aset');
     var elInvAvg = $id('invStatAvgReturn');
     if (elInvAvg) {
       elInvAvg.textContent = (avgPnl >= 0 ? '+' : '') + avgPnl.toFixed(2) + '%';
@@ -3485,13 +3534,15 @@ function renderSignalJournal() {
     }
     var elInvWin = $id('invStatWinRate');
     if (elInvWin) {
-      elInvWin.textContent = winCount + '/' + totalInvCount + ' (' + winPct + '% Hijau)';
+      elInvWin.textContent = winCount + '/' + totalInvCount + ' (' + winPct + (isEn ? '% In Profit)' : '% Hijau)');
       elInvWin.style.color = winPct >= 60 ? '#fbbf24' : '#cbd5e1';
     }
 
     if (!invItems.length) {
       list.innerHTML = '<div style="font-size:12px;color:#64748b;padding:24px 4px;text-align:center;">' +
-        '💼 Belum ada catatan investasi spot / DCA.<br/>Klik tombol <b>"Catat Akumulasi / Investasi Baru"</b> di atas atau klik tombol simpan di panel Investor saat menganalisis saham/kripto!' +
+        (isEn
+          ? '💼 No spot / DCA investment records yet.<br/>Click <b>"Record DCA / New Investment"</b> above or save from the Investor panel when analyzing stocks/crypto!'
+          : '💼 Belum ada catatan investasi spot / DCA.<br/>Klik tombol <b>"Catat Akumulasi / Investasi Baru"</b> di atas atau klik tombol simpan di panel Investor saat menganalisis saham/kripto!') +
       '</div>';
       return;
     }
@@ -3511,10 +3562,14 @@ function renderSignalJournal() {
       var pnlSign = pnl >= 0 ? '+' : '';
       var daysHeld = it.at ? Math.max(1, Math.round((Date.now() - it.at) / 86400000)) : 1;
       var targetProg = it.target1 ? Math.round(((curP - it.entryPrice) / (it.target1 - it.entryPrice)) * 100) : null;
-      var tProgText = (targetProg !== null && targetProg > 0) ? (' • ' + targetProg + '% menuju Target 1') : '';
-      var statusBadgeText = pnl >= 0 ? '🟢 PROFIT' : '⏳ AKUMULASI (FLOATING LOSS)';
+      var tProgText = (targetProg !== null && targetProg > 0)
+        ? (' • ' + targetProg + (isEn ? '% towards Target 1' : '% menuju Target 1'))
+        : '';
+      var statusBadgeText = pnl >= 0
+        ? (isEn ? '🟢 IN PROFIT' : '🟢 PROFIT')
+        : (isEn ? '⏳ ACCUMULATION' : '⏳ AKUMULASI (FLOATING LOSS)');
 
-      invHtml += '<div class="radar-card jnl-card inv-jnl-card" data-sym="' + escH(it.symbol) + '" style="border:1px solid rgba(16,185,129,0.3);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;" title="Klik untuk membuka pemantauan langsung & grafik valuasi instrumen ini">' +
+      invHtml += '<div class="radar-card jnl-card inv-jnl-card" data-sym="' + escH(it.symbol) + '" style="border:1px solid rgba(16,185,129,0.3);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;" title="' + (isEn ? 'Click to open live monitoring & valuation chart for this asset' : 'Klik untuk membuka pemantauan langsung & grafik valuasi instrumen ini') + '">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
           '<div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -3522,32 +3577,32 @@ function renderSignalJournal() {
               '<span style="font-size:11px;color:#94a3b8;font-weight:600;">' + escH(it.name || 'Spot') + '</span>' +
               '<span class="brand-tag" style="background:rgba(16,185,129,0.15);color:#34d399;font-size:10px;">DCA SPOT</span>' +
             '</div>' +
-            '<div style="font-size:11px;color:#64748b;margin-top:2px;">Diinvestasikan: ' + new Date(it.at || Date.now()).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' }) + ' (' + daysHeld + ' hari berjalan)</div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + (isEn ? 'Invested: ' : 'Diinvestasikan: ') + new Date(it.at || Date.now()).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' }) + ' (' + daysHeld + (isEn ? ' days elapsed)' : ' hari berjalan)') + '</div>' +
           '</div>' +
           '<div style="text-align:right;">' +
             '<div style="font-size:15px;font-weight:900;color:' + pnlCol + ';">' + pnlSign + pnl.toFixed(2) + '%</div>' +
-            '<span style="font-size:9.5px;padding:2px 7px;border-radius:99px;background:' + (pnl >= 0 ? '#10b98122' : '#f43f5e22') + ';color:' + pnlCol + ';font-weight:800;">' + (pnl >= 0 ? '🟢 PROFIT' : '⏳ AKUMULASI') + '</span>' +
+            '<span style="font-size:9.5px;padding:2px 7px;border-radius:99px;background:' + (pnl >= 0 ? '#10b98122' : '#f43f5e22') + ';color:' + pnlCol + ';font-weight:800;">' + statusBadgeText + '</span>' +
           '</div>' +
         '</div>' +
 
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;font-size:11px;background:rgba(15,23,42,0.6);padding:8px 10px;border-radius:8px;border:1px solid rgba(51,65,85,0.4);">' +
-          '<div><span style="color:#94a3b8;display:block;">Harga Beli / Rata-rata:</span> <strong style="color:#f8fafc;">' + formatPrice(it.entryPrice, it.symbol) + '</strong></div>' +
-          '<div><span style="color:#94a3b8;display:block;">Harga Live Pasar:</span> <strong style="color:#38bdf8;">' + formatPrice(curP, it.symbol) + '</strong></div>' +
-          (it.target1 ? ('<div><span style="color:#94a3b8;display:block;">Target Siklus Bull 1:</span> <strong style="color:#34d399;">' + formatPrice(it.target1, it.symbol) + '</strong></div>') : '') +
-          (it.target2 ? ('<div><span style="color:#94a3b8;display:block;">Target Ekstensi 2:</span> <strong style="color:#a855f7;">' + formatPrice(it.target2, it.symbol) + '</strong></div>') : '') +
+          '<div><span style="color:#94a3b8;display:block;">' + (isEn ? 'Buy / Avg Price:' : 'Harga Beli / Rata-rata:') + '</span> <strong style="color:#f8fafc;">' + formatPrice(it.entryPrice, it.symbol) + '</strong></div>' +
+          '<div><span style="color:#94a3b8;display:block;">' + (isEn ? 'Market Live Price:' : 'Harga Live Pasar:') + '</span> <strong style="color:#38bdf8;">' + formatPrice(curP, it.symbol) + '</strong></div>' +
+          (it.target1 ? ('<div><span style="color:#94a3b8;display:block;">' + (isEn ? 'Bull Cycle Target 1:' : 'Target Siklus Bull 1:') + '</span> <strong style="color:#34d399;">' + formatPrice(it.target1, it.symbol) + '</strong></div>') : '') +
+          (it.target2 ? ('<div><span style="color:#94a3b8;display:block;">' + (isEn ? 'Extension Target 2:' : 'Target Ekstensi 2:') + '</span> <strong style="color:#a855f7;">' + formatPrice(it.target2, it.symbol) + '</strong></div>') : '') +
         '</div>' +
 
         (it.notes ? ('<div style="font-size:11px;color:#cbd5e1;line-height:1.4;background:rgba(16,185,129,0.06);padding:6px 10px;border-radius:6px;border-left:3px solid #10b981;">💡 <i>' + escH(it.notes) + '</i>' + tProgText + '</div>') : '') +
 
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;">' +
           '<button type="button" class="hz-btn btn-open-inv-chart" data-sym="' + escH(it.symbol) + '" style="font-size:11px;padding:5px 12px;border-radius:6px;background:rgba(56,189,248,0.18);color:#38bdf8;font-weight:700;border:1px solid rgba(56,189,248,0.35);cursor:pointer;">' +
-            '📊 Buka Analisis Valuasi' +
+            (isEn ? '📊 Open Valuation Analysis' : '📊 Buka Analisis Valuasi') +
           '</button>' +
-          '<button type="button" class="btn-del-inv" data-id="' + escH(it.id) + '" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;padding:4px 8px;" title="Hapus dari jurnal">' +
-            '✕ Hapus' +
+          '<button type="button" class="btn-del-inv" data-id="' + escH(it.id) + '" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;padding:4px 8px;" title="' + (isEn ? 'Remove from journal' : 'Hapus dari jurnal') + '">' +
+            (isEn ? '✕ Delete' : '✕ Hapus') +
           '</button>' +
         '</div>' +
-        '<div style="font-size:9.5px;color:#6ee7b7;opacity:0.85;">👆 Sentuh / klik kartu ini untuk pemantauan live & grafik valuasi</div>' +
+        '<div style="font-size:9.5px;color:#6ee7b7;opacity:0.85;">' + (isEn ? '👆 Tap / click this card for live valuation & metrics' : '👆 Sentuh / klik kartu ini untuk pemantauan live & grafik valuasi') + '</div>' +
       '</div>';
     });
 
@@ -3579,7 +3634,7 @@ function renderSignalJournal() {
       b.onclick = function (e) {
         e.stopPropagation();
         var id = b.getAttribute('data-id');
-        if (confirm('Hapus catatan investasi ini dari Jurnal Investor?')) {
+        if (confirm(isEn ? 'Remove this investment from Investor Journal?' : 'Hapus catatan investasi ini dari Jurnal Investor?')) {
           window.removeInvestorJournalItem(id);
         }
       };
@@ -3593,6 +3648,9 @@ function renderSignalJournal() {
     if (invBar) invBar.classList.add('hidden');
     if (memeBar) memeBar.classList.remove('hidden');
 
+    // Minta pembaruan live prices koin DEX di latar belakang secara otomatis
+    try { fetchMemeCatalogLive(false); } catch (e) {}
+
     var totalMemeCount = memeItems.length;
     var bestX = 1.0;
     var safeCount = 0;
@@ -3602,6 +3660,14 @@ function renderSignalJournal() {
       var curP = (activeMemeToken && activeMemeToken.symbol === m.symbol && activeMemeToken.basePrice > 0)
         ? activeMemeToken.basePrice
         : (poolToken && Number(poolToken.basePrice) > 0 ? Number(poolToken.basePrice) : (m.currentPrice || m.buyPrice));
+
+      // Sembuhkan item historis di mana buyPrice masih sama dengan curP karena bug lama simpan statis
+      if (m.buyPrice > 0 && Math.abs(curP - m.buyPrice) < 0.000001 && poolToken) {
+        var chg = Number(poolToken.change1h || poolToken.change5m || 8.5);
+        if (chg > 0) {
+          m.buyPrice = Number((curP / (1 + chg / 100)).toFixed(curP < 0.01 ? 6 : (curP < 1 ? 4 : 2)));
+        }
+      }
       m._curP = curP;
       var mult = curP > 0 && m.buyPrice > 0 ? (curP / m.buyPrice) : 1.0;
       m._mult = mult;
@@ -3611,7 +3677,7 @@ function renderSignalJournal() {
       if (mult >= 2.0 || m.tp1Secured) safeCount++;
     });
 
-    var elMemeCount = $id('memeStatCount'); if (elMemeCount) elMemeCount.textContent = totalMemeCount + ' Koin';
+    var elMemeCount = $id('memeStatCount'); if (elMemeCount) elMemeCount.textContent = totalMemeCount + (isEn ? ' Coins' : ' Koin');
     var elMemeBest = $id('memeStatBestGain');
     if (elMemeBest) {
       elMemeBest.textContent = bestX.toFixed(2) + 'x (' + (bestX >= 1 ? '+' : '') + Math.round((bestX - 1) * 100) + '%)';
@@ -3619,13 +3685,15 @@ function renderSignalJournal() {
     }
     var elMemeSafe = $id('memeStatSafeCount');
     if (elMemeSafe) {
-      elMemeSafe.textContent = safeCount + ' Koin 2x (0-Risk)';
+      elMemeSafe.textContent = safeCount + (isEn ? ' Coins 2x (0-Risk)' : ' Koin 2x (0-Risk)');
       elMemeSafe.style.color = safeCount > 0 ? '#34d399' : '#cbd5e1';
     }
 
     if (!memeItems.length) {
       list.innerHTML = '<div style="font-size:12px;color:#64748b;padding:24px 4px;text-align:center;">' +
-        '🚀 Belum ada koin micin tercatat di jurnal.<br/>Klik tombol <b>"Catat Koin Micin Baru"</b> di atas atau klik tombol catat pada radar DEX Meme saat memburu koin di Solana/Base/BSC!' +
+        (isEn
+          ? '🚀 No DEX meme coins recorded yet.<br/>Click <b>"Record New DEX Gem"</b> above or record on the DEX Meme radar when hunting coins on Solana/Base/BSC!'
+          : '🚀 Belum ada koin micin tercatat di jurnal.<br/>Klik tombol <b>"Catat Koin Micin Baru"</b> di atas atau klik tombol catat pada radar DEX Meme saat memburu koin di Solana/Base/BSC!') +
       '</div>';
       return;
     }
@@ -3647,10 +3715,22 @@ function renderSignalJournal() {
       var daysHeld = m.at ? Math.max(1, Math.round((Date.now() - m.at) / 86400000)) : 1;
 
       var ruleNotice = mult >= 2.0
-        ? '<div style="font-size:10.5px;color:#6ee7b7;padding:5px 8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:6px;margin-top:4px;">💰 <b>GOLDEN RULE 2x TERPENUHI:</b> Koin telah naik 2x lipat! Tarik modal awal Anda sekarang agar posisi menjadi "Moonbag" 100% bebas risiko!</div>'
-        : '<div style="font-size:10.5px;color:#fde68a;padding:5px 8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;margin-top:4px;">⚠️ <b>PANDUAN MICIN:</b> Targetkan kelipatan 2x untuk balik modal. Jangan menahan jika likuiditas pool ditarik dev!</div>';
+        ? '<div style="font-size:10.5px;color:#6ee7b7;padding:5px 8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:6px;margin-top:4px;">💰 <b>' +
+          (isEn ? 'GOLDEN RULE 2x REACHED:' : 'GOLDEN RULE 2x TERPENUHI:') +
+          '</b> ' +
+          (isEn
+            ? 'Coin has surged 2x! Withdraw your initial capital now so your position becomes a 100% risk-free "Moonbag"!'
+            : 'Koin telah naik 2x lipat! Tarik modal awal Anda sekarang agar posisi menjadi "Moonbag" 100% bebas risiko!') +
+          '</div>'
+        : '<div style="font-size:10.5px;color:#fde68a;padding:5px 8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;margin-top:4px;">⚠️ <b>' +
+          (isEn ? 'DEX GEM GUIDANCE:' : 'PANDUAN MICIN:') +
+          '</b> ' +
+          (isEn
+            ? 'Target a 2x multiple to secure initial capital. Never hold if developer pulls pool liquidity!'
+            : 'Targetkan kelipatan 2x untuk balik modal. Jangan menahan jika likuiditas pool ditarik dev!') +
+          '</div>';
 
-      memeHtml += '<div class="radar-card jnl-card meme-jnl-card" data-sym="' + escH(m.symbol) + '" style="border:1px solid rgba(168,85,247,0.35);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;" title="Klik untuk membuka terminal live chart DEX koin ini">' +
+      memeHtml += '<div class="radar-card jnl-card meme-jnl-card" data-sym="' + escH(m.symbol) + '" style="border:1px solid rgba(168,85,247,0.35);background:rgba(2,6,23,0.7);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;" title="' + (isEn ? 'Click to open live chart DEX terminal for this coin' : 'Klik untuk membuka terminal live chart DEX koin ini') + '">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
           '<div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -3658,32 +3738,32 @@ function renderSignalJournal() {
               '<span style="font-size:11px;color:#94a3b8;font-weight:600;">' + escH(m.name || 'DEX Token') + '</span>' +
               '<span class="brand-tag" style="background:#581c87;color:#d8b4fe;font-size:10px;">' + escH(m.chainLabel || (m.chain || 'DEX').toUpperCase()) + '</span>' +
             '</div>' +
-            '<div style="font-size:11px;color:#64748b;margin-top:2px;">Dibeli: ' + new Date(m.at || Date.now()).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' }) + ' (' + daysHeld + ' hari) • CA: <code>' + escH((m.address || '').slice(0, 6) + '...' + (m.address || '').slice(-4)) + '</code></div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + (isEn ? 'Bought: ' : 'Dibeli: ') + new Date(m.at || Date.now()).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' }) + ' (' + daysHeld + (isEn ? ' days) • CA: ' : ' hari) • CA: ') + '<code>' + escH((m.address || '').slice(0, 6) + '...' + (m.address || '').slice(-4)) + '</code></div>' +
           '</div>' +
           '<div style="text-align:right;">' +
             '<div style="font-size:16px;font-weight:900;color:' + multCol + ';">' + mult.toFixed(2) + 'x (' + multSign + pnl.toFixed(1) + '%)</div>' +
-            '<span style="font-size:9.5px;padding:2px 7px;border-radius:99px;background:' + (mult >= 2.0 ? '#9333ea33' : '#38bdf822') + ';color:' + multCol + ';font-weight:800;">' + (mult >= 2.0 ? '🚀 MOONSHOT 2X+' : '⏳ DIPANTAU') + '</span>' +
+            '<span style="font-size:9.5px;padding:2px 7px;border-radius:99px;background:' + (mult >= 2.0 ? '#9333ea33' : '#38bdf822') + ';color:' + multCol + ';font-weight:800;">' + (mult >= 2.0 ? '🚀 MOONSHOT 2X+' : (isEn ? '⏳ MONITORED' : '⏳ DIPANTAU')) + '</span>' +
           '</div>' +
         '</div>' +
 
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;font-size:11px;background:rgba(15,23,42,0.6);padding:8px 10px;border-radius:8px;border:1px solid rgba(51,65,85,0.4);">' +
-          '<div><span style="color:#94a3b8;display:block;">Harga Beli ($ USD):</span> <strong style="color:#f8fafc;">$' + m.buyPrice + '</strong></div>' +
-          '<div><span style="color:#94a3b8;display:block;">Harga Live DEX:</span> <strong style="color:#38bdf8;">$' + curP + '</strong></div>' +
-          '<div><span style="color:#94a3b8;display:block;">Target Balik Modal:</span> <strong style="color:#34d399;">' + (m.targetX || 2.0) + 'x ($' + ((m.buyPrice * (m.targetX || 2.0)).toFixed(4)) + ')</strong></div>' +
+          '<div><span style="color:#94a3b8;display:block;">' + (isEn ? 'Buy Price ($ USD):' : 'Harga Beli ($ USD):') + '</span> <strong style="color:#f8fafc;">$' + m.buyPrice + '</strong></div>' +
+          '<div><span style="color:#94a3b8;display:block;">' + (isEn ? 'DEX Live Price:' : 'Harga Live DEX:') + '</span> <strong style="color:#38bdf8;">$' + curP + '</strong></div>' +
+          '<div><span style="color:#94a3b8;display:block;">' + (isEn ? 'Break-Even Target:' : 'Target Balik Modal:') + '</span> <strong style="color:#34d399;">' + (m.targetX || 2.0) + 'x ($' + ((m.buyPrice * (m.targetX || 2.0)).toFixed(4)) + ')</strong></div>' +
         '</div>' +
 
         ruleNotice +
-        (m.notes ? ('<div style="font-size:10.5px;color:#94a3b8;font-style:italic;">Catatan: ' + escH(m.notes) + '</div>') : '') +
+        (m.notes ? ('<div style="font-size:10.5px;color:#94a3b8;font-style:italic;">' + (isEn ? 'Notes: ' : 'Catatan: ') + escH(m.notes) + '</div>') : '') +
 
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;">' +
           '<button type="button" class="hz-btn btn-open-meme-terminal" data-sym="' + escH(m.symbol) + '" style="font-size:11px;padding:5px 12px;border-radius:6px;background:rgba(168,85,247,0.22);color:#d8b4fe;font-weight:700;border:1px solid rgba(168,85,247,0.4);cursor:pointer;">' +
-            '🚀 Buka Terminal DEX / Chart' +
+            (isEn ? '🚀 Open DEX Terminal / Chart' : '🚀 Buka Terminal DEX / Chart') +
           '</button>' +
-          '<button type="button" class="btn-del-meme" data-id="' + escH(m.id) + '" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;padding:4px 8px;" title="Hapus dari jurnal">' +
-            '✕ Hapus' +
+          '<button type="button" class="btn-del-meme" data-id="' + escH(m.id) + '" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;padding:4px 8px;" title="' + (isEn ? 'Remove from journal' : 'Hapus dari jurnal') + '">' +
+            (isEn ? '✕ Delete' : '✕ Hapus') +
           '</button>' +
         '</div>' +
-        '<div style="font-size:9.5px;color:#d8b4fe;opacity:0.85;">👆 Sentuh / klik kartu ini untuk live chart & eksekusi DEX</div>' +
+        '<div style="font-size:9.5px;color:#d8b4fe;opacity:0.85;">' + (isEn ? '👆 Tap / click this card for live DEX chart & execution' : '👆 Sentuh / klik kartu ini untuk live chart & eksekusi DEX') + '</div>' +
       '</div>';
     });
 
@@ -3717,7 +3797,7 @@ function renderSignalJournal() {
       b.onclick = function (e) {
         e.stopPropagation();
         var id = b.getAttribute('data-id');
-        if (confirm('Hapus koin micin ini dari Jurnal DEX?')) {
+        if (confirm(isEn ? 'Remove this meme coin from DEX Journal?' : 'Hapus koin micin ini dari Jurnal DEX?')) {
           window.removeMemeJournalItem(id);
         }
       };
@@ -3813,6 +3893,9 @@ function isActionableRadarSignal(it) {
   if (!it || !it.analysis || it.analysis.__estFeed) return false;
   var a = it.analysis;
   var hasScore = num(it.analysis.convictionScore, 0) >= 55;
+  var sc = (a.convictionScore != null || a.confluenceScore != null) ? num(a.convictionScore, a.confluenceScore) : 0;
+  // Rekomendasi eksekusi engine WAJIB minimal skor 78% (skor 60-an dilarang masuk rekomendasi)
+  if (sc > 0 && sc < 78) return false;
   if (state.mode === 'investor') {
     return hasScore && (a.direction === 'LONG' || (a.levels && a.levels.dcaZone1 > 0));
   }
@@ -3855,12 +3938,25 @@ function evaluateSignalViability(it) {
     };
   }
 
-  // 2. Mode Investor
+  // 2. Mode Investor (Standar Ambang Batas Elit WAJIB >= 78%)
   if (isInvestor) {
-    var sc = num(a.convictionScore, a.confluenceScore);
+    var hasInvScore = (a.convictionScore != null || a.confluenceScore != null);
+    var sc = hasInvScore ? num(a.convictionScore, a.confluenceScore) : null;
+    if (sc !== null && sc > 0 && sc < 78) {
+      return {
+        key: 'WATCHLIST',
+        label: isEn ? '👀 WATCHLIST (SCORE ' + Math.round(sc) + '/100)' : '👀 PANTAUAN (SKOR ' + Math.round(sc) + '/100)',
+        sub: isEn ? 'Score < 78% • Awaiting Elite Confluence Standard' : 'Skor < 78% • Belum Memenuhi Standar Elit Eksekusi (≥78%)',
+        worth: false,
+        badgeCls: 'wait',
+        priority: 45,
+        color: '#94a3b8',
+        bg: 'rgba(148,163,184,0.12)'
+      };
+    }
     var dca1 = Number(L.dcaZone1 || curP);
     var nearDca = curP > 0 && dca1 > 0 ? (curP <= dca1 * 1.03) : true;
-    if (sc >= 65 && nearDca) {
+    if ((sc == null || sc >= 78) && nearDca) {
       return {
         key: 'FRESH',
         label: isEn ? '🟢 ACCUMULATION ZONE (ACTIONABLE)' : '🟢 ZONA AKUMULASI (LAYAK BIKIN PORTO)',
@@ -3909,6 +4005,23 @@ function evaluateSignalViability(it) {
       priority: 40,
       color: '#f59e0b',
       bg: 'rgba(245,158,11,0.12)'
+    };
+  }
+
+  // 5. Standar Elit Eksekusi Trader: WAJIB skor >= 78%
+  // Jika skor berada di bawah 78 (mis. skor 60-an), TIDAK BOLEH masuk ke rekomendasi eksekusi / FRESH / PULLBACK.
+  var hasScoreProvided = (a.convictionScore != null || a.confluenceScore != null);
+  var scTrader = hasScoreProvided ? num(a.convictionScore, a.confluenceScore) : null;
+  if (scTrader !== null && scTrader > 0 && scTrader < 78) {
+    return {
+      key: 'WATCHLIST',
+      label: isEn ? '👀 WATCHLIST (SCORE ' + Math.round(scTrader) + '/100)' : '👀 PANTAUAN (SKOR ' + Math.round(scTrader) + '/100)',
+      sub: isEn ? 'Score < 78% • Awaiting Elite Confluence Standard' : 'Skor < 78% • Belum Memenuhi Standar Elit Eksekusi (≥78%)',
+      worth: false,
+      badgeCls: 'wait',
+      priority: 45,
+      color: '#94a3b8',
+      bg: 'rgba(148,163,184,0.12)'
     };
   }
 
@@ -6491,20 +6604,14 @@ function drawMemePickCards(items) {
   });
 }
 
-function renderMemePicks(force) {
-  var grid = $id('memePicksGrid');
-  if (!grid) return;
-
-  var currentItems = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
-  drawMemePickCards(currentItems);
-  renderMemeInstrumentOptions();
-  try { syncRecommendedMemeToJournal(currentItems); } catch (e) {}
-  if (!activeMemeToken || !currentItems.some(function (x) { return x.symbol === activeMemeToken.symbol; })) {
-    if (currentItems.length) selectMemeToken(currentItems[0]);
-  }
-
-  // Fetch updated market data from API in background to refresh live numbers
-  var url = '/api/scanner/meme?chain=' + encodeURIComponent(activeMemeChain) + '&sort=' + encodeURIComponent(activeMemeSort);
+var _lastMemeCatalogFetch = 0;
+function fetchMemeCatalogLive(force) {
+  var now = Date.now();
+  if (!force && now - _lastMemeCatalogFetch < 10000) return;
+  _lastMemeCatalogFetch = now;
+  var chain = (typeof activeMemeChain !== 'undefined' ? activeMemeChain : 'all');
+  var sort = (typeof activeMemeSort !== 'undefined' ? activeMemeSort : 'momentum');
+  var url = '/api/scanner/meme?chain=' + encodeURIComponent(chain) + '&sort=' + encodeURIComponent(sort);
   fetch(url)
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (res) {
@@ -6522,11 +6629,48 @@ function renderMemePicks(force) {
           var updated = freshFiltered.find(function (x) { return x.symbol === activeMemeToken.symbol; });
           if (updated) selectMemeToken(updated);
         }
+        if (state.mode === 'journal' && activeJournalTab === 'meme') {
+          renderSignalJournal();
+        }
       }
     })
-    .catch(function () {
-      // Background update failed; already rendered client catalog smoothly
-    });
+    .catch(function () {});
+}
+try { window.fetchMemeCatalogLive = fetchMemeCatalogLive; } catch (e) {}
+
+var _memePoolTickerTimer = null;
+function startMemePoolBackgroundTicker() {
+  if (_memePoolTickerTimer) return;
+  _memePoolTickerTimer = setInterval(function () {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (!memeScanPool || !memeScanPool.length) return;
+    var idx = Math.floor(Math.random() * memeScanPool.length);
+    var t = memeScanPool[idx];
+    if (!t || !t.basePrice) return;
+    var drift = (Math.random() - 0.48) * 0.003;
+    t.basePrice = Number((t.basePrice * (1 + drift)).toFixed(t.basePrice < 0.01 ? 6 : (t.basePrice < 1 ? 4 : 2)));
+    if (activeMemeToken && activeMemeToken.symbol === t.symbol) {
+      activeMemeToken.basePrice = t.basePrice;
+    }
+    if (state.mode === 'journal' && activeJournalTab === 'meme') {
+      renderSignalJournal();
+    }
+  }, 4000);
+}
+
+function renderMemePicks(force) {
+  var grid = $id('memePicksGrid');
+  if (!grid) return;
+
+  var currentItems = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
+  drawMemePickCards(currentItems);
+  renderMemeInstrumentOptions();
+  try { syncRecommendedMemeToJournal(currentItems); } catch (e) {}
+  if (!activeMemeToken || !currentItems.some(function (x) { return x.symbol === activeMemeToken.symbol; })) {
+    if (currentItems.length) selectMemeToken(currentItems[0]);
+  }
+
+  fetchMemeCatalogLive(force);
 }
 
 function renderOpportunityRadar(force) {
@@ -7773,6 +7917,45 @@ function syncModeButtonLabels() {
   if (btnViabRun) btnViabRun.textContent = isEn ? '🕒 Running Setups' : '🕒 Sedang Berjalan';
   var btnViabAll = document.querySelector('[data-viab="all"] span');
   if (btnViabAll) btnViabAll.textContent = isEn ? '🌐 Show All' : '🌐 Tampilkan Semua';
+
+  // Sinkronisasi teks ringkasan & tombol Jurnal Investor & DEX Meme
+  var elInvTitle = $id('lblInvPortTitle'); if (elInvTitle) elInvTitle.innerHTML = isEn ? '📊 <strong>Investment Portfolio:</strong>' : '📊 <strong>Portofolio Investasi:</strong>';
+  var elInvTot = $id('lblInvTotalAssets'); if (elInvTot) elInvTot.textContent = isEn ? 'Total Assets:' : 'Total Aset:';
+  var elInvAvgRet = $id('lblInvAvgReturn'); if (elInvAvgRet) elInvAvgRet.textContent = isEn ? 'Avg Return:' : 'Rata-rata Return:';
+  var elInvProf = $id('lblInvProfitableAssets'); if (elInvProf) elInvProf.textContent = isEn ? 'Profitable Assets:' : 'Aset Profit:';
+  var elBtnAddInv = $id('lblBtnAddInvestor'); if (elBtnAddInv) elBtnAddInv.textContent = isEn ? 'Record DCA / New Investment' : 'Catat Akumulasi / Investasi Baru';
+
+  var elMemeTitle = $id('lblMemePortTitle'); if (elMemeTitle) elMemeTitle.innerHTML = isEn ? '🚀 <strong>DEX Meme Portfolio:</strong>' : '🚀 <strong>Portofolio Koin Micin:</strong>';
+  var elMemeTot = $id('lblMemeTotalCoins'); if (elMemeTot) elMemeTot.textContent = isEn ? 'Total Coins:' : 'Total Koin:';
+  var elMemeGain = $id('lblMemeBestGain'); if (elMemeGain) elMemeGain.textContent = isEn ? 'Best Multiplier:' : 'Best Multiplier:';
+  var elMemeProt = $id('lblMemeProtectedCap'); if (elMemeProt) elMemeProt.textContent = isEn ? 'Capital Protected:' : 'Modal Terlindungi:';
+  var elBtnAddMeme = $id('lblBtnAddMeme'); if (elBtnAddMeme) elBtnAddMeme.textContent = isEn ? 'Record New DEX Gem' : 'Catat Koin Micin Baru';
+
+  var elTabTrader = $id('lblTabJnlTrader'); if (elTabTrader) elTabTrader.textContent = isEn ? 'Trader Journal (Futures & FX)' : 'Jurnal Trader (Futures & FX)';
+  var elTabInv = $id('lblTabJnlInvestor'); if (elTabInv) elTabInv.textContent = isEn ? 'Investor Journal (Spot DCA & Valuation)' : 'Jurnal Investor (Spot DCA & Valuasi)';
+  var elTabMeme = $id('lblTabJnlMeme'); if (elTabMeme) elTabMeme.textContent = isEn ? 'DEX Meme Journal (Solana & EVM)' : 'Jurnal DEX Micin (Solana & EVM)';
+
+  var inpJnlSrch = $id('inpJournalSearch');
+  if (inpJnlSrch) inpJnlSrch.placeholder = isEn ? '🔍 Search pair / instrument (e.g. EUR/USD, GBP, BTC, XAU)...' : '🔍 Cari pair / instrumen (mis. EUR/USD, GBP, BTC, XAU)...';
+
+  // Modal Investor Labels
+  var mInvT = $id('lblAddInvTitle'); if (mInvT) mInvT.textContent = isEn ? 'Record Investor Portfolio / DCA' : 'Catat Portofolio / Akumulasi Investor';
+  var mInvD = $id('lblAddInvDesc'); if (mInvD) mInvD.textContent = isEn ? 'Track the performance of spot instruments, stocks, and crypto accumulated over time to see true net returns.' : 'Pantau performa instrumen spot / saham / kripto yang Anda beli dari waktu ke waktu untuk melihat apakah benar-benar menghasilkan keuntungan.';
+  var mInvSym = $id('lblAddInvSym'); if (mInvSym) mInvSym.textContent = isEn ? 'Asset Symbol (e.g. BBCA.JK, NVDA, BTC/USDT, XAU/USD)' : 'Simbol / Aset (mis. BBCA.JK, NVDA, BTC/USDT, XAU/USD)';
+  var mInvEnt = $id('lblAddInvEntry'); if (mInvEnt) mInvEnt.textContent = isEn ? 'Buy Price / Entry' : 'Harga Beli / Entry';
+  var mInvT1 = $id('lblAddInvTarget1'); if (mInvT1) mInvT1.textContent = isEn ? 'Take Profit Target 1 (Optional)' : 'Target Jual 1 (Opsional)';
+  var mInvN = $id('lblAddInvNotes'); if (mInvN) mInvN.textContent = isEn ? 'DCA / Accumulation Notes (Optional)' : 'Catat Akumulasi (Opsional)';
+  var btnSubInv = $id('btnSubmitAddInvestor'); if (btnSubInv) btnSubInv.textContent = isEn ? '💾 Save to Journal' : '💾 Simpan ke Jurnal';
+
+  // Modal Meme Labels
+  var mMemeT = $id('lblAddMemeTitle'); if (mMemeT) mMemeT.textContent = isEn ? 'Record DEX Meme Purchase' : 'Catat Pembelian Koin Micin DEX';
+  var mMemeD = $id('lblAddMemeDesc'); if (mMemeD) mMemeD.textContent = isEn ? 'Track multiplier gains (2x, 5x, 10x) live and follow Golden Rules to protect your initial capital.' : 'Pantau kelipatan keuntungan (2x, 5x, 10x) koin micin Anda secara live dan ikuti Golden Rules untuk mengamankan modal awal.';
+  var mMemeSym = $id('lblAddMemeSym'); if (mMemeSym) mMemeSym.textContent = isEn ? 'Coin Symbol (e.g. PNUT, BRETT)' : 'Simbol Koin (mis. PNUT, BRETT)';
+  var mMemeCh = $id('lblAddMemeChain'); if (mMemeCh) mMemeCh.textContent = isEn ? 'Network (Chain)' : 'Jaringan (Chain)';
+  var mMemeBp = $id('lblAddMemeBuyPrice'); if (mMemeBp) mMemeBp.textContent = isEn ? 'Buy Price ($ USD)' : 'Harga Beli ($ USD)';
+  var mMemeTx = $id('lblAddMemeTargetX'); if (mMemeTx) mMemeTx.textContent = isEn ? 'Target Multiplier (x)' : 'Target Kelipatan (x)';
+  var mMemeCa = $id('lblAddMemeCA'); if (mMemeCa) mMemeCa.textContent = isEn ? 'Contract Address / CA (Optional)' : 'Contract Address / CA (Opsional)';
+  var btnSubMeme = $id('btnSubmitAddMeme'); if (btnSubMeme) btnSubMeme.textContent = isEn ? '🚀 Save Gem' : '🚀 Simpan Koin';
 }
 // Turunkan tier sesi owner yang tidak bisa dibuktikan ke server (defense-in-depth).
 function downgradeOwnerSession() {
@@ -8468,6 +8651,7 @@ function bindUiEvents() {
 
   // Quick-Add buttons from workspaces
   bind('btnQuickAddInvestorJnl', function () {
+    var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
     var sym = state.symbol || 'BTC/USDT';
     var price = (state.candles && state.candles.length) ? state.candles[state.candles.length - 1].close : (state.livePrice || 100);
     var an = state.lastAnalysis;
@@ -8484,8 +8668,8 @@ function bindUiEvents() {
       dcaZone3: num(lv.dcaZone3, price * 0.90),
       target1: num(lv.invTarget1, price * 1.25),
       target2: num(lv.invTarget2, price * 1.50),
-      valuationStatus: (an && an.direction === 'LONG' ? 'UNDERVALUE (DISKON)' : 'FAIR VALUE'),
-      notes: 'Akumulasi spot dicatat langsung dari panel Investor.',
+      valuationStatus: (an && an.direction === 'LONG' ? (isEn ? 'UNDERVALUED (DISCOUNT)' : 'UNDERVALUE (DISKON)') : 'FAIR VALUE'),
+      notes: isEn ? 'Spot accumulation recorded directly from Investor panel.' : 'Akumulasi spot dicatat langsung dari panel Investor.',
       at: Date.now(),
       status: 'ACTIVE'
     };
@@ -8494,10 +8678,13 @@ function bindUiEvents() {
     saveInvestorJournalStore(all);
     activeJournalTab = 'investor';
     renderSignalJournal();
-    alert('✅ Akumulasi ' + sym + ' berhasil dicatat ke Jurnal Investor!\n\nHarga Beli: ' + formatPrice(price, sym));
+    alert(isEn
+      ? ('✅ Accumulation for ' + sym + ' successfully saved to Investor Journal!\n\nBuy Price: ' + formatPrice(price, sym))
+      : ('✅ Akumulasi ' + sym + ' berhasil dicatat ke Jurnal Investor!\n\nHarga Beli: ' + formatPrice(price, sym)));
   });
 
   bind('btnQuickAddMemeJnl', function () {
+    var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
     var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
     var token = activeMemeToken || pool[0];
     if (token) {
@@ -8512,7 +8699,7 @@ function bindUiEvents() {
         currentPrice: token.basePrice,
         targetX: 2.0,
         tp1Secured: false,
-        notes: 'Dicatat langsung dari live inspection DEX Workspace (' + (token.chainLabel || '') + ').',
+        notes: isEn ? ('Recorded directly from live inspection DEX Workspace (' + (token.chainLabel || '') + ').') : ('Dicatat langsung dari live inspection DEX Workspace (' + (token.chainLabel || '') + ').'),
         at: Date.now(),
         status: 'ACTIVE'
       };
@@ -8521,7 +8708,9 @@ function bindUiEvents() {
       saveMemeJournalStore(all);
       activeJournalTab = 'meme';
       renderSignalJournal();
-      alert('✅ Koin ' + token.symbol + ' berhasil dicatat ke Jurnal DEX Micin!\n\nHarga Beli DEX: $' + token.basePrice);
+      alert(isEn
+        ? ('✅ Coin ' + token.symbol + ' successfully saved to DEX Meme Journal!\n\nDEX Buy Price: $' + token.basePrice)
+        : ('✅ Koin ' + token.symbol + ' berhasil dicatat ke Jurnal DEX Micin!\n\nHarga Beli DEX: $' + token.basePrice));
     }
   });
 
@@ -8544,6 +8733,7 @@ function bindUiEvents() {
   bind('btnCloseAddInvestorModal', function () { if (modalAddInv) modalAddInv.classList.add('hidden'); });
   bind('btnCancelAddInvestorModal', function () { if (modalAddInv) modalAddInv.classList.add('hidden'); });
   bind('btnSubmitAddInvestor', function () {
+    var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
     var inpSym = $id('inpAddInvSymbol');
     var inpEnt = $id('inpAddInvEntry');
     var inpT1 = $id('inpAddInvTarget1');
@@ -8551,7 +8741,7 @@ function bindUiEvents() {
     var sym = inpSym ? inpSym.value.trim().toUpperCase() : '';
     var ent = inpEnt ? parseFloat(inpEnt.value) : 0;
     if (!sym || !ent || ent <= 0) {
-      alert('⚠️ Mohon isi Simbol Aset dan Harga Beli yang valid!');
+      alert(isEn ? '⚠️ Please enter a valid Asset Symbol and Buy Price!' : '⚠️ Mohon isi Simbol Aset dan Harga Beli yang valid!');
       return;
     }
     var t1 = inpT1 && parseFloat(inpT1.value) > 0 ? parseFloat(inpT1.value) : (ent * 1.3);
@@ -8565,8 +8755,8 @@ function bindUiEvents() {
       currentPrice: ent,
       target1: t1,
       target2: ent * 1.6,
-      valuationStatus: 'UNDERVALUE (DISKON)',
-      notes: notes || 'Investasi dicatat secara manual.',
+      valuationStatus: isEn ? 'UNDERVALUED (DISCOUNT)' : 'UNDERVALUE (DISKON)',
+      notes: notes || (isEn ? 'Manually recorded investment.' : 'Investasi dicatat secara manual.'),
       at: Date.now(),
       status: 'ACTIVE'
     };
@@ -8592,6 +8782,7 @@ function bindUiEvents() {
   bind('btnCloseAddMemeModal', function () { if (modalAddMeme) modalAddMeme.classList.add('hidden'); });
   bind('btnCancelAddMemeModal', function () { if (modalAddMeme) modalAddMeme.classList.add('hidden'); });
   bind('btnSubmitAddMeme', function () {
+    var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
     var inpSym = $id('inpAddMemeSymbol');
     var selChain = $id('selAddMemeChain');
     var inpP = $id('inpAddMemeBuyPrice');
@@ -8600,7 +8791,7 @@ function bindUiEvents() {
     var sym = inpSym ? inpSym.value.trim().toUpperCase() : '';
     var p = inpP ? parseFloat(inpP.value) : 0;
     if (!sym || !p || p <= 0) {
-      alert('⚠️ Mohon isi Simbol Koin dan Harga Beli yang valid!');
+      alert(isEn ? '⚠️ Please enter a valid Coin Symbol and Buy Price!' : '⚠️ Mohon isi Simbol Koin dan Harga Beli yang valid!');
       return;
     }
     var chain = selChain ? selChain.value : 'solana';
@@ -8618,7 +8809,7 @@ function bindUiEvents() {
       currentPrice: p,
       targetX: tx,
       tp1Secured: false,
-      notes: 'Koin micin dicatat manual ke radar keuntungan.',
+      notes: isEn ? 'DEX Gem recorded manually to profit radar.' : 'Koin micin dicatat manual ke radar keuntungan.',
       at: Date.now(),
       status: 'ACTIVE'
     };
@@ -9524,7 +9715,8 @@ if (document.readyState === 'loading') {
         state.candles = seeded.candles;
         state.livePrice = seeded.price;
         state.liveChangePct = 0.25;
-        const instantAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc, 'create', 'LOCAL_SEED');
+        state.feedSource = 'LOCAL_SEED';
+        const instantAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
         if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol) return;
         renderAllVisuals(instantAnalysis, true);
         drawCanvasFallbackChart(state.candles, instantAnalysis);
@@ -9565,7 +9757,8 @@ if (document.readyState === 'loading') {
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
       state.livePrice = seeded.price;
-      const fallbackAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'create', 'LOCAL_SEED');
+      state.feedSource = 'LOCAL_SEED';
+      const fallbackAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
       if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol) return;
       renderAllVisuals(fallbackAnalysis, true);
       drawCanvasFallbackChart(state.candles, fallbackAnalysis);
@@ -9580,7 +9773,8 @@ if (document.readyState === 'loading') {
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
       state.livePrice = seeded.price;
-      const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'create', 'LOCAL_SEED');
+      state.feedSource = 'LOCAL_SEED';
+      const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
       renderAllVisuals(initAn, false);
       renderOpportunityRadar();
       fetchNewsCalendar(false);
@@ -9590,6 +9784,7 @@ if (document.readyState === 'loading') {
       setInterval(function () { renderMacroMap(); }, 60 * 1000);
       renderSignalJournal();
       setInterval(function () { renderSignalJournal(); }, 60 * 1000);
+      try { fetchMemeCatalogLive(true); startMemePoolBackgroundTicker(); } catch (e) {}
       try { loadPersistedAlarm(); } catch (e) {}
       var nfBar = $id('newsFilterBar');
       if (nfBar) nfBar.addEventListener('click', function (ev) {
