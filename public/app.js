@@ -36,7 +36,13 @@ function showScreen(name) {
       if (name === 'gate') gate.classList.remove('hidden'); else gate.classList.add('hidden');
     }
     if (work) {
-      if (name === 'work') work.classList.remove('hidden'); else work.classList.add('hidden');
+      if (name === 'work') {
+        work.classList.remove('hidden');
+        var sk = document.getElementById('tvChartLoadingSkeleton');
+        if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
+      } else {
+        work.classList.add('hidden');
+      }
     }
     var dd = document.getElementById('userProfileDropdown');
     if (dd) dd.classList.add('hidden');
@@ -81,6 +87,8 @@ var enterWorkspaceLock = 0;
 function enterWorkspace() {
   try {
     showScreen('work');
+    var sk = document.getElementById('tvChartLoadingSkeleton');
+    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
     try { if (typeof updateUserUi === 'function') updateUserUi(); } catch (e) {}
     try { if (typeof syncModeSections === 'function') syncModeSections(); } catch (e) {}
     try { if (typeof renderInstrumentCatalog === 'function') renderInstrumentCatalog(); } catch (eCat) {}
@@ -685,9 +693,9 @@ function drawCanvasFallbackChart(candles, analysis) {
     return window.__canvasRenderer(candles, analysis);
   }
   var container = document.getElementById('tvChartContainer');
-  if (!container || (chartInstance && typeof LightweightCharts !== 'undefined')) return;
   var skeleton = document.getElementById('tvChartLoadingSkeleton');
   if (skeleton) { try { skeleton.style.display = 'none'; } catch (e) {} }
+  if (!container || (chartInstance && typeof LightweightCharts !== 'undefined')) return;
 }
 try { if (typeof window !== 'undefined') window.drawCanvasFallbackChart = drawCanvasFallbackChart; } catch (e) {}
 
@@ -1865,8 +1873,9 @@ var lastChartHeight = 0;
 function initChart() {
   var el = $id('tvChartContainer');
   if (!el) return false;
-  if (chartInstance) return true;
   var sk = $id('tvChartLoadingSkeleton');
+  if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
+  if (chartInstance) return true;
   var fnFallback = (typeof drawCanvasFallbackChart === 'function') ? drawCanvasFallbackChart : (typeof window !== 'undefined' ? window.drawCanvasFallbackChart : null);
   if (typeof LightweightCharts === 'undefined') {
     if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
@@ -1976,6 +1985,10 @@ function initChart() {
     return true;
   } catch (e) {
     chartInstance = null; candleSeries = null;
+    if (sk) { try { sk.style.display = 'none'; } catch (e2) {} }
+    if (typeof fnFallback === 'function' && state.candles && state.candles.length) {
+      try { fnFallback(state.candles, state.lastAnalysis); } catch (e3) {}
+    }
     return false;
   }
 }
@@ -2726,6 +2739,8 @@ function renderHeader(a) {
 }
 function renderAllVisuals(analysis) {
   if (!analysis) return;
+  var sk = document.getElementById('tvChartLoadingSkeleton');
+  if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
   try { analysis.symbol = analysis.symbol || state.symbol; } catch (e) {}
   state.lastAnalysis = analysis;
   try { renderHeader(analysis); } catch (e) {}
@@ -8785,7 +8800,13 @@ function showScreen(name) {
       if (name === 'gate') gate.classList.remove('hidden'); else gate.classList.add('hidden');
     }
     if (work) {
-      if (name === 'work') work.classList.remove('hidden'); else work.classList.add('hidden');
+      if (name === 'work') {
+        work.classList.remove('hidden');
+        var sk = document.getElementById('tvChartLoadingSkeleton');
+        if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
+      } else {
+        work.classList.add('hidden');
+      }
     }
     var dd = $id('userProfileDropdown');
     if (dd) dd.classList.add('hidden');
@@ -8797,6 +8818,8 @@ function showScreen(name) {
 function enterWorkspace() {
   try {
     showScreen('work');
+    var sk = document.getElementById('tvChartLoadingSkeleton');
+    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
     updateUserUi();
     syncModeSections();
     try { renderInstrumentCatalog(); } catch (eCat) {}
@@ -10173,9 +10196,9 @@ if (document.readyState === 'loading') {
   }
   function drawCanvasFallbackChart(candles, analysis) {
     const container = document.getElementById('tvChartContainer');
-    if (!container || (chartInstance && typeof LightweightCharts !== 'undefined')) return;
     const skeleton = document.getElementById('tvChartLoadingSkeleton');
     if (skeleton) { try { skeleton.style.display = 'none'; } catch (e) {} }
+    if (!container || (chartInstance && typeof LightweightCharts !== 'undefined')) return;
     let canvas = container.querySelector('canvas.xstarzg-fallback-canvas');
     if (!canvas) {
       canvas = document.createElement('canvas');
@@ -10555,9 +10578,14 @@ if (document.readyState === 'loading') {
         var refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
           // PROTEKSI ANTI-LOOP MUTLAK (anti-hang & anti-freeze di Android WebAPK / Emulator / Laptop):
-          // 1) Cegah loop: maksimal 1x reload per sesi browser/tab melalui sessionStorage lock
-          // 2) Hindari reload jika sedang dalam fase startup awal (< 4000ms) atau jika sudah pernah reload
+          // 1) Di Android WebAPK / PWA Standalone: DILARANG reload paksa webview karena akan memicu kembali splash screen logo
+          // 2) Cegah loop: maksimal 1x reload per sesi browser/tab melalui sessionStorage lock
+          // 3) Hindari reload jika sedang dalam fase startup awal (< 4000ms) atau jika sudah pernah reload
           if (refreshing) return;
+          try {
+            var isPwaStandalone = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
+            if (isPwaStandalone) return;
+          } catch (ePwa) {}
           try {
             var reloadFlag = sessionStorage.getItem('xs_sw_did_reload');
             if (reloadFlag) return; // Sudah pernah reload dalam sesi ini -> DILARANG reload lagi!

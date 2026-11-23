@@ -34,7 +34,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.85'), 'sw.js memiliki versi cache segar v2026.85');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.86'), 'sw.js memiliki versi cache segar v2026.86');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
@@ -91,5 +91,16 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
   await t.test('15. enterWorkspace memanggil renderInstrumentCatalog dan initChart secara sinkron', () => {
     assert.ok(appJs.includes('renderInstrumentCatalog()'), 'enterWorkspace memanggil renderInstrumentCatalog');
     assert.ok(appJs.includes('try { initChart(); } catch (eInit) {}'), 'enterWorkspace memanggil initChart seketika');
+  });
+
+  await t.test('16. controllerchange memproteksi Android WebAPK / Standalone dari reload paksa berulang', () => {
+    assert.ok(appJs.includes('isPwaStandalone'), 'controllerchange memeriksa mode standalone PWA/WebAPK');
+    assert.ok(appJs.includes('if (isPwaStandalone) return;'), 'controllerchange tidak boleh memuat ulang webview WebAPK');
+  });
+
+  await t.test('17. tvChartLoadingSkeleton dicegah memutar tanpa henti pada index.html dan alur workspace', () => {
+    const indexHtml = fs.readFileSync(path.join(rootDir, 'public/index.html'), 'utf8');
+    assert.ok(indexHtml.includes('id="tvChartLoadingSkeleton" style="position:absolute;inset:0;display:none;'), 'skeleton diinisialisasi tersembunyi agar tidak menutup grafik');
+    assert.ok(appJs.includes("var sk = document.getElementById('tvChartLoadingSkeleton');\n  if (sk) { try { sk.style.display = 'none'; } catch (e) {} }"), 'renderAllVisuals menyembunyikan skeleton');
   });
 });
