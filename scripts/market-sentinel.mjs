@@ -410,6 +410,30 @@ async function fetchYahooCandles(symbol, tf = 'H1') {
   return candles.slice(-200);
 }
 
+export async function fetchFromXstarzgApi(symbol, tf = 'H1') {
+  const apiHosts = [
+    process.env.XSTARZG_API_HOST,
+    'https://xstarzganalysis.pages.dev',
+    'https://xstarzg-analysis.pages.dev'
+  ].filter(Boolean);
+
+  for (const host of apiHosts) {
+    try {
+      const url = `${host}/api/market/analyze?symbol=${encodeURIComponent(symbol)}&tf=${encodeURIComponent(tf)}&_t=${Date.now()}`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'XStarZG-Sentinel/1.0' },
+        signal: AbortSignal.timeout(12000)
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (json && Array.isArray(json.candles) && json.candles.length >= 35) {
+        return json.candles;
+      }
+    } catch (e) {}
+  }
+  return [];
+}
+
 // Format price helper
 export function formatP(val, sym) {
   const n = Number(val);
@@ -993,7 +1017,14 @@ async function scanInstrument(inst, cache) {
       const interval = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
       candles = await fetchBinanceCandles(sym, interval);
     } else {
-      candles = await fetchYahooCandles(sym, tf);
+      try {
+        candles = await fetchYahooCandles(sym, tf);
+      } catch (yErr) {
+        candles = [];
+      }
+      if (!candles || candles.length < 35) {
+        candles = await fetchFromXstarzgApi(sym, tf);
+      }
     }
 
     if (!candles || candles.length < 35) {
