@@ -222,4 +222,11 @@ test('KALIBRASI HARGA REALISTIS (XAU/USD & RAY/USDT) & ANTI-FAKE OUTCOME', async
   await t.test('6. feedIsReal menolak string kosong atau tanda hubung dash', () => {
     assert.ok(appJs.includes("s !== '-'"), 'feedIsReal harus menolak simbol -');
   });
+
+  await t.test('7. Proteksi klik jurnal: evaluateSignalViability & writeBackRadarPools menolak membangkitkan sinyal cooldown / expired', () => {
+    assert.ok(appJs.includes("key: 'COOLDOWN'"), 'evaluateSignalViability harus menangani status COOLDOWN');
+    assert.ok(appJs.includes("key: 'EXPIRED'"), 'evaluateSignalViability harus menangani status EXPIRED');
+    assert.ok(appJs.includes("delete radarScanPool[hz0][sym + '|' + tf]"), 'writeBackRadarPools harus membersihkan sinyal cooldown dari radar');
+    assert.ok(appJs.includes("staleUnfilled"), 'auditAndCleanseCorruptedStorage harus membersihkan limit order usang');
+  });
 });
