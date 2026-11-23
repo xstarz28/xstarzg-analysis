@@ -430,20 +430,66 @@ function catLabelOf(meta) {
   return meta.region === 'ID' ? 'IDX STOCKS' : 'GLOBAL STOCKS';
 }
 
+var SEED_PRICES = {
+  // Harga jangkar dikalibrasi realistis ke pasar spot aktif — hanya dipakai 0-2 detik sebelum kuotasi live tiba
+  'XAU/USD': 2680.00, 'XAU/IDR': 1405000, 'XAG/USD': 31.50, 'XPT/USD': 980.00, 'XPD/USD': 1050.00, 'XCU/USD': 4.30, 'HG/USD': 4.30,
+  'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
+  'NZD/USD': 0.5980, 'USD/IDR': 16550, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880,
+  'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
+  'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
+  'SEI/USDT': 0.28, 'SEI': 0.28, 'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00,
+  'LDO/USDT': 1.45, 'KCS/USDT': 5.82, 'FET/USDT': 1.15, 'TAO/USDT': 450.00, 'RENDER/USDT': 4.80, 'PEPE/USDT': 0.00001,
+  'RAY/USDT': 1.35, 'RAY': 1.35,
+  'NZD/JPY': 87.35, 'NZDJPY': 87.35, 'AUD/JPY': 100.25, 'CAD/JPY': 109.60, 'CHF/JPY': 176.10, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50
+};
+try { if (typeof window !== 'undefined') window.SEED_PRICES = SEED_PRICES; } catch (e) {}
+
 function generateSeedCandles(symbol, tf) {
-  if (typeof window !== 'undefined' && typeof window.generateSeedCandles === 'function') {
-    return window.generateSeedCandles(symbol, tf);
-  }
   var sym = (symbol || 'XAU/USD').toUpperCase();
-  var meta = (typeof getMeta === 'function' ? getMeta(sym) : null);
-  var baseP = (meta && Number(meta.basePrice) > 0) ? Number(meta.basePrice) : (sym === 'XAU/USD' ? 2680 : 100);
-  return { price: baseP, candles: [] };
-}
-function drawCanvasFallbackChart(candles, analysis) {
-  if (typeof window !== 'undefined' && typeof window.drawCanvasFallbackChart === 'function') {
-    return window.drawCanvasFallbackChart(candles, analysis);
+  var meta = (typeof getMeta === 'function' ? getMeta(sym) : null) || (typeof QC !== 'undefined' && QC && QC.getInstrumentMeta ? QC.getInstrumentMeta(sym) : null);
+  var baseP = (meta && Number(meta.basePrice) > 0) ? Number(meta.basePrice) : (SEED_PRICES[sym] || 100);
+  var tfSecMap = { 'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800, 'H1': 3600, 'H4': 14400, 'D1': 86400, 'W1': 604800, 'MN': 2592000, '1Y': 7776000 };
+  var step = tfSecMap[tf] || 3600;
+  var nowBucket = Math.floor(Date.now() / 1000 / step) * step;
+  var atr = baseP * 0.0032;
+  var seed = 0;
+  for (var i = 0; i < sym.length; i++) seed = (seed * 31 + sym.charCodeAt(i)) % 1000003;
+  var rand = function () { seed = (seed * 16807 + 11) % 2147483647; return (seed % 10000) / 10000; };
+  var count = 180;
+  var closes = new Array(count);
+  closes[count - 1] = baseP;
+  var cur = baseP;
+  for (var j = count - 2; j >= 0; j--) {
+    var wave = Math.sin(j * 0.15) * (atr * 0.20);
+    var noise = (rand() - 0.500) * (atr * 0.45);
+    cur = Math.max(baseP * 0.7, Math.min(baseP * 1.3, cur - noise - wave * 0.10));
+    closes[j] = cur;
   }
+  var out = [];
+  for (var k = 0; k < count; k++) {
+    var t = nowBucket - (count - 1 - k) * step;
+    var o = k === 0 ? closes[0] * 0.999 : closes[k - 1];
+    var c = closes[k];
+    var wickUp = Math.max((0.2 + rand() * 0.5) * atr * 0.65, c * 0.0012);
+    var wickDn = Math.max((0.2 + rand() * 0.5) * atr * 0.65, c * 0.0012);
+    var h = Math.max(o, c) + wickUp;
+    var l = Math.max(0.000001, Math.min(o, c) - wickDn);
+    out.push({ time: t, open: o, high: h, low: l, close: c, volume: Math.round(120 + rand() * 800) });
+  }
+  return { price: baseP, candles: out };
 }
+try { if (typeof window !== 'undefined') window.generateSeedCandles = generateSeedCandles; } catch (e) {}
+
+function drawCanvasFallbackChart(candles, analysis) {
+  if (typeof window !== 'undefined' && typeof window.__canvasRenderer === 'function') {
+    return window.__canvasRenderer(candles, analysis);
+  }
+  var container = document.getElementById('tvChartContainer');
+  if (!container || (chartInstance && typeof LightweightCharts !== 'undefined')) return;
+  var skeleton = document.getElementById('tvChartLoadingSkeleton');
+  if (skeleton) { try { skeleton.style.display = 'none'; } catch (e) {} }
+}
+try { if (typeof window !== 'undefined') window.drawCanvasFallbackChart = drawCanvasFallbackChart; } catch (e) {}
 
 /* Memeriksa apakah sesi bursa untuk instrumen ini sedang buka.
    Kripto & DEX buka 24/7/365. Forex, Emas/Logam, Komoditas & Saham tutup di akhir pekan.
@@ -8232,9 +8278,11 @@ function syncModeButtonLabels() {
   var lblIg = $id('lblIgBtnText');
   if (lblIg) lblIg.textContent = isEn ? 'Instagram DM & Feedback' : 'Masukan & Kritik (Instagram)';
   var btnIgJnl = $id('btnOpenInstagramModalJnl');
-  if (btnIgJnl) {
-    var sp = btnIgJnl.querySelector('span:last-child');
-    if (sp) sp.textContent = isEn ? 'Instagram Community & DM' : 'Masukan & Kritik Instagram';
+  if (btnIgJnl && typeof btnIgJnl.querySelector === 'function') {
+    try {
+      var sp = btnIgJnl.querySelector('span:last-child');
+      if (sp) sp.textContent = isEn ? 'Instagram Community & DM' : 'Masukan & Kritik Instagram';
+    } catch (eIg) {}
   }
   var igTitle = $id('lblIgBannerTitle');
   if (igTitle) igTitle.textContent = isEn ? 'Official Community & Feedback Channel' : 'Komunitas & Saluran Masukan Resmi';
@@ -8740,6 +8788,18 @@ function bindUiEvents() {
     state.user = { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
     saveSession();
     enterWorkspace();
+  });
+  bind('btnGateOwnerDirect', function () {
+    var gm = $id('googleAuthModal');
+    if (gm) {
+      gm.classList.remove('hidden');
+      var blk = $id('ownerLoginBlock');
+      if (blk) blk.classList.remove('hidden');
+      var einp = $id('ownerEmailInput');
+      var cinp = $id('ownerCodeInput');
+      if (einp && !einp.value) einp.value = 'sevenfoldarmy2822@gmail.com';
+      if (cinp) setTimeout(function () { try { cinp.focus(); } catch (e) {} }, 80);
+    }
   });
   var closeGoogle = function () { var gm = $id('googleAuthModal'); if (gm) gm.classList.add('hidden'); };
   bind('btnCloseGoogleModal', closeGoogle);
@@ -10060,6 +10120,7 @@ if (document.readyState === 'loading') {
     ctx.fillText('FALLBACK VIEW — axis harga aktif', 8, h - 7);
   }
     // Expose untuk heartbeat live-tick (anti-desync chart vs harga saat CDN diblokir)
+  window.__canvasRenderer = drawCanvasFallbackChart;
   window.drawCanvasFallbackChart = drawCanvasFallbackChart;
   window.generateSeedCandles = generateSeedCandles;
   window.SEED_PRICES = SEED_PRICES;
