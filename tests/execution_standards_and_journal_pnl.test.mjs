@@ -182,3 +182,44 @@ test('NETRALISASI SEED FEED & PERLINDUNGAN ALARM AKURASI', async (t) => {
     assert.ok(appJs.includes("isPriceCompatibleWithSymbol(lastP, sym)"));
   });
 });
+
+test('KALIBRASI HARGA REALISTIS (XAU/USD & RAY/USDT) & ANTI-FAKE OUTCOME', async (t) => {
+  const edgeAnalyze = fs.readFileSync(path.join(root, 'functions', 'api', 'market', 'analyze.js'), 'utf-8');
+  const quantCore = fs.readFileSync(path.join(root, 'functions', 'lib', 'quant-core.js'), 'utf-8');
+  const sharedQuantCore = fs.readFileSync(path.join(root, 'public', 'js', 'shared', 'quant-core.js'), 'utf-8');
+
+  await t.test('1. Kalibrasi harga spot emas XAU/USD dan RAY/USDT sesuai kuotasi pasar nyata', () => {
+    assert.ok(!appJs.includes("'XAU/USD': 4055"), 'app.js tidak boleh memakai harga seed usang 4055');
+    assert.ok(!edgeAnalyze.includes("'XAU/USD': 4055"), 'edge analyze tidak boleh memakai harga usang 4055');
+    assert.ok(!quantCore.includes("symbol: 'XAU/USD', name: 'Gold Spot / US Dollar', assetClass: 'METALS', subGroup: 'PRECIOUS', binanceSymbol: 'PAXGUSDT', yahooSymbol: 'GC=F', basePrice: 4055"), 'quant-core tidak boleh 4055');
+
+    assert.ok(appJs.includes("'XAU/USD': 2680"), 'app.js REFERENCE_PRICES XAU/USD harus terkalibrasi ~2680');
+    assert.ok(edgeAnalyze.includes("'XAU/USD': 2680"), 'edge analyze DEFAULT_PRICES XAU/USD harus terkalibrasi ~2680');
+    assert.ok(edgeAnalyze.includes("'RAY/USDT': 1.35"), 'RAY/USDT edge DEFAULT_PRICES harus terkalibrasi ~1.35 (bukan 5.2)');
+    assert.ok(appJs.includes("'RAY/USDT': 1.35"), 'RAY/USDT app.js REFERENCE_PRICES harus terkalibrasi ~1.35');
+    assert.ok(sharedQuantCore.includes("mkCrypto('RAY', 'Raydium Solana DEX', 1.35)"), 'RAY di quant-core harus terkalibrasi ~1.35');
+  });
+
+  await t.test('2. signalCooldownActive mengunci cooldown pasca TP_HIT untuk mencegah lock ganda instan', () => {
+    assert.ok(appJs.includes("o.status === 'TP_HIT'"), 'signalCooldownActive harus mencakup TP_HIT');
+    assert.ok(appJs.includes("o.status === 'MISSED'"), 'signalCooldownActive harus mencakup MISSED');
+  });
+
+  await t.test('3. notifySlPlusTriggered menolak mengirim notifikasi SL+ jika order belum filled atau trade sudah selesai', () => {
+    assert.ok(appJs.includes("if (!lock.filled) return;"), 'SL+ dilarang kirim jika lock belum filled');
+    assert.ok(appJs.includes("oc.status === 'TP_HIT'") && appJs.includes("notifySlPlusTriggered"), 'SL+ dilarang kirim jika trade sudah pernah TP_HIT');
+  });
+
+  await t.test('4. recordSignalOutcome mencegah order limit unfilled dicatat sebagai TP_HIT', () => {
+    assert.ok(appJs.includes("if (lock && !lock.filled && (oc === 'TP_HIT' || oc === 'SL_HIT'))"), 'Unfilled limit order harus dikonversi ke MISSED / CANCELLED');
+  });
+
+  await t.test('5. reconcileSignalOutcome bebas dari ReferenceError low/high yang tidak terdefinisi', () => {
+    assert.ok(!appJs.includes("var filled = L.filled === true || (isLong ? low <= entry : high >= entry);"), 'reconcileSignalOutcome tidak boleh mereferensikan low/high di luar scope');
+    assert.ok(appJs.includes("var filled = L.filled === true;"), 'reconcileSignalOutcome harus menginisialisasi filled dari L.filled');
+  });
+
+  await t.test('6. feedIsReal menolak string kosong atau tanda hubung dash', () => {
+    assert.ok(appJs.includes("s !== '-'"), 'feedIsReal harus menolak simbol -');
+  });
+});

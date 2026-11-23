@@ -52,11 +52,11 @@ export const INSTRUMENTS = [
   { symbol: 'USD/IDR', name: 'US Dollar / Rupiah Indonesia', assetClass: 'FOREX', subGroup: 'ASIA', yahooSymbol: 'IDR=X', fxBase: 'USD', fxQuote: 'IDR', basePrice: 16480, decimals: 0, spotEligible: false },
   { symbol: 'USD/SGD', name: 'US Dollar / Singapore Dollar', assetClass: 'FOREX', subGroup: 'ASIA', yahooSymbol: 'SGD=X', fxBase: 'USD', fxQuote: 'SGD', basePrice: 1.3355, decimals: 4, spotEligible: false },
   // METALS
-  { symbol: 'XAU/USD', name: 'Gold Spot / US Dollar', assetClass: 'METALS', subGroup: 'PRECIOUS', binanceSymbol: 'PAXGUSDT', yahooSymbol: 'GC=F', basePrice: 4055.00, decimals: 2, spotEligible: true, investorCategory: 'BLUECHIP' },
-  { symbol: 'XAU/IDR', name: 'Emas Spot / Rupiah (Gram)', assetClass: 'METALS', subGroup: 'PRECIOUS', basePrice: 2158000, decimals: 0, spotEligible: true, investorCategory: 'BLUECHIP' },
-  { symbol: 'XAG/USD', name: 'Silver Spot / US Dollar', assetClass: 'METALS', subGroup: 'PRECIOUS', yahooSymbol: 'SI=F', basePrice: 50.00, decimals: 3, spotEligible: true, investorCategory: 'VALUE' },
-  { symbol: 'XPT/USD', name: 'Platinum Spot / USD', assetClass: 'METALS', subGroup: 'PRECIOUS', yahooSymbol: 'PL=F', basePrice: 1580.0, decimals: 2, spotEligible: true, investorCategory: 'VALUE' },
-  { symbol: 'HG/USD', name: 'Copper (Tembaga) High Grade', assetClass: 'METALS', subGroup: 'INDUSTRIAL', yahooSymbol: 'HG=F', basePrice: 5.10, decimals: 4, spotEligible: true, investorCategory: 'GROWTH' },
+  { symbol: 'XAU/USD', name: 'Gold Spot / US Dollar', assetClass: 'METALS', subGroup: 'PRECIOUS', binanceSymbol: 'PAXGUSDT', yahooSymbol: 'GC=F', basePrice: 2680.00, decimals: 2, spotEligible: true, investorCategory: 'BLUECHIP' },
+  { symbol: 'XAU/IDR', name: 'Emas Spot / Rupiah (Gram)', assetClass: 'METALS', subGroup: 'PRECIOUS', basePrice: 1405000, decimals: 0, spotEligible: true, investorCategory: 'BLUECHIP' },
+  { symbol: 'XAG/USD', name: 'Silver Spot / US Dollar', assetClass: 'METALS', subGroup: 'PRECIOUS', yahooSymbol: 'SI=F', basePrice: 31.50, decimals: 3, spotEligible: true, investorCategory: 'VALUE' },
+  { symbol: 'XPT/USD', name: 'Platinum Spot / USD', assetClass: 'METALS', subGroup: 'PRECIOUS', yahooSymbol: 'PL=F', basePrice: 980.0, decimals: 2, spotEligible: true, investorCategory: 'VALUE' },
+  { symbol: 'HG/USD', name: 'Copper (Tembaga) High Grade', assetClass: 'METALS', subGroup: 'INDUSTRIAL', yahooSymbol: 'HG=F', basePrice: 4.30, decimals: 4, spotEligible: true, investorCategory: 'GROWTH' },
   { symbol: 'NI/USD', name: 'Nickel LME (Nikel Global)', assetClass: 'METALS', subGroup: 'INDUSTRIAL', basePrice: 16250, decimals: 0, spotEligible: true, investorCategory: 'VALUE' },
   // COMMODITIES
   { symbol: 'WTI', name: 'Crude Oil WTI (Minyak Mentah)', assetClass: 'COMMODITIES', subGroup: 'ENERGY', yahooSymbol: 'CL=F', basePrice: 68.25, decimals: 2, spotEligible: false },

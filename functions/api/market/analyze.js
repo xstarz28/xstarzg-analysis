@@ -79,9 +79,9 @@ export async function onRequest(context) {
   }
 }
 const DEFAULT_PRICES = {
-  // Metals (termasuk logam industri LME) — dikalibrasi ke pasar 2026 (mis. XAG spot ~$50)
-  'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 50.00, 'XPT/USD': 1580.00, 'XPD/USD': 1050.00, 'XCU/USD': 5.10,
-  'HG/USD': 5.10, 'NI/USD': 15680, 'SN/USD': 31450, 'AL/USD': 2640, 'LI/USD': 10850,
+  // Metals (termasuk logam industri LME) — dikalibrasi realistis ke pasar spot aktif
+  'XAU/USD': 2680.00, 'XAU/IDR': 1405000, 'XAG/USD': 31.50, 'XPT/USD': 980.00, 'XPD/USD': 1050.00, 'XCU/USD': 4.30,
+  'HG/USD': 4.30, 'NI/USD': 15680, 'SN/USD': 31450, 'AL/USD': 2640, 'LI/USD': 10850,
   // Forex majors, minors & Asia
   'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
   'NZD/USD': 0.5980, 'USD/IDR': 16550, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50, 'EUR/GBP': 0.8368,
@@ -120,7 +120,7 @@ const DEFAULT_PRICES = {
   'VET/USDT': 0.034, 'FTM/USDT': 0.62, 'MKR/USDT': 1420, 'LDO/USDT': 1.68, 'CRV/USDT': 0.54, 'PENDLE/USDT': 3.65,
   'ENA/USDT': 0.48, 'WLD/USDT': 1.28, 'STX/USDT': 0.96, 'IMX/USDT': 0.85, 'GRT/USDT': 0.14, 'SAND/USDT': 0.38,
   'MANA/USDT': 0.34, 'AXS/USDT': 4.4, 'GALA/USDT': 0.023, 'JASMY/USDT': 0.022, 'TRUMP/USDT': 17.5, 'KAS/USDT': 0.15,
-  'SUPER/USDT': 1.15, 'POPCAT/USDT': 1.2, 'BRETT/USDT': 0.12, 'VIRTUAL/USDT': 1.85, 'SPX/USDT': 0.75, 'RAY/USDT': 5.2,
+  'SUPER/USDT': 1.15, 'POPCAT/USDT': 1.2, 'BRETT/USDT': 0.12, 'VIRTUAL/USDT': 1.85, 'SPX/USDT': 0.75, 'RAY/USDT': 1.35, 'RAY': 1.35,
   'OM/USDT': 3.8, 'MEW/USDT': 0.009, 'NEIRO/USDT': 0.0018, 'MOODENG/USDT': 0.45, 'GOAT/USDT': 0.78, 'PNUT/USDT': 1.1,
   'ACT/USDT': 0.48, 'AERO/USDT': 1.35, 'TURBO/USDT': 0.0085, 'AI16Z/USDT': 0.42, 'FARTCOIN/USDT': 0.38, 'KCS/USDT': 11.5,
   'PENGU/USDT': 0.035,
@@ -438,7 +438,7 @@ async function fetchExactLiveQuote(symbol, tf) {
       srcTag = 'YAHOO:XAUUSD=X x USDIDR=X';
     }
     const isEst = !xauPrice || !idrRate;
-    if (!xauPrice) xauPrice = DEFAULT_PRICES['XAU/USD'] || 4055;
+    if (!xauPrice) xauPrice = DEFAULT_PRICES['XAU/USD'] || 2680;
     if (!idrRate) idrRate = DEFAULT_PRICES['USD/IDR'] || 16550;
     if (isEst) srcTag = 'ESTIMATED_FALLBACK';
     const gramPrice = (xauPrice * idrRate) / 31.1034768;

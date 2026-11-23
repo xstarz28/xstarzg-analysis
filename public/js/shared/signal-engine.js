@@ -1707,6 +1707,8 @@ export function createSignalLock(a, symbol, mode, subMode) {
     slPlus: slPlus,
     bePlusActive: false,
     filled: isMarket, // Order Limit SELALU pending fill (false) sampai pasar masa depan menjemput titik entry!
+    source: a.source || a.feedSource || null,
+    issuedBarTime: Number(a.anchorClosedTime || 0),
     rrRatio: a.levels.rrRatio,
     score: a.confluenceScore,
     winRate: a.gating ? a.gating.winRate : (a.backtest ? a.backtest.winRate : 0),
@@ -1756,6 +1758,18 @@ export function validateSignalLock(lock, closedCandles, fresh) {
       // Verifikasi pengisian order: Order LIMIT hanya terisi jika harga pasar masa depan
       // benar-benar menjemput entry (Low <= entry untuk Buy Limit; High >= entry untuk Sell Limit)
       if (!filled) {
+        // Cek apakah target tersentuh sebelum order limit terjemput
+        // Jika candle open sudah berada di sisi target relatif terhadap entry,
+        // pergerakan candle langsung ke TP berarti target tercapai saat order masih pending
+        const openPastEntry = isLong ? (Number(c.open) > entry) : (Number(c.open) < entry);
+        if (openPastEntry) {
+          if (isLong && Number(c.high) >= lock.tp1) {
+            return { status: 'MISSED', reason: 'Target tercapai sebelum order limit terjemput (unfilled)', at: c.time };
+          }
+          if (!isLong && Number(c.low) <= lock.tp1) {
+            return { status: 'MISSED', reason: 'Target tercapai sebelum order limit terjemput (unfilled)', at: c.time };
+          }
+        }
         if (isLong && Number(c.low) <= entry) filled = true;
         if (!isLong && Number(c.high) >= entry) filled = true;
       }

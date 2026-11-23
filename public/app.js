@@ -486,13 +486,14 @@ var REFERENCE_PRICES = {
   'GBP/CAD': 1.7860, 'EUR/CHF': 0.9415, 'GBP/CHF': 1.1305, 'AUD/CAD': 0.9030, 'AUD/NZD': 1.1085, 'USD/SGD': 1.3420,
   'USD/CNH': 7.2650, 'USD/THB': 33.85, 'USD/MXN': 20.35, 'USD/ZAR': 18.00,
   // Metals & Commodities
-  'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 50.00, 'XPT/USD': 1580.00, 'XPD/USD': 1050.00, 'XCU/USD': 5.10, 'HG/USD': 5.10,
+  'XAU/USD': 2680.00, 'XAU/IDR': 1405000, 'XAG/USD': 31.50, 'XPT/USD': 980.00, 'XPD/USD': 1050.00, 'XCU/USD': 4.30, 'HG/USD': 4.30,
   'WTI': 70.50, 'BRENT': 74.20, 'NATGAS': 2.85, 'CPO': 5100, 'COAL': 145.0,
   // Crypto Major
   'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00, 'XRP/USDT': 2.55, 'ADA/USDT': 0.82,
   'DOGE/USDT': 0.26, 'AVAX/USDT': 26.4, 'LINK/USDT': 18.9, 'TON/USDT': 3.85, 'SUI/USDT': 3.42, 'DOT/USDT': 5.20,
   'NEAR/USDT': 3.60, 'APT/USDT': 6.40, 'LTC/USDT': 124, 'BCH/USDT': 345, 'SEI/USDT': 0.28, 'KAS/USDT': 0.15,
   'LDO/USDT': 1.45, 'KCS/USDT': 5.82, 'FET/USDT': 1.15, 'TAO/USDT': 450.00, 'RENDER/USDT': 4.80, 'PEPE/USDT': 0.00001,
+  'RAY/USDT': 1.35, 'RAY': 1.35,
   // Equities
   'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880, 'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620,
   'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00, 'TSLA': 262.00, 'SPY': 590.0, 'QQQ': 510.0
@@ -978,6 +979,16 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
   try {
     if (lock && !isPriceCompatibleWithSymbol(lock.entry, symbol)) return;
     var oc = String((verdict && verdict.status) || '');
+    // Order limit belum pernah terjemput/terisi -> DILARANG KERAS dicatat sebagai TP_HIT atau SL_HIT!
+    if (lock && !lock.filled && (oc === 'TP_HIT' || oc === 'SL_HIT')) {
+      oc = (oc === 'TP_HIT') ? 'MISSED' : 'CANCELLED';
+      if (verdict) {
+        verdict.status = oc;
+        verdict.reason = (oc === 'MISSED')
+          ? 'Target tercapai sebelum order limit terjemput (unfilled)'
+          : 'SL tersentuh sebelum order limit terjemput (unfilled)';
+      }
+    }
     // v2026.65: EXPIRED dicatat juga ke jurnal (transparansi penuh) namun TIDAK
     // memengaruhi winrate adaptif (bukan kemenangan/kekalahan — netral usia setup).
     if (oc !== 'SL_HIT' && oc !== 'TP_HIT' && oc !== 'STRUCTURE_INVALID' && oc !== 'EXPIRED' && oc !== 'BE_SAVED' && oc !== 'MISSED' && oc !== 'CANCELLED') return;
@@ -1034,7 +1045,7 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
 }
 function signalCooldownActive(symbol, tf) {
   var o = signalOutcomeStore()[signalLockId(symbol, tf)];
-  return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID' || o.status === 'EXPIRED' || o.status === 'BE_SAVED') && (Date.now() - o.at) < outcomeCooldownMs(tf));
+  return !!(o && (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID' || o.status === 'EXPIRED' || o.status === 'BE_SAVED' || o.status === 'TP_HIT' || o.status === 'MISSED' || o.status === 'CANCELLED') && (Date.now() - o.at) < outcomeCooldownMs(tf));
 }
 function latestSignalOutcome(symbol, tf) {
   var id = signalLockId(symbol, tf);
@@ -1128,7 +1139,7 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
     if (o.status !== 'TP_HIT' && o.status !== 'SL_HIT') return; // struktur tidak direkonsiliasi mekanis
     var target = o.status === 'TP_HIT' ? tp1 : sl;
     var hit = false;
-    var filled = L.filled === true || (isLong ? low <= entry : high >= entry);
+    var filled = L.filled === true;
     for (var i = 0; i < closedCandles.length; i++) {
       var c = closedCandles[i];
       if (!c || c.time <= L.anchorClosedTime || (c.time * 1000) > (o.at + 90000)) continue;
@@ -1210,6 +1221,14 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
         // WAJIB diikutkan ke siklus pemantauan jurnal sinyal menuju TP/SL HANYA bila feed bukan estimasi.
         var tfA = a.timeframe || tf;
         if ((scope === 'create' || getSignalLock(symbol, tfA)) && !isFeedEstimate) feedReal = true;
+        if (!feedIsReal(feedSource) || isFeedEstimate || feedSource === 'LOCAL_SEED') {
+          feedReal = false;
+          a.feedUnverified = true;
+          a.signalEligible = false;
+          a.convictionScore = 50;
+          a.confluenceScore = 50;
+          a.direction = 'NEUTRAL';
+        }
         try {
           if (feedReal && typeof SE.validateSignalLock === 'function') {
             var closedBars0 = SE.trimClosedCandles(candles, a.tfSeconds || 3600);
@@ -1242,6 +1261,12 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
                   saveSignalLock(symbol, tfA, lock);
                 }
                 SE.applyLockedSignal(a, lock, verdict);
+                if (a.feedUnverified || isFeedEstimate || !feedReal) {
+                  a.signalEligible = false;
+                  a.convictionScore = 50;
+                  a.confluenceScore = 50;
+                  a.direction = 'NEUTRAL';
+                }
               } else {
                 a.lockCleared = verdict || { status: 'GONE' };
                 recordSignalOutcome(symbol, tfA, verdict, lock); // jujur: outcome dicatat
@@ -1251,7 +1276,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             /* Kartu yang TAMPIL (create/apply) = komitmen terlacak. Penerbitan baru
                dihormati 3 penjaga: feed asli + cooldown pasca-SL/invalidasi + ambang
                adaptif dari akurasi terukur horizon (mengetat otomatis saat radar buruk). */
-            if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible && !a.__estFeed
+            if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible && !a.__estFeed && !a.feedUnverified && feedReal
                 && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
               var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
               if (nl && isAssetMarketOpen(symbol) && isPriceCompatibleWithSymbol(nl.entry, symbol)) {
@@ -2316,8 +2341,8 @@ function feedIsEstimate(src) {
 /* Feed dianggap ASLI hanya bila ada provenance broker nyata & bukan label estimasi.
    Dipakai gerbang siklus hidup sinyal: candle fabrikasi dilarang memvalidasi TP/SL. */
 function feedIsReal(src) {
-  var s = String(src || '');
-  return !!s && !feedIsEstimate(s);
+  var s = String(src || '').trim();
+  return !!s && s !== '-' && !feedIsEstimate(s);
 }
 /* Mode investor hanya menyediakan timeframe investasi (D1/W1/MN/1Y) — tombol
    TF trader (M1..H4) disembunyikan agar kedua ruang kerja tidak tercampur. */
@@ -2398,7 +2423,7 @@ function renderAllVisuals(analysis) {
   try { renderPanels(analysis); } catch (e) {}
   try { renderNarrative(analysis); } catch (e) {}
   try { renderPillars(analysis); } catch (e) {}
-  var isFeedEst = !analysis || analysis.__estFeed || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource));
+  var isFeedEst = !analysis || analysis.__estFeed || analysis.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(state.feedSource));
   if (!isFeedEst) {
     try { writeBackRadarPools(analysis); } catch (e) {}
     try { checkSignalAlarm(analysis); } catch (e) {}
@@ -2490,7 +2515,7 @@ function applyLiveTick(price, changePct, silent) {
   }
   setTxt('hdrHigh', formatPrice(bar.high, state.symbol));
   setTxt('hdrLow', formatPrice(bar.low, state.symbol));
-  if (alarmState.enabled && state.lastAnalysis) {
+  if (alarmState.enabled && state.lastAnalysis && !state.lastAnalysis.feedUnverified && (typeof feedIsReal === 'function' ? feedIsReal(state.feedSource) : true)) {
     try { checkSignalAlarm(state.lastAnalysis); } catch (e) {}
   }
   try { monitorLiveSignalProgress(state.symbol, state.tf, price, bar.high, bar.low); } catch (e) {}
@@ -2544,11 +2569,16 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
   // DILARANG memakai low/high lampau dari candle yang sama saat sinyal dipasang!
   // Pada candle yang sama saat sinyal terbit, order limit HANYA terisi bila harga live saat ini
   // benar-benar menyentuh level antrean (price <= entry untuk LONG, price >= entry untuk SHORT).
-  // Pada candle baru di masa depan (currentBarTime > lock.anchorClosedTime), barulah low/high candle baru boleh mengisi order.
+  // Pada candle baru di masa depan yang lahir setelah sinyal diterbitkan (currentBarTime > lock.issuedBarTime),
+  // barulah low/high candle baru tersebut boleh mengisi order.
   var filled = lock.filled === true;
   var currentBarTime = (state.candles && state.candles.length) ? state.candles[state.candles.length - 1].time : 0;
+  if (!lock.issuedBarTime) {
+    lock.issuedBarTime = currentBarTime || lock.anchorClosedTime;
+    saveSignalLock(symbol, tf, lock);
+  }
   if (!filled) {
-    var isNewBar = lock.anchorClosedTime && currentBarTime > lock.anchorClosedTime;
+    var isNewBar = lock.issuedBarTime && currentBarTime > lock.issuedBarTime;
     if (isLong) {
       if (price <= entry || (isNewBar && low <= entry)) filled = true;
     } else {
@@ -2564,7 +2594,7 @@ function monitorLiveSignalProgress(symbol, tf, price, high, low) {
 
   // Jika order belum terisi, DILARANG memantau SL+ atau TP!
   if (!filled) {
-    var missed = isLong ? (price >= tp1) : (price <= tp1);
+    var missed = isLong ? (price >= tp1 || (lock.issuedBarTime && currentBarTime > lock.issuedBarTime && high >= tp1)) : (price <= tp1 || (lock.issuedBarTime && currentBarTime > lock.issuedBarTime && low <= tp1));
     if (missed) {
       var verdict = { status: 'MISSED', reason: 'Target tercapai sebelum order limit terjemput (unfilled)', at: Date.now() };
       if (state.lastAnalysis && state.lastAnalysis.symbol === symbol) state.lastAnalysis.lockCleared = verdict;
@@ -6972,7 +7002,7 @@ function checkSignalAlarm(analysis) {
   if (!isAssetMarketOpen(sym)) return;
 
   // 2. Feed harus nyata, BUKAN estimasi atau seed lokal!
-  var isFeedEst = analysis.__estFeed || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.feedSource)) || analysis.feedSource === 'LOCAL_SEED';
+  var isFeedEst = analysis.feedUnverified || analysis.__estFeed || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.feedSource)) || analysis.feedSource === 'LOCAL_SEED' || (typeof feedIsReal === 'function' && !feedIsReal(analysis.feedSource || state.feedSource));
   if (isFeedEst) return;
 
   // 3. Validasi harga agar harga seed 4055 atau kontaminasi simbol tidak memicu alarm palsu
@@ -7225,7 +7255,13 @@ function notifySlPlusTriggered(symbol, tf, lock) {
   if (!slPlusNotifyState.enabled) return;
   if (!symbol || !lock) return;
   if (!lock.filled) return; // Order limit belum terisi di exchange — dilarang kirim alarm geser SL!
-  if (lock.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(lock.source))) return;
+  if (lock.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(lock.source || state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(lock.source || state.feedSource))) return;
+
+  // STRICT GUARD: Jika setup ini sudah pernah tercatat selesai (TP_HIT / SL_HIT / MISSED / EXPIRED / BE_SAVED / CANCELLED), DILARANG KERAS kirim SL+!
+  var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(symbol, tf) : null;
+  if (oc && (oc.status === 'TP_HIT' || oc.status === 'SL_HIT' || oc.status === 'MISSED' || oc.status === 'EXPIRED' || oc.status === 'BE_SAVED' || oc.status === 'CANCELLED')) {
+    return;
+  }
 
   var key = symbol + ':' + (tf || '') + ':' + (lock.issuedAt || lock.at || 0);
   if (slPlusNotifyState.lastNotifiedMap[key]) return;
@@ -9435,14 +9471,15 @@ if (document.readyState === 'loading') {
 // === XSTARZG_INSTANT_RENDER_GUARANTEE_V2026_30 ===
 (function () {
   const SEED_PRICES = {
-    // Harga jangkar dikalibrasi ke pasar 2026 — hanya dipakai 0-2 detik sebelum kuotasi live tiba
-    'XAU/USD': 4055.00, 'XAU/IDR': 2158000, 'XAG/USD': 50.00, 'XPT/USD': 1580.00, 'XPD/USD': 1050.00, 'XCU/USD': 5.10, 'HG/USD': 5.10,
+    // Harga jangkar dikalibrasi realistis ke pasar spot aktif — hanya dipakai 0-2 detik sebelum kuotasi live tiba
+    'XAU/USD': 2680.00, 'XAU/IDR': 1405000, 'XAG/USD': 31.50, 'XPT/USD': 980.00, 'XPD/USD': 1050.00, 'XCU/USD': 4.30, 'HG/USD': 4.30,
     'EUR/USD': 1.0845, 'GBP/USD': 1.2960, 'USD/JPY': 152.40, 'USD/CHF': 0.8650, 'AUD/USD': 0.6580, 'USD/CAD': 1.3890,
     'NZD/USD': 0.5980, 'USD/IDR': 16550, 'BBCA.JK': 9850, 'BBRI.JK': 4420, 'BMRI.JK': 6150, 'BBNI.JK': 4880,
     'TLKM.JK': 2760, 'ASII.JK': 4950, 'ANTM.JK': 1620, 'NVDA': 142.50, 'AAPL': 234.80, 'MSFT': 428.00,
     'TSLA': 262.00, 'BTC/USDT': 100000.00, 'ETH/USDT': 3400.00, 'SOL/USDT': 200.00, 'BNB/USDT': 645.00,
     'SEI/USDT': 0.28, 'SEI': 0.28, 'KAS/USDT': 0.15, 'KAS': 0.15, 'USD/ZAR': 18.00, 'USDZAR': 18.00,
     'LDO/USDT': 1.45, 'KCS/USDT': 5.82, 'FET/USDT': 1.15, 'TAO/USDT': 450.00, 'RENDER/USDT': 4.80, 'PEPE/USDT': 0.00001,
+    'RAY/USDT': 1.35, 'RAY': 1.35,
     'NZD/JPY': 87.35, 'NZDJPY': 87.35, 'AUD/JPY': 100.25, 'CAD/JPY': 109.60, 'CHF/JPY': 176.10, 'EUR/JPY': 165.20, 'GBP/JPY': 197.50
   };
   function generateSeedCandles(symbol, tf) {
@@ -9461,9 +9498,9 @@ if (document.readyState === 'loading') {
     closes[count - 1] = baseP;
     let cur = baseP;
     for (let i = count - 2; i >= 0; i--) {
-      const wave = Math.sin(i * 0.21) * (atr * 0.35);
-      const noise = (rand() - 0.492) * (atr * 0.65);
-      cur = Math.max(baseP * 0.6, cur - noise - wave * 0.15);
+      const wave = Math.sin(i * 0.15) * (atr * 0.20);
+      const noise = (rand() - 0.500) * (atr * 0.45);
+      cur = Math.max(baseP * 0.7, Math.min(baseP * 1.3, cur - noise - wave * 0.10));
       closes[i] = cur;
     }
     const out = [];
