@@ -1,4 +1,69 @@
 'use strict';
+// === PWA & MOBILE AUTO-ENTRY / DELEGATED CLICK GUARD ===
+// 1) Deteksi dini PWA/APK (start_url ?pwa=1 atau mode standalone):
+// Hilangkan landing screen seketika 0ms dan siapkan workspace agar splash screen APK Android langsung tertutup
+(function () {
+  try {
+    if (typeof window !== 'undefined') {
+      var isPwa = (window.location && window.location.search && window.location.search.indexOf('pwa=1') > -1) ||
+                  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      if (isPwa) {
+        window.__isPwaLaunch = true;
+        var f = document.getElementById('frontLandingScreen');
+        var w = document.getElementById('appWorkspaceWrapper');
+        if (f) f.classList.add('hidden');
+        if (w) w.classList.remove('hidden');
+      }
+    }
+  } catch (ePwa) {}
+})();
+
+// 2) Delegated instant click handler: memastikan tap pada tombol beranda (Mulai Analisis, Pratinjau Tamu,
+// Login Terminal, Jalur Owner) langsung merespons seketika tanpa tertahan jeda unduh/parse file besar
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', function (e) {
+    try {
+      var t = e.target && e.target.closest ? e.target.closest('button, [id]') : null;
+      if (!t || !t.id) return;
+      var id = t.id;
+      if (id === 'btnHeroPreview' || id === 'btnInstantPreview') {
+        if (typeof state !== 'undefined' && state) {
+          state.user = state.user || { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+        }
+        if (typeof saveSession === 'function') saveSession();
+        if (typeof enterWorkspace === 'function') enterWorkspace();
+        else {
+          var f = document.getElementById('frontLandingScreen'), g = document.getElementById('loginGateScreen'), w = document.getElementById('appWorkspaceWrapper');
+          if (f) f.classList.add('hidden');
+          if (g) g.classList.add('hidden');
+          if (w) w.classList.remove('hidden');
+        }
+      } else if (id === 'btnHeroLoginGate' || id === 'btnNavLoginGate') {
+        if (typeof state !== 'undefined' && state && state.user) {
+          if (typeof enterWorkspace === 'function') enterWorkspace();
+        } else {
+          if (typeof showScreen === 'function') showScreen('gate');
+          else {
+            var f2 = document.getElementById('frontLandingScreen'), g2 = document.getElementById('loginGateScreen'), w2 = document.getElementById('appWorkspaceWrapper');
+            if (f2) f2.classList.add('hidden');
+            if (g2) g2.classList.remove('hidden');
+            if (w2) w2.classList.add('hidden');
+          }
+        }
+      } else if (id === 'btnGateOwnerDirect') {
+        var gm = document.getElementById('googleAuthModal');
+        if (gm) gm.classList.remove('hidden');
+        var blk = document.getElementById('ownerLoginBlock');
+        if (blk) blk.classList.remove('hidden');
+        var einp = document.getElementById('ownerEmailInput');
+        var cinp = document.getElementById('ownerCodeInput');
+        if (einp && !einp.value) einp.value = 'sevenfoldarmy2822@gmail.com';
+        if (cinp) setTimeout(function () { try { cinp.focus(); } catch (e) {} }, 80);
+      }
+    } catch (eClk) {}
+  }, true);
+}
+
 /* ================================================================================
    XSTARZG ANALYSIS — TERMINAL 2026 CORE ENGINE (app.js v2026.31)
    Perbaikan Total:
@@ -8561,9 +8626,15 @@ function ensureQuotaFor(symbol) {
 function showScreen(name) {
   try {
     var front = $id('frontLandingScreen'), gate = $id('loginGateScreen'), work = $id('appWorkspaceWrapper');
-    if (front) front.classList.toggle('hidden', name !== 'front');
-    if (gate) gate.classList.toggle('hidden', name !== 'gate');
-    if (work) work.classList.toggle('hidden', name !== 'work');
+    if (front) {
+      if (name === 'front') front.classList.remove('hidden'); else front.classList.add('hidden');
+    }
+    if (gate) {
+      if (name === 'gate') gate.classList.remove('hidden'); else gate.classList.add('hidden');
+    }
+    if (work) {
+      if (name === 'work') work.classList.remove('hidden'); else work.classList.add('hidden');
+    }
     var dd = $id('userProfileDropdown');
     if (dd) dd.classList.add('hidden');
     try { window.scrollTo({ top: 0 }); } catch (e) {}
@@ -9693,9 +9764,27 @@ function bootCore() {
     try { syncModeSections(); } catch (e) {}
     try { enterWorkspace(); } catch (e) {}
   } else {
-    try { renderInstrumentCatalog(); } catch (e) {}
-    try { updateUserUi(); } catch (e) {}
-    try { showScreen('front'); } catch (e) {}
+    // Deteksi mode PWA / Android WebAPK: jika dibuka dari launcher / APK,
+    // langsung masuk ke workspace sebagai Tamu tanpa tertahan di layar depan (splash hang fix)
+    var isPwaLaunch = false;
+    try {
+      isPwaLaunch = !!window.__isPwaLaunch ||
+        (window.location && window.location.search && window.location.search.indexOf('pwa=1') > -1) ||
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    } catch (ePwaLaunch) {}
+
+    if (isPwaLaunch) {
+      state.user = { email: 'pwa-guest@xstarzg.local', name: 'Mode Tamu PWA', tier: 'GUEST' };
+      try { saveSession(); } catch (e) {}
+      try { renderInstrumentCatalog(); } catch (e) {}
+      try { updateUserUi(); } catch (e) {}
+      try { syncModeSections(); } catch (e) {}
+      try { enterWorkspace(); } catch (e) {}
+    } else {
+      try { renderInstrumentCatalog(); } catch (e) {}
+      try { updateUserUi(); } catch (e) {}
+      try { showScreen('front'); } catch (e) {}
+    }
   }
   // Muat mesin quant bersama (hasil penyempurnaan sesi sebelumnya)
   // Engine kuantitatif dimuat lewat berkas modul eksternal /js/engine-boot.js
@@ -10263,9 +10352,12 @@ if (document.readyState === 'loading') {
           window.addEventListener('load', registerSW);
         }
         var isInitialController = !!navigator.serviceWorker.controller;
+        var swPageStartTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
         var refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (!refreshing && isInitialController) {
+          // Cegah auto-reload saat startup awal (< 4000ms) agar WebAPK Android tidak terjebak reload loop di splash screen
+          var elapsed = (typeof performance !== 'undefined' && performance.now) ? (performance.now() - swPageStartTime) : 5000;
+          if (!refreshing && isInitialController && elapsed >= 4000) {
             refreshing = true;
             window.location.reload();
           }

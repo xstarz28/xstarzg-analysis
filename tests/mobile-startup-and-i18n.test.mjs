@@ -34,7 +34,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.77'), 'sw.js memiliki versi cache segar v2026.77');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.78'), 'sw.js memiliki versi cache segar v2026.78');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
@@ -54,5 +54,24 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
 
   await t.test('9. drawCanvasFallbackChart memiliki penjaga anti-rekursi', () => {
     assert.ok(appJs.includes('window.__canvasRenderer'), 'drawCanvasFallbackChart mendelegasikan render ke canvas renderer');
+  });
+
+  await t.test('10. app.js memuat deteksi dini PWA/APK dan delegated click capture guard', () => {
+    assert.ok(appJs.includes('window.__isPwaLaunch = true'), 'app.js mendeteksi launch PWA/APK di baris awal');
+    assert.ok(appJs.includes('btnHeroPreview'), 'delegated click listener menangani btnHeroPreview');
+    assert.ok(appJs.includes('btnHeroLoginGate'), 'delegated click listener menangani btnHeroLoginGate');
+    assert.ok(appJs.includes('btnGateOwnerDirect'), 'delegated click listener menangani btnGateOwnerDirect');
+  });
+
+  await t.test('11. sw.js memakai batas navigasi 1200ms dan cache: reload saat instalasi', () => {
+    assert.ok(swJs.includes('1200'), 'sw.js membatasi timeout navigasi ke 1200ms');
+    assert.ok(swJs.includes("cache: 'reload'"), 'sw.js install memakai cache: reload');
+  });
+
+  await t.test('12. _headers melarang caching Cloudflare edge untuk app.js, styles.css, js, dan i18n', () => {
+    const headersFile = fs.readFileSync(path.join(rootDir, 'public/_headers'), 'utf8');
+    assert.ok(headersFile.includes('/app.js'), '_headers mencakup /app.js');
+    assert.ok(headersFile.includes('/styles.css'), '_headers mencakup /styles.css');
+    assert.ok(headersFile.includes('no-cache, no-store, must-revalidate'), '_headers menerapkan no-cache');
   });
 });
