@@ -859,7 +859,11 @@ function notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock) {
     var dedupKey = 'tg_outcome:' + symbol + ':' + (tf || '') + ':' + finalStatus + ':' + lockAnchor;
     telegramConfig.lastSentMap = telegramConfig.lastSentMap || {};
     if (telegramConfig.lastSentMap[dedupKey]) return;
-    telegramConfig.lastSentMap[dedupKey] = Date.now();
+    if (typeof recordTelegramSentKey === 'function') {
+      recordTelegramSentKey(dedupKey);
+    } else {
+      telegramConfig.lastSentMap[dedupKey] = Date.now();
+    }
 
     var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
     var isEn = curLang !== 'id';
@@ -3978,10 +3982,14 @@ function evaluateSignalViability(it) {
   var isShort = dir === 'SHORT';
   var curP = Number(it.price || a.lastPrice || 0);
 
-  // 1. Cek jam buka bursa / market open
+  var lock = (typeof getSignalLock === 'function') ? getSignalLock(sym, tf) : null;
+  if (!lock && a.lockedSignal) lock = a.lockedSignal;
+  var isOwnTrade = it.isUserActiveTrade || Boolean(lock && lock.status === 'ACTIVE') || Boolean(a.lockedSignal && a.lockedSignal.status === 'ACTIVE');
+
+  // 1. Cek jam buka bursa / market open (kecuali untuk posisi aktif milik user yang sedang dipantau)
   var isMarketOpen = (typeof isAssetMarketOpen === 'function') ? isAssetMarketOpen(sym) : true;
   var isCrypto = sym.indexOf('/USDT') > -1 || sym.indexOf('/USDC') > -1 || sym.indexOf('BTC') > -1 || sym.indexOf('ETH') > -1 || sym.indexOf('/SOL') > -1;
-  if (!isMarketOpen && !isCrypto) {
+  if (!isMarketOpen && !isCrypto && !isOwnTrade) {
     return {
       key: 'CLOSED',
       label: isEn ? '⏸️ MARKET CLOSED (OFF-HOURS)' : '⏸️ SESI TUTUP (AKHIR PEKAN/LIBUR)',
@@ -3998,7 +4006,7 @@ function evaluateSignalViability(it) {
   if (isInvestor) {
     var hasInvScore = (a.convictionScore != null || a.confluenceScore != null);
     var sc = hasInvScore ? num(a.convictionScore, a.confluenceScore) : null;
-    if (sc !== null && sc > 0 && sc < 78) {
+    if (sc !== null && sc > 0 && sc < 78 && !isOwnTrade) {
       return {
         key: 'WATCHLIST',
         label: isEn ? '👀 WATCHLIST (SCORE ' + Math.round(sc) + '/100)' : '👀 PANTAUAN (SKOR ' + Math.round(sc) + '/100)',
@@ -4051,7 +4059,7 @@ function evaluateSignalViability(it) {
   }
 
   // 4. Belum selaras Top-Down
-  if (a.topDown && !a.topDown.isAligned) {
+  if (a.topDown && !a.topDown.isAligned && !isOwnTrade) {
     return {
       key: 'UNALIGNED',
       label: isEn ? '🟡 AWAITING HTF ALIGNMENT' : '🟡 MENUNGGU ALIGNMENT (POTENSIAL)',
@@ -4068,7 +4076,7 @@ function evaluateSignalViability(it) {
   // Jika skor berada di bawah 78 (mis. skor 60-an), TIDAK BOLEH masuk ke rekomendasi eksekusi / FRESH / PULLBACK.
   var hasScoreProvided = (a.convictionScore != null || a.confluenceScore != null);
   var scTrader = hasScoreProvided ? num(a.convictionScore, a.confluenceScore) : null;
-  if (scTrader !== null && scTrader > 0 && scTrader < 78) {
+  if (scTrader !== null && scTrader > 0 && scTrader < 78 && !isOwnTrade) {
     return {
       key: 'WATCHLIST',
       label: isEn ? '👀 WATCHLIST (SCORE ' + Math.round(scTrader) + '/100)' : '👀 PANTAUAN (SKOR ' + Math.round(scTrader) + '/100)',
@@ -4083,7 +4091,7 @@ function evaluateSignalViability(it) {
 
   // 6. Masa Pendinginan / Siklus Selesai (Cooldown pasca outcome)
   // Sinyal yang sedang dalam masa pendinginan (cooldown) DILARANG masuk radar sebagai FRESH!
-  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
+  if (!isOwnTrade && typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
     return {
       key: 'COOLDOWN',
       label: isEn ? '⚪ COMPLETED / COOLDOWN' : '⚪ SELESAI / COOLDOWN',
@@ -4101,14 +4109,13 @@ function evaluateSignalViability(it) {
   var tp1 = Number(L.tp1 || 0);
   var atr = Number(a.atr || 1);
 
-  var lock = (typeof getSignalLock === 'function') ? getSignalLock(sym, tf) : null;
   var isFilled = lock && lock.filled === true;
   var isBePlusActive = lock && (lock.bePlusActive === true || lock.notifiedSlPlus === true || lock.slPlusAlerted === true);
 
   // 7. Proteksi Setup Usang / Pending Limit Terlalu Lama (Timeout > 12 lilin)
   var ageMs = lock ? (Date.now() - (lock.issuedAt || lock.created || 0)) : 0;
   var maxPendingMs = (tf === 'M1' || tf === 'M5' || tf === 'M15') ? (60 * 60 * 1000) : (tf === 'M30' || tf === 'H1') ? (8 * 3600 * 1000) : (24 * 3600 * 1000);
-  if (lock && !isFilled && ageMs > maxPendingMs) {
+  if (lock && !isFilled && !isOwnTrade && ageMs > maxPendingMs) {
     return {
       key: 'EXPIRED',
       label: isEn ? '⌛ EXPIRED (TIMEOUT)' : '⌛ KEDALUWARSA (TIMEOUT)',
@@ -4152,8 +4159,12 @@ function evaluateSignalViability(it) {
   if (againstDist >= 0.50 * riskDist) {
     return {
       key: 'NEAR_SL',
-      label: isEn ? '🔴 NEAR SL (AVOID ENTRY)' : '🔴 RAWAN SL (JANGAN IKUT)',
-      sub: isEn ? 'Price Under Pressure Near SL • Risk of Invalidation' : 'Harga Tertekan Dekat SL • Calon Batal, Amankan Modal',
+      label: isOwnTrade
+        ? (isEn ? '🔴 YOUR ACTIVE TRADE (NEAR SL / UNDER PRESSURE)' : '🔴 POSISI ANDA (RAWAN SL / MINUS)')
+        : (isEn ? '🔴 NEAR SL (AVOID ENTRY)' : '🔴 RAWAN SL (JANGAN IKUT)'),
+      sub: isOwnTrade
+        ? (isEn ? 'Price Under Pressure Near SL • Monitor Risk' : 'Harga Tertekan Dekat SL • Pantau Ketat Risiko')
+        : (isEn ? 'Price Under Pressure Near SL • Risk of Invalidation' : 'Harga Tertekan Dekat SL • Calon Batal, Amankan Modal'),
       worth: false,
       badgeCls: 'wait',
       priority: 80,
@@ -4170,25 +4181,37 @@ function evaluateSignalViability(it) {
     var pctTxt = Math.max(0, Math.round(favRatio * 100));
     return {
       key: 'LATE',
-      label: isEn ? '🟡 DO NOT CHASE (LATE)' : '🟡 JANGAN KEJAR (TERLAMBAT)',
-      sub: isEn ? 'Running Profit +' + pctTxt + '% • Unfavorable R:R for New Entry' : 'Profit Sedang Berjalan +' + pctTxt + '% • R:R Baru Jelek, Jangan Kejar Pucuk',
+      label: isOwnTrade
+        ? (isBePlusActive
+            ? (isEn ? '🛡️ YOUR ACTIVE TRADE (SL+ 0-RISK ACTIVE)' : '🛡️ POSISI ANDA (SL+ 0-RISIKO AMAN)')
+            : (isEn ? '🏃 YOUR ACTIVE TRADE (RUNNING +' + pctTxt + '%)' : '🏃 POSISI ANDA (PROFIT +' + pctTxt + '%)'))
+        : (isEn ? '🟡 DO NOT CHASE (LATE)' : '🟡 JANGAN KEJAR (TERLAMBAT)'),
+      sub: isOwnTrade
+        ? (isBePlusActive
+            ? (isEn ? 'Running +' + pctTxt + '% to TP • SL+ Safeguards Capital' : 'Profit +' + pctTxt + '% Menuju TP • SL+ Melindungi Modal')
+            : (isEn ? 'Progressing Towards TP1 • Journey In-Flight' : 'Perjalanan Menuju TP1 • Pantau Perjalanan ke Target'))
+        : (isEn ? 'Running Profit +' + pctTxt + '% • Unfavorable R:R for New Entry' : 'Profit Sedang Berjalan +' + pctTxt + '% • R:R Baru Jelek, Jangan Kejar Pucuk'),
       worth: false,
-      badgeCls: 'wait',
-      priority: 30,
-      color: '#fbbf24',
-      bg: 'rgba(245,158,11,0.12)'
+      badgeCls: isOwnTrade ? 'long' : 'wait',
+      priority: isOwnTrade ? 1 : 30,
+      color: isBePlusActive ? '#10b981' : '#fbbf24',
+      bg: isBePlusActive ? 'rgba(16,185,129,0.14)' : 'rgba(245,158,11,0.12)'
     };
   }
 
   // Kasus C: Sedang Berjalan Tapi Masih Layak Ikut (Pullback / Retest ke Zona Entry)
-  // - Order sempat terjemput / filled
+  // - Order sempat terjemput / filled ATAU isOwnTrade dengan favRatio < 20%
   // - favRatio masih tipis (< 20%) atau harga sedang pullback tepat di area entry
   // - Sisa R:R masih sehat
-  if (isFilled && favRatio < 0.20) {
+  if ((isFilled || isOwnTrade) && favRatio < 0.20) {
     return {
       key: 'PULLBACK',
-      label: isEn ? '🔵 RUNNING • WORTH JOINING (PULLBACK)' : '🔵 BERJALAN • BISA IKUT (PULLBACK)',
-      sub: isEn ? 'Retesting Entry Area • Remaining R:R ' + curRR.toFixed(1) + ':1' : 'Retest Area Entry • Sisa R:R ' + curRR.toFixed(1) + ':1 Masih Sehat',
+      label: isOwnTrade
+        ? (isEn ? '🔵 YOUR ACTIVE TRADE (AT ENTRY ZONE)' : '🔵 POSISI ANDA (DI AREA ENTRY)')
+        : (isEn ? '🔵 RUNNING • WORTH JOINING (PULLBACK)' : '🔵 BERJALAN • BISA IKUT (PULLBACK)'),
+      sub: isOwnTrade
+        ? (isEn ? 'Price Floating Near Entry Area • Position Active' : 'Harga Bergerak Dekat Titik Masuk • Posisi Sedang Aktif')
+        : (isEn ? 'Retesting Entry Area • Remaining R:R ' + curRR.toFixed(1) + ':1' : 'Retest Area Entry • Sisa R:R ' + curRR.toFixed(1) + ':1 Masih Sehat'),
       worth: true,
       badgeCls: 'long',
       priority: 2,
@@ -4262,6 +4285,32 @@ function renderRadarCardHtml(it) {
     '</div>';
   }
 
+  var journeyBarHtml = '';
+  if (state.mode !== 'investor' && a.levels && a.levels.entry && a.levels.tp1 && (it.isUserActiveTrade || a.lockedSignal || viab.key === 'LATE' || viab.key === 'PULLBACK' || viab.key === 'NEAR_SL')) {
+    var entryPrice = Number(a.levels.entry);
+    var tp1Price = Number(a.levels.tp1);
+    var curPrice = Number(it.price || a.lastPrice || entryPrice);
+    var tDist = Math.max(Math.abs(tp1Price - entryPrice), 1e-9);
+    var isLongCard = a.direction === 'LONG';
+    var fDistCard = isLongCard ? (curPrice - entryPrice) : (entryPrice - curPrice);
+    var fRatioCard = fDistCard / tDist;
+    var jPct = Math.min(100, Math.max(0, Math.round(fRatioCard * 100)));
+    var jCol = fRatioCard >= 0.5 ? '#10b981' : (fRatioCard > 0 ? '#38bdf8' : (fRatioCard < -0.2 ? '#f43f5e' : '#fbbf24'));
+    var jStatusText = (fDistCard >= 0 ? '+' : '') + jPct + '% ke TP1';
+    if (a.lockedSignal && (a.lockedSignal.bePlusActive || a.lockedSignal.notifiedSlPlus)) {
+      jStatusText = '🛡️ SL+ 0-Risk (' + jStatusText + ')';
+    }
+    journeyBarHtml = '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(148,163,184,0.18);">' +
+      '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:#94a3b8;font-family:var(--font-mono);margin-bottom:2px;">' +
+        '<span>' + (it.isUserActiveTrade ? '🔒 POSISI ANDA' : 'JOURNEY') + '</span>' +
+        '<span style="color:' + jCol + ';font-weight:700;">' + jStatusText + '</span>' +
+      '</div>' +
+      '<div style="background:rgba(255,255,255,0.07);border-radius:99px;height:5px;overflow:hidden;position:relative;">' +
+        '<div style="background:' + jCol + ';width:' + jPct + '%;height:100%;border-radius:99px;"></div>' +
+      '</div>' +
+    '</div>';
+  }
+
   var viab = evaluateSignalViability(it);
   var viabBadgeHtml = (state.mode !== 'investor' || viab.key === 'FRESH') ? (
     '<div style="font-size:10px;font-weight:800;color:' + viab.color + ';background:' + viab.bg + ';border:1px solid ' + viab.color + '44;padding:3.5px 8px;border-radius:6px;margin-top:4px;display:flex;flex-direction:column;gap:1.5px;">' +
@@ -4322,6 +4371,7 @@ function renderRadarCardHtml(it) {
       '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
     '</div>' +
     tpSlRow +
+    journeyBarHtml +
   '</div>';
 }
 
@@ -4337,7 +4387,68 @@ function syncRadarGroupTabs() {
 function paintRadarItems(cfg, items, noneQualified) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
-  if (!items || !items.length) {
+  items = items ? items.slice() : [];
+
+  // INJEKSI POSISI AKTIF PENGGUNA (Active Locks dari signalLockStore):
+  // Pengguna membutuhkan pemantauan perjalanan entry mereka di tab "Running Setups".
+  // Pastikan setiap trade aktif yang sedang berjalan masuk ke daftar radar dan diprioritaskan!
+  try {
+    var allLocks = (typeof signalLockStore === 'function') ? signalLockStore() : {};
+    for (var lkKey in allLocks) {
+      if (lkKey === '__migratedV2') continue;
+      var lk = allLocks[lkKey];
+      if (!lk || lk.status !== 'ACTIVE' || !lk.tf || !lk.symbol) continue;
+      var lkSym = lk.symbol.toUpperCase();
+      var lkTf = lk.tf;
+      var foundIdx = -1;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i] && items[i].sym && items[i].sym.toUpperCase() === lkSym && items[i].tf === lkTf) {
+          foundIdx = i;
+          break;
+        }
+      }
+      var curP = (state.symbol && state.symbol.toUpperCase() === lkSym && state.livePrice > 0)
+        ? state.livePrice
+        : (lk.lastPrice || lk.entry);
+      if (foundIdx >= 0) {
+        items[foundIdx].isUserActiveTrade = true;
+        if (items[foundIdx].analysis) {
+          items[foundIdx].analysis.lockedSignal = lk;
+          if (curP) items[foundIdx].price = curP;
+        }
+      } else {
+        var itAnalysis = {
+          symbol: lk.symbol,
+          timeframe: lk.tf,
+          direction: lk.direction,
+          lastPrice: curP,
+          confluenceScore: lk.score || 80,
+          convictionScore: lk.score || 80,
+          signalEligible: true,
+          lockedSignal: lk,
+          levels: {
+            entry: lk.entry,
+            sl: lk.sl,
+            tp1: lk.tp1,
+            tp2: lk.tp2,
+            rrRatio: lk.rrRatio || 2.0
+          },
+          topDown: { isAligned: true, macroBias: lk.direction === 'LONG' ? 'BULLISH' : 'BEARISH' }
+        };
+        items.unshift({
+          sym: lk.symbol,
+          tf: lk.tf,
+          price: curP,
+          changePct: 0.5,
+          analysis: itAnalysis,
+          source: 'ACTIVE_LOCK',
+          isUserActiveTrade: true
+        });
+      }
+    }
+  } catch (e) {}
+
+  if (!items.length) {
     grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarFeedEmpty', 'Feed radar belum tersedia — coba lagi sebentar.') + '</span></div>';
     return;
   }
@@ -4362,6 +4473,10 @@ function paintRadarItems(cfg, items, noneQualified) {
   function sortAndFilterRadarGroup(rawItems) {
     var copy = rawItems.slice();
     copy.sort(function (x, y) {
+      var xUser = (x && (x.isUserActiveTrade || (x.analysis && x.analysis.lockedSignal && x.analysis.lockedSignal.status === 'ACTIVE'))) ? 1 : 0;
+      var yUser = (y && (y.isUserActiveTrade || (y.analysis && y.analysis.lockedSignal && y.analysis.lockedSignal.status === 'ACTIVE'))) ? 1 : 0;
+      if (xUser !== yUser) return yUser - xUser;
+
       var vx = evaluateSignalViability(x);
       var vy = evaluateSignalViability(y);
       if (vx.priority !== vy.priority) return vx.priority - vy.priority;
@@ -4385,6 +4500,8 @@ function paintRadarItems(cfg, items, noneQualified) {
     }
     if (viabFilter === 'running') {
       return copy.filter(function (it) {
+        var isLocked = it.isUserActiveTrade || (it.analysis && it.analysis.lockedSignal && it.analysis.lockedSignal.status === 'ACTIVE');
+        if (isLocked) return true;
         var k = evaluateSignalViability(it).key;
         return k === 'PULLBACK' || k === 'LATE' || k === 'NEAR_SL';
       });
@@ -4399,14 +4516,28 @@ function paintRadarItems(cfg, items, noneQualified) {
       var filteredGrp = sortAndFilterRadarGroup(grpItems);
       var strongGrp = filteredGrp.filter(isActionableRadarSignal);
       // TAMPILKAN SEMUA sinyal yang lolos filter (jangan dipotong/disembunyikan)!
-      // Jika filter actionable kosong tapi ada item berjalan, tampilkan kandidat pantauan terdekat.
-      var displayItems = strongGrp.length ? strongGrp : (viabFilter === 'actionable' && !filteredGrp.length ? grpItems.slice(0, 4) : filteredGrp.slice(0, 6));
+      var displayItems = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
+        ? filteredGrp
+        : (strongGrp.length ? strongGrp : (viabFilter === 'actionable' && !filteredGrp.length ? grpItems.slice(0, 4) : filteredGrp.slice(0, 6)));
 
-      var badgeText = actCount > 0
-        ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">🎯 ' + actCount + ' ' + (isEn ? 'Actionable Now' : 'Layak Ikut Entry') + '</span>')
-        : (grpItems.length
-          ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' ' + (isEn ? 'Running / Watch' : 'Pantauan / Sedang Berjalan') + '</span>'
-          : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
+      var badgeText = '';
+      if (viabFilter === 'running') {
+        badgeText = filteredGrp.length > 0
+          ? ('<span style="font-size:10.5px;color:#38bdf8;font-weight:800;background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.4);padding:2px 9px;border-radius:99px;">🏃 ' + filteredGrp.length + ' ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>')
+          : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>');
+      } else if (viabFilter === 'fresh') {
+        badgeText = filteredGrp.length > 0
+          ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">⚡ ' + filteredGrp.length + ' ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>')
+          : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>');
+      } else if (viabFilter === 'all') {
+        badgeText = '<span style="font-size:10.5px;color:#cbd5e1;font-weight:800;background:rgba(148,163,184,0.18);border:1px solid rgba(148,163,184,0.4);padding:2px 9px;border-radius:99px;">📋 ' + filteredGrp.length + ' ' + (isEn ? 'All Pairs' : 'Semua Pair') + '</span>';
+      } else {
+        badgeText = actCount > 0
+          ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">🎯 ' + actCount + ' ' + (isEn ? 'Actionable Now' : 'Layak Ikut Entry') + '</span>')
+          : (grpItems.length
+            ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' ' + (isEn ? 'Watchlist' : 'Pantauan') + '</span>'
+            : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
+      }
 
       var focusTitle = T('ui.rFocusTitle', 'Fokus pada bagan {label}').replace('{label}', grp.label);
       html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + grp.bg + ';border:1px solid ' + grp.border + '44;border-left:4px solid ' + grp.col + ';margin-top:' + (gIdx > 0 ? '18px' : '4px') + ';flex-wrap:wrap;gap:8px;">' +
@@ -4429,18 +4560,29 @@ function paintRadarItems(cfg, items, noneQualified) {
             '<span>' + (isEn ? '💡 No fresh/pullback setups currently available in this group (positions are running or consolidating). Showing running setups below (avoid chasing late moves):' : '💡 Belum ada setup baru atau pullback di kelompok ini saat Anda buka app (posisi sedang berjalan jauh atau konsolidasi). Menampilkan setup yang sedang berjalan (jangan kejar pucuk):') + '</span>' +
             '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;text-decoration:underline;">' + (isEn ? 'View All Watchlist →' : 'Buka Semua Pantauan →') + '</button>' +
             '</div>';
-        } else if (!strongGrp.length) {
+        } else if (viabFilter === 'actionable' && !strongGrp.length) {
           html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:5px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
             '<span>' + T('ui.rNoticeConsolidation', '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur agar modal aman. Menampilkan kandidat pantauan terdekat:') + '</span>' +
             '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;text-decoration:underline;">' + T('ui.rOpenAllWatch', 'Buka Semua Pantauan →') + '</button>' +
+            '</div>';
+        } else if (viabFilter === 'running' && !displayItems.length) {
+          html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
+            (isEn ? 'ℹ️ No active/running entries in this asset class right now. When you take a trade or a setup enters pullback/late stage, it will appear here so you can monitor its journey to TP/SL+.' : 'ℹ️ Belum ada posisi aktif/setup yang sedang berjalan di kelompok aset ini. Begitu Anda ambil entry atau setup memasuki fase perjalanan/pullback, perjalanannya menuju TP/SL+ akan terpantau di sini.') +
+            '</div>';
+        } else if (viabFilter === 'fresh' && !displayItems.length) {
+          html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
+            (isEn ? 'ℹ️ No brand new (fresh) pending setups currently in this group. Waiting for institutional setup confirmation.' : 'ℹ️ Belum ada sinyal limit baru (fresh) di kelompok ini saat ini. Menunggu konfirmasi setup institusional berikutnya.') +
             '</div>';
         }
         displayItems.forEach(function (it) {
           html += renderRadarCardHtml(it);
         });
+        var totalCount = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
+          ? filteredGrp.length
+          : (strongGrp.length || grpItems.length);
         var showAllSummary = T('ui.rShowingAll', '✅ Menampilkan semua <b>{shown} dari {total}</b> instrumen {label} (lengkap, tidak ada yang disembunyikan)')
           .replace('{shown}', displayItems.length)
-          .replace('{total}', (strongGrp.length || grpItems.length))
+          .replace('{total}', totalCount)
           .replace('{label}', grp.label);
         var openTabLabel = T('ui.rOpenTab', 'Buka Tab Khusus {label} →').replace('{label}', grp.label);
         html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:5px 10px;font-size:11px;color:#94a3b8;border-bottom:1px dashed rgba(148,163,184,0.2);margin-bottom:6px;flex-wrap:wrap;gap:6px;">' +
@@ -4455,13 +4597,28 @@ function paintRadarItems(cfg, items, noneQualified) {
     var selActCount = selItems.filter(function (it) { return evaluateSignalViability(it).worth; }).length;
     var filteredSel = sortAndFilterRadarGroup(selItems);
     var strongSel = filteredSel.filter(isActionableRadarSignal);
-    var showSel = strongSel.length ? strongSel : (viabFilter === 'actionable' && !filteredSel.length ? selItems.slice(0, 6) : filteredSel);
+    var showSel = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
+      ? filteredSel
+      : (strongSel.length ? strongSel : (viabFilter === 'actionable' && !filteredSel.length ? selItems.slice(0, 6) : filteredSel));
 
-    var statusBadge = selActCount > 0
-      ? '<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">🎯 ' + selActCount + ' ' + (isEn ? 'Actionable Now' : 'Layak Ikut Entry') + '</span>'
-      : (selItems.length
-        ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + selItems.length + ' ' + (isEn ? 'Running / Watch' : 'Pantauan / Sedang Berjalan') + '</span>'
-        : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
+    var statusBadge = '';
+    if (viabFilter === 'running') {
+      statusBadge = filteredSel.length > 0
+        ? ('<span style="font-size:10.5px;color:#38bdf8;font-weight:800;background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.4);padding:2px 9px;border-radius:99px;">🏃 ' + filteredSel.length + ' ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>')
+        : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>');
+    } else if (viabFilter === 'fresh') {
+      statusBadge = filteredSel.length > 0
+        ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">⚡ ' + filteredSel.length + ' ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>')
+        : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>');
+    } else if (viabFilter === 'all') {
+      statusBadge = '<span style="font-size:10.5px;color:#cbd5e1;font-weight:800;background:rgba(148,163,184,0.18);border:1px solid rgba(148,163,184,0.4);padding:2px 9px;border-radius:99px;">📋 ' + filteredSel.length + ' ' + (isEn ? 'All Pairs' : 'Semua Pair') + '</span>';
+    } else {
+      statusBadge = selActCount > 0
+        ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">🎯 ' + selActCount + ' ' + (isEn ? 'Actionable Now' : 'Layak Ikut Entry') + '</span>')
+        : (selItems.length
+          ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + selItems.length + ' ' + (isEn ? 'Watchlist' : 'Pantauan') + '</span>'
+          : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
+    }
 
     html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + selGrp.bg + ';border:1px solid ' + selGrp.border + '44;border-left:4px solid ' + selGrp.col + ';margin-top:4px;flex-wrap:wrap;gap:8px;">' +
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
@@ -4480,17 +4637,28 @@ function paintRadarItems(cfg, items, noneQualified) {
         html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:6px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;">' +
           (isEn ? '💡 No fresh/pullback setups currently available in this group (positions are running or consolidating). Showing running setups below (avoid chasing late moves):' : '💡 Belum ada setup baru atau pullback di kelompok ini saat Anda buka app (posisi sedang berjalan jauh atau konsolidasi). Menampilkan setup yang sedang berjalan (jangan kejar pucuk):') +
           '</div>';
-      } else if (!strongSel.length) {
+      } else if (viabFilter === 'actionable' && !strongSel.length) {
         html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:5px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;">' +
           T('ui.rNoticeConsolidationAll', '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur. Menampilkan seluruh kandidat pantauan:') +
+          '</div>';
+      } else if (viabFilter === 'running' && !showSel.length) {
+        html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
+          (isEn ? 'ℹ️ No active/running entries in this group right now. When you take a trade or a setup enters pullback/late stage, it will appear here so you can monitor its journey to TP/SL+.' : 'ℹ️ Belum ada posisi aktif/setup yang sedang berjalan di kelompok ini. Begitu Anda ambil entry atau setup memasuki fase perjalanan/pullback, perjalanannya menuju TP/SL+ akan terpantau di sini.') +
+          '</div>';
+      } else if (viabFilter === 'fresh' && !showSel.length) {
+        html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
+          (isEn ? 'ℹ️ No brand new (fresh) pending setups in this group currently. Waiting for institutional setup confirmation.' : 'ℹ️ Belum ada sinyal limit baru (fresh) di kelompok ini saat ini. Menunggu konfirmasi setup institusional berikutnya.') +
           '</div>';
       }
       showSel.forEach(function (it) {
         html += renderRadarCardHtml(it);
       });
+      var totalSelCount = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
+        ? filteredSel.length
+        : (strongSel.length || selItems.length);
       var showSelSummary = T('ui.rShowingAll', '✅ Menampilkan semua <b>{shown} dari {total}</b> instrumen {label} (lengkap, tidak ada yang disembunyikan)')
         .replace('{shown}', showSel.length)
-        .replace('{total}', (strongSel.length || selItems.length))
+        .replace('{total}', totalSelCount)
         .replace('{label}', selGrp.label);
       html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:11px;color:#94a3b8;margin-top:8px;">' +
         '<span>' + showSelSummary + '</span>' +
@@ -7404,6 +7572,13 @@ function loadPersistedTelegramConfig() {
     }
   } catch (e) {}
 
+  try {
+    var rawSent = localStorage.getItem('xstarzg_tg_last_sent_v1');
+    if (rawSent) {
+      telegramConfig.lastSentMap = JSON.parse(rawSent) || {};
+    }
+  } catch (e) {}
+
   syncTelegramLinkStatus();
   updateTelegramUi();
 }
@@ -7437,8 +7612,26 @@ function savePersistedTelegramConfig() {
       minScore: telegramConfig.minScore,
       horizons: telegramConfig.horizons
     }));
+    if (telegramConfig.lastSentMap) {
+      localStorage.setItem('xstarzg_tg_last_sent_v1', JSON.stringify(telegramConfig.lastSentMap));
+    }
   } catch (e) {}
   updateTelegramUi();
+}
+
+function recordTelegramSentKey(dedupKey) {
+  if (!dedupKey) return;
+  telegramConfig.lastSentMap = telegramConfig.lastSentMap || {};
+  telegramConfig.lastSentMap[dedupKey] = Date.now();
+  try {
+    var nowL = Date.now();
+    for (var k in telegramConfig.lastSentMap) {
+      if (nowL - telegramConfig.lastSentMap[k] > 24 * 3600 * 1000) {
+        delete telegramConfig.lastSentMap[k];
+      }
+    }
+    localStorage.setItem('xstarzg_tg_last_sent_v1', JSON.stringify(telegramConfig.lastSentMap));
+  } catch (e) {}
 }
 
 function updateTelegramUi() {
@@ -7703,6 +7896,15 @@ function checkTelegramHighScoreSignal(a, item) {
   var tf = a.timeframe || (item && item.tf) || state.tf || 'H1';
   var hz = (typeof hzOfTf === 'function') ? hzOfTf(tf) : 'intraday';
 
+  // STRICT GUARD 1: Jika instrumen sudah memiliki active lock yang sedang berjalan:
+  // DILARANG KERAS mengirim notifikasi "PELUANG SKOR BESAR (BARU)"! Ini adalah posisi yang sedang aktif/berjalan!
+  var activeLock = (typeof getSignalLock === 'function') ? getSignalLock(sym, tf) : null;
+  if (!activeLock && a.lockedSignal && a.lockedSignal.status === 'ACTIVE') activeLock = a.lockedSignal;
+  if (activeLock && activeLock.status === 'ACTIVE') return;
+
+  // STRICT GUARD 2: Jika instrumen dalam masa pendinginan (cooldown):
+  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) return;
+
   if (telegramConfig.horizons && telegramConfig.horizons[hz] === false) return;
 
   var L = a.levels || {};
@@ -7759,9 +7961,15 @@ function checkTelegramHighScoreSignal(a, item) {
     if (marketProgress > 0.35) return;
   }
 
-  var dedupKey = 'tg:' + sym + ':' + tf + ':' + a.direction + ':' + (a.anchorClosedTime || entry || 0);
+  var anchorId = (activeLock && (activeLock.anchorClosedTime || activeLock.issuedAt)) || a.anchorClosedTime || (a.lockedSignal && a.lockedSignal.anchorClosedTime) || entry || 0;
+  var dedupKey = 'tg:' + sym + ':' + tf + ':' + a.direction + ':' + anchorId;
+  telegramConfig.lastSentMap = telegramConfig.lastSentMap || {};
   if (telegramConfig.lastSentMap[dedupKey]) return;
-  telegramConfig.lastSentMap[dedupKey] = Date.now();
+  if (typeof recordTelegramSentKey === 'function') {
+    recordTelegramSentKey(dedupKey);
+  } else {
+    telegramConfig.lastSentMap[dedupKey] = Date.now();
+  }
 
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
   var isEn = curLang !== 'id' && curLang !== 'ms';

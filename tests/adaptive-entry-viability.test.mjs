@@ -146,4 +146,19 @@ test('ADAPTIVE ENTRY VIABILITY & TIME-AWARE RECOMMENDATION ENGINE', async (t) =>
     assert.ok(app.includes('function checkSignalAlarm'));
   });
 
+  await t.test('8. Proteksi Anti-Duplikasi Notifikasi Telegram: Persistensi localStorage & Guard Active Lock', () => {
+    assert.ok(app.includes('xstarzg_tg_last_sent_v1'), 'Dedup key Telegram harus dipersistensikan ke localStorage xstarzg_tg_last_sent_v1');
+    assert.ok(app.includes('recordTelegramSentKey'), 'Fungsi recordTelegramSentKey harus ada untuk menyimpan riwayat notifikasi');
+    assert.ok(app.includes("activeLock.status === 'ACTIVE'"), 'checkTelegramHighScoreSignal harus mengecek activeLock status ACTIVE');
+    assert.ok(app.includes('getSignalLock(sym, tf)'), 'checkTelegramHighScoreSignal harus memeriksa lock aktif berdasarkan symbol dan tf');
+  });
+
+  await t.test('9. Filter Radar Viability Running Setup: Menampilkan posisi aktif & journey tanpa tereliminasi actionable filter', () => {
+    assert.ok(app.includes('signalLockStore'), 'paintRadarItems harus membaca signalLockStore untuk menginjeksi posisi aktif pengguna');
+    assert.ok(app.includes("isUserActiveTrade"), 'Posisi aktif pengguna harus ditandai dengan isUserActiveTrade');
+    assert.ok(app.includes("journeyBarHtml"), 'Kartu radar harus merender progress bar perjalanan trading journeyBarHtml');
+    assert.ok(app.includes("ke TP1"), 'Progress bar perjalanan harus memuat persentase kemajuan ke TP1');
+    assert.ok(app.includes("viabFilter === 'running'"), 'Harus ada penanganan khusus untuk filter viability running');
+  });
+
 });
