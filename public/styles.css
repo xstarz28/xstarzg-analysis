@@ -517,3 +517,8 @@ select option, select optgroup { background: #0f172a; color: #e2e8f0; }
 }
 body { padding-bottom: 34px; }
 [dir="rtl"] .risk-disclaimer-bar { direction: rtl; }
+
+@keyframes xstarzg-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

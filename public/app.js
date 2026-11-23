@@ -1601,11 +1601,19 @@ function initChart() {
   var el = $id('tvChartContainer');
   if (!el) return false;
   if (chartInstance) return true;
-  if (typeof LightweightCharts === 'undefined') return false; // canvas fallback menangani
+  if (typeof LightweightCharts === 'undefined') {
+    if (state.candles && state.candles.length && typeof drawCanvasFallbackChart === 'function') {
+      try { drawCanvasFallbackChart(state.candles, state.lastAnalysis); } catch (e) {}
+    }
+    return false; // canvas fallback menangani
+  }
   // Mobile: container bisa berukuran 0 saat init terlalu dini (rotasi/panel baru
   // tampil) -> tunggu frame berikutnya sampai ada lebar nyata, maksimal ~1.5 dtk.
   // Satu timer pending saja (flag global) agar panggilan berulang tidak menumpuk timer.
   if ((el.clientWidth || 0) < 40) {
+    if (state.candles && state.candles.length && typeof drawCanvasFallbackChart === 'function') {
+      try { drawCanvasFallbackChart(state.candles, state.lastAnalysis); } catch (e) {}
+    }
     if (typeof window !== 'undefined' && !window.__chartInitPending) {
       window.__chartInitPending = true;
       var tries = 0;
@@ -1629,6 +1637,10 @@ function initChart() {
     return false;
   }
   try {
+    var oldCanvas = el.querySelector('canvas.xstarzg-fallback-canvas');
+    if (oldCanvas) { try { oldCanvas.remove(); } catch (e) {} }
+    var sk = $id('tvChartLoadingSkeleton');
+    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
     chartInstance = LightweightCharts.createChart(el, {
       width: el.clientWidth || 820,
       height: el.clientHeight || 470,
@@ -8487,6 +8499,21 @@ function enterWorkspace() {
     showScreen('work');
     updateUserUi();
     syncModeSections();
+    // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
+    // agar layar HP tidak pernah menggantung dengan placeholder kosong
+    try {
+      if (!state.candles || !state.candles.length || !state.lastAnalysis) {
+        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : null;
+        if (seeded) {
+          state.candles = seeded.candles;
+          state.livePrice = seeded.price;
+          state.liveChangePct = 0.25;
+          state.feedSource = 'LOCAL_SEED';
+          var instant = typeof computeQuantEngine === 'function' ? computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED') : null;
+          if (instant && typeof renderAllVisuals === 'function') renderAllVisuals(instant, true);
+        }
+      }
+    } catch (eSeed) {}
     setTimeout(function () {
       try { initChart(); } catch (e) { console.warn('initChart error:', e); }
       try { window.dispatchEvent(new Event('resize')); } catch (e) {}
@@ -9798,10 +9825,11 @@ if (document.readyState === 'loading') {
   }
   function drawCanvasFallbackChart(candles, analysis) {
     const container = document.getElementById('tvChartContainer');
-    if (!container || typeof LightweightCharts !== 'undefined') return;
+    if (!container || (chartInstance && typeof LightweightCharts !== 'undefined')) return;
+    const skeleton = document.getElementById('tvChartLoadingSkeleton');
+    if (skeleton) { try { skeleton.style.display = 'none'; } catch (e) {} }
     let canvas = container.querySelector('canvas.xstarzg-fallback-canvas');
     if (!canvas) {
-      container.innerHTML = '';
       canvas = document.createElement('canvas');
       canvas.className = 'xstarzg-fallback-canvas';
       canvas.style.width = '100%';
@@ -10072,7 +10100,7 @@ if (document.readyState === 'loading') {
     }
   };
   // Pre-warm radar & initial analysis on load
-  document.addEventListener('DOMContentLoaded', function () {
+  function bootPostDom() {
     setTimeout(function () {
       const seeded = generateSeedCandles(state.symbol, state.tf);
       state.candles = seeded.candles;
@@ -10119,10 +10147,34 @@ if (document.readyState === 'loading') {
 
       // ==================== PWA INSTALL & SERVICE WORKER ====================
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js').catch(function (err) {
+        var registerSW = function () {
+          navigator.serviceWorker.register('/sw.js').then(function (reg) {
+            try { reg.update(); } catch (e) {}
+            reg.addEventListener('updatefound', function () {
+              var newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', function () {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    try { newWorker.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+                  }
+                });
+              }
+            });
+          }).catch(function (err) {
             console.warn('SW registration failed:', err);
           });
+        };
+        if (document.readyState === 'complete') {
+          registerSW();
+        } else {
+          window.addEventListener('load', registerSW);
+        }
+        var refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
         });
       }
 
@@ -10181,5 +10233,10 @@ if (document.readyState === 'loading') {
         updatePwaInstallUI(false);
       });
     }, 50);
-  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootPostDom);
+  } else {
+    bootPostDom();
+  }
 })();
