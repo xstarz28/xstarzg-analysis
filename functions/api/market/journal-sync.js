@@ -47,8 +47,23 @@ const memoryOutcomes = [];
 
 export async function onRequestGet(context) {
   const env = (context && context.env) || {};
+  const now = Date.now();
+  const maxActiveAge = 24 * 3600 * 1000;
+  const staleThreshold = now - maxActiveAge;
+
   if (!env.DB) {
-    const active = Array.from(memoryLocks.values()).filter(l => l.status === 'ACTIVE');
+    for (const [id, l] of memoryLocks.entries()) {
+      const lockTime = l.issuedAt || l.created || 0;
+      if (l.status === 'ACTIVE' && lockTime < staleThreshold) {
+        l.status = 'EXPIRED';
+        memoryOutcomes.unshift({
+          id: l.id || id, symbol: l.symbol, tf: l.tf, direction: l.direction,
+          status: 'EXPIRED', reason: 'Stale lock auto-expired (>24h)',
+          at: now, entry: l.entry, score: l.score
+        });
+      }
+    }
+    const active = Array.from(memoryLocks.values()).filter(l => l.status === 'ACTIVE' && (l.issuedAt || l.created || 0) >= staleThreshold);
     return Response.json({
       ok: true,
       activeLocks: active,
@@ -59,12 +74,21 @@ export async function onRequestGet(context) {
 
   await ensureTable(env.DB);
   try {
+    // Auto-expire zombie locks older than 24 hours
+    try {
+      await env.DB.prepare(`
+        UPDATE cloud_signal_locks
+        SET status = 'EXPIRED', outcome_status = 'EXPIRED', outcome_reason = 'Stale lock auto-expired (>24h)', outcome_at = ?1
+        WHERE status = 'ACTIVE' AND issued_at < ?2
+      `).bind(now, staleThreshold).run();
+    } catch (e) {}
+
     const activeRes = await env.DB.prepare(`
       SELECT * FROM cloud_signal_locks
-      WHERE status = 'ACTIVE'
+      WHERE status = 'ACTIVE' AND issued_at >= ?1
       ORDER BY issued_at DESC
       LIMIT 60
-    `).all();
+    `).bind(staleThreshold).all();
 
     const outcomeRes = await env.DB.prepare(`
       SELECT * FROM cloud_signal_locks
@@ -83,6 +107,8 @@ export async function onRequestGet(context) {
           if (parsed && typeof parsed === 'object') {
             return {
               ...parsed,
+              created: parsed.created || r.issued_at,
+              issuedAt: parsed.issuedAt || r.issued_at,
               bePlusActive: !!(parsed.bePlusActive || r.be_plus_active),
               notifiedSlPlus: !!(parsed.notifiedSlPlus || parsed.slPlusAlerted),
               slPlusAlerted: !!(parsed.notifiedSlPlus || parsed.slPlusAlerted)
@@ -95,7 +121,7 @@ export async function onRequestGet(context) {
         entry: r.entry, sl: r.sl, tp1: r.tp1, tp2: r.tp2, tp3: r.tp3,
         slPlus: r.sl_plus, bePlusActive: !!r.be_plus_active, filled: !!r.filled,
         notifiedSlPlus: !!r.be_plus_active, slPlusAlerted: !!r.be_plus_active,
-        score: r.score, status: r.status, issuedAt: r.issued_at
+        score: r.score, status: r.status, issuedAt: r.issued_at, created: r.issued_at
       };
     });
 

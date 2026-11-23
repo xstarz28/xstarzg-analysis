@@ -305,8 +305,9 @@ var RADAR_CONFIG = {
     infoTrader: 'Eksekusi cepat: momentum, VWAP & orderflow M1–M15. Risiko tinggi — ukuran posisi kecil.',
     infoInvestor: 'Horizon scalping bukan untuk akumulasi — investor disarankan memakai tab SWING.',
     list: [
+      { sym: 'XAU/USD', tf: 'M5' }, { sym: 'XAU/USD', tf: 'M15' },
       { sym: 'BTC/USDT', tf: 'M5' }, { sym: 'ETH/USDT', tf: 'M5' }, { sym: 'SOL/USDT', tf: 'M5' },
-      { sym: 'XAU/USD', tf: 'M15' }, { sym: 'COTTON', tf: 'M5' },
+      { sym: 'COTTON', tf: 'M5' },
       { sym: 'EUR/USD', tf: 'M5' }, { sym: 'GBP/USD', tf: 'M5' }, { sym: 'USD/JPY', tf: 'M15' }, { sym: 'GBP/JPY', tf: 'M15' }, { sym: 'AUD/USD', tf: 'M5' },
       { sym: 'NVDA', tf: 'M15' }, { sym: 'AAPL', tf: 'M15' }, { sym: 'TSLA', tf: 'M15' }, { sym: 'BBCA.JK', tf: 'M15' }, { sym: 'BBRI.JK', tf: 'M15' }
     ]

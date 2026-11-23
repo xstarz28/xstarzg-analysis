@@ -2,7 +2,7 @@
 // Verifikasi perbaikan Bug 04:45 AM Sentinel (SL+ prematur), Journal hilang, dan fakeout levels
 
 import assert from 'node:assert';
-import { processInstrumentAnalysis, formatP, syncActiveLocksFromCloud } from '../scripts/market-sentinel.mjs';
+import { processInstrumentAnalysis, formatP, syncActiveLocksFromCloud, WATCHLIST } from '../scripts/market-sentinel.mjs';
 import * as SE from '../public/js/shared/signal-engine.js';
 import { onRequestGet, onRequestPost, onRequestOptions } from '../functions/api/market/journal-sync.js';
 
@@ -497,6 +497,192 @@ await asyncChk('Kasus Nyata EUR/USD: Mencegah Premature Fill & False SL+ pada Ca
   chk('Pesan SL+ (0-Risk) kini terkirim sah setelah order terjemput dan mencapai zona aman', sentMessages.length === 2);
   chk('Pesan ke-2 memuat peringatan SL+ (0-Risk)', sentMessages[1].includes('SL+ TERPICU (0-RISK)'));
 });
+
+// 7. Zombie & Scale Ratio Lock Guard (Kasus ADA 0.14 vs live 0.80)
+await asyncChk('Kasus Zombie/Scale Ratio: Mencegah False Fill & False SL Hit pada Lock Masa Lampau', async () => {
+  const sentMessages = [];
+  const mockSend = async (msg) => { sentMessages.push(msg); };
+  const cache = {
+    notified: {},
+    slPlusLocks: {
+      'ADA/USDT': {
+        symbol: 'ADA/USDT',
+        tf: 'H1',
+        direction: 'SHORT',
+        entry: 0.1400,
+        sl: 0.14655,
+        tp1: 0.1200,
+        filled: false,
+        created: Date.now() - 3 * 24 * 3600 * 1000 // 3 hari lalu
+      }
+    }
+  };
+
+  const inst = { sym: 'ADA/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' };
+  // Candle masa kini: harga live ~0.80 (scale ratio 0.14 / 0.80 = 0.175 < 0.2)
+  const candles = [];
+  for (let i = 0; i < 50; i++) {
+    candles.push({ time: 1000 + i * 3600, open: 0.79, high: 0.81, low: 0.78, close: 0.80, volume: 10000 });
+  }
+
+  const mockAnalysis = {
+    direction: 'NEUTRAL',
+    confluenceScore: 50,
+    signalEligible: false
+  };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles,
+    a: mockAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Pesan Telegram TIDAK terkirim untuk zombie lock yang dibersihkan', sentMessages.length === 0);
+  chk('Zombie lock ADA/USDT berhasil dihapus dari slPlusLocks', cache.slPlusLocks['ADA/USDT'] === undefined);
+});
+
+// 8. Pre-fill Stop Loss Breach Invalidation (Kasus DOGE 0.05 vs live 0.060)
+await asyncChk('Pre-fill SL Breach: Order limit yang ditembus melebihi SL berstatus CANCELLED, BUKAN SL_HIT', async () => {
+  const sentMessages = [];
+  const mockSend = async (msg) => { sentMessages.push(msg); };
+  const cache = {
+    notified: {},
+    slPlusLocks: {
+      'DOGE/USDT': {
+        symbol: 'DOGE/USDT',
+        tf: 'H1',
+        direction: 'SHORT',
+        entry: 0.0500,
+        sl: 0.05591,
+        tp1: 0.0400,
+        filled: false,
+        created: Date.now() - 2 * 3600 * 1000,
+        anchorClosedTime: 1000
+      }
+    }
+  };
+
+  const inst = { sym: 'DOGE/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' };
+  // Harga live 0.060 (melewati entry 0.0500 dan melewati SL 0.05591 sebelum sempat dijemput tertib)
+  const candles = [];
+  for (let i = 0; i < 50; i++) {
+    candles.push({ time: 2000 + i * 3600, open: 0.058, high: 0.062, low: 0.057, close: 0.060, volume: 10000 });
+  }
+
+  const mockAnalysis = { direction: 'NEUTRAL', confluenceScore: 50, signalEligible: false };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles,
+    a: mockAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Pesan yang terkirim BUKAN Stop Loss Hit', sentMessages.length === 1 && !sentMessages[0].includes('STOP LOSS HIT'));
+  chk('Pesan yang terkirim memuat status INVALIDATED / BATAL', sentMessages[0].includes('SETUP BATAL / INVALIDASI') || sentMessages[0].includes('INVALIDATED'));
+  chk('Lock DOGE/USDT dihapus dari cache', cache.slPlusLocks['DOGE/USDT'] === undefined);
+});
+
+// 9. Crypto Basket Correlation Guard (Maksimal 2 posisi crypto dengan arah yang sama)
+await asyncChk('Crypto Basket Guard: Mencegah penumpukan posisi altcoin searah (anti-basket wipeout)', async () => {
+  const sentMessages = [];
+  const mockSend = async (msg) => { sentMessages.push(msg); };
+  const cache = {
+    notified: {},
+    newAlertsThisRun: 0,
+    slPlusLocks: {
+      'ADA/USDT': { symbol: 'ADA/USDT', tf: 'H1', direction: 'SHORT', status: 'PENDING_FILL' },
+      'DOGE/USDT': { symbol: 'DOGE/USDT', tf: 'H1', direction: 'SHORT', status: 'FILLED' }
+    }
+  };
+
+  const inst = { sym: 'DOT/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' };
+  const candles = [];
+  for (let i = 0; i < 50; i++) {
+    candles.push({ time: 1000 + i * 3600, open: 5.2, high: 5.3, low: 5.1, close: 5.15, volume: 10000 });
+  }
+
+  // Setup SHORT dengan skor tinggi (86%)
+  const mockAnalysis = {
+    direction: 'SHORT',
+    confluenceScore: 86,
+    signalEligible: true,
+    signalTier: 'ELITE',
+    topDown: { isAligned: true, alignmentStatus: 'ALIGNED_BEARISH', macroBias: 'BEARISH', structBias: 'BEARISH' },
+    levels: { entry: 5.20, sl: 5.40, tp1: 4.80 }
+  };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles,
+    a: mockAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Sinyal SHORT ke-3 diblokir oleh Crypto Basket Guard (0 pesan baru)', sentMessages.length === 0);
+  chk('Lock DOT/USDT TIDAK ditambahkan ke slPlusLocks', cache.slPlusLocks['DOT/USDT'] === undefined);
+});
+
+// 10. Consecutive SL Hit Circuit Breaker (Portfolio Risk Guard pada 3+ SL beruntun)
+await asyncChk('Consecutive SL Circuit Breaker: Mengaktifkan Portfolio Risk Guard pada SL beruntun ke-3', async () => {
+  const sentMessages = [];
+  const mockSend = async (msg) => { sentMessages.push(msg); };
+  const cache = {
+    notified: {},
+    slHitsThisRun: 2, // Sudah 2 SL terjadi dalam run ini
+    slPlusLocks: {
+      'SOL/USDT': {
+        symbol: 'SOL/USDT',
+        tf: 'H1',
+        direction: 'LONG',
+        entry: 200,
+        sl: 190,
+        tp1: 220,
+        filled: true,
+        fillBarTime: 1000
+      }
+    }
+  };
+
+  const inst = { sym: 'SOL/USDT', tf: 'H1', type: 'crypto', hz: 'intraday' };
+  // Harga live 188 menyentuh SL 190 (SL ke-3)
+  const candles = [];
+  for (let i = 0; i < 50; i++) {
+    candles.push({ time: 2000 + i * 3600, open: 192, high: 193, low: 187, close: 188, volume: 10000 });
+  }
+
+  const mockAnalysis = { direction: 'NEUTRAL', confluenceScore: 50, signalEligible: false };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles,
+    a: mockAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 78
+  });
+
+  chk('Pesan SL ke-3 digantikan oleh PORTFOLIO RISK GUARD (COOLDOWN)', sentMessages.length === 1 && sentMessages[0].includes('PORTFOLIO RISK GUARD'));
+  chk('Counter slHitsThisRun bertambah menjadi 3', cache.slHitsThisRun === 3);
+});
+
+// 11. XAU/USD Competition Priority & Multi-timeframe Support
+(() => {
+  const goldM5 = WATCHLIST.find(w => w.sym === 'XAU/USD' && w.tf === 'M5');
+  const goldM15 = WATCHLIST.find(w => w.sym === 'XAU/USD' && w.tf === 'M15');
+  const goldH1 = WATCHLIST.find(w => w.sym === 'XAU/USD' && w.tf === 'H1');
+  chk('WATCHLIST memuat XAU/USD M5 untuk scalping sniper kompetisi', !!goldM5 && goldM5.hz === 'scalping');
+  chk('WATCHLIST memuat XAU/USD M15 untuk scalping', !!goldM15);
+  chk('WATCHLIST memuat XAU/USD H1 untuk intraday', !!goldH1);
+  chk('XAU/USD diletakkan pada prioritas pertama di WATCHLIST', WATCHLIST[0].sym === 'XAU/USD');
+})();
 
 console.log(`\nSENTINEL & JOURNAL REGRESSION SUITE: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
