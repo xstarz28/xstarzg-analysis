@@ -124,7 +124,10 @@
         <a href="https://www.instagram.com/xstarzganalysis?avpt=ZWF1dThxYzQwNmNj" target="_blank" rel="noopener noreferrer" class="btn-instagram-social" style="padding:8px 13px;font-size:12.5px;" title="Kunjungi &amp; Follow Instagram @xstarzganalysis — Terbuka untuk DM, Masukan &amp; Kritik">
           <span>📸</span> <span>Instagram: <strong>@xstarzganalysis</strong></span>
         </a>
-        <select data-lang-select class="lang-select" title="Language / Bahasa / 语言"></select>
+        <select data-lang-select class="lang-select" title="Language / Bahasa / 语言">
+          <option value="id" selected>🇮🇩 Bahasa Indonesia</option>
+          <option value="en">🇺🇸 English</option>
+        </select>
         <button type="button" id="btnNavLoginGate" class="btn-primary-glow" style="padding:9px 18px;font-size:13px;" data-i18n="ui.btnLoginNav">
           🔐 Masuk / Login Terminal
         </button>
@@ -210,7 +213,10 @@
       <div style="display:flex;justify-content:center;">
         <img src="/assets/logo.svg" alt="XSTARZG" class="brand-logo-img" data-logo-fallback="1" />
       </div>
-      <select data-lang-select class="lang-select" title="Language / Bahasa / 语言" style="width:100%;margin-bottom:12px;"></select>
+      <select data-lang-select class="lang-select" title="Language / Bahasa / 语言" style="width:100%;margin-bottom:12px;">
+        <option value="id" selected>🇮🇩 Bahasa Indonesia</option>
+        <option value="en">🇺🇸 English</option>
+      </select>
       <h2 data-i18n="ui.gateTitle">Otentikasi Akses Terminal</h2>
       <p data-i18n="ui.gateDesc">Masuk menggunakan akun Google Anda untuk mengaktifkan sesi analisis personal dan kuota instrumen gratis.</p>
       <button type="button" id="btnTriggerGooglePopup" class="btn-google-auth">
@@ -262,7 +268,10 @@
         <a href="https://www.instagram.com/xstarzganalysis?avpt=ZWF1dThxYzQwNmNj" target="_blank" rel="noopener noreferrer" id="btnTopInstagram" class="btn-instagram-social" style="padding:6px 11px;font-size:12px;" title="Kunjungi &amp; Follow Instagram @xstarzganalysis — DM Chat untuk Masukan &amp; Kritik">
           <span>📸</span> <span>@xstarzganalysis</span>
         </a>
-        <select data-lang-select class="lang-select" title="Language / Bahasa / 语言"></select>
+        <select data-lang-select class="lang-select" title="Language / Bahasa / 语言">
+          <option value="id" selected>🇮🇩 Bahasa Indonesia</option>
+          <option value="en">🇺🇸 English</option>
+        </select>
         <button type="button" id="btnOpenVipModal" class="btn-primary-glow" style="padding:7px 13px;font-size:12px;" data-i18n="ui.btnUpgradeVip">
           💎 Upgrade VIP
         </button>
@@ -339,7 +348,23 @@
           <option value="CRYPTO" data-i18n="ui.catCrypto">₿ Crypto Spot &amp; Perp (75 Utama + 500+ Pair USDT Real-Time)</option>
         </select>
         <input type="text" id="inpSearchAsset" class="ctrl-input" placeholder="🔍 Cari simbol / nama (cth: XAU, BBCA, NVDA, BTC)..." data-i18n-ph="ui.searchPh" />
-        <select id="selInstrument" class="ctrl-select" style="font-weight:700;"></select>
+        <select id="selInstrument" class="ctrl-select" style="font-weight:700;">
+          <optgroup label="🥇 LOGAM MULIA">
+            <option value="XAU/USD" selected>XAU/USD — Gold Spot / Emas Dunia (USD)</option>
+            <option value="XAU/IDR">XAU/IDR — Emas Spot / Gram (IDR Proxy)</option>
+            <option value="XAG/USD">XAG/USD — Silver Spot / Perak (USD)</option>
+          </optgroup>
+          <optgroup label="💱 FOREX MAYOR &amp; CROSS">
+            <option value="EUR/USD">EUR/USD — Euro / US Dollar</option>
+            <option value="GBP/USD">GBP/USD — British Pound / US Dollar</option>
+            <option value="USD/JPY">USD/JPY — US Dollar / Japanese Yen</option>
+          </optgroup>
+          <optgroup label="₿ CRYPTO SPOT GLOBAL">
+            <option value="BTC/USDT">BTC/USDT — Bitcoin / Tether Spot</option>
+            <option value="ETH/USDT">ETH/USDT — Ethereum / Tether Spot</option>
+            <option value="SOL/USDT">SOL/USDT — Solana / Tether Spot</option>
+          </optgroup>
+        </select>
       </div>
       <div class="tf-bar" id="timeframeBar">
         <button type="button" class="tf-btn" data-tf="M1">M1</button>
@@ -383,18 +408,18 @@
                 <span id="hdrModeChip" class="mode-chip futures">FUTURES • 2-ARAH + LEV</span>
               </div>
               <div style="font-size:11.5px;color:#94a3b8;margin-top:3px;">
-                <span data-i18n="ui.feedStatus">Status Feed:</span> <span id="lblEngineStatus" style="color:#10b981;font-weight:700;">INITIALIZING • QUANT TERMINAL</span>
+                <span data-i18n="ui.feedStatus">Status Feed:</span> <span id="lblEngineStatus" style="color:#10b981;font-weight:700;"><span class="pulse-dot"></span>LIVE REAL-TIME • XAU/USD • H1</span>
                 • <span data-i18n="ui.candleClose">Penutupan Candle:</span> <span id="lblCandleCountdown" style="color:#38bdf8;font-family:monospace;font-weight:700;">--:--</span>
               </div>
             </div>
             <div class="asset-price-block">
-              <span id="hdrLivePrice" class="live-price-big">--.--</span>
-              <span id="hdrLiveChange" class="live-change-badge" style="color:#94a3b8;">--%</span>
+              <span id="hdrLivePrice" class="live-price-big">2,680.00</span>
+              <span id="hdrLiveChange" class="live-change-badge" style="color:#10b981;">+0.25%</span>
             </div>
             <div style="display:flex;gap:14px;font-size:12px;">
-              <div><span style="color:#94a3b8;">High:</span> <strong id="hdrHigh">--.--</strong></div>
-              <div><span style="color:#94a3b8;">Low:</span> <strong id="hdrLow">--.--</strong></div>
-              <div><span style="color:#94a3b8;">ATR(14):</span> <strong id="hdrATR">--.--</strong></div>
+              <div><span style="color:#94a3b8;">High:</span> <strong id="hdrHigh">2,685.50</strong></div>
+              <div><span style="color:#94a3b8;">Low:</span> <strong id="hdrLow">2,674.20</strong></div>
+              <div><span style="color:#94a3b8;">ATR(14):</span> <strong id="hdrATR">8.50</strong></div>
             </div>
           </div>
           <div id="chartTypeBar" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 4px 8px 2px;border-top:1px solid rgba(30,41,59,0.6);">
@@ -445,24 +470,24 @@
           <div class="setup-grid-levels">
             <div class="level-box" style="grid-column:span 2;border-color:rgba(56,189,248,0.4);">
               <span class="lbl" data-i18n="ui.lblEntry">🎯 TITIK ENTRY (TERKUNCI PADA CANDLE AKTIF)</span>
-              <span id="valEntry" class="val" style="color:#38bdf8;font-size:16px;">--.--</span>
+              <span id="valEntry" class="val" style="color:#38bdf8;font-size:16px;">2,680.00</span>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(244,63,94,0.4);">
               <span class="lbl" data-i18n="ui.lblSL">🛡️ STOP LOSS STRUKTURAL (ANTI-STOP HUNT)</span>
-              <span id="valSL" class="val" style="color:#f43f5e;">--.--</span>
+              <span id="valSL" class="val" style="color:#f43f5e;">2,668.50</span>
               <div id="valSLDesc" style="font-size:11px;color:#fda4af;margin-top:2px;">Di luar Swing Wick + Buffer ATR</div>
             </div>
             <div class="level-box">
               <span class="lbl" data-i18n="ui.lblTP1">✅ TAKE PROFIT 1 (1.5R)</span>
-              <span id="valTP1" class="val" style="color:#10b981;">--.--</span>
+              <span id="valTP1" class="val" style="color:#10b981;">2,697.25</span>
             </div>
             <div class="level-box">
               <span class="lbl" data-i18n="ui.lblTP2">✅ TAKE PROFIT 2 (2.5R)</span>
-              <span id="valTP2" class="val" style="color:#10b981;">--.--</span>
+              <span id="valTP2" class="val" style="color:#10b981;">2,708.75</span>
             </div>
             <div class="level-box" style="grid-column:span 2;">
               <span class="lbl" data-i18n="ui.lblTP3">🚀 TAKE PROFIT 3 — RUNNER TARGET (4.0R)</span>
-              <span id="valTP3" class="val" style="color:#34d399;">--.--</span>
+              <span id="valTP3" class="val" style="color:#34d399;">2,726.00</span>
             </div>
           </div>
           <!-- GLOBAL MARKET SENTIMENT & FLOW GAUGE -->
