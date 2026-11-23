@@ -76,6 +76,7 @@ export async function syncActiveLocksFromCloud(cache) {
     'https://xstarzg-analysis.pages.dev'
   ].filter(Boolean);
 
+  const now = Date.now();
   for (const host of apiHosts) {
     try {
       if (typeof fetch !== 'function') break;
@@ -84,8 +85,18 @@ export async function syncActiveLocksFromCloud(cache) {
         const data = await res.json();
         if (data && Array.isArray(data.activeLocks)) {
           for (const l of data.activeLocks) {
+            const lockTime = l.created || l.issuedAt || now;
+            const ageMs = now - lockTime;
+            // Abaikan lock kadaluwarsa (> 24 jam untuk H1, > 2 jam untuk M15/M5)
+            const maxMs = (l.tf === 'M5' || l.tf === 'M15') ? (2 * 3600 * 1000) : (24 * 3600 * 1000);
+            if (ageMs > maxMs) continue;
+
             if (l && l.symbol && !cache.slPlusLocks[l.symbol]) {
-              cache.slPlusLocks[l.symbol] = l;
+              cache.slPlusLocks[l.symbol] = {
+                ...l,
+                created: l.created || l.issuedAt || now,
+                issuedAt: l.issuedAt || l.created || now
+              };
             }
           }
         }
@@ -315,17 +326,17 @@ export async function resolveBtcMacroTrend() {
 
 // Fetch forex / commodities candles from Yahoo Finance
 const YAHOO_SYMBOLS = {
-  // Metals
-  'XAU/USD': 'GC=F',
-  'GOLD': 'GC=F',
-  'XAG/USD': 'SI=F',
-  'SILVER': 'SI=F',
-  'XPT/USD': 'PL=F',
-  'PLATINUM': 'PL=F',
-  'XPD/USD': 'PA=F',
-  'PALLADIUM': 'PA=F',
-  'HG/USD': 'HG=F',
-  'COPPER': 'HG=F',
+  // Metals (Spot London & COMEX Futures)
+  'XAU/USD': ['XAUUSD=X', 'GC=F'],
+  'GOLD': ['XAUUSD=X', 'GC=F'],
+  'XAG/USD': ['XAGUSD=X', 'SI=F'],
+  'SILVER': ['XAGUSD=X', 'SI=F'],
+  'XPT/USD': ['XPTUSD=X', 'PL=F'],
+  'PLATINUM': ['XPTUSD=X', 'PL=F'],
+  'XPD/USD': ['PA=F'],
+  'PALLADIUM': ['PA=F'],
+  'HG/USD': ['HG=F'],
+  'COPPER': ['HG=F'],
   // Commodities
   'WTI/OIL': 'CL=F',
   'WTI': 'CL=F',
@@ -334,9 +345,9 @@ const YAHOO_SYMBOLS = {
   'CPO': 'FCPO=F',
   'COAL': 'NCF=F',
   // Forex Majors & Crosses
-  'EUR/USD': 'EURUSD=X',
-  'GBP/USD': 'GBPUSD=X',
-  'USD/JPY': 'USDJPY=X',
+  'EUR/USD': ['EURUSD=X', 'EUR=X'],
+  'GBP/USD': ['GBPUSD=X', 'GBP=X'],
+  'USD/JPY': ['USDJPY=X', 'JPY=X'],
   'AUD/USD': 'AUDUSD=X',
   'USD/CAD': 'USDCAD=X',
   'USD/CHF': 'USDCHF=X',
@@ -370,44 +381,62 @@ const YAHOO_SYMBOLS = {
 };
 
 async function fetchYahooCandles(symbol, tf = 'H1') {
-  let ySym = YAHOO_SYMBOLS[symbol];
-  if (!ySym) {
-    if (symbol.includes('/')) {
-      ySym = symbol.replace('/', '') + '=X';
-    } else {
-      ySym = symbol;
-    }
+  let symConfig = YAHOO_SYMBOLS[symbol];
+  let candidates = [];
+  if (Array.isArray(symConfig)) {
+    candidates = symConfig;
+  } else if (symConfig) {
+    candidates = [symConfig];
+  } else if (symbol.includes('/')) {
+    candidates = [symbol.replace('/', '') + '=X'];
+  } else {
+    candidates = [symbol];
   }
-  const tfMap = { 'M15': { i: '15m', r: '5d' }, 'H1': { i: '60m', r: '1mo' }, 'H4': { i: '60m', r: '3mo', resample: 4 }, 'D1': { i: '1d', r: '1y' } };
+
+  const tfMap = {
+    'M5': { i: '5m', r: '1d' },
+    'M15': { i: '15m', r: '5d' },
+    'H1': { i: '60m', r: '1mo' },
+    'H4': { i: '60m', r: '3mo', resample: 4 },
+    'D1': { i: '1d', r: '1y' }
+  };
   const cfg = tfMap[tf] || tfMap['H1'];
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ySym)}?interval=${cfg.i}&range=${cfg.r}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
-  if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
-  const json = await res.json();
-  const node = json && json.chart && json.chart.result && json.chart.result[0];
-  const ts = node && Array.isArray(node.timestamp) ? node.timestamp : [];
-  const q = node && node.indicators && node.indicators.quote && node.indicators.quote[0];
-  if (!ts.length || !q || !Array.isArray(q.close)) return [];
 
-  let candles = [];
-  for (let k = 0; k < ts.length; k++) {
-    const c = Number(q.close[k]), o = Number(q.open[k]), h = Number(q.high[k]), l = Number(q.low[k]);
-    if (!Number.isFinite(c) || !Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(l) || c <= 0) continue;
-    candles.push({ time: ts[k], open: o, high: Math.max(h, o, c), low: Math.min(l, o, c), close: c, volume: Number(q.volume && q.volume[k]) || 100 });
-  }
+  for (const ySym of candidates) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ySym)}?interval=${cfg.i}&range=${cfg.r}`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const node = json && json.chart && json.chart.result && json.chart.result[0];
+      const ts = node && Array.isArray(node.timestamp) ? node.timestamp : [];
+      const q = node && node.indicators && node.indicators.quote && node.indicators.quote[0];
+      if (!ts.length || !q || !Array.isArray(q.close)) continue;
 
-  if (cfg.resample && cfg.resample > 1) {
-    const bucketSec = cfg.resample * 3600;
-    const m = new Map();
-    for (const c of candles) {
-      const b = Math.floor(c.time / bucketSec) * bucketSec;
-      const g = m.get(b);
-      if (!g) m.set(b, { time: b, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
-      else { g.high = Math.max(g.high, c.high); g.low = Math.min(g.low, c.low); g.close = c.close; g.volume += c.volume; }
-    }
-    candles = [...m.values()].sort((a, b) => a.time - b.time);
+      let candles = [];
+      for (let k = 0; k < ts.length; k++) {
+        const c = Number(q.close[k]), o = Number(q.open[k]), h = Number(q.high[k]), l = Number(q.low[k]);
+        if (!Number.isFinite(c) || !Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(l) || c <= 0) continue;
+        candles.push({ time: ts[k], open: o, high: Math.max(h, o, c), low: Math.min(l, o, c), close: c, volume: Number(q.volume && q.volume[k]) || 100 });
+      }
+
+      if (cfg.resample && cfg.resample > 1) {
+        const bucketSec = cfg.resample * 3600;
+        const m = new Map();
+        for (const c of candles) {
+          const b = Math.floor(c.time / bucketSec) * bucketSec;
+          const g = m.get(b);
+          if (!g) m.set(b, { time: b, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
+          else { g.high = Math.max(g.high, c.high); g.low = Math.min(g.low, c.low); g.close = c.close; g.volume += c.volume; }
+        }
+        candles = [...m.values()].sort((a, b) => a.time - b.time);
+      }
+      if (candles.length >= 35) {
+        return candles.slice(-200);
+      }
+    } catch (e) {}
   }
-  return candles.slice(-200);
+  return [];
 }
 
 export async function fetchFromXstarzgApi(symbol, tf = 'H1') {
@@ -523,8 +552,12 @@ const US_STOCKS_WATCHLIST = [
 
 // Watchlist instrumen institusional utama adaptif lintas kelas aset
 export const WATCHLIST = [
-  // Logam Mulia & Komoditas (H1 & M15)
-  ...COMMODITY_WATCHLIST.flatMap(sym => [
+  // Prioritas Utama: Emas Dunia (XAU/USD) untuk Kompetisi Trading 7 Hari (M5 Scalping, M15 Scalping, H1 Intraday)
+  { sym: 'XAU/USD', tf: 'M5', type: 'commodity', hz: 'scalping' },
+  { sym: 'XAU/USD', tf: 'M15', type: 'commodity', hz: 'scalping' },
+  { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
+  // Logam Mulia & Komoditas Lainnya (H1 & M15)
+  ...COMMODITY_WATCHLIST.filter(s => s !== 'XAU/USD').flatMap(sym => [
     { sym, tf: 'H1', type: 'commodity', hz: 'intraday' },
     { sym, tf: 'M15', type: 'commodity', hz: 'scalping' }
   ]),
@@ -583,11 +616,26 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     }
   }
 
-  // Filter Khusus Emas (XAU/USD) untuk Keakuratan Kompetisi
+  // Anti-Correlation Basket Guard untuk Kripto:
+  // Maksimal 2 posisi crypto dengan arah yang sama (LONG atau SHORT) yang boleh aktif bersamaan!
+  // Mencegah kerugian beruntun (basket wipeout) saat seluruh altcoin bergerak serempak mengikuti BTC!
+  if (inst.type === 'crypto' && dir) {
+    const activeCryptoSameDir = Object.values(cache.slPlusLocks || {}).filter(l =>
+      l && l.symbol && (l.symbol.includes('/USDT') || l.symbol.includes('BTC') || l.symbol.includes('ETH')) &&
+      l.direction === dir && (l.status === 'PENDING_FILL' || l.status === 'FILLED' || l.status === 'ACTIVE')
+    ).length;
+
+    if (activeCryptoSameDir >= 2) {
+      console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BASKET GUARD] Sinyal ${dir} ditahan: Sudah ada ${activeCryptoSameDir} posisi crypto ${dir} aktif. Batas risiko keranjang terpenuhi.`);
+      return;
+    }
+  }
+
+  // Filter Khusus Emas (XAU/USD) untuk Keakuratan Kompetisi 7 Hari
   const isGold = sym === 'XAU/USD';
   if (isGold) {
-    if (a.sessionInfo && !a.sessionInfo.isOptimal && score < 82) {
-      console.log(`  [XAU/USD ${tf}] 🟡 Emas di luar sesi likuiditas puncak London/NY — hanya sinyal Tier ELITE (skor ≥ 82%) yang diizinkan.`);
+    if (a.sessionInfo && !a.sessionInfo.isOptimal && score < 80) {
+      console.log(`  [XAU/USD ${tf}] 🟡 Emas di luar sesi likuiditas puncak London/NY — hanya sinyal skor ≥ 80% yang diizinkan.`);
       return;
     }
   }
@@ -598,7 +646,8 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
 
     if (!cache.notified[setupKey]) {
-      if ((cache.newAlertsThisRun || 0) >= 2) {
+      const isGoldSetup = sym === 'XAU/USD';
+      if (!isGoldSetup && (cache.newAlertsThisRun || 0) >= 2) {
         console.log(`  [${sym} ${tf}] 🛡️ [ANTI-SPAM] Sinyal skor tinggi (${score}%) ditahan karena batas 2 sinyal terbaik per siklus telah terpenuhi.`);
         return;
       }
@@ -743,65 +792,40 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   const tp1 = Number(activeLock.tp1);
   const targetDist = Math.abs(tp1 - entry);
 
+  // 2a-1. Skala Harga & Kontaminasi Simbol / Zombie Lock Guard:
+  // Jika harga entry menyimpang ekstrem dari harga candle live (>5x atau <0.2x),
+  // lock ini berasal dari arsip zombie / masa lampau / beda simbol -> gugurkan segera!
+  if (livePrice > 0 && entry > 0) {
+    const scaleRatio = entry / livePrice;
+    if (scaleRatio < 0.2 || scaleRatio > 5.0) {
+      console.log(`  [${sym} ${tf}] 🛡️ [ZOMBIE/SCALE GUARD] Lock diabaikan: entry ${entry} vs live ${livePrice} menyimpang ekstrem (ratio ${scaleRatio.toFixed(2)}). Menghapus lock.`);
+      delete cache.slPlusLocks[sym];
+      await syncJournalToCloud({
+        action: 'record_outcome',
+        outcome: {
+          symbol: sym,
+          tf: activeLock.tf,
+          status: 'STRUCTURE_INVALID',
+          reason: 'Skala harga menyimpang ekstrem dari pasar live saat ini',
+          at: Date.now()
+        }
+      });
+      return;
+    }
+  }
+
   // 2b. Verifikasi Keterisian Limit Order (hanya jika belum terisi)
   if (!activeLock.filled) {
-    let gotFilled = false;
-    // PENTING: Limit order hanya boleh terisi jika:
-    // 1. livePrice saat ini benar-benar menyentuh level antrian entry (livePrice <= entry untuk LONG, livePrice >= entry untuk SHORT)
-    // 2. ATAU candle BARU yang terbentuk setelah sinyal terbit (lastBar.time > activeLock.anchorClosedTime) menjemput entry.
-    // DILARANG memakai lastBar.low/high dari candle yang sama saat sinyal terbit, karena terjadi di masa lalu sebelum order limit dipasang!
-    const isNewBar = lastBar && activeLock.anchorClosedTime && (lastBar.time > activeLock.anchorClosedTime);
-    if (isLong) {
-      if (livePrice <= entry || (isNewBar && lastBar.low <= entry)) gotFilled = true;
-    } else {
-      if (livePrice >= entry || (isNewBar && lastBar.high >= entry)) gotFilled = true;
-    }
+    const lockTime = activeLock.created || activeLock.issuedAt || activeLock.anchorClosedTime || 0;
+    const ageMs = lockTime ? (Date.now() - lockTime) : 0;
+    const maxPendingMs = (activeLock.tf === 'M5') ? (60 * 60 * 1000)
+      : (activeLock.tf === 'M15') ? (2 * 3600 * 1000)
+      : (12 * 3600 * 1000);
 
-    if (gotFilled) {
-      activeLock.filled = true;
-      activeLock.status = 'FILLED';
-      activeLock.filledAt = Date.now();
-      activeLock.fillBarTime = lastBar ? lastBar.time : Date.now();
-      console.log(`  [${sym} ${tf}] 🔔 Limit Order TERJEMPUT pada ${formatP(entry, sym)}! Posisi aktif dipantau.`);
-      await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
-    } else {
-      // Cek apakah target sudah tercapai sebelum order sempat dijemput (MISSED)
-      const missed = isLong ? (livePrice >= tp1 || (isNewBar && lastBar.high >= tp1)) : (livePrice <= tp1 || (isNewBar && lastBar.low <= tp1));
-      if (missed) {
-        console.log(`  [${sym} ${tf}] ↗️ Order terlewat (MISSED) — target tercapai sebelum terjemput.`);
-        const cancelMsg =
-          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER TERLEWAT / BATALKAN]</b>\n\n` +
-          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
-          `Status: <b>TARGET TERCAPAI SEBELUM TERISI (MISSED)</b>\n\n` +
-          `⚠️ <b>AKSI WAJIB:</b>\n` +
-          `<i>Segera batalkan (cancel) antrian limit order Anda pada exchange/broker sekarang! Target sudah tersentuh duluan tanpa menjemput antrian. Jangan biarkan order menggantung!</i>`;
-        const cancelMsgEn =
-          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER MISSED / CANCEL PENDING]</b>\n\n` +
-          `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
-          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
-          `Status: <b>TARGET REACHED BEFORE FILL (MISSED)</b>\n\n` +
-          `⚠️ <b>REQUIRED ACTION:</b>\n` +
-          `<i>Cancel your pending limit order on your broker/exchange now! Target was reached before tagging entry. Do not leave unfilled orders hanging!</i>`;
-        await sendFn(cancelMsg, { id: cancelMsg, en: cancelMsgEn });
-        await syncJournalToCloud({
-          action: 'record_outcome',
-          outcome: {
-            symbol: sym,
-            tf: activeLock.tf,
-            status: 'MISSED',
-            reason: 'Target tercapai sebelum limit order terisi',
-            at: Date.now()
-          }
-        });
-        delete cache.slPlusLocks[sym];
-        return;
-      }
-      // Batalkan order jika kedaluwarsa (>12 bar / >60 menit untuk M5/M15, >12 jam untuk H1)
-      const ageMs = activeLock.created ? (Date.now() - activeLock.created) : Infinity;
-      const maxPendingMs = (activeLock.tf === 'M5' || activeLock.tf === 'M15') ? (60 * 60 * 1000) : (12 * 3600 * 1000);
-      if (ageMs > maxPendingMs) {
-        console.log(`  [${sym} ${tf}] ⏳ Limit order kedaluwarsa (>12 bar belum terjemput).`);
+    // 1. Batalkan order jika kedaluwarsa (>12 bar belum terjemput)
+    if (ageMs > maxPendingMs) {
+      console.log(`  [${sym} ${tf}] ⏳ Limit order kedaluwarsa (>12 bar belum terjemput).`);
+      if (ageMs <= 24 * 3600 * 1000) {
         const expMsg =
           `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER KADALUWARSA / BATALKAN]</b>\n\n` +
           `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
@@ -817,25 +841,104 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `⚠️ <b>REQUIRED ACTION:</b>\n` +
           `<i>Cancel this pending limit order now! Setup validity duration has expired without fill. Market structure has shifted!</i>`;
         await sendFn(expMsg, { id: expMsg, en: expMsgEn });
-        await syncJournalToCloud({
-          action: 'record_outcome',
-          outcome: {
-            symbol: sym,
-            tf: activeLock.tf,
-            status: 'EXPIRED',
-            reason: 'Waktu tunggu limit order habis tanpa terisi',
-            at: Date.now()
-          }
-        });
-        delete cache.slPlusLocks[sym];
-        return;
       }
+      await syncJournalToCloud({
+        action: 'record_outcome',
+        outcome: {
+          symbol: sym,
+          tf: activeLock.tf,
+          status: 'EXPIRED',
+          reason: 'Waktu tunggu limit order habis tanpa terisi',
+          at: Date.now()
+        }
+      });
+      delete cache.slPlusLocks[sym];
+      return;
+    }
 
-      // Batalkan jika harga pasar saat ini sudah terlalu jauh (> 3x ATR) dari titik antri entry
-      const entryDist = Math.abs(livePrice - entry);
-      const maxPendingAtr = 3.0 * (activeLock.atr || (entry * 0.015));
-      if (entryDist > maxPendingAtr) {
-        console.log(`  [${sym} ${tf}] ↗️ Harga pasar (${formatP(livePrice, sym)}) sudah terlalu jauh dari entry (${formatP(entry, sym)}). Order dibatalkan.`);
+    const isNewBar = lastBar && activeLock.anchorClosedTime && (lastBar.time > activeLock.anchorClosedTime);
+
+    // 2. Cek apakah level Stop Loss sudah tertembus SEBELUM order sempat terisi secara wajar (INVALIDATED)
+    // PENTING: Jika harga pasar saat ini atau low/high candle sudah menembus Stop Loss,
+    // order limit TIDAK BOLEH dianggap terisi! Setup ini batal/invalid, BUKAN Stop Loss Hit!
+    const slBreachedBeforeFill = isLong
+      ? (livePrice <= sl || (isNewBar && lastBar.low <= sl))
+      : (livePrice >= sl || (isNewBar && lastBar.high >= sl));
+
+    if (slBreachedBeforeFill) {
+      console.log(`  [${sym} ${tf}] 🚫 Setup batal — harga menembus level SL (${formatP(sl, sym)}) sebelum limit order terjemput.`);
+      if (ageMs <= 24 * 3600 * 1000) {
+        const invMsg =
+          `🚫 <b>[XSTARZG 24/7 CLOUD — SETUP BATAL / INVALIDASI]</b>\n\n` +
+          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>INVALIDATED (Struktur Berubah Sebelum Terisi)</b>\n\n` +
+          `⚠️ <b>AKSI WAJIB BAGI TRADER:</b>\n` +
+          `<i>Batalkan (cancel) antrian limit order ini pada exchange/broker Anda sekarang! Harga telah melampaui level proteksi tanpa menjemput antrian secara wajar. Setup tidak lagi valid!</i>`;
+        const invMsgEn =
+          `🚫 <b>[XSTARZG 24/7 CLOUD — SETUP CANCELLED / INVALIDATED]</b>\n\n` +
+          `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>INVALIDATED (Structure Shifted Before Fill)</b>\n\n` +
+          `⚠️ <b>REQUIRED ACTION:</b>\n` +
+          `<i>Cancel this pending limit order on your broker/exchange now! Price breached protection level without orderly fill. Setup is no longer valid!</i>`;
+        await sendFn(invMsg, { id: invMsg, en: invMsgEn });
+      }
+      await syncJournalToCloud({
+        action: 'record_outcome',
+        outcome: {
+          symbol: sym,
+          tf: activeLock.tf,
+          status: 'CANCELLED',
+          reason: 'Harga menembus batas proteksi sebelum order terisi',
+          at: Date.now()
+        }
+      });
+      delete cache.slPlusLocks[sym];
+      return;
+    }
+
+    // 3. Cek apakah target sudah tercapai sebelum order sempat dijemput (MISSED)
+    const missed = isLong ? (livePrice >= tp1 || (isNewBar && lastBar.high >= tp1)) : (livePrice <= tp1 || (isNewBar && lastBar.low <= tp1));
+    if (missed) {
+      console.log(`  [${sym} ${tf}] ↗️ Order terlewat (MISSED) — target tercapai sebelum terjemput.`);
+      if (ageMs <= 24 * 3600 * 1000) {
+        const cancelMsg =
+          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER TERLEWAT / BATALKAN]</b>\n\n` +
+          `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>TARGET TERCAPAI SEBELUM TERISI (MISSED)</b>\n\n` +
+          `⚠️ <b>AKSI WAJIB:</b>\n` +
+          `<i>Segera batalkan (cancel) antrian limit order Anda pada exchange/broker sekarang! Target sudah tersentuh duluan tanpa menjemput antrian. Jangan biarkan order menggantung!</i>`;
+        const cancelMsgEn =
+          `⌛ <b>[XSTARZG 24/7 CLOUD — ORDER MISSED / CANCEL PENDING]</b>\n\n` +
+          `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+          `Setup: <b>${isLong ? '🟢 BUY' : '🔴 SELL'} LIMIT @ ${formatP(entry, sym)}</b>\n` +
+          `Status: <b>TARGET REACHED BEFORE FILL (MISSED)</b>\n\n` +
+          `⚠️ <b>REQUIRED ACTION:</b>\n` +
+          `<i>Cancel your pending limit order on your broker/exchange now! Target was reached before tagging entry. Do not leave unfilled orders hanging!</i>`;
+        await sendFn(cancelMsg, { id: cancelMsg, en: cancelMsgEn });
+      }
+      await syncJournalToCloud({
+        action: 'record_outcome',
+        outcome: {
+          symbol: sym,
+          tf: activeLock.tf,
+          status: 'MISSED',
+          reason: 'Target tercapai sebelum limit order terisi',
+          at: Date.now()
+        }
+      });
+      delete cache.slPlusLocks[sym];
+      return;
+    }
+
+    // 4. Batalkan jika harga pasar saat ini sudah terlalu jauh (> 3x ATR) dari titik antri entry
+    const entryDist = Math.abs(livePrice - entry);
+    const maxPendingAtr = 3.0 * (activeLock.atr || (entry * 0.015));
+    if (entryDist > maxPendingAtr) {
+      console.log(`  [${sym} ${tf}] ↗️ Harga pasar (${formatP(livePrice, sym)}) sudah terlalu jauh dari entry (${formatP(entry, sym)}). Order dibatalkan.`);
+      if (ageMs <= 24 * 3600 * 1000) {
         const cancelMsg =
           `🚫 <b>[XSTARZG 24/7 CLOUD — HARGA MENJAUH / BATALKAN ORDER]</b>\n\n` +
           `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
@@ -851,20 +954,44 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `⚠️ <b>REQUIRED ACTION:</b>\n` +
           `<i>Cancel your pending limit order on your broker/exchange now! Price has moved too far away without tagging entry. Avoid chasing price!</i>`;
         await sendFn(cancelMsg, { id: cancelMsg, en: cancelMsgEn });
-        await syncJournalToCloud({
-          action: 'record_outcome',
-          outcome: {
-            symbol: sym,
-            tf: activeLock.tf,
-            status: 'CANCELLED',
-            reason: 'Harga pasar melaju terlalu jauh tanpa menjemput antrian limit order',
-            at: Date.now()
-          }
-        });
-        delete cache.slPlusLocks[sym];
-        return;
       }
-      // Order belum terisi -> JANGAN PERNAH mengevaluasi SL+!
+      await syncJournalToCloud({
+        action: 'record_outcome',
+        outcome: {
+          symbol: sym,
+          tf: activeLock.tf,
+          status: 'CANCELLED',
+          reason: 'Harga pasar melaju terlalu jauh tanpa menjemput antrian limit order',
+          at: Date.now()
+        }
+      });
+      delete cache.slPlusLocks[sym];
+      return;
+    }
+
+    // 5. Cek keterisian limit order yang sah
+    let gotFilled = false;
+    if (isLong) {
+      if ((livePrice <= entry && livePrice > sl) || (isNewBar && lastBar.low <= entry && lastBar.low > sl)) {
+        gotFilled = true;
+      }
+    } else {
+      if ((livePrice >= entry && livePrice < sl) || (isNewBar && lastBar.high >= entry && lastBar.high < sl)) {
+        gotFilled = true;
+      }
+    }
+
+    if (gotFilled) {
+      activeLock.filled = true;
+      activeLock.status = 'FILLED';
+      activeLock.filledAt = Date.now();
+      activeLock.fillBarTime = lastBar ? lastBar.time : Date.now();
+      console.log(`  [${sym} ${tf}] 🔔 Limit Order TERJEMPUT pada ${formatP(entry, sym)}! Posisi aktif dipantau.`);
+      await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
+      // PENTING: Langsung keluar agar tidak memicu evaluasi Stop Loss instan pada tick penjemputan!
+      return;
+    } else {
+      // Order belum terisi dan masih valid menunggu di buku order
       return;
     }
   }
@@ -970,37 +1097,72 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   const wasAlertedSlPlus = !!(activeLock.notifiedSlPlus || activeLock.slPlusAlerted);
   const effectiveSl = (wasAlertedSlPlus && activeLock.slPlus) ? Number(activeLock.slPlus) : sl;
   const sameBarAsSlPlus = wasAlertedSlPlus && activeLock.slPlusBarTime === lastBar.time;
+  const sameBarAsFill = activeLock.fillBarTime && activeLock.fillBarTime === lastBar.time;
+
   const slHit = isLong
-    ? (livePrice <= effectiveSl || (!sameBarAsSlPlus && lastBar.low <= effectiveSl))
-    : (livePrice >= effectiveSl || (!sameBarAsSlPlus && lastBar.high >= effectiveSl));
+    ? (livePrice <= effectiveSl || (!sameBarAsSlPlus && !sameBarAsFill && lastBar.low <= effectiveSl))
+    : (livePrice >= effectiveSl || (!sameBarAsSlPlus && !sameBarAsFill && lastBar.high >= effectiveSl));
+
   if (slHit) {
     const isBeExit = wasAlertedSlPlus;
     console.log(`  [${sym} ${tf}] ${isBeExit ? '🛡️ Posisi terselamatkan SL+ BE+ (0-Risk)' : '❌ Posisi menyentuh Stop Loss'} (${formatP(effectiveSl, sym)}). Pengawasan selesai.`);
-    const slMsg = isBeExit ?
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — TERSELAMATKAN SL+ (0-RISK)]</b>\n\n` +
-      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Level Keluar: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
-      `🛡️ <i>Posisi keluar pada proteksi SL+ 0-Risk! Modal trading Anda terlindungi 100% tanpa kerugian.</i>`
-      :
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS TERSENTUH]</b>\n\n` +
-      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
-      `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
-    const slMsgEn = isBeExit ?
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — SAVED BY SL+ (0-RISK)]</b>\n\n` +
-      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Exit Level: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
-      `🛡️ <i>Position closed at SL+ 0-Risk safety lock! 100% of your trading capital preserved with zero loss.</i>`
-      :
-      `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS HIT]</b>\n\n` +
-      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Stop Loss Level: <b>${formatP(sl, sym)} HIT</b>\n\n` +
-      `🛡️ <i>Disciplined cut loss protects your trading capital according to Money Management rules. Position closed.</i>`;
-    await sendFn(slMsg, { id: slMsg, en: slMsgEn });
+
+    if (!isBeExit) {
+      cache.slHitsThisRun = (cache.slHitsThisRun || 0) + 1;
+    }
+
+    let shouldAlert = true;
+    if (!isBeExit && (cache.slHitsThisRun || 0) > 2) {
+      shouldAlert = false;
+      if (cache.slHitsThisRun === 3) {
+        const breakerMsg =
+          `🛡️ <b>[XSTARZG 24/7 CLOUD — PORTFOLIO RISK GUARD (COOLDOWN)]</b>\n\n` +
+          `⚠️ <b>DETEKSI VOLATILITAS TINGGI SERENTAK:</b>\n` +
+          `Terdeteksi ≥ 3 posisi menyentuh Stop Loss dalam siklus yang sama pada pasar terkini.\n\n` +
+          `🔒 <b>TINDAKAN OTOMATIS BOT:</b>\n` +
+          `• Menghentikan notifikasi beruntun ke HP Anda untuk menjaga ketenangan trader.\n` +
+          `• Mengaktifkan jeda protektif (circuit breaker) pada sinyal baru demi mencegah overtrading.\n` +
+          `• Modal & batas risiko portofolio tetap terjaga sesuai kaidah Money Management ketat.`;
+        const breakerMsgEn =
+          `🛡️ <b>[XSTARZG 24/7 CLOUD — PORTFOLIO RISK GUARD (COOLDOWN)]</b>\n\n` +
+          `⚠️ <b>HIGH MARKET VOLATILITY DETECTED:</b>\n` +
+          `≥ 3 positions hit Stop Loss in the current cycle due to correlated market movements.\n\n` +
+          `🔒 <b>AUTOMATIC BOT ACTION:</b>\n` +
+          `• Throttling consecutive alerts to preserve trader psychology.\n` +
+          `• Engaging protective cooldown on new signals to prevent overtrading.\n` +
+          `• Portfolio risk remains strictly capped according to Institutional Money Management.`;
+        await sendFn(breakerMsg, { id: breakerMsg, en: breakerMsgEn });
+      }
+    }
+
+    if (shouldAlert) {
+      const slMsg = isBeExit ?
+        `🛡️ <b>[XSTARZG 24/7 CLOUD — TERSELAMATKAN SL+ (0-RISK)]</b>\n\n` +
+        `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Level Keluar: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
+        `🛡️ <i>Posisi keluar pada proteksi SL+ 0-Risk! Modal trading Anda terlindungi 100% tanpa kerugian.</i>`
+        :
+        `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS TERSENTUH]</b>\n\n` +
+        `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Level SL: <b>${formatP(sl, sym)} TERSENTUH</b>\n\n` +
+        `🛡️ <i>Disiplin cut loss menjaga modal trading Anda terlindungi sesuai kaidah Money Management. Posisi ditutup.</i>`;
+      const slMsgEn = isBeExit ?
+        `🛡️ <b>[XSTARZG 24/7 CLOUD — SAVED BY SL+ (0-RISK)]</b>\n\n` +
+        `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Exit Level: <b>${formatP(effectiveSl, sym)} (BE+ EXIT)</b>\n\n` +
+        `🛡️ <i>Position closed at SL+ 0-Risk safety lock! 100% of your trading capital preserved with zero loss.</i>`
+        :
+        `🛡️ <b>[XSTARZG 24/7 CLOUD — STOP LOSS HIT]</b>\n\n` +
+        `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Stop Loss Level: <b>${formatP(sl, sym)} HIT</b>\n\n` +
+        `🛡️ <i>Disciplined cut loss protects your trading capital according to Money Management rules. Position closed.</i>`;
+      await sendFn(slMsg, { id: slMsg, en: slMsgEn });
+    }
+
     await syncJournalToCloud({
       action: 'record_outcome',
       outcome: {
@@ -1036,6 +1198,11 @@ async function scanInstrument(inst, cache) {
       if (!candles || candles.length < 35) {
         candles = await fetchFromXstarzgApi(sym, tf);
       }
+      // Backup 1:1 Spot London Gold PAXGUSDT langsung dari Binance (24/7 nonstop, 0 rate limit)
+      if ((!candles || candles.length < 35) && (sym === 'XAU/USD' || sym === 'GOLD')) {
+        const binTf = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
+        candles = await fetchBinanceCandles('PAXG/USDT', binTf);
+      }
     }
 
     if (!candles || candles.length < 35) {
@@ -1066,6 +1233,7 @@ async function runSentinel() {
   const cache = loadCache();
   await syncActiveLocksFromCloud(cache);
   cache.newAlertsThisRun = 0;
+  cache.slHitsThisRun = 0;
 
   const btcTrend = await resolveBtcMacroTrend();
   console.log(`🪙 [Makro Kripto] Tren Utama Bitcoin: ${btcTrend}`);
@@ -1079,4 +1247,7 @@ async function runSentinel() {
   console.log('🏁 [XSTARZG SENTINEL] Pemindaian selesai.');
 }
 
-runSentinel();
+const isDirectExecution = Boolean(process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]));
+if (isDirectExecution || process.env.RUN_SENTINEL === 'true' || process.argv.includes('--run') || process.argv.includes('--test')) {
+  runSentinel();
+}
