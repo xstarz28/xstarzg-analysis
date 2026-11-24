@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2026.88';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2026.89';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -127,7 +127,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2026.88';
+    bootScript.src = '/js/engine-boot.js?v=2026.89';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -6518,6 +6518,8 @@ function syncModeSections() {
   if (journalWrap) journalWrap.classList.toggle('hidden', !isJournal);
   if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
   if (invSec) invSec.classList.toggle('hidden', !isInv);
+  var investorMacro = $id('investorMacroContextSection');
+  if (investorMacro) investorMacro.classList.toggle('hidden', !isInv);
   if (typeof syncModeButtonLabels === 'function') syncModeButtonLabels();
 }
 function syncModeButtonLabels() {
