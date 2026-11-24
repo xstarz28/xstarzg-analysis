@@ -3,8 +3,7 @@ name: XStarZG 24/7 Manual Position Monitor
 on:
   schedule:
     # Pemantauan posisi manual aktif setiap 15 menit; tidak melakukan discovery instrumen baru
-    - cron: '*/30 * * * *'
-    - cron: '15,45 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     # Tombol pemicu manual di dashboard GitHub ("Run workflow")
     inputs:
