@@ -3302,8 +3302,7 @@ function memeJournalStore() {
       // Preserve rows created through the manual journal form or explicit DEX analysis.
       var id = String(item && item.id || '');
       var isManualId = /^meme_\d+$/.test(id) || /^dex_\d+$/.test(id);
-      return item && !item.isAuto && item.source !== 'AUTO_RADAR' &&
-        (!/^(meme_|dex_rec_)/.test(id) || isManualId);
+      return item && !item.isAuto && item.source !== 'AUTO_RADAR' && isManualId;
     });
     if (cleaned.length !== parsed.length) saveMemeJournalStore(cleaned);
     return cleaned;
