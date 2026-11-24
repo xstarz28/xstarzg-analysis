@@ -51,8 +51,10 @@ function isSentinelRequest(request, env) {
 }
 
 function isVerifiedOwner(auth) {
-  return !!(auth && isOwnerEmail(auth.email) &&
-    (auth.role === 'owner' || auth.tier === 'OWNER_VIP' || auth.isOwner === true));
+  // Owner identity is the allow-listed email in a cryptographically verified JWT.
+  // Public login intentionally issues FREE tier even for owner email, so tier/role
+  // cannot be the authorization source for this endpoint.
+  return !!(auth && isOwnerEmail(auth.email));
 }
 
 function response(body, status = 200) {
@@ -173,7 +175,10 @@ export async function onRequestPost(context) {
     if (action === 'save_lock' && lock && lock.symbol && lock.tf) {
       const id = `${String(lock.symbol).toUpperCase()}|${lock.tf}`;
       const resetAt = await readResetAt(env.DB);
-      const issuedAt = Number(lock.issuedAt || lock.created) || Date.now();
+      const issuedAt = Number(lock.issuedAt || lock.created);
+      if (!Number.isFinite(issuedAt) || issuedAt <= 0) {
+        return response({ ok: false, error: 'Lock wajib memiliki timestamp penerbitan yang valid.' }, 400);
+      }
       if (issuedAt < resetAt) return response({ ok: false, error: 'Lock berasal dari riwayat sebelum reset jurnal.' }, 409);
 
       if (!env.DB) {
