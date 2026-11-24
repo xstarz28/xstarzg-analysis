@@ -74,8 +74,8 @@
         },
         "featureList": [
           "Presisi 28-Pillar Confluence (EMA Ribbon, VWAP, FVG, BOS, Liquidity Sweep)",
-          "Radar Peluang Real-Time Multi-Aset (Crypto, Forex & Komoditas, Saham IDX)",
-          "Radar Khusus Koin Micin & DEX Gems (Solana, Base, BSC Anti-Rug)",
+          "Analisis teknikal instrumen secara manual setelah simbol dipilih pengguna",
+          "Analisis pasangan pasar dan OHLCV token DEX berdasarkan alamat kontrak manual",
           "Kalkulator Manajemen Risiko Institusional (Position Sizing & Invalidation Levels)",
           "Redundansi Multi-Exchange Broker (Binance, Bybit, MEXC, BingX)",
           "Kalender Berita Ekonomi Institusional Makro & High-Impact Alert"
@@ -792,7 +792,7 @@
           <div id="journalSummary" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
 
-        <!-- Segment Tabs: Jurnal Trader vs Jurnal Investor vs Jurnal DEX Micin -->
+        <!-- Segment Tabs: Jurnal Trader, Investor, and manually recorded DEX positions -->
         <div id="journalGroupTabs" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid rgba(51,65,85,0.5);padding-bottom:12px;">
           <button type="button" class="hz-btn jnl-tab-btn active" id="btnTabJnlTrader" data-group="trader" style="font-size:12px;padding:8px 16px;border-radius:8px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
             <span>🎯</span> <span id="lblTabJnlTrader">Jurnal Trader (Futures &amp; FX)</span> <span id="badgeCountJnlTrader" style="padding:1px 7px;border-radius:99px;background:rgba(56,189,248,0.25);color:#38bdf8;font-size:10px;font-weight:800;">0</span>
@@ -801,7 +801,7 @@
             <span>💼</span> <span id="lblTabJnlInvestor">Jurnal Investor (Spot DCA &amp; Valuasi)</span> <span id="badgeCountJnlInvestor" style="padding:1px 7px;border-radius:99px;background:rgba(16,185,129,0.25);color:#34d399;font-size:10px;font-weight:800;">0</span>
           </button>
           <button type="button" class="hz-btn jnl-tab-btn" id="btnTabJnlMeme" data-group="meme" style="font-size:12px;padding:8px 16px;border-radius:8px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
-            <span>🚀</span> <span id="lblTabJnlMeme">Jurnal DEX Micin (Solana &amp; EVM)</span> <span id="badgeCountJnlMeme" style="padding:1px 7px;border-radius:99px;background:rgba(168,85,247,0.25);color:#c084fc;font-size:10px;font-weight:800;">0</span>
+            <span>🔬</span> <span id="lblTabJnlMeme">Jurnal Posisi Token DEX (Solana &amp; EVM)</span> <span id="badgeCountJnlMeme" style="padding:1px 7px;border-radius:99px;background:rgba(168,85,247,0.25);color:#c084fc;font-size:10px;font-weight:800;">0</span>
           </button>
         </div>
 
@@ -818,16 +818,16 @@
           </button>
         </div>
 
-        <!-- Group Sub-Bar: DEX Meme Portfolio Actions -->
+        <!-- Group Sub-Bar: Manually recorded DEX positions -->
         <div id="memeJournalBar" class="hidden" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:12px 16px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.3);border-radius:10px;">
           <div id="memePortfolioSummary" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11.5px;">
-            <span style="color:#cbd5e1;"><span id="lblMemePortTitle">🚀 <strong>Portofolio Koin Micin:</strong></span></span>
-            <span style="color:#cbd5e1;"><span id="lblMemeTotalCoins">Total Koin:</span> <b id="memeStatCount" style="color:#f8fafc;">0</b></span>
+            <span style="color:#cbd5e1;"><span id="lblMemePortTitle">🔬 <strong>Posisi Token DEX:</strong></span></span>
+            <span style="color:#cbd5e1;"><span id="lblMemeTotalCoins">Total Posisi:</span> <b id="memeStatCount" style="color:#f8fafc;">0</b></span>
             <span style="color:#cbd5e1;"><span id="lblMemeBestGain">Best Multiplier:</span> <b id="memeStatBestGain" style="color:#c084fc;">1.0x</b></span>
-            <span style="color:#cbd5e1;"><span id="lblMemeProtectedCap">Modal Terlindungi:</span> <b id="memeStatSafeCount" style="color:#34d399;">0 Koin 2x (0-Risk)</b></span>
+            <span style="color:#cbd5e1;"><span id="lblMemeProtectedCap">Modal Terlindungi:</span> <b id="memeStatSafeCount" style="color:#34d399;">0 Posisi</b></span>
           </div>
           <button type="button" id="btnOpenAddMemeModal" class="btn-primary-glow" style="padding:7px 14px;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;border-radius:8px;background:linear-gradient(135deg,#9333ea,#7c3aed);">
-            <span>➕</span> <span id="lblBtnAddMeme">Catat Koin Micin Baru</span>
+            <span>➕</span> <span id="lblBtnAddMeme">Catat Posisi Token DEX</span>
           </button>
         </div>
 
@@ -1083,24 +1083,24 @@
     </div>
   </div>
 
-  <!-- ================= MODAL: TAMBAH CATATAN KOIN MICIN DEX ================= -->
+  <!-- ================= MODAL: TAMBAH POSISI TOKEN DEX MANUAL ================= -->
   <div id="addMemeModal" class="modal-backdrop hidden">
     <div class="modal-box" style="max-width:440px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:20px;">🚀</span>
-          <h3 id="lblAddMemeTitle" style="margin:0;font-size:16px;color:#f8fafc;">Catat Pembelian Koin Micin DEX</h3>
+          <h3 id="lblAddMemeTitle" style="margin:0;font-size:16px;color:#f8fafc;">Catat Posisi Token DEX</h3>
         </div>
         <button type="button" id="btnCloseAddMemeModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
       </div>
       <p id="lblAddMemeDesc" style="margin:0 0 14px;font-size:12px;color:#94a3b8;line-height:1.4;">
-        Pantau kelipatan keuntungan (2x, 5x, 10x) koin micin Anda secara live dan ikuti Golden Rules untuk mengamankan modal awal.
+        Masukkan identitas token, jaringan, harga beli, dan alamat kontrak yang valid. Harga berjalan hanya diperbarui saat analisis DEX dijalankan secara manual.
       </p>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
           <div>
-            <label id="lblAddMemeSym" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Simbol Koin (mis. PNUT, BRETT)</label>
-            <input type="text" id="inpAddMemeSymbol" class="ctrl-input" placeholder="misal: PNUT" style="width:100%;padding:8px 10px;" />
+            <label id="lblAddMemeSym" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Simbol Token</label>
+            <input type="text" id="inpAddMemeSymbol" class="ctrl-input" placeholder="misal: TOKEN" style="width:100%;padding:8px 10px;" />
           </div>
           <div>
             <label id="lblAddMemeChain" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Jaringan (Chain)</label>
@@ -1123,13 +1123,13 @@
           </div>
         </div>
         <div>
-          <label id="lblAddMemeCA" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Contract Address / CA (Opsional)</label>
-          <input type="text" id="inpAddMemeCA" class="ctrl-input" placeholder="misal: 2qEH...An2" style="width:100%;padding:8px 10px;" />
+          <label id="lblAddMemeCA" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Contract Address / Token Mint (Wajib)</label>
+          <input type="text" id="inpAddMemeCA" class="ctrl-input" required placeholder="Masukkan alamat kontrak lengkap" style="width:100%;padding:8px 10px;" />
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;">
         <button type="button" id="btnCancelAddMemeModal" class="btn-secondary-outline" style="padding:8px 14px;font-size:12px;">Batal</button>
-        <button type="button" id="btnSubmitAddMeme" class="btn-primary-glow" style="padding:8px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#9333ea,#7c3aed);">🚀 Simpan Koin</button>
+        <button type="button" id="btnSubmitAddMeme" class="btn-primary-glow" style="padding:8px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#9333ea,#7c3aed);">🔬 Simpan Posisi</button>
       </div>
     </div>
   </div>
