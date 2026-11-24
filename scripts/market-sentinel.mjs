@@ -536,9 +536,6 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   if (!(livePrice > 0)) return;
 
   // Process only a previously saved journal lock. No new signal, entry recommendation or instrument ranking.
-  const activeLock = cache.slPlusLocks && cache.slPlusLocks[sym];
-  if (!activeLock || (activeLock.tf && activeLock.tf !== tf)) return;
-
   // 2. Pemantauan Posisi & SL+ (0-Risk Break-Even Plus Trigger)
   const activeLock = cache.slPlusLocks[sym];
   if (!activeLock) return;
