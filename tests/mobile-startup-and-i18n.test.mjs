@@ -113,4 +113,11 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(controllerHandler.includes('Never force a page reload'), 'controllerchange tidak memicu reload paksa');
     assert.ok(!controllerHandler.includes('window.location.reload()'), 'controllerchange tidak berisi location.reload');
   });
+
+  await t.test('20. radar auto-pilot berhenti saat workspace tersembunyi', () => {
+    const pilotStart = appJs.indexOf('function startRadarAutoPilot()');
+    const pilotEnd = appJs.indexOf('var __xsBootCoreStarted', pilotStart);
+    const pilot = appJs.slice(pilotStart, pilotEnd);
+    assert.ok(pilot.includes("workspace.classList.contains('hidden')"), 'auto-pilot memeriksa visibilitas workspace');
+  });
 });
