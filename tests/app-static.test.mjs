@@ -230,8 +230,8 @@ chk('advisory peringatan SL+ proteksi 0-Risk untuk setup sniper', /SNIPER ADVISO
 chk('UI radar Trader/Investor dihapus', !/id="(?:traderRadarSection|investorRadarSection|opportunityRadarGrid|investorPicksGrid)"/.test(html));
 chk('macro context Investor tetap tersedia', html.includes('id="investorMacroContextSection"') && html.includes('id="macroMapBox"'));
 chk('workspace manual Trader/Investor tetap tersedia', html.includes('id="traderInvestorWorkspaceWrap"') && html.includes('id="investorMacroContextSection"'));
-chk('engine tidak melakukan analisis tanpa pilihan instrumen manual', /function runFullAnalysis[\s\S]*?if \(!state\.manualInstrumentSelection\)/.test(app));
-chk('workspace entry tidak menghasilkan seed candles otomatis', /function enterWorkspace\(\) \{[\s\S]*?if \(!state\.manualInstrumentSelection\)/.test(app));
+chk('engine tidak melakukan analisis tanpa pilihan instrumen manual', app.includes('window.runFullAnalysis = async function') && app.includes('if (!state.manualInstrumentSelection)'));
+chk('workspace entry tidak menghasilkan seed candles otomatis', app.includes('function enterWorkspace() {') && app.includes('if (!state.manualInstrumentSelection)'));
 /* MULTI-EXCHANGE EXPANSION (BINGX & MEXC) GEMS & HERO STATS LINT */
 chk('katalog crypto memuat token unggulan BingX & MEXC (KAS, SUPER, POPCAT, BRETT, VIRTUAL, SPX, RAY, OM)',
   /mkCrypto\('KAS'/.test(R('../public/js/shared/quant-core.js')) &&
