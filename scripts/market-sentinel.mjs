@@ -583,7 +583,7 @@ export const WATCHLIST = [
   ])
 ];
 
-export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE }) {
+export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE, allowNewSignals = true }) {
   const { sym, tf, hz } = inst;
   if (!candles || candles.length < 35 || !a || a.error) return;
 
@@ -605,7 +605,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   // DILARANG membuka LONG pada altcoin jika BTC makro sedang BEARISH kuat
   const btcTrend = inst.btcTrend || null;
   const isAltcoin = inst.type === 'crypto' && sym !== 'BTC/USDT';
-  if (isAltcoin && btcTrend) {
+  if (allowNewSignals && isAltcoin && btcTrend) {
     if (btcTrend === 'BULLISH' && dir === 'SHORT') {
       console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BETA GUARD] SHORT dibatalkan: BTC makro sedang BULLISH kuat. Dilarang melawan arus utama kripto!`);
       return;
@@ -619,7 +619,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   // Anti-Correlation Basket Guard untuk Kripto:
   // Maksimal 2 posisi crypto dengan arah yang sama (LONG atau SHORT) yang boleh aktif bersamaan!
   // Mencegah kerugian beruntun (basket wipeout) saat seluruh altcoin bergerak serempak mengikuti BTC!
-  if (inst.type === 'crypto' && dir) {
+  if (allowNewSignals && inst.type === 'crypto' && dir) {
     const activeCryptoSameDir = Object.values(cache.slPlusLocks || {}).filter(l =>
       l && l.symbol && (l.symbol.includes('/USDT') || l.symbol.includes('BTC') || l.symbol.includes('ETH')) &&
       l.direction === dir && (l.status === 'PENDING_FILL' || l.status === 'FILLED' || l.status === 'ACTIVE')
@@ -633,14 +633,14 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
   // Filter Khusus Emas (XAU/USD) untuk Keakuratan Kompetisi 7 Hari
   const isGold = sym === 'XAU/USD';
-  if (isGold) {
+  if (allowNewSignals && isGold) {
     if (a.sessionInfo && !a.sessionInfo.isOptimal && score < 80) {
       console.log(`  [XAU/USD ${tf}] 🟡 Emas di luar sesi likuiditas puncak London/NY — hanya sinyal skor ≥ 80% yang diizinkan.`);
       return;
     }
   }
 
-  if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
+  if (allowNewSignals && a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
     const L = a.levels || {};
     const anchorTime = a.anchorClosedTime || lastBar.time;
     const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
@@ -1178,7 +1178,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   }
 }
 
-async function scanInstrument(inst, cache) {
+async function scanInstrument(inst, cache, allowNewSignals = true) {
   const { sym, tf, type } = inst;
   if (!isAssetMarketOpen(sym)) {
     console.log(`  [${sym} ${tf}] Sesi bursa tutup (akhir pekan). Pemindaian dilewati.`);
@@ -1211,7 +1211,7 @@ async function scanInstrument(inst, cache) {
     }
 
     const a = runFullAnalysis({ symbol: sym, timeframe: tf, candles });
-    await processInstrumentAnalysis({ inst, candles, a, cache });
+    await processInstrumentAnalysis({ inst, candles, a, cache, allowNewSignals });
   } catch (err) {
     console.log(`  [${sym} ${tf}] Fetch/analisis dilewati: ${err.message}`);
   }
@@ -1235,15 +1235,38 @@ async function runSentinel() {
   cache.newAlertsThisRun = 0;
   cache.slHitsThisRun = 0;
 
-  const btcTrend = await resolveBtcMacroTrend();
-  console.log(`🪙 [Makro Kripto] Tren Utama Bitcoin: ${btcTrend}`);
-
-  const concurrency = 6;
-  for (let i = 0; i < WATCHLIST.length; i += concurrency) {
-    const chunk = WATCHLIST.slice(i, i + concurrency);
-    await Promise.all(chunk.map(inst => scanInstrument({ ...inst, btcTrend }, cache)));
+  // The terminal is manual-analysis only. The cloud job may only monitor existing
+  // journal locks to maintain TP/SL outcomes; it must never discover new instruments
+  // or issue unsolicited entry recommendations.
+  const terminalStatuses = new Set(['STRUCTURE_INVALID', 'EXPIRED', 'CANCELLED', 'MISSED', 'TP_HIT', 'SL_HIT', 'BE_SAVED']);
+  const targetsByKey = new Map();
+  for (const lock of Object.values(cache.slPlusLocks || {})) {
+    if (!lock || !lock.symbol || !lock.tf || terminalStatuses.has(lock.status)) continue;
+    const sym = String(lock.symbol).toUpperCase();
+    const tf = String(lock.tf).toUpperCase();
+    const watch = WATCHLIST.find(x => x.sym === sym && x.tf === tf);
+    const hz = ['M1', 'M5', 'M15'].includes(tf) ? 'scalping'
+      : ['D1', 'W1', 'MN', '1Y'].includes(tf) ? 'swing' : 'intraday';
+    targetsByKey.set(sym + '|' + tf, watch || {
+      sym, tf,
+      type: sym.includes('/USDT') ? 'crypto' : 'market',
+      hz
+    });
   }
-  saveCache(cache);
+
+  const targets = Array.from(targetsByKey.values());
+  if (!targets.length) {
+    console.log('ℹ️ [XSTARZG JOURNAL MONITOR] Tidak ada lock aktif. Auto-screening dan rekomendasi baru dinonaktifkan.');
+    saveCache(cache);
+    return;
+  }
+
+  console.log(`🛡️ [XSTARZG JOURNAL MONITOR] Memantau ${targets.length} instrumen dari lock jurnal yang sudah ada; tidak mencari sinyal baru.`);
+  const concurrency = 6;
+  for (let i = 0; i < targets.length; i += concurrency) {
+    const chunk = targets.slice(i, i + concurrency);
+    await Promise.all(chunk.map(inst => scanInstrument(inst, cache, false)));
+  }  saveCache(cache);
   console.log('🏁 [XSTARZG SENTINEL] Pemindaian selesai.');
 }
 
