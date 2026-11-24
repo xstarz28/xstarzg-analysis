@@ -83,6 +83,30 @@ function loadSession() {
   } catch (e) { return null; }
 }
 
+var __xsChartVendorRequested = false;
+function ensureChartVendorLoaded() {
+  try {
+    if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
+    __xsChartVendorRequested = true;
+    var chartScript = document.createElement('script');
+    chartScript.src = '/vendor/lightweight-charts.js?v=2026.88';
+    chartScript.onload = function () {
+      try {
+        if (!chartInstance && typeof initChart === 'function') initChart();
+        if (chartInstance && state.candles && state.candles.length && typeof renderAllVisuals === 'function') {
+          renderAllVisuals(state.lastAnalysis || null, true);
+        }
+      } catch (e) {}
+    };
+    chartScript.onerror = function () {
+      __xsChartVendorRequested = false;
+      // Canvas fallback remains available when the chart vendor is offline.
+    };
+    document.head.appendChild(chartScript);
+  } catch (e) {
+    __xsChartVendorRequested = false;
+  }
+}
 var __xsEngineBootRequested = false;
 function ensureQuantEnginesLoaded() {
   try {
@@ -106,7 +130,8 @@ var enterWorkspaceLock = 0;
 function enterWorkspace() {
   try {
     showScreen('work');
-    // Heavy quant/signal modules are deliberately loaded only after workspace entry.
+    // Heavy chart and quant/signal modules are loaded only after workspace entry.
+    ensureChartVendorLoaded();
     ensureQuantEnginesLoaded();
     var sk = document.getElementById('tvChartLoadingSkeleton');
     if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
