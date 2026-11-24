@@ -1721,18 +1721,20 @@ function computeQuickAnalysis(candles, symbol, tf) {
       vwapEntryText: 'Mode ringan — pantau pullback/reclaim VWAP', vwapDevAtr: 0, vwapEntryQuality: 50,
       erValue: 0.5, erNote: 'Mode ringan — menunggu engine kuantitatif penuh', quantEdgeScore: 50
     },
-    subScores: { trend: score, structure: score, momentum: Math.round(rsi), quantEdge: 50, cotBias: 52 },
+    subScores: { trend: score, structure: score, momentum: Math.round(rsi), quantEdge: 50, cotBias: null },
     fundamentalCot: {
-      institutionalBias: bull ? 'NET LONG BIAS' : bear ? 'NET SHORT BIAS' : 'NEUTRAL / MIXED',
-      specLongPct: bull ? 58 : bear ? 42 : 50, specShortPct: bull ? 42 : bear ? 58 : 50,
-      netSpecContracts: 0, weeklyDelta: 0,
-      commHedgerBias: 'MENUNGGU DATA CFTC TERBARU',
-      cotReportLabel: 'CFTC Disaggregated Commitments of Traders',
-      centralBankStance: 'Pantau keputusan suku bunga bank sentral terdekat',
-      macroRegime: bull ? 'RISK-ON' : 'SELEKTIF', dxyCorrelation: 'Korelasi DXY dinamis',
-      valuationMetrics: 'Valuasi wajar relatif terhadap rata-rata historis',
-      orderflowMetric: 'Orderflow netral', macroDriver: 'Sentimen pasar global',
-      upcomingCatalyst: 'Rilis data ekonomi terjadwal'
+      fundamentalStatus: 'NOT_CONNECTED', cotStatus: 'NOT_CONNECTED', valuationStatus: 'NOT_CONNECTED',
+      sourceVerified: false, institutionalBias: 'UNVERIFIED — no connected positioning feed',
+      specLongPct: null, specShortPct: null, netSpecContracts: null, weeklyDelta: null,
+      commHedgerBias: 'UNVERIFIED — no connected positioning feed',
+      cotReportLabel: 'COT / institutional positioning feed belum terhubung',
+      centralBankStance: 'Data suku bunga dan bank sentral terverifikasi belum terhubung',
+      macroRegime: 'Tidak disimpulkan dari candle instrumen ini',
+      dxyCorrelation: 'Membutuhkan feed DXY lintas aset tersinkron',
+      valuationMetrics: 'Data valuasi primer belum terhubung',
+      orderflowMetric: 'Orderflow institusional terverifikasi belum terhubung',
+      macroDriver: 'Fundamental harus diverifikasi dari sumber primer per kelas aset',
+      upcomingCatalyst: 'Gunakan Kalender Ekonomi dan pengumuman resmi'
     },
     backtest: { disabled: false, sampleSize: 0, winRate: 0, expectancyR: 0, profitFactor: 0, netR: 0, maxDrawdownR: 0, weakEvidence: true },
     reasons: [
@@ -2204,9 +2206,14 @@ function renderPillars(a) {
   if (macro) {
     var fc = a.fundamentalCot || {};
     var mq = a.macroQuant || { posCyclePct: 50, drawdownPct: 0, upClosesPct: 50, atrPercentile: 50, sessionQuality: '-', htfAligned: true };
-    var longPct = num(fc.specLongPct, 50);
+    var hasVerifiedCot = fc.specLongPct !== null && fc.specLongPct !== undefined &&
+      Number.isFinite(Number(fc.specLongPct)) && fc.sourceVerified === true;
+    var longPct = hasVerifiedCot ? Number(fc.specLongPct) : null;
     macro.innerHTML =
-      pillarHtml(T('ui.ePmCot', '1. CFTC COT — Posisi Institusi'), 'Long ' + longPct + '% / Short ' + (100 - longPct) + '%', (localizeEngineString(fc.cotReportLabel || 'CFTC COT')) + ' • ' + (localizeEngineString(fc.institutionalBias || '-')), longPct >= 55 ? 'bull' : longPct <= 45 ? 'bear' : 'neutral') +
+      pillarHtml(T('ui.ePmCot', '1. CFTC COT — Posisi Institusi'),
+        hasVerifiedCot ? ('Long ' + longPct + '% / Short ' + (100 - longPct) + '%') : 'DATA BELUM TERHUBUNG',
+        (localizeEngineString(fc.cotReportLabel || 'CFTC COT')) + ' • ' + (localizeEngineString(fc.institutionalBias || '-')),
+        hasVerifiedCot ? (longPct >= 55 ? 'bull' : longPct <= 45 ? 'bear' : 'neutral') : 'neutral') +
       pillarHtml(T('ui.ePmCb', '2. Bank Sentral & Suku Bunga'), localizeEngineString(fc.macroRegime || '-'), localizeEngineString(fc.centralBankStance || '-'), 'neutral') +
       // (fundamental terukur)
       pillarHtml(T('ui.ePmDxy', '3. Korelasi Dolar AS (DXY)'), localizeEngineString(fc.dxyCorrelation || '-'), null, 'neutral') +
@@ -2682,22 +2689,21 @@ function renderSentimentFlow(a) {
   var meterFill = $id('sentimentMeterFill');
   if (meterFill) meterFill.style.width = sentimentScore + '%';
 
-  var specLong = num(fc.specLongPct, 50);
+  var hasVerifiedPositioning = fc.specLongPct !== null && fc.specLongPct !== undefined &&
+    Number.isFinite(Number(fc.specLongPct)) && fc.sourceVerified === true;
+  var specLong = hasVerifiedPositioning ? Number(fc.specLongPct) : null;
   var flowTxt, flowCol;
-  if (specLong >= 58 || (isLong && score >= 75)) {
+  if (!hasVerifiedPositioning) {
+    flowTxt = 'POSITIONING DATA UNAVAILABLE';
+    flowCol = '#94a3b8';
+  } else if (specLong >= 58) {
     flowTxt = 'ACCUMULATION (SMART MONEY BUY)';
     flowCol = '#10b981';
-  } else if (specLong <= 42 || (isShort && score >= 75)) {
+  } else if (specLong <= 42) {
     flowTxt = 'DISTRIBUTION (SMART MONEY SELL)';
     flowCol = '#f43f5e';
-  } else if (isLong) {
-    flowTxt = 'NET BUY INFLOW';
-    flowCol = '#34d399';
-  } else if (isShort) {
-    flowTxt = 'NET SELL OUTFLOW';
-    flowCol = '#fb7185';
   } else {
-    flowTxt = 'BALANCED ROTATION';
+    flowTxt = 'VERIFIED POSITIONING NEUTRAL';
     flowCol = '#94a3b8';
   }
   setTxt('smartMoneyFlowTxt', flowTxt);
@@ -2796,7 +2802,6 @@ function renderAllVisuals(analysis) {
   try { renderPillars(analysis); } catch (e) {}
   var isFeedEst = !analysis || analysis.__estFeed || analysis.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(state.feedSource));
   if (!isFeedEst) {
-    try { writeBackRadarPools(analysis); } catch (e) {}
     try { checkSignalAlarm(analysis); } catch (e) {}
     try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
   }
