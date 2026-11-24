@@ -20,9 +20,13 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(appJs.includes('window.drawCanvasFallbackChart = drawCanvasFallbackChart'), 'drawCanvasFallbackChart harus diekspos ke window');
   });
 
-  await t.test('3. enterWorkspace memanggil seed candles tanpa crash dan merender visual instan', () => {
-    assert.ok(appJs.includes('fnSeed(state.symbol'), 'enterWorkspace memanggil fnSeed dengan fallback aman');
-    assert.ok(appJs.includes("renderAllVisuals(instant, true)"), 'enterWorkspace merender visual seketika 0ms');
+  await t.test('3. enterWorkspace menampilkan seed chart tanpa menghitung quant engine dua kali', () => {
+    const start = appJs.indexOf('function enterWorkspace()');
+    const end = appJs.indexOf("if (typeof window !== 'undefined') window.enterWorkspace", start);
+    const body = appJs.slice(start, end);
+    assert.ok(body.includes('fnSeed(state.symbol'), 'enterWorkspace menyiapkan seed candles sebagai preview');
+    assert.ok(body.includes('renderSeedCandlesPreview(state.candles)'), 'seed hanya dirender sebagai preview ringan');
+    assert.ok(!body.includes('computeQuantEngine('), 'seed tidak menjalankan quant engine sinkron saat masuk workspace');
   });
 
   await t.test('4. initChart menyembunyikan tvChartLoadingSkeleton pada semua kondisi mobile / fallback', () => {
