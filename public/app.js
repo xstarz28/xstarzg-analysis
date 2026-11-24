@@ -3298,7 +3298,7 @@ function memeJournalStore() {
     if (!Array.isArray(parsed)) return [];
     // Remove only old auto-imports from the retired scanner; retain user-created records.
     var cleaned = parsed.filter(function (item) {
-      return item && !item.isAuto && !String(item.id || '').startsWith('dex_rec_') &&
+      return item && !item.isAuto && item.source !== 'AUTO_RADAR' &&
         item.id !== 'meme_pnut' && item.id !== 'meme_brett';
     });
     if (cleaned.length !== parsed.length) saveMemeJournalStore(cleaned);
@@ -3726,7 +3726,7 @@ function renderSignalJournal() {
         (m.notes ? ('<div style="font-size:10.5px;color:#94a3b8;font-style:italic;">' + (isEn ? 'Notes: ' : 'Catatan: ') + escH(m.notes) + '</div>') : '') +
 
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;">' +
-          '<button type="button" class="hz-btn btn-open-meme-terminal" data-id="' + escH(m.id) + '"' style="font-size:11px;padding:5px 12px;border-radius:6px;background:rgba(168,85,247,0.22);color:#d8b4fe;font-weight:700;border:1px solid rgba(168,85,247,0.4);cursor:pointer;">' +
+          '<button type="button" class="hz-btn btn-open-meme-terminal" data-id="' + escH(m.id) + '" style="font-size:11px;padding:5px 12px;border-radius:6px;background:rgba(168,85,247,0.22);color:#d8b4fe;font-weight:700;border:1px solid rgba(168,85,247,0.4);cursor:pointer;">' +
             (isEn ? '🚀 Open DEX Terminal / Chart' : '🚀 Buka Terminal DEX / Chart') +
           '</button>' +
           '<button type="button" class="btn-del-meme" data-id="' + escH(m.id) + '" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;padding:4px 8px;" title="' + (isEn ? 'Remove from journal' : 'Hapus dari jurnal') + '">' +
