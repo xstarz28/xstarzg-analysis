@@ -115,14 +115,15 @@ test('AUDIT VERIFIKASI HASIL PREDIKSI BERITA EKONOMI (ANTI-OMONG KOSONG)', async
   });
 });
 
-test('SINKRONISASI OTOMATIS DEX MEME & ISOLASI INVESTOR DARI FLUKTUASI M5 SCALPING', async (t) => {
-  await t.test('DEX Meme Workspace menyinkronkan token rekomendasi teratas secara otomatis ke Jurnal Micin', () => {
-    assert.ok(appJs.includes('syncRecommendedMemeToJournal'), 'Harus ada fungsi syncRecommendedMemeToJournal');
-    assert.ok(appJs.includes('syncCuratedInvestorToJournal'), 'Harus ada fungsi syncCuratedInvestorToJournal');
+test('JURNAL INVESTOR & DEX TIDAK LAGI DIISI OLEH ENGINE REKOMENDASI', async (t) => {
+  await t.test('fungsi sinkronisasi rekomendasi Investor/DEX hanya mengembalikan daftar kosong', () => {
+    assert.match(appJs, /function syncRecommendedMemeToJournal\\(\\) \\{[\\s\\S]*?return \\[\\];/);
+    assert.match(appJs, /function syncCuratedInvestorToJournal\\(\\) \\{[\\s\\S]*?return \\[\\];/);
   });
 
-  await t.test('investorScanPool terlindungi dari kontaminasi time frame M5/scalping', () => {
-    assert.ok(appJs.includes("if (state.mode === 'investor' || tf === 'D1' || tf === 'W1')"), 'investorScanPool hanya menerima TF D1/W1 atau mode investor');
+  await t.test('jurnal Investor/DEX hanya membaca entri yang disimpan secara manual', () => {
+    assert.match(appJs, /function investorJournalStore\\(\\) \\{[\\s\\S]*?localStorage\\.getItem\\(INVESTOR_JOURNAL_KEY\\)/);
+    assert.match(appJs, /function memeJournalStore\\(\\) \\{[\\s\\S]*?localStorage\\.getItem\\(MEME_JOURNAL_KEY\\)/);
   });
 
   await t.test('checkSignalAlarm memblokir feed estimasi, seed lokal, dan pasar tutup', () => {
@@ -147,6 +148,10 @@ test('RESET RIWAYAT JURNAL BERSIH KE AWAL (CLEAR ALL HISTORY)', async (t) => {
     assert.ok(appJs.includes("localStorage.removeItem(SIGNAL_OUTCOME_KEY)"), 'Harus membersihkan SIGNAL_OUTCOME_KEY');
     assert.ok(appJs.includes("localStorage.removeItem(INVESTOR_JOURNAL_KEY)"), 'Harus membersihkan INVESTOR_JOURNAL_KEY');
     assert.ok(appJs.includes("localStorage.removeItem(MEME_JOURNAL_KEY)"), 'Harus membersihkan MEME_JOURNAL_KEY');
+    assert.ok(appJs.includes('JOURNAL_RESET_KEY'), 'Harus menyimpan reset marker lintas browser');
+    assert.ok(appJs.includes("JSON.stringify({ action: 'clear_all' })"), 'Harus menghapus jurnal bersama melalui API server');
+    assert.ok(appJs.includes("'Authorization': 'Bearer ' + token"), 'Reset harus mengirim sesi owner');
+    assert.ok(appJs.includes('applyCloudJournalReset(d.resetAt)'), 'Browser lain harus menerapkan reset cloud');
   });
 });
 
