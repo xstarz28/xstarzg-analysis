@@ -9925,6 +9925,10 @@ function startRadarAutoPilot() {
   window.__radarAutoTimer = setInterval(function () {
     try {
       if (typeof document !== 'undefined' && document.hidden) return;
+      // Do not run the automatic radar while the user is on the landing/login
+      // screens. This background scan was active even without the workspace.
+      var workspace = document.getElementById('appWorkspaceWrapper');
+      if (!workspace || workspace.classList.contains('hidden')) return;
       var force = (Date.now() - radarAutoLastForce) >= 4 * 60000;
       if (force) radarAutoLastForce = Date.now();
       if (state.mode === 'investor') renderInvestorPicks(force);
