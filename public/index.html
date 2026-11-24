@@ -148,7 +148,7 @@
           🏛️ SPOT INVESTOR (DCA &amp; VALUASI)
         </span>
         <span style="font-size:12px;font-weight:800;padding:6px 14px;border-radius:99px;background:rgba(168,85,247,0.15);color:#d8b4fe;border:1px solid rgba(168,85,247,0.45);">
-          🚀 MEME &amp; DEX GEMS (ANTI-RUG SCANNER)
+          🚀 DEX TOKEN (MANUAL ANALYSIS)
         </span>
       </div>
       <div class="hero-cta-row">
@@ -364,6 +364,7 @@
             <option value="SOL/USDT">SOL/USDT — Solana / Tether Spot</option>
           </optgroup>
         </select>
+        <button type="button" id="btnAnalyzeInstrument" class="btn-primary-glow" style="padding:7px 12px;font-size:11.5px;white-space:nowrap;">⚡ ANALISIS INSTRUMEN</button>
       </div>
       <div class="tf-bar" id="timeframeBar">
         <button type="button" class="tf-btn" data-tf="M1">M1</button>
@@ -656,224 +657,90 @@
         </div>
         <div id="macroPillarsGrid" class="pillars-grid"></div>
       </div>
-      <div class="section-card" id="traderRadarSection">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <div>
-            <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.radarTitle">📡 Daftar Sinyal Terkonfirmasi (Top-Down Market Alignment)</h3>
-            <div style="font-size:11px;color:#38bdf8;font-weight:600;">Analisis Terstruktur Searah Market: [1D–4H Arah &amp; Likuiditas] ➔ [1H–15m Struktur OB/FVG] ➔ [5m–1m Konfirmasi Entry] • Sesi Waktu Optimal</div>
-          </div>
-          <div class="radar-horizon-bar" id="radarHorizonBar" style="display:flex;align-items:center;gap:6px;">
-            <div class="hz-btn active" style="cursor:default;"><span style="color:#38bdf8;font-weight:800;">1D–4H</span> <small style="color:#cbd5e1;">Arah &amp; Likuiditas</small></div>
-            <span style="color:#64748b;font-weight:800;">➔</span>
-            <div class="hz-btn active" style="cursor:default;"><span style="color:#a855f7;font-weight:800;">1H–15m</span> <small style="color:#cbd5e1;">Struktur OB/FVG</small></div>
-            <span style="color:#64748b;font-weight:800;">➔</span>
-            <div class="hz-btn active" style="cursor:default;"><span style="color:#10b981;font-weight:800;">5m–1m</span> <small style="color:#cbd5e1;">Konfirmasi Entry</small></div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:8px 0 2px;">
-          <div class="radar-horizon-bar" id="radarGroupBar">
-            <button type="button" class="hz-btn active" data-rg="all"><span data-i18n="ui.rgAll">🌐 SEMUA (3 BAGAN)</span></button>
-            <button type="button" class="hz-btn" data-rg="crypto"><span data-i18n="ui.rgCrypto">🪙 KRIPTO</span></button>
-            <button type="button" class="hz-btn" data-rg="fx_comm"><span data-i18n="ui.rgFxComm">💱 FOREX &amp; KOMODITAS</span></button>
-            <button type="button" class="hz-btn" data-rg="stocks"><span data-i18n="ui.rgStocks">📈 SAHAM (GLOBAL &amp; IDX)</span></button>
-          </div>
-          <div id="radarHorizonInfo" style="font-size:11px;color:#94a3b8;"></div>
-        </div>
-        <div class="radar-viability-bar" id="radarViabilityBar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 4px;padding:6px 12px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.18);border-radius:10px;">
-          <span style="font-size:11px;font-weight:800;color:#cbd5e1;display:flex;align-items:center;gap:5px;margin-right:2px;">
-            <span>🎯</span> <span id="lblViabTitle">Kelayakan Entry Saat Buka:</span>
-          </span>
-          <button type="button" class="hz-btn active" data-viab="actionable" title="Hanya tampilkan instrumen yang masih bisa dimasuki untuk entry saat membuka XStarZG (Sinyal Baru &amp; Retest Pullback)">
-            <span>🎯 Layak Ikut Saja (Fresh &amp; Pullback)</span>
-          </button>
-          <button type="button" class="hz-btn" data-viab="fresh" title="Hanya tampilkan sinyal baru / antrean limit yang belum terjemput">
-            <span>⚡ Sinyal Baru Saja</span>
-          </button>
-          <button type="button" class="hz-btn" data-viab="running" title="Tampilkan sinyal yang sedang berjalan (termasuk yang pullback &amp; yang sudah jalan jauh)">
-            <span>🕒 Sedang Berjalan</span>
-          </button>
-          <button type="button" class="hz-btn" data-viab="all" title="Tampilkan semua instrumen tanpa filter kelayakan">
-            <span>🌐 Tampilkan Semua</span>
-          </button>
-        </div>
-        <div id="opportunityRadarGrid" class="radar-grid" style="margin-top:10px;"></div>
-      </div>
-      <!-- Rekomendasi khusus INVESTOR (dipisah total dari radar trader) -->
-      <div class="section-card hidden" id="investorRadarSection">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.invSecTitle">🏛️ Rekomendasi Portofolio Investor — Akumulasi Jangka Panjang (D1/W1)</h3>
-          <span style="font-size:10.5px;padding:4px 10px;border-radius:99px;background:rgba(56,189,248,0.14);color:#7dd3fc;border:1px solid rgba(56,189,248,0.3);" data-i18n="ui.invSecBadge">KURIKULUM BELI-NYATA • TANPA SINYAL TRADING 2-ARAH</span>
-        </div>
-        <div class="inv-note" data-i18n="ui.invSecNote">Kurasi aset berkualitas untuk akumulasi bertahap (DCA) 12–36 bulan: dinilai dari valuasi (MoS vs nilai wajar), zona cicil, kesehatan tren makro &amp; kualitas emiten/aset. Tidak ada sinyal LONG/SHORT di sini — murni keputusan investasi.</div>
-        <div id="macroMapBox" style="display:none;margin:8px 0 6px;padding:9px 11px;border-radius:9px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.28);"></div>
-        <div id="investorPicksGrid" class="radar-grid"></div>
-      </div>
+      <!-- Automated opportunity screening is intentionally outside this analysis workspace. -->
     </section>
     </div><!-- /#traderInvestorWorkspaceWrap -->
 
-    <!-- ================= WORKSPACE 2: DEDICATED MEME COIN & DEX GEMS SUITE ================= -->
-    <div id="memeWorkspaceWrap" class="hidden">
-      <!-- Top Token Inspection Header Bar -->
-      <div class="meme-inspect-header-bar" id="memeInspectHeader">
-        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <!-- ================= WORKSPACE 2: MANUAL DEX TOKEN ANALYSIS ================= -->
+    <div id="memeWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
+      <section class="section-card" style="padding:16px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
           <div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <select id="selMemeInstrument" class="ctrl-select" style="font-weight:800;font-size:13px;background:#090d16;color:#f8fafc;border:1px solid rgba(168,85,247,0.5);border-radius:8px;padding:5px 9px;cursor:pointer;max-width:270px;" title="Pilih Instrumen Koin Micin DEX"></select>
-              <h2 id="memeInspectSymbol" style="margin:0;font-size:22px;font-weight:900;color:#f8fafc;letter-spacing:0.5px;">PNUT</h2>
-              <span id="memeInspectName" style="font-size:13px;color:#94a3b8;font-weight:600;">Peanut the Squirrel</span>
-              <span id="memeInspectChainBadge" class="brand-tag" style="background:#581c87;color:#d8b4fe;border-color:rgba(168,85,247,0.4);">🟣 SOLANA</span>
-              <span id="memeInspectSafetyBadge" class="mode-chip meme">🛡️ 96/100 AMAN</span>
+            <h2 style="margin:0 0 5px;color:#f8fafc;font-size:18px;">🔬 DEX Token Analysis</h2>
+            <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.55;">Analisis dimulai hanya setelah kamu memasukkan network dan contract address. Tidak ada daftar rekomendasi, auto-scan, atau token yang dipilih otomatis.</p>
+          </div>
+          <span class="brand-tag" style="background:rgba(168,85,247,0.12);color:#d8b4fe;border-color:rgba(168,85,247,0.35);">MANUAL CONTRACT INSPECTION</span>
+        </div>
+
+        <div class="control-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;margin:0 0 12px;">
+          <select id="selMemeChain" class="ctrl-select" aria-label="Pilih jaringan DEX" style="min-width:130px;">
+            <option value="solana">Solana</option>
+            <option value="base">Base</option>
+            <option value="bsc">BNB Chain</option>
+            <option value="ethereum">Ethereum</option>
+          </select>
+          <input type="text" id="inpMemeTokenAddress" class="ctrl-input" autocomplete="off" spellcheck="false" placeholder="Masukkan contract address / token mint" style="flex:1;min-width:240px;" />
+          <select id="selMemeTf" class="ctrl-select" aria-label="Timeframe DEX" style="min-width:90px;">
+            <option value="M1">M1</option>
+            <option value="M5" selected>M5</option>
+            <option value="M15">M15</option>
+            <option value="H1">H1</option>
+            <option value="H4">H4</option>
+            <option value="D1">D1</option>
+          </select>
+          <button type="button" id="btnAnalyzeMemeToken" class="btn-primary-glow" style="padding:8px 14px;font-size:12px;white-space:nowrap;">⚡ ANALISIS KONTRAK</button>
+        </div>
+
+        <div id="dexAnalysisStatus" role="status" style="font-size:11.5px;color:#94a3b8;padding:8px 10px;background:rgba(2,6,23,0.55);border:1px solid rgba(148,163,184,0.18);border-radius:8px;margin-bottom:12px;">Masukkan alamat kontrak token dan tekan ANALISIS KONTRAK.</div>
+
+        <div class="section-card" style="padding:14px;margin:0 0 12px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div>
+              <h3 id="memeInspectSymbol" style="font-size:18px;margin:0 0 4px;color:#f8fafc;">Belum ada token dipilih</h3>
+              <div id="memeInspectName" style="font-size:12px;color:#94a3b8;">Data token akan muncul setelah pemeriksaan manual.</div>
+              <div id="memeInspectChainBadge" style="font-size:10.5px;color:#d8b4fe;margin-top:4px;">NETWORK —</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11.5px;color:#94a3b8;">
-              <span>CA: <code id="memeInspectCaShort" style="color:#7dd3fc;background:rgba(2,6,23,0.7);padding:2px 7px;border-radius:4px;border:1px solid #1e293b;">2qEH...An2</code></span>
-              <button type="button" id="memeBtnCopyCa" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-size:11.5px;padding:0;font-weight:700;">📋 Salin CA</button>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div><div style="font-size:10px;color:#94a3b8;">Harga USD</div><strong id="memeInspectPrice" style="font-size:18px;color:#f8fafc;">—</strong></div>
+              <button type="button" id="btnQuickAddMemeJnl" class="hz-btn" style="padding:7px 10px;font-size:11px;">📥 Catat ke Jurnal DEX</button>
             </div>
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11.5px;">
+            <span>Market Cap: <strong id="memeInspectMcap">—</strong></span>
+            <span>FDV: <strong id="memeInspectFdv">—</strong></span>
+            <span>Likuiditas: <strong id="memeInspectLiq">—</strong></span>
+            <span>Volume 24j: <strong id="memeInspectVol24h">—</strong></span>
+            <span>Perubahan 24j: <strong id="memeInspectChg24h">—</strong></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <a id="memeDexOpenExternal" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary-outline" style="display:none;padding:6px 10px;font-size:11px;text-decoration:none;">Buka pasangan di DexScreener ↗</a>
           </div>
         </div>
 
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:11px;color:#94a3b8;">Harga DEX Live:</div>
-            <div style="display:flex;align-items:baseline;gap:8px;">
-              <span id="memeInspectPrice" class="live-price-big" style="color:#f8fafc;font-size:22px;">$1.1200</span>
-              <span id="memeInspectChg5m" style="font-size:12px;font-weight:800;color:#10b981;">5m: +3.4%</span>
-              <span id="memeInspectChg1h" style="font-size:12px;font-weight:800;color:#10b981;">1h: +12.8%</span>
-              <span id="memeInspectChg24h" style="font-size:12px;font-weight:800;color:#10b981;">24h: +38.5%</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:12px;font-size:11.5px;background:rgba(2,6,23,0.6);padding:8px 12px;border-radius:10px;border:1px solid rgba(168,85,247,0.2);align-items:center;">
-            <div><span style="color:#94a3b8;display:block;">Market Cap:</span> <strong id="memeInspectMcap" style="color:#f8fafc;">$1.12B</strong></div>
-            <div><span style="color:#94a3b8;display:block;">Likuiditas:</span> <strong id="memeInspectLiq" style="color:#38bdf8;">$4.85M</strong></div>
-            <div><span style="color:#94a3b8;display:block;">Vol 5m:</span> <strong id="memeInspectVol5m" style="color:#f8fafc;">$185K</strong></div>
-            <div><span style="color:#94a3b8;display:block;">Tekanan Beli:</span> <strong id="memeInspectBuyPressure" style="color:#34d399;">78.9% BUY</strong></div>
-            <button type="button" id="btnQuickAddMemeJnl" class="hz-btn" style="margin-left:6px;padding:6px 12px;font-size:11px;font-weight:700;border-radius:8px;background:rgba(168,85,247,0.25);color:#d8b4fe;border:1px solid rgba(168,85,247,0.5);cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Catat koin ini ke Jurnal DEX Micin">
-              <span>📥</span> <span>Catat ke Jurnal DEX</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Main Inspection Grid (Live Chart + 6 Meme Fundamental Pillars + DEX Technical) -->
-      <div class="meme-workspace-grid">
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
-          <!-- Live Interactive DEX Chart Card -->
-          <div class="chart-card" id="memeDexChartCard">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:16px;">📈</span>
-                <strong style="font-size:14px;color:#f8fafc;" id="memeChartTitle">Grafik Real-Time DexScreener — PNUT / SOL</strong>
-                <span class="mode-chip meme" id="memeChartDexBadge">DEX LIVE</span>
-              </div>
-              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                <div class="tf-bar" id="memeTfBar" style="margin:0;padding:0;">
-                  <button type="button" class="tf-btn" data-mtf="M1">M1</button>
-                  <button type="button" class="tf-btn active" data-mtf="M5">M5</button>
-                  <button type="button" class="tf-btn" data-mtf="M15">M15</button>
-                  <button type="button" class="tf-btn" data-mtf="H1">H1</button>
-                </div>
-                <button type="button" id="btnMemeViewCandles" class="hz-btn active" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(168,85,247,0.25);color:#d8b4fe;border:1px solid rgba(168,85,247,0.45);font-weight:700;cursor:pointer;">
-                  🕯️ Candlestick Live (Anti-Blokir)
-                </button>
-                <button type="button" id="btnMemeViewDex" class="hz-btn" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(15,23,42,0.8);color:#94a3b8;border:1px solid rgba(148,163,184,0.3);font-weight:700;cursor:pointer;">
-                  🌐 DexScreener Embed
-                </button>
-                <a id="memeDexOpenExternal" href="https://dexscreener.com" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#38bdf8;text-decoration:none;font-weight:700;padding:4px 8px;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);">
-                  Buka Penuh di DexScreener ↗
-                </a>
-              </div>
-            </div>
-            <div id="memeChartContainer" style="width:100%;height:520px;border-radius:10px;overflow:hidden;background:#090d16;position:relative;">
-              <canvas id="memeCandleCanvas" style="width:100%;height:100%;display:block;"></canvas>
-              <iframe id="memeDexChartIframe" src="https://dexscreener.com/solana/2qEHjAnGOpmjqAtwhcvxBygfAnphEpcVs2uwRN3BEAn2?embed=1&theme=dark&trades=0&info=0" style="width:100%;height:100%;border:none;border-radius:10px;display:none;" loading="lazy"></iframe>
-            </div>
-          </div>
-
-          <!-- 🔬 6 Pilar Analisis Fundamental Khusus Memecoin -->
-          <div class="section-card" id="memeFundamentalCard">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-              <div>
-                <h3 style="margin:0;font-size:15px;color:#d8b4fe;">🔬 6 Pilar Fundamental Khusus Koin Micin / DEX</h3>
-                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Analisis On-Chain: Narasi Viral, Dev Tracking, Tokenomics &amp; Distribusi Suplai (Bukan PE Ratio / Lapkeu Saham!)</div>
-              </div>
-              <span style="font-size:10.5px;padding:3px 9px;border-radius:99px;background:rgba(168,85,247,0.18);color:#d8b4fe;border:1px solid rgba(168,85,247,0.4);font-weight:700;">ON-CHAIN FUNDAMENTALS</span>
-            </div>
-            <div id="memeFundGrid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:10px;">
-              <!-- 6 pillars rendered dynamically -->
-            </div>
-          </div>
+        <div class="chart-card" style="padding:12px;margin-bottom:12px;">
+          <div id="memeChartTitle" style="font-size:12px;font-weight:700;color:#cbd5e1;margin-bottom:8px;">Chart DEX menunggu alamat kontrak</div>
+          <iframe id="memeDexChartIframe" title="Chart DEX token" src="about:blank" loading="lazy" style="width:100%;height:440px;border:0;border-radius:9px;background:#090d16;"></iframe>
         </div>
 
-        <!-- Right Column: Technical DEX + Golden Rules + Swap Actions -->
-        <aside style="display:flex;flex-direction:column;gap:14px;">
-          <!-- ⚡ Analisis Teknikal & Likuiditas Khusus DEX -->
-          <div class="side-panel-card" id="memeTechnicalCard">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <span style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:12.5px;background:rgba(168,85,247,0.2);color:#d8b4fe;">
-                ⚡ TEKNIKAL &amp; LIKUIDITAS DEX
-              </span>
-              <span id="memeTechSafetyBadge" style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.4);">
-                🛡️ 95/100 AMAN
-              </span>
-            </div>
-            <div id="memeTechBody" style="display:flex;flex-direction:column;gap:10px;font-size:12px;color:#e2e8f0;">
-              <!-- Technical metrics rendered dynamically -->
+        <div class="meme-workspace-grid" style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,1fr);gap:12px;">
+          <div class="section-card" id="memeFundamentalCard" style="padding:14px;margin:0;">
+            <h3 style="margin:0 0 8px;color:#d8b4fe;font-size:14px;">🏛️ Fundamental &amp; Data Pasar</h3>
+            <div id="memeFundGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">
+              <div style="font-size:11.5px;color:#94a3b8;">Belum ada data. Jalankan pemeriksaan berdasarkan contract address.</div>
             </div>
           </div>
-
-          <!-- 🎯 Golden Rules & Panduan Risiko Micin -->
-          <div class="side-panel-card" id="memeRiskCard" style="border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.04);">
-            <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:800;color:#fbbf24;margin-bottom:8px;">
-              <span>⚠️</span> <span>GOLDEN RULES TRADING MICIN</span>
+          <aside class="side-panel-card" id="memeTechnicalCard" style="padding:14px;margin:0;">
+            <h3 style="margin:0 0 8px;color:#d8b4fe;font-size:14px;">📈 Analisis Teknikal DEX</h3>
+            <div id="memeTechBody" style="display:flex;flex-direction:column;gap:8px;font-size:11.5px;color:#cbd5e1;">
+              OHLCV belum dimuat. Indikator hanya dihitung dari data candle bersumber.
             </div>
-            <div style="font-size:11.5px;line-height:1.55;color:#fef3c7;display:flex;flex-direction:column;gap:8px;">
-              <div><strong>1. Amankan Modal Awal:</strong> Selalu tarik modal (Take Profit 100%) saat koin naik 2x–3x. Jangan serakah menunggu 1000x tanpa amankan modal pokok!</div>
-              <div><strong>2. Skor 90+ ≠ Jaminan Naik:</strong> Skor 90+ hanya mengonfirmasi <em>kontrak aman dari scam/rug pull dev</em>, bukan kepastian harga akan dipompa!</div>
-              <div><strong>3. Pantau Likuiditas:</strong> Jika volume 5m mati dan likuiditas pool mulai tergerus, segera amankan sisa saldo / cut loss.</div>
-              <div><strong>4. Gunakan Modal Hiburan (1–5%):</strong> Jangan pernah memakai uang beras atau tabungan pokok untuk koin micin!</div>
-            </div>
-          </div>
-
-          <!-- Tombol Eksekusi Cepat -->
-          <div class="side-panel-card" style="display:flex;flex-direction:column;gap:8px;">
-            <a id="btnMemeTradeDex" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary-glow" style="text-align:center;text-decoration:none;padding:10px;font-size:13px;font-weight:800;">
-              ⚡ Beli di Raydium / DEX ↗
-            </a>
-            <a id="btnMemeOpenRugCheck" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary-outline" style="text-align:center;text-decoration:none;padding:8px;font-size:12px;color:#38bdf8;border-color:rgba(56,189,248,0.4);">
-              🛡️ Verifikasi Audit di RugCheck.xyz ↗
-            </a>
-          </div>
-        </aside>
-      </div>
-
-      <!-- Scanner Radar DEX Meme Coin & Solana Gems -->
-      <div class="section-card" id="memeRadarSection" style="max-width:1640px;margin:0 auto 40px;padding:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <div>
-            <h3 style="margin:0 0 4px;font-size:15px;color:#f8fafc;" data-i18n="ui.memeSecTitle">🚀 Radar DEX Meme Coin &amp; Solana Gems — Early Momentum &amp; Anti-Rug</h3>
-            <div style="font-size:11px;color:#d8b4fe;font-weight:600;" data-i18n="ui.memeSecSub">Skrining Khusus Micin: Analisis Keamanan Kontrak On-Chain, Likuiditas Terkunci &amp; Tekanan Beli 5 Menit</div>
-          </div>
-          <span style="font-size:10.5px;padding:4px 10px;border-radius:99px;background:rgba(168,85,247,0.15);color:#d8b4fe;border:1px solid rgba(168,85,247,0.35);" data-i18n="ui.memeSecBadge">🛡️ AUDIT ON-CHAIN • ANTI-RUG &amp; ANTI-HONEYPOT</span>
+          </aside>
         </div>
-        <div style="margin:10px 0 8px;padding:10px 14px;border-radius:10px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);font-size:11.5px;line-height:1.5;color:#e9d5ff;" data-i18n="ui.memeSecNotice">
-          💡 <strong>Kriteria Khusus Micin:</strong> Berbeda dari analisis teknikal saham/forex, skrining koin micin wajib memeriksa 4 pilar keamanan on-chain: <strong>LP 100% Burned</strong> (anti cabut likuiditas), <strong>Mint Revoked</strong> (anti cetak suplai baru), <strong>Freeze Disabled</strong> (anti honeypot), dan <strong>Top 10 Holder &lt; 20%</strong>. Gunakan modal terukur (uang hiburan) dan selalu amankan modal (Take Profit) saat naik 2x-3x!
+
+        <div id="memeRiskCard" style="margin-top:12px;padding:10px 12px;border:1px solid rgba(245,158,11,0.3);border-radius:9px;background:rgba(245,158,11,0.05);font-size:11px;line-height:1.5;color:#fef3c7;">
+          ⚠️ Harga, likuiditas, volume, dan chart bukan audit keamanan kontrak. LP lock/burn, mint/freeze authority, distribusi holder, dan risiko honeypot akan ditampilkan sebagai belum terverifikasi kecuali tersedia dari sumber audit khusus.
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">
-          <div class="radar-horizon-bar" id="memeChainBar">
-            <button type="button" class="hz-btn active" data-mc="all"><span data-i18n="ui.mcAll">🌐 SEMUA JARINGAN</span></button>
-            <button type="button" class="hz-btn" data-mc="solana"><span data-i18n="ui.mcSolana">🟣 SOLANA (RAYDIUM)</span></button>
-            <button type="button" class="hz-btn" data-mc="base"><span data-i18n="ui.mcBase">🔵 BASE (AERODROME)</span></button>
-            <button type="button" class="hz-btn" data-mc="bsc"><span data-i18n="ui.mcBsc">🟡 BSC (PANCAKE)</span></button>
-            <button type="button" class="hz-btn" data-mc="ethereum"><span data-i18n="ui.mcEth">💎 ETHEREUM (UNISWAP)</span></button>
-          </div>
-          <div class="radar-horizon-bar" id="memeSortBar">
-            <button type="button" class="hz-btn active" data-ms="momentum"><span data-i18n="ui.msMomentum">⚡ MOMENTUM 5M</span></button>
-            <button type="button" class="hz-btn" data-ms="safety"><span data-i18n="ui.msSafety">🛡️ PALING AMAN (ANTI-RUG)</span></button>
-            <button type="button" class="hz-btn" data-ms="gainers"><span data-i18n="ui.msGainers">🚀 TOP GAINERS 24H</span></button>
-            <button type="button" class="hz-btn" data-ms="volume"><span data-i18n="ui.msVolume">📊 VOLUME TERBESAR</span></button>
-          </div>
-        </div>
-        <div id="memePicksGrid" class="radar-grid" style="margin-top:12px;"></div>
-      </div>
+      </section>
     </div>
 
     <!-- ================= WORKSPACE 3: DEDICATED ECONOMIC CALENDAR & MARKET NEWS ================= -->
@@ -1329,7 +1196,7 @@
 
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script defer src="/app.js?v=2026.88"></script>
+  <script defer src="/app.js?v=2026.89"></script>
   <script type="module" src="/i18n/boot.js?v=2026.70"></script>
 </body>
 </html>
