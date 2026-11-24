@@ -1,0 +1,31 @@
+name: XStarZG Quality Checks
+
+on:
+  push:
+    branches:
+      - main
+      - fix/manual-analysis-only-clean-journal
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    name: Static, journal, and Sentinel regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify workspace UI and manual-only analysis
+        run: node tests/app-static.test.mjs
+      - name: Verify manual journal and reset invariants
+        run: node tests/journal-segments-and-execution.test.mjs
+      - name: Verify cloud journal and Sentinel safeguards
+        run: node tests/sentinel-journal-fix.test.mjs
