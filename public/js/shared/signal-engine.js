@@ -3,92 +3,83 @@ import {
   calcVWAP, calcVolumeAndTpoProfile, detectSwingsNoLookahead, detectModernInstitutionalStructure,
   HORIZON_GROUPS
 } from './quant-core.js';
-function buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsiVal, volPct) {
-  let seed = 0;
-  for (let i = 0; i < meta.symbol.length; i++) seed = (seed * 31 + meta.symbol.charCodeAt(i)) % 10000;
-  const biasShift = Math.round((trendScore - 50) * 0.45);
-  const specLongPct = Math.min(88, Math.max(16, 52 + biasShift + ((seed % 11) - 5)));
-  const specShortPct = 100 - specLongPct;
-  const netSpecContracts = Math.round((specLongPct - 50) * (1520 + (seed % 950)));
-  const weeklyDelta = Math.round(((rsiVal - 50) * 135) + ((seed % 7) - 3) * 190);
-  const commHedgerBias = netSpecContracts > 0 ? 'NET SHORT (Produsen Melakukan Lindung Nilai Suplai)' : 'NET LONG (Akumulasi Fisik Komersial)';
-  let cotReportLabel = 'CFTC Disaggregated Commitments of Traders';
-  let centralBankStance = 'The Fed: Suku Bunga Netral-Restriktif | Imbal Hasil US10Y: 4.18%';
-  let macroRegime = trendScore >= 52 ? 'RISK-ON (Arus Modal Masuk Aset Berisiko)' : 'DEFENSIVE / SELEKTIF (Rotasi Likuiditas ke Safe-Haven)';
-  let dxyCorrelation = meta.symbol.includes('USD') ? 'Korelasi Langsung terhadap Indeks Dolar AS (DXY 103.8)' : 'Korelasi Terbalik terhadap Penguatan DXY';
-  let valuationMetrics = '';
-  let orderflowMetric = '';
-  let macroDriver = '';
-  let upcomingCatalyst = 'Rilis Data Inflasi CPI AS, Non-Farm Payrolls (NFP) & Laporan CFTC Mingguan.';
-  if (meta.assetClass === 'crypto') {
-    cotReportLabel = 'CME Institutional Crypto Futures + US Spot ETF Netflow';
-    centralBankStance = 'Likuiditas Global M2 Ekspansif • Arus Masuk Spot ETF Institusional Aktif';
-    const mvrv = (1.45 + (rsiVal / 55)).toFixed(2);
-    const funding = ((rsiVal - 48) * 0.0004).toFixed(4);
-    valuationMetrics = `MVRV Z-Score: ${mvrv} (${rsiVal < 42 ? 'Diskon Akumulasi On-Chain' : rsiVal > 68 ? 'Zona Distribusi' : 'Valuasi Wajar'}) | Dominasi Likuiditas Spot Tinggi`;
-    orderflowMetric = `Funding Rate Perpetual: ${funding > 0 ? '+' : ''}${funding}% / 8h | Open Interest CME & Derivatif: ${trendScore >= 50 ? 'Ekspansi Bullish ▲' : 'De-leveraging ▼'}`;
-    macroDriver = trendScore >= 52
-      ? 'Penyerapan suplai oleh Spot ETF & dompet institusional (Whale Accumulation) menjaga struktur harga di atas rata-rata biaya on-chain.'
-      : 'Realisasi keuntungan jangka pendek di pasar derivatif memicu konsolidasi sehat menuju area Demand.';
-    upcomingCatalyst = 'Arus Harian Spot ETF (BlackRock/Fidelity), Data Makro The Fed & Ekspirasi Opsi Bulanan.';
-  } else if (meta.assetClass === 'forex') {
-    cotReportLabel = 'CFTC CME Currency Futures (Asset Managers & Leveraged Funds)';
-    centralBankStance = meta.symbol.includes('IDR')
-      ? 'BI-Rate: 5.75% (Fokus Stabilitas Rupiah & DNDF) vs Fed Funds Rate AS'
-      : 'Diferensial Suku Bunga Riil (Real Yield Spread) Fed vs ECB / BoE / BoJ';
-    valuationMetrics = `Paritas Daya Beli (PPP) & Yield Spread 2Y/10Y: ${trendScore >= 50 ? 'Mendukung Mata Uang Dasar (Base)' : 'Menguntungkan Mata Uang Kuotasi (Quote)'}`;
-    orderflowMetric = `Interbank FX Liquidity & CFTC Leveraged Funds: ${specLongPct}% Posisi Long Bersih`;
-    macroDriver = meta.symbol.includes('IDR')
-      ? 'Keseimbangan neraca perdagangan Indonesia, aliran modal asing di SBN/SRBI, serta stabilisasi Bank Indonesia.'
-      : 'Ekspektasi pemangkasan/penahanan suku bunga bank sentral G10 dan pergerakan imbal hasil obligasi pemerintah.';
-    upcomingCatalyst = 'Rapat Dewan Gubernur Bank Sentral (FOMC / RDG BI / ECB) & Rilis Data PDB/Inflasi.';
-  } else if (meta.assetClass === 'metals') {
-    cotReportLabel = 'CFTC COMEX & LME Disaggregated Metals COT (Managed Money)';
-    centralBankStance = 'Akumulasi Cadangan Emas Bank Sentral Global & Tren Penurunan Real Yield';
-    valuationMetrics = meta.symbol.includes('NI') || meta.symbol.includes('SN') || meta.symbol.includes('HG')
-      ? 'Inventori Gudang LME Ketat • Permintaan Hilirisasi Baterai EV, Jaringan Listrik & Smelter Asia'
-      : 'Gold-to-Silver Ratio & Biaya Produksi AISC Penambang Global Mendukung Lantai Harga Fisik';
-    orderflowMetric = `COMEX Managed Money Net Long: ${specLongPct}% | Permintaan Fisik Bullion & ETF: ${trendScore >= 50 ? 'Akumulasi Kuat' : 'Netral'}`;
-    macroDriver = 'Permintaan lindung nilai inflasi (Inflation Hedge), risiko geopolitik global, dan siklus belanja modal energi hijau.';
-    upcomingCatalyst = 'Data Inventori LME/COMEX, Imbal Hasil TIPS 10Y AS & Kebijakan Ekspor Mineral.';
-  } else if (meta.assetClass === 'commodities') {
-    cotReportLabel = 'CFTC NYMEX / CBOT / ICE Producer & Managed Money Report';
-    centralBankStance = 'Siklus Permintaan Komoditas Fisik & Biaya Logistik Global';
-    valuationMetrics = `Struktur Kurva Berjangka (Futures Curve): ${trendScore >= 50 ? 'BACKWARDATION (Pasokan Spot Ketat / Permintaan Tinggi)' : 'CONTANGO (Suplai Spot Memadai)'}`;
-    orderflowMetric = `Commercial Hedgers: ${commHedgerBias} | Spekulan CFTC: ${specLongPct}% Long`;
-    macroDriver = meta.symbol === 'CPO' || meta.symbol === 'COAL'
-      ? 'Implementasi mandat Biodiesel B40 Indonesia, permintaan impor energi China/India, dan cuaca produksi Nusantara.'
-      : 'Laporan cadangan mingguan EIA/USDA, disiplin kuota produksi OPEC+, serta pola cuaca agrikultur global.';
-    upcomingCatalyst = 'Laporan Inventori Mingguan EIA / USDA WASDE & Pertemuan Kuota OPEC+.';
+function buildDeepFundamentalAndCot(meta) {
+  const assetClass = meta && meta.assetClass ? meta.assetClass : 'unknown';
+  let cotReportLabel;
+  let centralBankStance;
+  let dxyCorrelation;
+  let valuationMetrics;
+  let orderflowMetric;
+  let macroDriver;
+  let upcomingCatalyst;
+
+  // No COT, valuation or institutional-flow provider is connected to this engine.
+  // Keep each asset class' required research model explicit, but never derive fake
+  // numeric positioning or valuation figures from price indicators / symbol hashes.
+  if (assetClass === 'crypto') {
+    cotReportLabel = 'CME COT, spot ETF flow and derivatives positioning — source not connected';
+    centralBankStance = 'Use verified central-bank rates, real yields and global liquidity data; not connected in this panel';
+    dxyCorrelation = 'Requires a synchronized DXY / cross-asset data feed';
+    valuationMetrics = 'Required: realized cap, MVRV, NVT, supply issuance and network activity (not connected)';
+    orderflowMetric = 'Required: spot/perpetual volume delta, funding, open interest and verified ETF flows (not connected)';
+    macroDriver = 'Evaluate token utility, network usage, supply schedule, unlocks and ecosystem activity from primary sources';
+    upcomingCatalyst = 'Use the Economic Calendar and verified project announcements';
+  } else if (assetClass === 'forex') {
+    cotReportLabel = 'CFTC currency futures positioning — source not connected';
+    centralBankStance = 'Requires current policy rates, meeting guidance and real-yield differentials for both currencies';
+    dxyCorrelation = 'Requires synchronized DXY and pair-price history';
+    valuationMetrics = 'Required: purchasing-power parity, real-rate differential and external-balance data (not connected)';
+    orderflowMetric = 'Required: verified CFTC positioning and institutional flow data (not connected)';
+    macroDriver = 'Assess inflation, employment, growth, external balances and central-bank reaction functions';
+    upcomingCatalyst = 'Use the Economic Calendar for verified central-bank and macro releases';
+  } else if (assetClass === 'metals') {
+    cotReportLabel = 'CFTC COMEX / LME positioning — source not connected';
+    centralBankStance = 'Requires current real yields, central-bank reserve disclosures and policy-rate data';
+    dxyCorrelation = 'Requires synchronized DXY and metal-price history';
+    valuationMetrics = 'Required: inventory, lease rates, term structure and producer cost data (not connected)';
+    orderflowMetric = 'Required: verified CFTC managed-money and exchange inventory data (not connected)';
+    macroDriver = 'Assess physical demand, exchange inventories, mine supply, recycling and industrial use';
+    upcomingCatalyst = 'Use the Economic Calendar and verified exchange / government releases';
+  } else if (assetClass === 'commodities') {
+    cotReportLabel = 'CFTC NYMEX / CBOT / ICE positioning — source not connected';
+    centralBankStance = 'Macro interest-rate context requires verified central-bank and real-yield data';
+    dxyCorrelation = 'Requires synchronized DXY and commodity-price history';
+    valuationMetrics = 'Required: futures curve, storage, inventories, freight and producer economics (not connected)';
+    orderflowMetric = 'Required: verified commercial / managed-money positioning and exchange volume (not connected)';
+    macroDriver = 'Assess supply-demand balance, EIA / USDA inventories, seasonality, weather and production quotas';
+    upcomingCatalyst = 'Use the Economic Calendar and verified EIA / USDA / exchange releases';
+  } else if (assetClass === 'stocks') {
+    cotReportLabel = 'Verified institutional positioning / 13F / IDX foreign flow — source not connected';
+    centralBankStance = 'Requires current policy rates, sovereign yields and macroeconomic releases';
+    dxyCorrelation = 'Requires synchronized DXY and equity-index / issuer price history';
+    valuationMetrics = 'Required: reported P/E, P/B, EV/EBITDA, free cash flow, ROE, debt and dividend data (not connected)';
+    orderflowMetric = 'Required: verified foreign flow, ownership, filings and institutional positioning (not connected)';
+    macroDriver = 'Analyze filed revenue, earnings quality, margins, balance sheet, capital allocation and competitive position';
+    upcomingCatalyst = 'Use the Economic Calendar and verified issuer filings / earnings releases';
   } else {
-    cotReportLabel = meta.region === 'ID'
-      ? 'Arus Modal Asing BEI (IDX Net Foreign Flow) & Konsensus Fundamental LQ45'
-      : 'CFTC CME Equity Index COT & Institutional 13F / Dark-Pool Flow';
-    centralBankStance = meta.region === 'ID'
-      ? 'Stabilitas Makro Indonesia (Pertumbuhan PDB ~5.1%) & Likuiditas Perbankan Nasional'
-      : 'Siklus Laba Korporasi S&P 500 / Global & Belanja Modal Infrastruktur AI';
-    const pe = meta.region === 'ID' ? (11.5 + (seed % 7)).toFixed(1) : (21.0 + (seed % 12)).toFixed(1);
-    const pbv = meta.region === 'ID' ? (1.8 + (seed % 3) * 0.5).toFixed(2) : (4.2 + (seed % 4) * 0.6).toFixed(2);
-    const divYield = meta.region === 'ID' ? (4.8 + (seed % 4) * 0.7).toFixed(2) : (1.4 + (seed % 3) * 0.4).toFixed(2);
-    valuationMetrics = `Estimasi P/E: ${pe}x | PBV: ${pbv}x | Dividend Yield: ${divYield}% (${rsiVal < 45 ? 'Valuasi Diskon / Undervalued' : 'Valuasi Wajar Sesuai Pertumbuhan EPS'})`;
-    orderflowMetric = meta.region === 'ID'
-      ? `Arus Dana Asing (Foreign Flow): ${trendScore >= 50 ? 'Net Buy Institusional ▲' : 'Rotasi Sektoral / Netral'}`
-      : `Posisi Institusi CME & 13F: ${specLongPct}% Bullish Allocation`;
-    macroDriver = meta.region === 'ID'
-      ? 'Ekspansi kredit perbankan, daya beli domestik Indonesia, pembagian dividen tunai, dan hilirisasi komoditas.'
-      : 'Pertumbuhan pendapatan kuartalan (Revenue & EPS Beat), ekspansi margin operasional, dan buyback saham.';
-    upcomingCatalyst = 'Rilis Laporan Keuangan Kuartalan (Earnings Release), Jadwal Pembagian Dividen & Rebalancing Indeks.';
+    cotReportLabel = 'Verified positioning data not connected';
+    centralBankStance = 'Verified policy-rate and macroeconomic data not connected';
+    dxyCorrelation = 'Verified correlation data not connected';
+    valuationMetrics = 'Asset-class-specific fundamental valuation data not connected';
+    orderflowMetric = 'Verified orderflow / positioning data not connected';
+    macroDriver = 'Requires an identified asset class and primary-source data';
+    upcomingCatalyst = 'Use verified calendar and issuer / exchange sources';
   }
+
   return {
+    fundamentalStatus: 'NOT_CONNECTED',
+    cotStatus: 'NOT_CONNECTED',
+    valuationStatus: 'NOT_CONNECTED',
+    sourceVerified: false,
     cotReportLabel,
-    specLongPct,
-    specShortPct,
-    netSpecContracts,
-    weeklyDelta,
-    commHedgerBias,
-    institutionalBias: specLongPct >= 55 ? 'BULLISH ACCUMULATION' : specLongPct <= 45 ? 'BEARISH DISTRIBUTION' : 'NEUTRAL BALANCED',
+    specLongPct: null,
+    specShortPct: null,
+    netSpecContracts: null,
+    weeklyDelta: null,
+    commHedgerBias: 'UNVERIFIED — no connected positioning feed',
+    institutionalBias: 'UNVERIFIED — no connected positioning feed',
     centralBankStance,
-    macroRegime,
+    macroRegime: 'Not inferred here — use verified cross-asset macro context',
     dxyCorrelation,
     valuationMetrics,
     orderflowMetric,
@@ -1528,7 +1519,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const invTarget3 = lastPrice * 1.55;
   const invInvalidation = lastPrice * 0.86;
   const fib = calculateDualFibonacci(modern.supplyZone.high, modern.demandZone.low, lastPrice, softBias || 'LONG');
-  const fundamentalCot = buildDeepFundamentalAndCot(meta, lastPrice, trendScore, rsi, atrPct);
+  const fundamentalCot = buildDeepFundamentalAndCot(meta);
   const fvgNote = modern.bullFvg
     ? `Bullish FVG di ${formatSmartPrice(modern.bullFvg.bottom)}-${formatSmartPrice(modern.bullFvg.top)}`
     : modern.bearFvg
@@ -1559,7 +1550,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     ...(fib ? [`[Dual Fibonacci] Retracement (50% Eq: ${formatSmartPrice(fib.retracement.r500)} | 61.8% Golden: ${formatSmartPrice(fib.retracement.r618)} | 78.6% OTE: ${formatSmartPrice(fib.retracement.r786)}) • Ekstensi Target (1.272: ${formatSmartPrice(fib.extension.ext1272)} | 1.618 Golden: ${formatSmartPrice(fib.extension.ext1618)} | 2.0: ${formatSmartPrice(fib.extension.ext2000)}).`] : []),
     `[MA Stack & Bollinger] EMA20 (${formatSmartPrice(ema20)}) / EMA50 (${formatSmartPrice(ema50)}) / MA200 (${formatSmartPrice(ma200)}) | RSI(14): ${rsi.toFixed(1)}.`,
     `[ORB • Theta • VWAP Entry] ORB: ${orb.state}${orb.high ? ' (' + formatSmartPrice(orb.low) + ' – ' + formatSmartPrice(orb.high) + ')' : ''} | Theta Index: ${thetaIndex}/100 (${thetaNote}) | Entry VWAP: ${vwapEntry.text} | Efficiency Ratio: ${(erValue * 100).toFixed(0)}%.`,
-    `[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`,
+    `[CFTC COT & Fundamental] DATA FUNDAMENTAL BELUM TERHUBUNG — ${fundamentalCot.cotReportLabel}. ${fundamentalCot.valuationMetrics}.`,
     `[Fundamental Terukur] Siklus ${macroQuant.posCyclePct}% range | Drawdown ${macroQuant.drawdownPct}% dari puncak | Momentum naik ${macroQuant.upClosesPct}% | Persentil ATR ${macroQuant.atrPercentile}% | ${macroQuant.sessionQuality} | HTF ${macroQuant.htfAligned ? 'SELARAS' : 'TIDAK SELARAS'} | Adj ${macroQuant.macroAdj > 0 ? '+' : ''}${macroQuant.macroAdj}.`,
     `[ICT Atlas] CISD ${ict.cisd.dir > 0 ? 'BULLISH ▲' : ict.cisd.dir < 0 ? 'BEARISH ▼' : 'netral'}${ict.cisd.level ? ' @ ' + Number(ict.cisd.level.toPrecision(7)) : ''} | AMD: ${{
       ACCUMULATION: 'Akumulasi (kompresi)', MANIPULATION_BULL: 'Manipulasi — raid SSL (sebelum markup)', MANIPULATION_BEAR: 'Manipulasi — raid BSL (sebelum markdown)', DISTRIBUTION_UP: 'Distribusi NAIK (markup)', DISTRIBUTION_DOWN: 'Distribusi TURUN (markdown)'
