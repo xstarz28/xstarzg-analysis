@@ -145,4 +145,30 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!appJs.includes('<script src="/vendor/lightweight-charts.js'), 'vendor chart tidak ada di app bootstrap HTML');
     assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'"), 'chart vendor dimuat saat entry workspace');
   });
+
+  await t.test('25. pergantian timeframe tidak mengosongkan candle aktif', () => {
+    const tfStart = appJs.indexOf("var tfBar = $id('timeframeBar')");
+    const tfEnd = appJs.indexOf("/* ---- Pemilih tipe chart", tfStart);
+    const handler = appJs.slice(tfStart, tfEnd);
+    assert.ok(!handler.includes('state.candles = []'), 'candle sebelumnya dipertahankan selama fetch timeframe baru');
+    assert.ok(handler.includes("setTxt('lblEngineStatus', '⏳ MEMUAT ' + tf"), 'status loading ditampilkan');
+  });
+  await t.test('26. pergantian timeframe membatalkan request analisis sebelumnya', () => {
+    assert.ok(appJs.includes('let activeAnalysisController = null;'), 'controller analisis aktif tersedia');
+    assert.ok(appJs.includes('activeAnalysisController.abort()'), 'request lama dibatalkan');
+    assert.ok(appJs.includes('fetchRealMarketCandles(reqSymbol, reqTf, requestController)'), 'fetch menerima AbortController');
+  });
+  await t.test('27. seed hanya menjadi pratinjau visual tanpa full quant calculation', () => {
+    const start = appJs.indexOf('window.runFullAnalysis = async function');
+    const end = appJs.indexOf('// Pre-warm radar & initial analysis on load', start);
+    const body = appJs.slice(start, end);
+    assert.ok(body.includes('renderSeedCandlesPreview(state.candles)'), 'seed ditampilkan sebagai preview');
+    assert.ok(!body.includes("computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED')"), 'seed tidak dihitung penuh');
+    assert.ok(body.includes("if (ctrl.signal && ctrl.signal.aborted) throw"), 'abort tidak memicu fallback compute');
+  });
+  await t.test('28. DEX scanner tetap tersedia dan dipanggil saat Meme mode dibuka', () => {
+    assert.ok(appJs.includes("else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }"), 'Meme mode tetap merender scanner');
+    assert.ok(appJs.includes("var url = '/api/scanner/meme?chain='"), 'endpoint DEX scanner tetap dipakai');
+    assert.ok(appJs.includes('function fetchMemeCatalogLive(force)'), 'fungsi fetch DEX tetap ada');
+  });
 });
