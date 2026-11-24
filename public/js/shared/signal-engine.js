@@ -1877,14 +1877,14 @@ export function applyLockedSignal(a, lock, verdict) {
    outcome dicatat, akurasi radar diukur, dan ambang penerbitan mengetat otomatis
    saat akurasi horizon jeblok (umpan-balik jujur — fake signal tidak bisa hilang
    diam-diam). Fungsi murni/deterministik; storage dipegang pemanggil. */
-export function updateRadarAccuracy(stats, outcome, maxN = 40) {
+export function updateSignalAccuracy(stats, outcome, maxN = 40) {
   const r = (stats && Array.isArray(stats.recent)) ? stats.recent.slice() : [];
   r.push(outcome === 'TP' ? 1 : 0);
   while (r.length > maxN) r.shift();
   const wins = r.reduce((a, b) => a + b, 0);
   return { recent: r, sample: r.length, wins, losses: r.length - wins, winRate: r.length ? Math.round((wins / r.length) * 100) : 0 };
 }
-export function radarAdaptiveGate(stats, baseMin = PRO_MIN_SCORE) {
+export function signalAdaptiveGate(stats, baseMin = PRO_MIN_SCORE) {
   const sample = stats && Number.isFinite(stats.sample) ? stats.sample : 0;
   const wr = stats && Number.isFinite(stats.winRate) ? stats.winRate : 100;
   let extra = 0;
