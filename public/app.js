@@ -9932,7 +9932,10 @@ function startRadarAutoPilot() {
     } catch (e) {}
   }, 60000);
 }
+var __xsBootCoreStarted = false;
 function bootCore() {
+  if (__xsBootCoreStarted) return;
+  __xsBootCoreStarted = true;
   try { bindUiEvents(); } catch (e) {}
   try { loadPersistedTelegramConfig(); } catch (e) {}
   var saved = null;
@@ -10475,7 +10478,10 @@ if (document.readyState === 'loading') {
     }
   };
   // Pre-warm radar & initial analysis on load
+  var __xsBootPostDomStarted = false;
   function bootPostDom() {
+    if (__xsBootPostDomStarted) return;
+    __xsBootPostDomStarted = true;
     setTimeout(function () {
       try {
         const seeded = generateSeedCandles(state.symbol, state.tf);
@@ -10576,26 +10582,14 @@ if (document.readyState === 'loading') {
         var isInitialController = !!navigator.serviceWorker.controller;
         var swPageStartTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
         var refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', function () {
-          // PROTEKSI ANTI-LOOP MUTLAK (anti-hang & anti-freeze di Android WebAPK / Emulator / Laptop):
-          // 1) Di Android WebAPK / PWA Standalone: DILARANG reload paksa webview karena akan memicu kembali splash screen logo
-          // 2) Cegah loop: maksimal 1x reload per sesi browser/tab melalui sessionStorage lock
-          // 3) Hindari reload jika sedang dalam fase startup awal (< 4000ms) atau jika sudah pernah reload
-          if (refreshing) return;
+                navigator.serviceWorker.addEventListener('controllerchange', function () {
+          // Never force a page reload: SW activation is sufficient, and forced
+          // reloads can create Android WebAPK splash/startup loops.
           try {
             var isPwaStandalone = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
             if (isPwaStandalone) return;
           } catch (ePwa) {}
-          try {
-            var reloadFlag = sessionStorage.getItem('xs_sw_did_reload');
-            if (reloadFlag) return; // Sudah pernah reload dalam sesi ini -> DILARANG reload lagi!
-          } catch (eSes) {}
-          var elapsed = (typeof performance !== 'undefined' && performance.now) ? (performance.now() - swPageStartTime) : 5000;
-          if (isInitialController && elapsed >= 4000) {
-            refreshing = true;
-            try { sessionStorage.setItem('xs_sw_did_reload', '1'); } catch (eSes2) {}
-            window.location.reload();
-          }
+          return;
         });
       }
 

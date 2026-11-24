@@ -103,4 +103,14 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(indexHtml.includes('id="tvChartLoadingSkeleton" style="position:absolute;inset:0;display:none;'), 'skeleton diinisialisasi tersembunyi agar tidak menutup grafik');
     assert.ok(appJs.includes("var sk = document.getElementById('tvChartLoadingSkeleton');\n  if (sk) { try { sk.style.display = 'none'; } catch (e) {} }"), 'renderAllVisuals menyembunyikan skeleton');
   });
+
+  await t.test('18. startup bootstrap and post-DOM work are idempotent', () => {
+    assert.ok(appJs.includes('if (__xsBootCoreStarted) return;'), 'bootCore hanya boleh berjalan sekali');
+    assert.ok(appJs.includes('if (__xsBootPostDomStarted) return;'), 'bootPostDom hanya boleh berjalan sekali');
+  });
+  await t.test('19. controllerchange tidak memaksa reload halaman', () => {
+    const controllerHandler = appJs.slice(appJs.indexOf("navigator.serviceWorker.addEventListener('controllerchange'"), appJs.indexOf("var deferredPwaPrompt"));
+    assert.ok(controllerHandler.includes('Never force a page reload'), 'controllerchange tidak memicu reload paksa');
+    assert.ok(!controllerHandler.includes('window.location.reload()'), 'controllerchange tidak berisi location.reload');
+  });
 });
