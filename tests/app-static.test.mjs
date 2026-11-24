@@ -159,11 +159,11 @@ test('XSTARZG MANUAL-ANALYSIS REGRESSION', async (t) => {
   });
 
   await t.test('PWA and frontend cache versions are invalidated together', () => {
-    assert.ok(html.includes('/app.js?v=2026.92'));
-    assert.ok(app.includes('engine-boot.js?v=2026.92'));
-    assert.ok(engineBoot.includes('quant-core.js?v=2026.92'));
-    assert.ok(engineBoot.includes('signal-engine.js?v=2026.92'));
-    assert.ok(sw.includes('xstarzg-pwa-v2026.92'));
+    assert.ok(html.includes('/app.js?v=2026.93'));
+    assert.ok(app.includes('engine-boot.js?v=2026.93'));
+    assert.ok(engineBoot.includes('quant-core.js?v=2026.93'));
+    assert.ok(engineBoot.includes('signal-engine.js?v=2026.93'));
+    assert.ok(sw.includes('xstarzg-pwa-v2026.93'));
   });
 
   await t.test('twenty locale bundles keep an identical UI keyset', async () => {
