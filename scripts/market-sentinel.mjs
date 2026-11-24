@@ -88,8 +88,10 @@ export async function syncActiveLocksFromCloud(cache) {
       // memastikan reset jurnal global tidak hidup kembali dari cache GitHub Actions.
       const current = {};
       for (const lock of data.activeLocks) {
-        const lockTime = Number(lock && (lock.created || lock.issuedAt)) || 0;
-        const ageMs = now - lockTime;
+        // Cloud API has already filtered rows by resetAt; older in-memory test or
+        // pre-migration payloads may omit timestamps, so treat those as just received.
+        const lockTime = Number(lock && (lock.created || lock.issuedAt)) || now;
+        const ageMs = Math.max(0, now - lockTime);
         const maxMs = (lock && (lock.tf === 'M5' || lock.tf === 'M15')) ? (2 * 3600 * 1000) : (24 * 3600 * 1000);
         if (!lock || !lock.symbol || !lock.tf || ageMs > maxMs) continue;
         current[lock.symbol] = {
