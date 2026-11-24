@@ -933,9 +933,8 @@ async function runSentinel() {
   if (isTest) {
     console.log('🧪 Mengirim pesan uji coba koneksi Telegram...');
     const testMsg =
-      `✈️ <b>[XSTARZG 24/7 CLOUD SENTINEL — TERHUBUNG!]</b>\n\n` +
-      `Halo Trader! Mesin pemantau 24/7 di cloud (GitHub Actions) telah aktif.\n` +
-      `Peluang Skor Besar (≥ ${MIN_SCORE}%) dan peringatan darurat <b>Live SL+ (0-Risk)</b> akan otomatis dikirimkan ke HP Anda tanpa perlu membuka web atau laptop lagi!\n\n` +
+      `✈️ <b>[XSTARZG POSITION JOURNAL MONITOR — TERHUBUNG!]</b>\\n\\n` +
+      `Cloud job hanya memantau lock jurnal yang sudah ada: order fill, TP/SL, dan SL+ (0-Risk). Tidak ada scanner atau rekomendasi entry baru.\\n\\n` +
       `<i>Waktu Server: ${new Date().toUTCString()}</i>`;
     await sendTelegramMessage(testMsg);
     return;
