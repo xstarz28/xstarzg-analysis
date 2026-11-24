@@ -504,6 +504,13 @@ chk('endpoint otentikasi & deep-link telegram vip serta webhook proteksi orang l
   tgSubsFn.includes('SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate') &&
   tgSql.includes('CREATE TABLE IF NOT EXISTS telegram_subscribers'));
 
+chk('market sentinel hanya berjalan via cron/manual, bukan setiap push kode',
+  !sentinelWorkflow.includes('  push:') &&
+  sentinelWorkflow.includes("cron: '*/30 * * * *'") &&
+  sentinelWorkflow.includes("cron: '15,45 * * * *'") &&
+  sentinelWorkflow.includes('group: xstarzg-market-sentinel') &&
+  sentinelWorkflow.includes('cancel-in-progress: false'));
+
 chk('market sentinel broadcast multi-user ke seluruh subscriber vip dari d1',
   sentinelScript.includes('getActiveSubscribers()') &&
   sentinelScript.includes('sendTelegramMessage(') &&

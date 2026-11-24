@@ -5,9 +5,6 @@ on:
     # Berjalan otomatis di cloud GitHub setiap 10-15 menit nonstop (24/7, 0 kuota Cloudflare)
     - cron: '*/30 * * * *'
     - cron: '15,45 * * * *'
-  push:
-    branches:
-      - main
   workflow_dispatch:
     # Tombol pemicu manual di dashboard GitHub ("Run workflow")
     inputs:
@@ -15,6 +12,10 @@ on:
         description: 'Kirim pesan tes koneksi Telegram ke HP'
         type: boolean
         default: false
+
+concurrency:
+  group: xstarzg-market-sentinel
+  cancel-in-progress: false
 
 jobs:
   sentinel:
