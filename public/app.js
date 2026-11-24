@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2026.88';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2026.89';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -127,7 +127,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2026.88';
+    bootScript.src = '/js/engine-boot.js?v=2026.89';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -2821,7 +2821,6 @@ function renderAllVisuals(analysis) {
   try { renderPillars(analysis); } catch (e) {}
   var isFeedEst = !analysis || analysis.__estFeed || analysis.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(state.feedSource));
   if (!isFeedEst) {
-    try { writeBackRadarPools(analysis); } catch (e) {}
     try { checkSignalAlarm(analysis); } catch (e) {}
     try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
   }
@@ -2829,43 +2828,8 @@ function renderAllVisuals(analysis) {
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
    TF yang sama -> kartu rekomendasi selalu mencerminkan kebenaran engine terkini. */
-function writeBackRadarPools(analysis) {
-  if (!analysis || analysis.error || !analysis.symbol || !analysis.timeframe) return;
-  var sym = analysis.symbol, tf = analysis.timeframe;
-  if (state.symbol !== sym) return;
-  if (!state.candles || !state.candles.length) return;
-  var lastBar = state.candles[state.candles.length - 1];
-  if (!lastBar || !isPriceCompatibleWithSymbol(lastBar.close, sym)) return;
-
-  // STRICT GUARD: Jika instrumen sedang dalam masa pendinginan (cooldown pasca outcome):
-  // DILARANG MEMBANGKITKAN KEMBALI kartu ke radar! Bersihkan dari radarScanPool agar tidak mencemari radar!
-  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
-    for (var hz0 in radarScanPool) {
-      if (radarScanPool[hz0]) delete radarScanPool[hz0][sym + '|' + tf];
-    }
-    return;
-  }
-  // Cegah membangkitkan sinyal yang sudah basi / tidak layak ke radar
-  if (typeof evaluateSignalViability === 'function') {
-    var vCheck = evaluateSignalViability(analysis, num(state.livePrice, analysis.lastPrice));
-    if (vCheck && vCheck.worth === false && vCheck.key !== 'PULLBACK') {
-      return;
-    }
-  }
-
-  var item = {
-    sym: sym, tf: tf, analysis: analysis,
-    candles: (state.candles || []).slice(-240),
-    price: num(state.livePrice, analysis.lastPrice),
-    changePct: num(state.liveChangePct, analysis.changePct),
-    source: 'WORKSPACE LIVE'
-  };
-  for (var hz in radarScanPool) radarScanPool[hz][sym + '|' + tf] = { ts: Date.now(), item: item };
-  // Hanya simpan ke investorScanPool jika sedang di mode investor atau TF bernuansa investasi (D1/W1)
-  // Mencegah fluktuasi cepat scalping M5/M15 mengotori rekomendasi investasi jangka panjang
-  if (state.mode === 'investor' || tf === 'D1' || tf === 'W1') {
-    investorScanPool[sym] = { ts: Date.now(), item: item };
-  }
+function writeBackRadarPools() {
+  return;
 }
 
 /* ==================== 6. REAL-TIME PRICE ENGINE (SEMUA INSTRUMEN) ==================== */
@@ -3187,25 +3151,8 @@ function connectRealtimeStream() {
    Setiap kartu = analisis quant penuh pada candle real-time aset tsb:
    trader -> ▲ LONG / ▼ SHORT (futures) atau TUNGGU (spot 1-arah),
    investor -> AKUMULASI / DCA / TUNGGU DISKON (framing beli-nyata). */
-function fetchRadarCandidate(item) {
-  if (!isAssetMarketOpen(item.sym)) {
-    return Promise.resolve(null);
-  }
-  return fetchRealMarketCandles(item.sym, item.tf).then(function (d) {
-    var a = computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source);
-    if (!a) throw new Error('no-analysis');
-    // Kandidat berbasis feed estimasi/fabrikasi: dinonaktifkan dari rekomendasi
-    // (sinyal, komitmen, dan outcome hanya lahir dari candle broker asli).
-    a.__estFeed = !feedIsReal(d.source);
-    if (a.__estFeed) return null; // jangan masukkan kandidat estimasi ke pool radar rekomendasi!
-    return {
-      sym: item.sym, tf: item.tf, analysis: a,
-      candles: Array.isArray(d.candles) ? d.candles.slice(-240) : null, // snapshot utk konsistensi klik-through
-      price: num(d.price) > 0 ? num(d.price) : a.lastPrice,
-      changePct: Number.isFinite(Number(d.changePct)) ? Number(d.changePct) : num(a.changePct),
-      source: d.source || 'BROKER FEED'
-    };
-  });
+function fetchRadarCandidate() {
+  return Promise.resolve(null);
 }
 function radarBadgeFor(a) {
   var sc = num(a && a.confluenceScore, 50);
@@ -7120,77 +7067,36 @@ function renderOpportunityRadar() { return; }
    investor) HARUS sama dengan yang tampil di workspace. Karena engine deterministik
    per candle closed, kita pakai ulang snapshot candle kartu yang masih segar
    (<=3 menit) sebagai data awal workspace — angka skor/entry tidak mungkin flip. */
-function primeFromRadarPool(sym, tf) {
-  var now = Date.now();
-  var pools = [];
-  for (var hz in radarScanPool) pools.push(radarScanPool[hz]);
-  pools.push(investorScanPool);
-  for (var p = 0; p < pools.length; p++) {
-    var pool = pools[p];
-    for (var key in pool) {
-      var rec = pool[key];
-      if (rec && rec.item && rec.item.sym === sym && (!tf || rec.item.tf === tf) && rec.item.candles && (now - rec.ts) < 180000) {
-        var lastBar = rec.item.candles[rec.item.candles.length - 1];
-        if (lastBar && isPriceCompatibleWithSymbol(lastBar.close, sym)) {
-          return { candles: rec.item.candles, source: rec.item.source || 'BROKER FEED' };
-        }
-      }
-    }
-  }
+function primeFromRadarPool() {
   return null;
 }
 function gotoInstrument(sym, tf) {
   if (!sym) return;
-  if (state.mode === 'meme') {
-    var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
-    var memeFound = pool.find(function (x) { return x.symbol === sym; });
-    if (memeFound) {
-      selectMemeToken(memeFound);
-      return;
-    }
-  }
-  if (!ensureQuotaFor(sym)) {
-    renderInstrumentCatalog();
-    return;
-  }
-  if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') {
-    setMode('trader');
-  }
+  if (!ensureQuotaFor(sym)) { renderInstrumentCatalog(); return; }
+  if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') setMode('trader');
   if (feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
+  state.manualInstrumentSelection = true;
   state.symbol = sym;
   if (tf && TF_SECONDS[tf]) {
     state.tf = tf;
     state.timeframe = tf;
     var tfBar = $id('timeframeBar');
-    if (tfBar) {
-      Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) {
-        b.classList.toggle('active', b.getAttribute('data-tf') === tf);
-      });
-    }
+    if (tfBar) Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tf') === tf);
+    });
   }
   try { auditAndCleanseCorruptedStorage(); } catch (e) {}
-  var primed = primeFromRadarPool(sym, tf);
-  state.candles = primed ? primed.candles.slice() : [];
-  var primedSource = primed ? primed.source : null;
+  state.candles = [];
   state.lastAnalysis = null;
   state.bestTfBoard = null;
-  state.feedSource = primedSource || '-';
+  state.feedSource = '-';
   renderInstrumentCatalog();
   saveSession();
-  // Render instan dari snapshot kartu (skor/entry identik dengan yang diklik user),
-  // sekaligus scope 'create' agar sinyal yang tampil langsung TERKUNCI permanen —
-  // refresh/kalkulasi ulang berikutnya tidak bisa mengubahnya sampai TP/SL/invalidasi.
-  if (primed && state.candles.length) {
-    try {
-      var primeAnalysis = computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource);
-      if (primeAnalysis && !primeAnalysis.error && primeAnalysis.symbol === sym) renderAllVisuals(primeAnalysis, true);
-    } catch (e) {}
-  }
-  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(false);
+  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
   connectRealtimeStream();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
-
+ 
 /* ==================== 8. RISK & POSITION CALCULATOR ==================== */
 function updateRiskSizing() {
   var a = state.lastAnalysis;
@@ -8251,6 +8157,8 @@ function syncModeSections() {
   if (journalWrap) journalWrap.classList.toggle('hidden', !isJournal);
   if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
   if (invSec) invSec.classList.toggle('hidden', !isInv);
+  var investorMacro = $id('investorMacroContextSection');
+  if (investorMacro) investorMacro.classList.toggle('hidden', !isInv);
   if (typeof syncModeButtonLabels === 'function') syncModeButtonLabels();
 }
 function syncModeButtonLabels() {
