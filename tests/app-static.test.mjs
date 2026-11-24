@@ -48,7 +48,7 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
 
 
-chk('mesin kuantitatif tidak dipra-cache saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.89') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
