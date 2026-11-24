@@ -258,6 +258,21 @@ if (typeof document !== 'undefined') {
         var cinp = document.getElementById('ownerCodeInput');
         if (einp && !einp.value) einp.value = 'sevenfoldarmy2822@gmail.com';
         if (cinp) setTimeout(function () { try { cinp.focus(); } catch (e) {} }, 80);
+      } else if (id === 'btnClearAllJournalHistory') {
+        var isEn = (typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
+        var msg = isEn
+          ? 'Clear all trading journal records (Trader, Investor, DEX) and start fresh? This action cannot be undone.'
+          : 'Hapus seluruh riwayat jurnal trading (Trader, Investor, DEX) dan mulai dari awal? Tindakan ini akan mengosongkan riwayat lama agar bersih.';
+        if (!confirm(msg)) return;
+        try {
+          localStorage.removeItem('xstarzg_siglock_v3');
+          localStorage.removeItem('xstarzg_sigoutcome_v1');
+          localStorage.removeItem('xstarzg_radaracc_v1');
+          localStorage.removeItem('xstarzg_investor_journal_v1');
+          localStorage.removeItem('xstarzg_meme_journal_v1');
+        } catch (e) {}
+        try { if (typeof renderSignalJournal === 'function') renderSignalJournal(); } catch (e) {}
+        alert(isEn ? 'All journal records have been cleared. You are starting fresh.' : 'Seluruh riwayat jurnal berhasil dibersihkan ke awal.');
       }
     } catch (eClk) {}
   }, true);
@@ -9385,6 +9400,22 @@ function bindUiEvents() {
       inpJnlSearch.focus();
     }
     renderSignalJournal();
+  });
+  bind('btnClearAllJournalHistory', function () {
+    var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
+    var msg = isEn
+      ? 'Clear all trading journal records (Trader, Investor, DEX) and start fresh? This action cannot be undone.'
+      : 'Hapus seluruh riwayat jurnal trading (Trader, Investor, DEX) dan mulai dari awal? Tindakan ini akan mengosongkan riwayat lama agar bersih.';
+    if (!confirm(msg)) return;
+    try {
+      localStorage.removeItem(SIGNAL_LOCK_KEY);
+      localStorage.removeItem(SIGNAL_OUTCOME_KEY);
+      localStorage.removeItem(RADAR_ACC_KEY);
+      localStorage.removeItem(INVESTOR_JOURNAL_KEY);
+      localStorage.removeItem(MEME_JOURNAL_KEY);
+    } catch (e) {}
+    try { renderSignalJournal(); } catch (e) {}
+    alert(isEn ? 'All journal records have been cleared. You are starting fresh.' : 'Seluruh riwayat jurnal berhasil dibersihkan ke awal.');
   });
   bind('btnToggleSlPlusNotify', function () {
     toggleSlPlusNotification();

@@ -20,6 +20,7 @@ const engineBoot = R('../public/js/engine-boot.js');
 const wrangler = R('../wrangler.toml');
 const css = R('../public/styles.css');
 const headers = R('../public/_headers');
+const sw = R('../public/sw.js');
 const tgRelay = R('../functions/api/notify/telegram.js');
 const sentinelScript = R('../scripts/market-sentinel.mjs');
 const sentinelWorkflow = R('../.github/workflows/market-sentinel.yml');
