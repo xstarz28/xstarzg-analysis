@@ -29,7 +29,7 @@ const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:
 
 // --- Versi cache-bust ---
 chk('index.html memakai v=2026.70 (styles)', /styles\.css\?v=2026\.70/.test(html));
-chk('index.html memakai v=2026.88 (app.js)', /app\.js\?v=2026\.88/.test(html));
+chk('index.html memuat app.js v=2026.88 secara defer', /<script defer src="\/app\.js\?v=2026\.88">/.test(html));
 chk('quant engine tidak dimuat saat landing; dimuat setelah workspace entry', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js\/engine-boot.js?v=2026.88'") && app.includes('ensureQuantEnginesLoaded();'), 'engine lazy load');
 chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
 chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
@@ -51,6 +51,9 @@ chk('mesin kuantitatif tidak dipra-cache saat landing', !sw.includes("'/js/share
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*\/\/[\s\S]*?return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
+
+
+chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'") && app.includes('ensureChartVendorLoaded();'));
 
 // --- Wiring lock persisten (aturan #3.2) ---
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
