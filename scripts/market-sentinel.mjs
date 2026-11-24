@@ -68,8 +68,7 @@ export async function syncJournalToCloud(payload) {
 }
 
 export async function syncActiveLocksFromCloud(cache) {
-  if (!cache || typeof cache !== 'object') return;
-  cache.slPlusLocks = cache.slPlusLocks || {};
+  if (!cache || typeof cache !== 'object') return false;
   const apiHosts = [
     process.env.XSTARZG_API_HOST,
     'https://xstarzganalysis.pages.dev',
@@ -81,29 +80,30 @@ export async function syncActiveLocksFromCloud(cache) {
     try {
       if (typeof fetch !== 'function') break;
       const res = await fetch(`${host}/api/market/journal-sync`);
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.activeLocks)) {
-          for (const l of data.activeLocks) {
-            const lockTime = l.created || l.issuedAt || now;
-            const ageMs = now - lockTime;
-            // Abaikan lock kadaluwarsa (> 24 jam untuk H1, > 2 jam untuk M15/M5)
-            const maxMs = (l.tf === 'M5' || l.tf === 'M15') ? (2 * 3600 * 1000) : (24 * 3600 * 1000);
-            if (ageMs > maxMs) continue;
+      if (!res || !res.ok) continue;
+      const data = await res.json();
+      if (!data || !Array.isArray(data.activeLocks)) continue;
 
-            if (l && l.symbol && !cache.slPlusLocks[l.symbol]) {
-              cache.slPlusLocks[l.symbol] = {
-                ...l,
-                created: l.created || l.issuedAt || now,
-                issuedAt: l.issuedAt || l.created || now
-              };
-            }
-          }
-        }
-        break;
+      // Cloud menjadi satu-satunya sumber kebenaran. Mengganti cache (bukan merge)
+      // memastikan reset jurnal global tidak hidup kembali dari cache GitHub Actions.
+      const current = {};
+      for (const lock of data.activeLocks) {
+        const lockTime = Number(lock && (lock.created || lock.issuedAt)) || 0;
+        const ageMs = now - lockTime;
+        const maxMs = (lock && (lock.tf === 'M5' || lock.tf === 'M15')) ? (2 * 3600 * 1000) : (24 * 3600 * 1000);
+        if (!lock || !lock.symbol || !lock.tf || ageMs > maxMs) continue;
+        current[lock.symbol] = {
+          ...lock,
+          created: lock.created || lock.issuedAt || now,
+          issuedAt: lock.issuedAt || lock.created || now
+        };
       }
+      cache.slPlusLocks = current;
+      return true;
     } catch (e) {}
   }
+  // Jangan memindai cache lama ketika endpoint cloud tidak dapat diverifikasi.
+  return false;
 }
 
 let RESOLVED_BOT_TOKEN = '';
@@ -583,7 +583,7 @@ export const WATCHLIST = [
   ])
 ];
 
-export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE }) {
+export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE, monitorOnly = false }) {
   const { sym, tf, hz } = inst;
   if (!candles || candles.length < 35 || !a || a.error) return;
 
@@ -605,7 +605,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   // DILARANG membuka LONG pada altcoin jika BTC makro sedang BEARISH kuat
   const btcTrend = inst.btcTrend || null;
   const isAltcoin = inst.type === 'crypto' && sym !== 'BTC/USDT';
-  if (isAltcoin && btcTrend) {
+  if (!monitorOnly && isAltcoin && btcTrend) {
     if (btcTrend === 'BULLISH' && dir === 'SHORT') {
       console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BETA GUARD] SHORT dibatalkan: BTC makro sedang BULLISH kuat. Dilarang melawan arus utama kripto!`);
       return;
@@ -619,7 +619,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   // Anti-Correlation Basket Guard untuk Kripto:
   // Maksimal 2 posisi crypto dengan arah yang sama (LONG atau SHORT) yang boleh aktif bersamaan!
   // Mencegah kerugian beruntun (basket wipeout) saat seluruh altcoin bergerak serempak mengikuti BTC!
-  if (inst.type === 'crypto' && dir) {
+  if (!monitorOnly && inst.type === 'crypto' && dir) {
     const activeCryptoSameDir = Object.values(cache.slPlusLocks || {}).filter(l =>
       l && l.symbol && (l.symbol.includes('/USDT') || l.symbol.includes('BTC') || l.symbol.includes('ETH')) &&
       l.direction === dir && (l.status === 'PENDING_FILL' || l.status === 'FILLED' || l.status === 'ACTIVE')
@@ -633,14 +633,14 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 
   // Filter Khusus Emas (XAU/USD) untuk Keakuratan Kompetisi 7 Hari
   const isGold = sym === 'XAU/USD';
-  if (isGold) {
+  if (!monitorOnly && isGold) {
     if (a.sessionInfo && !a.sessionInfo.isOptimal && score < 80) {
       console.log(`  [XAU/USD ${tf}] 🟡 Emas di luar sesi likuiditas puncak London/NY — hanya sinyal skor ≥ 80% yang diizinkan.`);
       return;
     }
   }
 
-  if (a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
+  if (!monitorOnly && a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
     const L = a.levels || {};
     const anchorTime = a.anchorClosedTime || lastBar.time;
     const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
@@ -1178,7 +1178,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   }
 }
 
-async function scanInstrument(inst, cache) {
+async function scanInstrument(inst, cache, { monitorOnly = false } = {}) {
   const { sym, tf, type } = inst;
   if (!isAssetMarketOpen(sym)) {
     console.log(`  [${sym} ${tf}] Sesi bursa tutup (akhir pekan). Pemindaian dilewati.`);
@@ -1211,7 +1211,7 @@ async function scanInstrument(inst, cache) {
     }
 
     const a = runFullAnalysis({ symbol: sym, timeframe: tf, candles });
-    await processInstrumentAnalysis({ inst, candles, a, cache });
+    await processInstrumentAnalysis({ inst, candles, a, cache, monitorOnly });
   } catch (err) {
     console.log(`  [${sym} ${tf}] Fetch/analisis dilewati: ${err.message}`);
   }
@@ -1231,20 +1231,39 @@ async function runSentinel() {
   }
 
   const cache = loadCache();
-  await syncActiveLocksFromCloud(cache);
+  const cloudSynced = await syncActiveLocksFromCloud(cache);
+  if (!cloudSynced) {
+    console.log('⚠️ [XSTARZG SENTINEL] Cloud journal tidak terjangkau; pemantauan dilewati agar cache lama tidak dipakai.');
+    return;
+  }
   cache.newAlertsThisRun = 0;
   cache.slHitsThisRun = 0;
 
-  const btcTrend = await resolveBtcMacroTrend();
-  console.log(`🪙 [Makro Kripto] Tren Utama Bitcoin: ${btcTrend}`);
+  const activeLocks = Object.values(cache.slPlusLocks || {});
+  if (!activeLocks.length) {
+    saveCache(cache);
+    console.log('🧹 [XSTARZG SENTINEL] Tidak ada posisi manual aktif di jurnal; discovery/scan rekomendasi dinonaktifkan.');
+    return;
+  }
+
+  // Sentinel hanya mengambil candle untuk posisi yang lebih dulu tercatat dari analisis manual.
+  // Ia tidak lagi memindai WATCHLIST untuk mencari atau menerbitkan instrumen baru.
+  const monitorTargets = activeLocks.map(lock =>
+    WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf)
+  ).filter(Boolean);
+  if (!monitorTargets.length) {
+    saveCache(cache);
+    console.log('ℹ️ [XSTARZG SENTINEL] Posisi aktif tidak ada di cakupan feed pemantauan.');
+    return;
+  }
 
   const concurrency = 6;
-  for (let i = 0; i < WATCHLIST.length; i += concurrency) {
-    const chunk = WATCHLIST.slice(i, i + concurrency);
-    await Promise.all(chunk.map(inst => scanInstrument({ ...inst, btcTrend }, cache)));
+  for (let i = 0; i < monitorTargets.length; i += concurrency) {
+    const chunk = monitorTargets.slice(i, i + concurrency);
+    await Promise.all(chunk.map(inst => scanInstrument(inst, cache, { monitorOnly: true })));
   }
   saveCache(cache);
-  console.log('🏁 [XSTARZG SENTINEL] Pemindaian selesai.');
+  console.log(`🏁 [XSTARZG SENTINEL] Pemantauan posisi manual selesai (${monitorTargets.length} instrumen; tanpa discovery).`);
 }
 
 const isDirectExecution = Boolean(process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]));
