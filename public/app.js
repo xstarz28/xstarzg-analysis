@@ -7,6 +7,7 @@ var state = {
   symbol: 'XAU/USD',
   tf: 'H1', timeframe: 'H1',
   mode: 'trader',            // 'trader' | 'investor'
+  manualInstrumentSelection: false,
   subMode: 'futures',        // 'futures' | 'spot'
   chartType: 'candles',      // 'candles' | 'bars' | 'line' | 'area' (ala TradingView)
   radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
@@ -1092,20 +1093,25 @@ var SIGNAL_LOCK_KEY = 'xstarzg_siglock_v3';
 var SIGNAL_LOCK_KEY_V2 = 'xstarzg_siglock_v2';
 var SIGNAL_OUTCOME_KEY = 'xstarzg_sigoutcome_v1';
 var RADAR_ACC_KEY = 'xstarzg_radaracc_v1';
+var JOURNAL_RESET_KEY = 'xstarzg_journal_reset_at_v1';
 function signalLockStore() {
   var p = {};
-  try { p = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY) || '{}') || {}; } catch (e) { p = {}; }
+  try { p = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY) || '{}') || {}; } catch (e) {}
+  var hasResetMarker = false;
+  try { hasResetMarker = Number(localStorage.getItem(JOURNAL_RESET_KEY) || 0) > 0; } catch (e) {}
   if (!p.__migratedV2) {
-    try {
-      var old = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY_V2) || '{}') || {};
-      for (var ok in old) {
-        var ol = old[ok];
-        if (ol && ol.status === 'ACTIVE' && ol.tf) {
-          var nk = ok + '|' + ol.tf;
-          if (!p[nk]) p[nk] = ol;
+    if (!hasResetMarker) {
+      try {
+        var old = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY_V2) || '{}') || {};
+        for (var ok in old) {
+          var ol = old[ok];
+          if (ol && ol.status === 'ACTIVE' && ol.tf) {
+            var nk = ok + '|' + ol.tf;
+            if (!p[nk]) p[nk] = ol;
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
     p.__migratedV2 = 1;
     try { localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(p)); } catch (e) {}
   }
@@ -1161,25 +1167,46 @@ function saveSignalLock(symbol, tf, lock) {
   }
 }
 
+function clearLocalJournalStores(resetAt) {
+  try {
+    localStorage.removeItem(SIGNAL_LOCK_KEY);
+    localStorage.removeItem(SIGNAL_LOCK_KEY_V2);
+    localStorage.removeItem(SIGNAL_OUTCOME_KEY);
+    localStorage.removeItem(RADAR_ACC_KEY);
+    localStorage.removeItem(INVESTOR_JOURNAL_KEY);
+    localStorage.removeItem(MEME_JOURNAL_KEY);
+    localStorage.setItem(JOURNAL_RESET_KEY, String(Number(resetAt) || Date.now()));
+  } catch (e) {}
+}
+
+function applyCloudJournalReset(resetAt) {
+  var remoteReset = Number(resetAt) || 0;
+  if (!remoteReset) return false;
+  var localReset = 0;
+  try { localReset = Number(localStorage.getItem(JOURNAL_RESET_KEY) || 0); } catch (e) {}
+  if (remoteReset <= localReset) return false;
+  clearLocalJournalStores(remoteReset);
+  return true;
+}
+
 function syncCloudSignalJournal() {
-  fetch('/api/market/journal-sync')
+  fetch('/api/market/journal-sync', { cache: 'no-store' })
     .then(function (r) { return r && r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d || !d.ok) return;
-      var all = signalLockStore();
-      var changed = false;
-      if (Array.isArray(d.activeLocks) && d.activeLocks.length) {
-        d.activeLocks.forEach(function (l) {
-          if (!l || !l.symbol || !l.tf) return;
-          var id = signalLockId(l.symbol, l.tf);
-          if (!all[id] || (l.issuedAt && (!all[id].issuedAt || l.issuedAt > all[id].issuedAt))) {
-            all[id] = l;
-            changed = true;
-          }
-        });
-      }
+      var resetApplied = applyCloudJournalReset(d.resetAt);
+      var fresh = { __migratedV2: 1 };
+      (Array.isArray(d.activeLocks) ? d.activeLocks : []).forEach(function (l) {
+        if (!l || !l.symbol || !l.tf) return;
+        fresh[signalLockId(l.symbol, l.tf)] = l;
+      });
+      var current = signalLockStore();
+      var oldKeys = Object.keys(current).filter(function (k) { return k !== '__migratedV2'; });
+      var newKeys = Object.keys(fresh).filter(function (k) { return k !== '__migratedV2'; });
+      var changed = resetApplied || oldKeys.length !== newKeys.length ||
+        oldKeys.some(function (k) { return !fresh[k]; });
       if (changed) {
-        localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+        localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(fresh));
         try { renderSignalJournal(); } catch (e) {}
       }
     }).catch(function () {});
@@ -3595,184 +3622,31 @@ var MEME_JOURNAL_KEY = 'xstarzg_meme_journal_v1';
 var activeJournalTab = 'trader'; // 'trader' | 'investor' | 'meme'
 
 function syncCuratedInvestorToJournal() {
-  try {
-    var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
-    var all = [];
-    if (raw) {
-      try { all = JSON.parse(raw) || []; } catch (e) {}
-    }
-    // Hapus data fiktif statis lama jika ada
-    all = (Array.isArray(all) ? all : []).filter(function (x) {
-      return x && x.id !== 'inv_btc';
-    });
-
-    var existingSyms = {};
-    all.forEach(function (x) { if (x && x.symbol) existingSyms[x.symbol.toUpperCase()] = true; });
-
-    // Portofolio default spot bluechip dengan valuasi D1 riil
-    var defaultInvPicks = [
-      {
-        id: 'inv_bbca_spot',
-        symbol: 'BBCA.JK',
-        name: 'Bank Central Asia',
-        assetClass: 'stocks',
-        entryPrice: 9850,
-        currentPrice: 9850,
-        dcaZone1: 9850,
-        dcaZone2: 9550,
-        dcaZone3: 9250,
-        target1: 11200,
-        target2: 12500,
-        valuationStatus: 'FAIR VALUE (DIVIDEND BLUECHIP)',
-        notes: 'Akumulasi dividen perbankan solid & fundamental laba bersih konsisten bertumbuh.',
-        at: Date.now() - 14 * 86400000,
-        status: 'ACTIVE'
-      },
-      {
-        id: 'inv_bbri_spot',
-        symbol: 'BBRI.JK',
-        name: 'Bank Rakyat Indonesia',
-        assetClass: 'stocks',
-        entryPrice: 4420,
-        currentPrice: 4420,
-        dcaZone1: 4420,
-        dcaZone2: 4200,
-        dcaZone3: 3950,
-        target1: 5200,
-        target2: 5800,
-        valuationStatus: 'UNDERVALUE (DISKON TINGGI)',
-        notes: 'Penyaluran kredit UMKM terbesar, valuasi PBV diskon historis, dividen yield tinggi.',
-        at: Date.now() - 10 * 86400000,
-        status: 'ACTIVE'
-      }
-    ];
-
-    defaultInvPicks.forEach(function (it) {
-      var s = it.symbol.toUpperCase();
-      if (!existingSyms[s]) {
-        existingSyms[s] = true;
-        all.push(it);
-      }
-    });
-
-    // Update harga live terkini
-    all.forEach(function (j) {
-      var s = (j.symbol || '').toUpperCase();
-      if (state.symbol && state.symbol.toUpperCase() === s && Number(state.livePrice) > 0) {
-        j.currentPrice = Number(state.livePrice);
-      } else if (typeof investorScanPool !== 'undefined' && investorScanPool[s] && Number(investorScanPool[s].price) > 0) {
-        j.currentPrice = Number(investorScanPool[s].price);
-      }
-    });
-
-    saveInvestorJournalStore(all);
-    return all;
-  } catch (e) {
-    return [];
-  }
+  // Legacy compatibility only: recommendations are not journal entries.
+  return [];
 }
 
 function investorJournalStore() {
   try {
-    var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
-    if (raw) {
-      var parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        var cleaned = parsed.filter(function (x) { return x && x.id !== 'inv_btc'; });
-        if (cleaned.length) return cleaned;
-      }
-    }
-  } catch (e) {}
-  return syncCuratedInvestorToJournal();
+    var parsed = JSON.parse(localStorage.getItem(INVESTOR_JOURNAL_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) { return []; }
 }
 
 function saveInvestorJournalStore(items) {
   try { localStorage.setItem(INVESTOR_JOURNAL_KEY, JSON.stringify(items || [])); } catch (e) {}
 }
 
-function syncRecommendedMemeToJournal(memeList) {
-  try {
-    var raw = localStorage.getItem(MEME_JOURNAL_KEY);
-    var all = [];
-    if (raw) {
-      try { all = JSON.parse(raw) || []; } catch (e) {}
-    }
-    // Bersihkan seed dummy statis lama
-    all = (Array.isArray(all) ? all : []).filter(function (x) {
-      return x && x.id !== 'meme_pnut' && x.id !== 'meme_brett';
-    });
-
-    var existingSyms = {};
-    all.forEach(function (x) { if (x && x.symbol) existingSyms[x.symbol.toUpperCase()] = true; });
-
-    var pool = (memeList && memeList.length) ? memeList : ((typeof memeScanPool !== 'undefined' && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG);
-    var topCandidates = pool.filter(function (it) {
-      return (it.safetyScore || 0) >= 80;
-    }).slice(0, 8);
-
-    topCandidates.forEach(function (it) {
-      var s = (it.symbol || '').toUpperCase();
-      if (s && !existingSyms[s]) {
-        existingSyms[s] = true;
-        var baseP = Number(it.basePrice) || 0.1;
-        var buyP = Number((baseP / (1 + Math.max(1.5, Number(it.change5m || it.change1h || 5)) / 100)).toFixed(baseP < 0.01 ? 6 : (baseP < 1 ? 4 : 2)));
-        all.push({
-          id: 'dex_rec_' + it.symbol.toLowerCase() + '_' + (it.chain || 'solana'),
-          symbol: it.symbol,
-          name: it.name,
-          chain: it.chain,
-          chainLabel: it.chainLabel || (it.chain ? it.chain.toUpperCase() : 'Solana'),
-          address: it.address || it.pairAddress || '',
-          buyPrice: buyP,
-          currentPrice: baseP,
-          targetX: 2.0,
-          tp1Secured: false,
-          notes: 'Rekomendasi Teratas DEX Workspace (' + (it.chainLabel || it.chain) + ') • Safety ' + (it.safetyScore || 90) + '/100.',
-          at: Date.now() - (it.ageHours ? Math.min(it.ageHours * 3600000, 24 * 3600000) : 3600000),
-          status: 'ACTIVE',
-          isAuto: true
-        });
-      }
-    });
-
-    // Update harga live koin micin
-    var catMap = {};
-    pool.forEach(function (it) { if (it && it.symbol) catMap[it.symbol.toUpperCase()] = it; });
-    all.forEach(function (j) {
-      var found = catMap[(j.symbol || '').toUpperCase()];
-      if (found && Number(found.basePrice) > 0) {
-        j.currentPrice = Number(found.basePrice);
-        if (j.buyPrice > 0 && Math.abs(j.currentPrice - j.buyPrice) < 0.000001) {
-          var chg = Number(found.change1h || found.change5m || 8.5);
-          if (chg > 0) {
-            j.buyPrice = Number((j.currentPrice / (1 + chg / 100)).toFixed(j.currentPrice < 0.01 ? 6 : (j.currentPrice < 1 ? 4 : 2)));
-          }
-        }
-        if (j.currentPrice >= 2.0 * j.buyPrice) {
-          j.tp1Secured = true;
-        }
-      }
-    });
-
-    saveMemeJournalStore(all);
-    return all;
-  } catch (e) {
-    return [];
-  }
+function syncRecommendedMemeToJournal() {
+  // Legacy compatibility only: scanner candidates are not journal entries.
+  return [];
 }
 
 function memeJournalStore() {
   try {
-    var raw = localStorage.getItem(MEME_JOURNAL_KEY);
-    if (raw) {
-      var parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        var cleaned = parsed.filter(function (x) { return x && x.id !== 'meme_pnut' && x.id !== 'meme_brett'; });
-        if (cleaned.length) return cleaned;
-      }
-    }
-  } catch (e) {}
-  return syncRecommendedMemeToJournal(DEFAULT_MEME_CATALOG);
+    var parsed = JSON.parse(localStorage.getItem(MEME_JOURNAL_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) { return []; }
 }
 
 function saveMemeJournalStore(items) {
@@ -6948,7 +6822,7 @@ function renderMemeInstrumentOptions() {
   var sel = $id('selMemeInstrument');
   if (!sel) return;
   var items = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
-  var html = '';
+  var html = '<option value="">— Pilih token DEX secara manual —</option>';
   items.forEach(function (it) {
     var isSel = activeMemeToken && activeMemeToken.symbol === it.symbol;
     html += '<option value="' + escH(it.symbol) + '"' + (isSel ? ' selected' : '') + '>' +
@@ -6956,6 +6830,7 @@ function renderMemeInstrumentOptions() {
       '</option>';
   });
   sel.innerHTML = html;
+  if (!activeMemeToken) sel.value = '';
 }
 
 function getFilteredMemeCatalog(chain, sort) {
@@ -7311,19 +7186,9 @@ function startMemePoolBackgroundTicker() {
   }, 4000);
 }
 
-function renderMemePicks(force) {
-  var grid = $id('memePicksGrid');
-  if (!grid) return;
-
-  var currentItems = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
-  drawMemePickCards(currentItems);
+function renderMemePicks() {
+  // DEX recommendations and scanning have been retired.
   renderMemeInstrumentOptions();
-  try { syncRecommendedMemeToJournal(currentItems); } catch (e) {}
-  if (!activeMemeToken || !currentItems.some(function (x) { return x.symbol === activeMemeToken.symbol; })) {
-    if (currentItems.length) selectMemeToken(currentItems[0]);
-  }
-
-  fetchMemeCatalogLive(force);
 }
 
 function renderOpportunityRadar(force) {
