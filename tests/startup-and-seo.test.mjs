@@ -23,11 +23,12 @@ test('PWA & SERVICE WORKER: Solusi tuntas bug startup layar menggantung pasca up
     assert.ok(!swJs.includes("catch(() => caches.match('/'))"), 'Tidak boleh catch error fetch asset menjadi HTML');
   });
 
-  await t.test('3. sw.js STATIC_ASSETS memuat lightweight-charts dan modul shared quant', () => {
-    assert.ok(swJs.includes('/vendor/lightweight-charts.js'), 'lightweight-charts wajib ada di STATIC_ASSETS');
-    assert.ok(swJs.includes('/js/shared/quant-core.js'), 'quant-core wajib ada di STATIC_ASSETS');
-    assert.ok(swJs.includes('/js/shared/signal-engine.js'), 'signal-engine wajib ada di STATIC_ASSETS');
-    assert.ok(swJs.includes('/js/calculator.js'), 'calculator wajib ada di STATIC_ASSETS');
+  await t.test('3. aset chart dan quant berat tidak dipra-cache saat landing', () => {
+    assert.ok(!swJs.includes("'/vendor/lightweight-charts.js'"), 'chart vendor dimuat setelah workspace dibuka');
+    assert.ok(!swJs.includes("'/js/shared/quant-core.js'"), 'quant-core dimuat setelah workspace dibuka');
+    assert.ok(!swJs.includes("'/js/shared/signal-engine.js'"), 'signal-engine dimuat setelah workspace dibuka');
+    assert.ok(!swJs.includes("'/js/calculator.js'"), 'calculator dimuat setelah workspace dibuka');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.88'), 'versi cache PWA dinaikkan');
   });
 
   await t.test('4. _headers mencegah Cloudflare/browser meng-cache sw.js dan index.html', () => {
@@ -36,9 +37,12 @@ test('PWA & SERVICE WORKER: Solusi tuntas bug startup layar menggantung pasca up
     assert.ok(headers.includes('/index.html'), '_headers wajib mengatur /index.html');
   });
 
-  await t.test('5. app.js memantau controllerchange untuk reload otomatis pasca update', () => {
-    assert.ok(appJs.includes('controllerchange'), 'app.js harus mendengarkan controllerchange');
-    assert.ok(appJs.includes('window.location.reload()'), 'app.js reload otomatis saat SW baru aktif');
+  await t.test('5. app.js tidak memaksa reload saat controllerchange', () => {
+    const start = appJs.indexOf("navigator.serviceWorker.addEventListener('controllerchange'");
+    const end = appJs.indexOf('var deferredPwaPrompt', start);
+    const handler = appJs.slice(start, end);
+    assert.ok(start >= 0, 'app.js mendengarkan controllerchange');
+    assert.ok(!handler.includes('window.location.reload()'), 'controllerchange tidak memulai reload berulang');
   });
 });
 
@@ -79,5 +83,12 @@ test('GOOGLE SEARCH CONSOLE & SEO DISCOVERY CONFIGURATION', async (t) => {
   await t.test('3. sitemap.xml dan robots.txt memprioritaskan xstarzg-analysis.pages.dev', () => {
     assert.ok(sitemap.includes('<loc>https://xstarzg-analysis.pages.dev/</loc>'), 'sitemap.xml memuat domain aktif');
     assert.ok(robots.includes('Sitemap: https://xstarzg-analysis.pages.dev/sitemap.xml'), 'robots.txt mereferensikan sitemap domain aktif');
+  });
+
+  await t.test('6. app.js dan engine-boot memuat chart/quant setelah workspace', () => {
+    assert.ok(!html.includes('<script src="/vendor/lightweight-charts.js'), 'index.html tidak mengunduh chart vendor saat landing');
+    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'"), 'chart vendor lazy loaded');
+    assert.ok(!html.includes('/js/engine-boot.js'), 'engine-boot tidak diimpor saat landing');
+    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.88'"), 'quant engine lazy loaded');
   });
 });

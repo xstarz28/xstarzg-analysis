@@ -83,15 +83,61 @@ function loadSession() {
   } catch (e) { return null; }
 }
 
+var __xsChartVendorRequested = false;
+function ensureChartVendorLoaded() {
+  try {
+    if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
+    __xsChartVendorRequested = true;
+    var chartScript = document.createElement('script');
+    chartScript.src = '/vendor/lightweight-charts.js?v=2026.88';
+    chartScript.onload = function () {
+      try {
+        if (!chartInstance && typeof initChart === 'function') initChart();
+        if (chartInstance && state.candles && state.candles.length && typeof renderAllVisuals === 'function') {
+          renderAllVisuals(state.lastAnalysis || null, true);
+        }
+      } catch (e) {}
+    };
+    chartScript.onerror = function () {
+      __xsChartVendorRequested = false;
+      // Canvas fallback remains available when the chart vendor is offline.
+    };
+    document.head.appendChild(chartScript);
+  } catch (e) {
+    __xsChartVendorRequested = false;
+  }
+}
+var __xsEngineBootRequested = false;
+function ensureQuantEnginesLoaded() {
+  try {
+    if (window.__XS_QC && window.__XS_SE) return;
+    if (__xsEngineBootRequested) return;
+    __xsEngineBootRequested = true;
+    var bootScript = document.createElement('script');
+    bootScript.type = 'module';
+    bootScript.src = '/js/engine-boot.js?v=2026.88';
+    bootScript.onerror = function () {
+      __xsEngineBootRequested = false;
+      console.error('XStarZG quant engine module failed to load');
+    };
+    document.head.appendChild(bootScript);
+  } catch (e) {
+    __xsEngineBootRequested = false;
+    console.error('XStarZG quant engine bootstrap failed:', e);
+  }
+}
 var enterWorkspaceLock = 0;
 function enterWorkspace() {
   try {
     showScreen('work');
+    // Heavy chart and quant/signal modules are loaded only after workspace entry.
+    ensureChartVendorLoaded();
+    ensureQuantEnginesLoaded();
     var sk = document.getElementById('tvChartLoadingSkeleton');
     if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
     try { if (typeof updateUserUi === 'function') updateUserUi(); } catch (e) {}
     try { if (typeof syncModeSections === 'function') syncModeSections(); } catch (e) {}
-    try { if (typeof renderInstrumentCatalog === 'function') renderInstrumentCatalog(); } catch (eCat) {}
+    try { if (QC && typeof renderInstrumentCatalog === 'function') renderInstrumentCatalog(); } catch (eCat) {}
     // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
     // agar layar HP tidak pernah menggantung dengan placeholder kosong
     try {
@@ -1721,7 +1767,7 @@ function fetchRealMarketCandles(symbol, tf) {
   return new Promise(function (resolve) {
     var ctrl = new AbortController();
     var timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 12000);
-    fetch('/api/market/analyze?symbol=' + encodeURIComponent(symbol) + '&tf=' + encodeURIComponent(tf || 'H1') + '&_t=' + Date.now(), {
+    fetch('/api/market/analyze?symbol=' + encodeURIComponent(symbol) + '&tf=' + encodeURIComponent(tf || 'H1'), {
       cache: 'no-store', signal: ctrl.signal
     }).then(function (res) {
       clearTimeout(timer);
@@ -2317,6 +2363,8 @@ function gateBlockHtml(a) {
 var bestTfScanSeq = 0;
 var bestTfScanCache = {};
 function scheduleBestTfScan() {
+  // Do not launch eight additional timeframe requests after each manual analysis.
+  return;
   try {
     if (!SE || !SE.pickBestTimeframes) return;
     if (state.mode === 'investor') { state.bestTfBoard = null; return; }
@@ -5100,6 +5148,8 @@ function drawInvestorPickCards(items) {
 function renderInvestorPicks(force) {
   var grid = $id('investorPicksGrid');
   if (!grid) return;
+  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Kurasi multi-instrumen dipindahkan ke proyek screener terpisah. Analisis instrumen individual tetap tersedia di terminal.</span></div>';
+  return;
   var now = Date.now();
   var cachedItems = [];
   for (var k0 in investorScanPool) if (now - investorScanPool[k0].ts < 1800000) cachedItems.push(investorScanPool[k0].item);
@@ -7251,6 +7301,8 @@ function renderMemePicks(force) {
 function renderOpportunityRadar(force) {
   var grid = $id('opportunityRadarGrid');
   if (!grid) return;
+  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Radar multi-instrumen dipindahkan ke proyek screener terpisah. Pilih instrumen untuk menjalankan analisis individual.</span></div>';
+  return;
   if (!state.radarHorizon) state.radarHorizon = 'intraday';
   if (state.mode === 'investor') state.radarHorizon = (state.radarHorizon === 'scalping') ? 'swing' : state.radarHorizon;
   var hz = state.radarHorizon;
@@ -9161,7 +9213,18 @@ function bindUiEvents() {
   bind('btnDirectLogout', doLogout);
   /* ---- Kontrol instrumen ---- */
   var catSel = $id('selCategory');
-  if (catSel) catSel.addEventListener('change', function () { renderInstrumentCatalog(); });
+  if (catSel) catSel.addEventListener('change', function () {
+    renderInstrumentCatalog();
+    if (catSel.value === 'CRYPTO') {
+      if (QC && QC.registerDynamicInstrument) lazyLoadCryptoPairs();
+      else if (!window.__xsCryptoCatalogWaiter) {
+        window.__xsCryptoCatalogWaiter = true;
+        window.addEventListener('xs-engine-booted', function () {
+          if (QC && QC.registerDynamicInstrument && catSel.value === 'CRYPTO') lazyLoadCryptoPairs();
+        }, { once: true });
+      }
+    }
+  });
   var searchInp = $id('inpSearchAsset');
   if (searchInp) {
     searchInp.addEventListener('input', function () { renderInstrumentCatalog(searchInp.value); });
@@ -9921,6 +9984,8 @@ function selectSymbol(sym) {
    jeda otomatis saat tab tidak terlihat. */
 var radarAutoLastForce = 0;
 function startRadarAutoPilot() {
+  // Browser-side screening moved out of the terminal; the dedicated cloud Sentinel remains active.
+  return;
   if (window.__radarAutoTimer) return;
   window.__radarAutoTimer = setInterval(function () {
     try {
@@ -9951,7 +10016,6 @@ function bootCore() {
     try { syncTelegramLinkStatus(); } catch (e) {}
     try { syncCloudSignalJournal(); } catch (e) {}
     try { applyWorkspacePrefs(saved); } catch (e) {}
-    try { renderInstrumentCatalog(); } catch (e) {}
     try { updateUserUi(); } catch (e) {}
     try { verifyOwnerSession(); } catch (e) {}
     try { verifyVipSession(); } catch (e) {}
@@ -9970,7 +10034,6 @@ function bootCore() {
     if (isPwaLaunch) {
       state.user = { email: 'pwa-guest@xstarzg.local', name: 'Mode Tamu PWA', tier: 'GUEST' };
       try { saveSession(); } catch (e) {}
-      try { renderInstrumentCatalog(); } catch (e) {}
       try { updateUserUi(); } catch (e) {}
       try { syncModeSections(); } catch (e) {}
       try { enterWorkspace(); } catch (e) {}
@@ -9980,7 +10043,6 @@ function bootCore() {
       try { syncModeSections(); } catch (e) {}
       try { enterWorkspace(); } catch (e) {}
     } else {
-      try { renderInstrumentCatalog(); } catch (e) {}
       try { updateUserUi(); } catch (e) {}
       try { showScreen('front'); } catch (e) {}
     }
@@ -9995,8 +10057,7 @@ function bootCore() {
     if (qc) QC = qc;
     if (se) SE = se;
     renderInstrumentCatalog();
-    lazyLoadCryptoPairs();
-    startRadarAutoPilot(); // auto-refresh mandiri radar/kurasi setelah engine siap
+    // Expanded crypto catalog is opt-in: load it only when the user selects CRYPTO.
     // Setelah restore-refresh engine mungkin belum siap saat analisa awal jalan
     // (fallback ringan) -> jalankan ulang satu kali agar 22 pilar penuh tampil.
     if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') {
@@ -10487,18 +10548,20 @@ if (document.readyState === 'loading') {
     if (__xsBootPostDomStarted) return;
     __xsBootPostDomStarted = true;
     setTimeout(function () {
-      try {
-        const seeded = generateSeedCandles(state.symbol, state.tf);
-        state.candles = seeded.candles;
-        state.livePrice = seeded.price;
-        state.feedSource = 'LOCAL_SEED';
-        const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
-        renderAllVisuals(initAn, false);
-      } catch (eInitAn) {}
-
-      // Ringankan beban jaringan awal: hanya panggil radar & background feeds bila pengguna sedang di workspace
+      // Do not compute/render seed analysis while the landing or login screen is visible.
       var workEl = document.getElementById('appWorkspaceWrapper');
       var isInWork = workEl && !workEl.classList.contains('hidden');
+      if (isInWork && (!state.candles || !state.candles.length)) {
+        try {
+          const seeded = generateSeedCandles(state.symbol, state.tf);
+          state.candles = seeded.candles;
+          state.livePrice = seeded.price;
+          state.feedSource = 'LOCAL_SEED';
+          const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
+          renderAllVisuals(initAn, false);
+        } catch (eInitAn) {}
+      }
+      // Initial background feeds run only after an actual workspace entry.
       if (isInWork) {
         try { renderOpportunityRadar(); } catch (e) {}
         try { fetchNewsCalendar(false); } catch (e) {}

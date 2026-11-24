@@ -1,15 +1,10 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-const CACHE_NAME = 'xstarzg-pwa-v2026.87';
+const CACHE_NAME = 'xstarzg-pwa-v2026.88';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
-  '/vendor/lightweight-charts.js',
-  '/js/engine-boot.js',
-  '/js/calculator.js',
-  '/js/shared/quant-core.js',
-  '/js/shared/signal-engine.js',
   '/i18n/boot.js',
   '/i18n/index.js',
   '/i18n/locales/id.json',

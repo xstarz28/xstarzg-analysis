@@ -29,10 +29,10 @@ const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:
 
 // --- Versi cache-bust ---
 chk('index.html memakai v=2026.70 (styles)', /styles\.css\?v=2026\.70/.test(html));
-chk('index.html memakai v=2026.70 (app.js)', /app\.js\?v=2026\.70/.test(html));
-chk('index.html memakai v=2026.70 (engine-boot module)', /<script type="module" src="\/js\/engine-boot\.js\?v=2026\.70">/.test(html));
+chk('index.html memuat app.js v=2026.88 secara defer', /<script defer src="\/app\.js\?v=2026\.88">/.test(html));
+chk('quant engine tidak dimuat saat landing; dimuat setelah workspace entry', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js\/engine-boot.js?v=2026.88'") && app.includes('ensureQuantEnginesLoaded();'), 'engine lazy load');
 chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
-chk('engine-boot import shared v=2026.70 (2x)', /quant-core\.js\?v=2026\.70/.test(boot) && /signal-engine\.js\?v=2026\.70/.test(boot));
+chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
 chk('i18n index import locale v=2026.70', /locales\/\$\{currentLang\}\.js\?v=2026\.70/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
@@ -45,6 +45,15 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
   chk('updateRiskSizing tidak memanggil engine ulang', !body.includes('computeQuantEngine') && !body.includes('runFullAnalysis(') && !body.includes('runFullAnalysis ='));
 }
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
+
+
+chk('mesin kuantitatif tidak dipra-cache saat landing', !sw.includes("'/js/shared/signal-engine.js'") && !sw.includes("'/js/engine-boot.js'") && sw.includes('xstarzg-pwa-v2026.88'));
+chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*\/\/[\s\S]*?return;/.test(app));
+chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
+chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
+
+
+chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'") && app.includes('ensureChartVendorLoaded();'));
 
 // --- Wiring lock persisten (aturan #3.2) ---
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
@@ -80,7 +89,7 @@ chk('radar menyaring keyakinan >= 55', app.includes('convictionScore, 0) >= 55')
 chk('kotak futures tidak untuk saham/spot', app.includes("a.assetClass !== 'stocks'") && app.includes('marginProduct'));
 chk('toggle spot/futures tampak di semua aset (dipulihkan v2026.59)', !app.includes("showSub = a.assetClass === 'crypto'"));
 chk('lock mengikat skor keyakinan (fix skor berubah saat refresh)', eng.includes('a.convictionScore = Math.max(a.convictionScore || 0, lock.score || 0)'));
-chk('radar & kurasi investor auto-refresh mandiri', app.includes('startRadarAutoPilot') && app.includes('__radarAutoTimer') && app.includes('renderOpportunityRadar(force)') && app.includes('renderInvestorPicks(force)'));
+chk('auto-screening trader/investor dinonaktifkan di terminal', app.includes('Browser-side screening moved out of the terminal') && app.includes('Kurasi multi-instrumen dipindahkan ke proyek screener terpisah') && app.includes('Radar multi-instrumen dipindahkan ke proyek screener terpisah'));
 chk('ticker realtime lewat bucket waktu resmi (bukan timpa candle terakhir)', !app.includes('lastBar.close = liveP') && app.includes('applyLiveTick(liveP'));
 chk('pemilih tipe chart (candlestick/bar/line/area) ter-wire', html.includes('chartTypeBar') && html.includes('data-ctype="area"') && app.includes('applyChartType') && app.includes('mainSeriesPayload') && app.includes('updateMainSeries'));
 chk('chart responsif HP (ResizeObserver + defer lebar 0)', app.includes('ResizeObserver') && app.includes('__chartInitPending'));

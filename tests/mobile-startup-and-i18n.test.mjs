@@ -34,7 +34,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.87'), 'sw.js memiliki versi cache segar v2026.86');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.88'), 'sw.js memiliki versi cache segar v2026.88');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
@@ -119,5 +119,30 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     const pilotEnd = appJs.indexOf('var __xsBootCoreStarted', pilotStart);
     const pilot = appJs.slice(pilotStart, pilotEnd);
     assert.ok(pilot.includes("workspace.classList.contains('hidden')"), 'auto-pilot memeriksa visibilitas workspace');
+  });
+
+  await t.test('21. quant/signal engine baru dimuat setelah workspace dibuka', () => {
+    assert.ok(appJs.includes('function ensureQuantEnginesLoaded()'), 'lazy loader tersedia');
+    assert.ok(appJs.includes('ensureQuantEnginesLoaded();'), 'workspace meminta engine');
+    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.88'"), 'modul engine tidak di-load dari landing');
+  });
+  await t.test('22. bootPostDom tidak menghitung seed saat landing/login', () => {
+    const bootStart = appJs.indexOf('function bootPostDom()');
+    const bootEnd = appJs.indexOf('// ==================== PWA INSTALL', bootStart);
+    const bootBody = appJs.slice(bootStart, bootEnd);
+    assert.ok(bootBody.includes('if (isInWork && (!state.candles || !state.candles.length))'), 'seed analysis hanya saat workspace aktif');
+  });
+  await t.test('23. auto-screening dan Best TF tidak berjalan di terminal utama', () => {
+    const radarStart = appJs.indexOf('function renderOpportunityRadar(force)');
+    const investorStart = appJs.indexOf('function renderInvestorPicks(force)');
+    const tfStart = appJs.indexOf('function scheduleBestTfScan()');
+    assert.ok(appJs.indexOf('return;', radarStart) < appJs.indexOf('rotatingSlice(catalogSortedStable()', radarStart), 'radar berhenti sebelum batch fetch');
+    assert.ok(appJs.indexOf('return;', investorStart) < appJs.indexOf('rotatingSlice(investableUniverse()', investorStart), 'investor scan berhenti sebelum batch fetch');
+    assert.ok(appJs.indexOf('return;', tfStart) < appJs.indexOf('var ALL_TFS =', tfStart), 'Best TF berhenti sebelum fetch delapan timeframe');
+  });
+
+  await t.test('24. vendor chart tidak dimuat sebelum workspace', () => {
+    assert.ok(!appJs.includes('<script src="/vendor/lightweight-charts.js'), 'vendor chart tidak ada di app bootstrap HTML');
+    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'"), 'chart vendor dimuat saat entry workspace');
   });
 });
