@@ -30,7 +30,8 @@ test('XSTARZG MANUAL-ANALYSIS REGRESSION', async (t) => {
     assert.ok(body.includes('ensureQuantEnginesLoaded()'));
     assert.ok(body.includes('PILIH INSTRUMEN'));
     assert.ok(!body.includes('generateSeedCandles('));
-    assert.ok(!body.includes('runFullAnalysis('));
+    assert.ok(body.includes('if (hasManualInstrumentSelection && typeof window.runFullAnalysis'));
+    assert.ok(!body.includes('generateSeedCandles('));
   });
 
   await t.test('analysis requires an explicit instrument selection', () => {
@@ -175,11 +176,11 @@ test('XSTARZG MANUAL-ANALYSIS REGRESSION', async (t) => {
   await t.test('JavaScript syntax is valid for browser scripts, modules, APIs and Sentinel', () => {
     const classic = [
       'public/app.js',
-      'public/js/calculator.js',
       'tests/app-static.test.mjs',
       'tests/mobile-startup-and-i18n.test.mjs'
     ];
     const modules = [
+      'public/js/calculator.js',
       'public/js/engine-boot.js',
       'public/js/shared/quant-core.js',
       'public/js/shared/signal-engine.js',
