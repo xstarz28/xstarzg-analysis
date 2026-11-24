@@ -1,5 +1,4 @@
-// functions/api/market/journal-sync.js
-// Sinkronisasi Sinyal Terverifikasi Antara 24/7 Cloud Sentinel & Jurnal Trader di Web/HP
+import { authenticateRequest, isOwnerEmail } from '../../lib/auth.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,107 +8,117 @@ const CORS = {
   'Cache-Control': 'no-store'
 };
 
+let memoryResetAt = 0;
+const memoryLocks = new Map();
+const memoryOutcomes = [];
+
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
 async function ensureTable(db) {
   if (!db) return;
-  try {
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS cloud_signal_locks (
-        id TEXT PRIMARY KEY,
-        symbol TEXT NOT NULL,
-        tf TEXT NOT NULL,
-        direction TEXT NOT NULL,
-        entry REAL NOT NULL,
-        sl REAL NOT NULL,
-        tp1 REAL NOT NULL,
-        tp2 REAL,
-        tp3 REAL,
-        sl_plus REAL,
-        be_plus_active INTEGER DEFAULT 0,
-        filled INTEGER DEFAULT 0,
-        score INTEGER NOT NULL,
-        status TEXT DEFAULT 'ACTIVE',
-        issued_at INTEGER NOT NULL,
-        outcome_status TEXT,
-        outcome_reason TEXT,
-        outcome_at INTEGER,
-        payload TEXT
-      )
-    `).run();
-  } catch (e) {}
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS cloud_signal_locks (
+      id TEXT PRIMARY KEY, symbol TEXT NOT NULL, tf TEXT NOT NULL,
+      direction TEXT NOT NULL, entry REAL NOT NULL, sl REAL NOT NULL, tp1 REAL NOT NULL,
+      tp2 REAL, tp3 REAL, sl_plus REAL, be_plus_active INTEGER DEFAULT 0,
+      filled INTEGER DEFAULT 0, score INTEGER, status TEXT DEFAULT 'ACTIVE',
+      issued_at INTEGER NOT NULL, outcome_status TEXT, outcome_reason TEXT,
+      outcome_at INTEGER, payload TEXT
+    )
+  `).run();
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS cloud_journal_meta (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      reset_at INTEGER NOT NULL DEFAULT 0
+    )
+  `).run();
+  await db.prepare('INSERT OR IGNORE INTO cloud_journal_meta (id, reset_at) VALUES (1, 0)').run();
 }
 
-const memoryLocks = new Map();
-const memoryOutcomes = [];
+async function readResetAt(db) {
+  if (!db) return memoryResetAt;
+  await ensureTable(db);
+  const row = await db.prepare('SELECT reset_at FROM cloud_journal_meta WHERE id = 1').first();
+  return Number(row && row.reset_at) || 0;
+}
+
+function isSentinelRequest(request, env) {
+  const supplied = request && request.headers ? request.headers.get('X-Sentinel-Key') || '' : '';
+  const expected = env && env.SENTINEL_SECRET ? String(env.SENTINEL_SECRET) : 'xstarzg-2026-quant-secret';
+  return !!supplied && supplied === expected;
+}
+
+function isVerifiedOwner(auth) {
+  return !!(auth && isOwnerEmail(auth.email) &&
+    (auth.role === 'owner' || auth.tier === 'OWNER_VIP' || auth.isOwner === true));
+}
+
+function response(body, status = 200) {
+  return Response.json(body, { status, headers: CORS });
+}
 
 export async function onRequestGet(context) {
   const env = (context && context.env) || {};
   const now = Date.now();
-  const maxActiveAge = 24 * 3600 * 1000;
-  const staleThreshold = now - maxActiveAge;
+  const staleThreshold = now - 24 * 3600 * 1000;
 
   if (!env.DB) {
-    for (const [id, l] of memoryLocks.entries()) {
-      const lockTime = l.issuedAt || l.created || 0;
-      if (l.status === 'ACTIVE' && lockTime < staleThreshold) {
-        l.status = 'EXPIRED';
+    for (const [id, lock] of memoryLocks.entries()) {
+      const lockTime = Number(lock.issuedAt || lock.created || 0);
+      if (lock.status === 'ACTIVE' && lockTime < staleThreshold && lockTime >= memoryResetAt) {
+        lock.status = 'EXPIRED';
         memoryOutcomes.unshift({
-          id: l.id || id, symbol: l.symbol, tf: l.tf, direction: l.direction,
+          id: lock.id || id, symbol: lock.symbol, tf: lock.tf, direction: lock.direction,
           status: 'EXPIRED', reason: 'Stale lock auto-expired (>24h)',
-          at: now, entry: l.entry, score: l.score
+          at: now, entry: lock.entry, score: lock.score
         });
       }
     }
-    const active = Array.from(memoryLocks.values()).filter(l => l.status === 'ACTIVE' && (l.issuedAt || l.created || 0) >= staleThreshold);
-    return Response.json({
-      ok: true,
-      activeLocks: active,
-      recentOutcomes: memoryOutcomes.slice(-60),
-      outcomes: memoryOutcomes.slice(-60)
-    }, { headers: CORS });
+    const active = Array.from(memoryLocks.values()).filter(lock =>
+      lock.status === 'ACTIVE' &&
+      Number(lock.issuedAt || lock.created || 0) >= memoryResetAt &&
+      Number(lock.issuedAt || lock.created || 0) >= staleThreshold
+    );
+    const outcomes = memoryOutcomes.filter(item => Number(item.at || 0) >= memoryResetAt).slice(0, 60);
+    return response({ ok: true, resetAt: memoryResetAt, activeLocks: active, recentOutcomes: outcomes, outcomes });
   }
 
   await ensureTable(env.DB);
   try {
-    // Auto-expire zombie locks older than 24 hours
-    try {
-      await env.DB.prepare(`
-        UPDATE cloud_signal_locks
-        SET status = 'EXPIRED', outcome_status = 'EXPIRED', outcome_reason = 'Stale lock auto-expired (>24h)', outcome_at = ?1
-        WHERE status = 'ACTIVE' AND issued_at < ?2
-      `).bind(now, staleThreshold).run();
-    } catch (e) {}
+    const resetAt = await readResetAt(env.DB);
+    await env.DB.prepare(`
+      UPDATE cloud_signal_locks
+      SET status = 'EXPIRED', outcome_status = 'EXPIRED',
+          outcome_reason = 'Stale lock auto-expired (>24h)', outcome_at = ?1
+      WHERE status = 'ACTIVE' AND issued_at < ?2 AND issued_at >= ?3
+    `).bind(now, staleThreshold, resetAt).run();
 
     const activeRes = await env.DB.prepare(`
       SELECT * FROM cloud_signal_locks
-      WHERE status = 'ACTIVE' AND issued_at >= ?1
-      ORDER BY issued_at DESC
-      LIMIT 60
-    `).bind(staleThreshold).all();
+      WHERE status = 'ACTIVE' AND issued_at >= ?1 AND issued_at >= ?2
+      ORDER BY issued_at DESC LIMIT 60
+    `).bind(staleThreshold, resetAt).all();
 
     const outcomeRes = await env.DB.prepare(`
       SELECT * FROM cloud_signal_locks
-      WHERE status != 'ACTIVE'
-      ORDER BY outcome_at DESC
-      LIMIT 60
-    `).all();
+      WHERE status != 'ACTIVE' AND COALESCE(outcome_at, issued_at) >= ?1
+      ORDER BY outcome_at DESC LIMIT 60
+    `).bind(resetAt).all();
 
     const activeLocks = (activeRes && activeRes.results) || [];
     const outcomes = (outcomeRes && outcomeRes.results) || [];
-
-    const formattedActive = activeLocks.map(r => {
+    const formattedActive = activeLocks.map(row => {
       try {
-        if (r.payload) {
-          const parsed = JSON.parse(r.payload);
+        if (row.payload) {
+          const parsed = JSON.parse(row.payload);
           if (parsed && typeof parsed === 'object') {
             return {
               ...parsed,
-              created: parsed.created || r.issued_at,
-              issuedAt: parsed.issuedAt || r.issued_at,
-              bePlusActive: !!(parsed.bePlusActive || r.be_plus_active),
+              created: parsed.created || row.issued_at,
+              issuedAt: parsed.issuedAt || row.issued_at,
+              bePlusActive: !!(parsed.bePlusActive || row.be_plus_active),
               notifiedSlPlus: !!(parsed.notifiedSlPlus || parsed.slPlusAlerted),
               slPlusAlerted: !!(parsed.notifiedSlPlus || parsed.slPlusAlerted)
             };
@@ -117,61 +126,70 @@ export async function onRequestGet(context) {
         }
       } catch (e) {}
       return {
-        id: r.id, symbol: r.symbol, tf: r.tf, direction: r.direction,
-        entry: r.entry, sl: r.sl, tp1: r.tp1, tp2: r.tp2, tp3: r.tp3,
-        slPlus: r.sl_plus, bePlusActive: !!r.be_plus_active, filled: !!r.filled,
-        notifiedSlPlus: !!r.be_plus_active, slPlusAlerted: !!r.be_plus_active,
-        score: r.score, status: r.status, issuedAt: r.issued_at, created: r.issued_at
+        id: row.id, symbol: row.symbol, tf: row.tf, direction: row.direction,
+        entry: row.entry, sl: row.sl, tp1: row.tp1, tp2: row.tp2, tp3: row.tp3,
+        slPlus: row.sl_plus, bePlusActive: !!row.be_plus_active, filled: !!row.filled,
+        notifiedSlPlus: !!row.be_plus_active, slPlusAlerted: !!row.be_plus_active,
+        score: row.score, status: row.status, issuedAt: row.issued_at, created: row.issued_at
       };
     });
-
-    const formattedOutcomes = outcomes.map(r => ({
-      id: r.id, symbol: r.symbol, tf: r.tf, direction: r.direction,
-      status: r.outcome_status || r.status, reason: r.outcome_reason || '',
-      at: r.outcome_at || r.issued_at, entry: r.entry, score: r.score
+    const formattedOutcomes = outcomes.map(row => ({
+      id: row.id, symbol: row.symbol, tf: row.tf, direction: row.direction,
+      status: row.outcome_status || row.status, reason: row.outcome_reason || '',
+      at: row.outcome_at || row.issued_at, entry: row.entry, score: row.score
     }));
-
-    return Response.json({
-      ok: true,
-      activeLocks: formattedActive,
-      recentOutcomes: formattedOutcomes,
-      outcomes: formattedOutcomes
-    }, { headers: CORS });
+    return response({ ok: true, resetAt, activeLocks: formattedActive, recentOutcomes: formattedOutcomes, outcomes: formattedOutcomes });
   } catch (err) {
-    return Response.json({ ok: false, error: err.message }, { status: 500, headers: CORS });
+    return response({ ok: false, error: err.message }, 500);
   }
 }
 
 export async function onRequestPost(context) {
   const env = (context && context.env) || {};
   const req = context && context.request;
+  if (!req) return response({ ok: false, error: 'Request tidak tersedia' }, 400);
 
   try {
     const body = await req.json();
     const { action, lock, outcome } = body || {};
 
-    if (!env.DB) {
-      if (action === 'save_lock' && lock && lock.symbol && lock.tf) {
-        const id = `${String(lock.symbol).toUpperCase()}|${lock.tf}`;
-        const item = { ...lock, id, status: 'ACTIVE', issuedAt: lock.issuedAt || Date.now() };
-        memoryLocks.set(id, item);
-        return Response.json({ ok: true, saved: true, id, message: 'Signal lock saved in memory' }, { headers: CORS });
+    if (action === 'clear_all') {
+      const auth = await authenticateRequest(req, env);
+      if (!isVerifiedOwner(auth)) return response({ ok: false, error: 'Aksi reset jurnal hanya untuk owner terverifikasi.' }, 403);
+      const resetAt = Date.now();
+      if (!env.DB) {
+        memoryLocks.clear();
+        memoryOutcomes.length = 0;
+        memoryResetAt = resetAt;
+        return response({ ok: true, resetAt, cleared: true });
       }
-      if (action === 'record_outcome' && outcome && outcome.symbol && outcome.tf) {
-        const id = `${String(outcome.symbol).toUpperCase()}|${outcome.tf}`;
-        if (memoryLocks.has(id)) {
-          const l = memoryLocks.get(id);
-          l.status = outcome.status || 'EXPIRED';
-        }
-        memoryOutcomes.unshift({ ...outcome, id, at: outcome.at || Date.now() });
-        return Response.json({ ok: true, id, message: 'Outcome recorded in memory' }, { headers: CORS });
-      }
-      return Response.json({ ok: false, error: 'Aksi atau parameter tidak valid' }, { status: 400, headers: CORS });
+      await ensureTable(env.DB);
+      await env.DB.prepare('DELETE FROM cloud_signal_locks').run();
+      await env.DB.prepare('UPDATE cloud_journal_meta SET reset_at = ?1 WHERE id = 1').bind(resetAt).run();
+      return response({ ok: true, resetAt, cleared: true });
     }
 
-    await ensureTable(env.DB);
+    const sentinelRequest = isSentinelRequest(req, env);
     if (action === 'save_lock' && lock && lock.symbol && lock.tf) {
       const id = `${String(lock.symbol).toUpperCase()}|${lock.tf}`;
+      const resetAt = await readResetAt(env.DB);
+      const issuedAt = Number(lock.issuedAt || lock.created) || Date.now();
+      if (issuedAt < resetAt) return response({ ok: false, error: 'Lock berasal dari riwayat sebelum reset jurnal.' }, 409);
+
+      if (!env.DB) {
+        if (sentinelRequest && !memoryLocks.has(id)) {
+          return response({ ok: false, error: 'Sentinel hanya boleh memperbarui lock manual yang sudah ada.' }, 403);
+        }
+        memoryLocks.set(id, { ...lock, id, status: 'ACTIVE', issuedAt });
+        return response({ ok: true, saved: true, id, message: 'Signal lock saved in memory' });
+      }
+
+      await ensureTable(env.DB);
+      if (sentinelRequest) {
+        const existing = await env.DB.prepare('SELECT id FROM cloud_signal_locks WHERE id = ?1').bind(id).first();
+        if (!existing) return response({ ok: false, error: 'Sentinel hanya boleh memperbarui lock manual yang sudah ada.' }, 403);
+      }
+
       const payloadStr = JSON.stringify(lock);
       await env.DB.prepare(`
         INSERT INTO cloud_signal_locks (
@@ -189,29 +207,37 @@ export async function onRequestPost(context) {
         Number(lock.entry) || 0, Number(lock.sl) || 0, Number(lock.tp1) || 0,
         Number(lock.tp2) || null, Number(lock.tp3) || null, Number(lock.slPlus) || null,
         lock.bePlusActive ? 1 : 0, lock.filled ? 1 : 0, Number(lock.score) || 75,
-        'ACTIVE', Number(lock.issuedAt) || Date.now(), payloadStr
+        'ACTIVE', issuedAt, payloadStr
       ).run();
-
-      return Response.json({ ok: true, saved: true, id, message: 'Signal lock synced to cloud journal' }, { headers: CORS });
+      return response({ ok: true, saved: true, id, message: 'Signal lock synced to cloud journal' });
     }
 
     if (action === 'record_outcome' && outcome && outcome.symbol && outcome.tf) {
       const id = `${String(outcome.symbol).toUpperCase()}|${outcome.tf}`;
-      await env.DB.prepare(`
+      const outcomeAt = Number(outcome.at) || Date.now();
+      const resetAt = await readResetAt(env.DB);
+      if (outcomeAt < resetAt) return response({ ok: false, error: 'Outcome berasal dari riwayat sebelum reset jurnal.' }, 409);
+      if (!env.DB) {
+        if (!memoryLocks.has(id)) return response({ ok: false, error: 'Lock jurnal tidak ditemukan.' }, 404);
+        memoryLocks.get(id).status = outcome.status || 'EXPIRED';
+        memoryOutcomes.unshift({ ...outcome, id, at: outcomeAt });
+        return response({ ok: true, id, message: 'Outcome recorded in memory' });
+      }
+      await ensureTable(env.DB);
+      const result = await env.DB.prepare(`
         UPDATE cloud_signal_locks
         SET status = ?1, outcome_status = ?2, outcome_reason = ?3, outcome_at = ?4
-        WHERE id = ?5
+        WHERE id = ?5 AND issued_at >= ?6
       `).bind(
         outcome.status || 'EXPIRED', outcome.status || 'EXPIRED',
-        outcome.reason || '', Number(outcome.at) || Date.now(), id
+        outcome.reason || '', outcomeAt, id, resetAt
       ).run();
-
-      return Response.json({ ok: true, id, message: 'Outcome recorded in cloud journal' }, { headers: CORS });
+      if (!result || !result.meta || !result.meta.changes) return response({ ok: false, error: 'Lock jurnal tidak ditemukan.' }, 404);
+      return response({ ok: true, id, message: 'Outcome recorded in cloud journal' });
     }
-
-    return Response.json({ ok: false, error: 'Aksi atau parameter tidak valid' }, { status: 400, headers: CORS });
+    return response({ ok: false, error: 'Aksi atau parameter tidak valid' }, 400);
   } catch (err) {
-    return Response.json({ ok: false, error: err.message }, { status: 500, headers: CORS });
+    return response({ ok: false, error: err.message }, 500);
   }
 }
 
