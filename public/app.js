@@ -9932,7 +9932,10 @@ function startRadarAutoPilot() {
     } catch (e) {}
   }, 60000);
 }
+var __xsBootCoreStarted = false;
 function bootCore() {
+  if (__xsBootCoreStarted) return;
+  __xsBootCoreStarted = true;
   try { bindUiEvents(); } catch (e) {}
   try { loadPersistedTelegramConfig(); } catch (e) {}
   var saved = null;
@@ -10475,7 +10478,10 @@ if (document.readyState === 'loading') {
     }
   };
   // Pre-warm radar & initial analysis on load
+  var __xsBootPostDomStarted = false;
   function bootPostDom() {
+    if (__xsBootPostDomStarted) return;
+    __xsBootPostDomStarted = true;
     setTimeout(function () {
       try {
         const seeded = generateSeedCandles(state.symbol, state.tf);
@@ -10590,12 +10596,7 @@ if (document.readyState === 'loading') {
             var reloadFlag = sessionStorage.getItem('xs_sw_did_reload');
             if (reloadFlag) return; // Sudah pernah reload dalam sesi ini -> DILARANG reload lagi!
           } catch (eSes) {}
-          var elapsed = (typeof performance !== 'undefined' && performance.now) ? (performance.now() - swPageStartTime) : 5000;
-          if (isInitialController && elapsed >= 4000) {
-            refreshing = true;
-            try { sessionStorage.setItem('xs_sw_did_reload', '1'); } catch (eSes2) {}
-            window.location.reload();
-          }
+          // Intentionally no page reload on controller changes.
         });
       }
 
