@@ -527,253 +527,17 @@ const TOP_CRYPTO_SYMBOLS = [
 ];
 
 // Logam Mulia & Komoditas Energi (M15 scalping & H1 intraday)
-const COMMODITY_WATCHLIST = [
-  'XAU/USD', 'XAG/USD', 'WTI/OIL', 'BRENT', 'NATGAS', 'HG/USD', 'XPT/USD'
-];
-
-// Pasangan Forex Major & Crosses Lengkap (M15 scalping & H1 intraday)
-const FOREX_WATCHLIST = [
-  'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'USD/CHF', 'NZD/USD',
-  'EUR/JPY', 'GBP/JPY', 'AUD/JPY', 'CAD/JPY', 'CHF/JPY', 'NZD/JPY', 'EUR/GBP',
-  'EUR/AUD', 'GBP/AUD', 'EUR/CAD', 'GBP/CAD', 'AUD/CAD', 'AUD/NZD', 'USD/IDR'
-];
-
-// Saham Bluechip Unggulan IHSG Indonesia (H1 intraday)
-const IDX_STOCKS_WATCHLIST = [
-  'BBCA.JK', 'BBRI.JK', 'BMRI.JK', 'BBNI.JK', 'TLKM.JK', 'ASII.JK', 'ANTM.JK',
-  'BRIS.JK', 'ICBP.JK', 'INDF.JK', 'KLBF.JK', 'UNVR.JK', 'PGAS.JK', 'ADRO.JK',
-  'PTBA.JK', 'MDKA.JK', 'CPIN.JK', 'AMRT.JK', 'GOTO.JK', 'IHSG'
-];
-
-// Saham Raksasa Wall Street & Indeks AS (H1 intraday & M15 scalping)
-const US_STOCKS_WATCHLIST = [
-  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMD', 'AMZN', 'META', 'GOOGL', 'SPY', 'QQQ'
-];
-
-// Watchlist instrumen institusional utama adaptif lintas kelas aset
-export const WATCHLIST = [
-  // Prioritas Utama: Emas Dunia (XAU/USD) untuk Kompetisi Trading 7 Hari (M5 Scalping, M15 Scalping, H1 Intraday)
-  { sym: 'XAU/USD', tf: 'M5', type: 'commodity', hz: 'scalping' },
-  { sym: 'XAU/USD', tf: 'M15', type: 'commodity', hz: 'scalping' },
-  { sym: 'XAU/USD', tf: 'H1', type: 'commodity', hz: 'intraday' },
-  // Logam Mulia & Komoditas Lainnya (H1 & M15)
-  ...COMMODITY_WATCHLIST.filter(s => s !== 'XAU/USD').flatMap(sym => [
-    { sym, tf: 'H1', type: 'commodity', hz: 'intraday' },
-    { sym, tf: 'M15', type: 'commodity', hz: 'scalping' }
-  ]),
-  // Forex Majors & Crosses (H1 & M15)
-  ...FOREX_WATCHLIST.flatMap(sym => [
-    { sym, tf: 'H1', type: 'forex', hz: 'intraday' },
-    { sym, tf: 'M15', type: 'forex', hz: 'scalping' }
-  ]),
-  // Saham Bluechip IDX Indonesia (H1 Intraday saat jam bursa BEI)
-  ...IDX_STOCKS_WATCHLIST.flatMap(sym => [
-    { sym, tf: 'H1', type: 'stock_id', hz: 'intraday' }
-  ]),
-  // Saham Wall Street US & ETF Indeks (H1 & M15 saat sesi US)
-  ...US_STOCKS_WATCHLIST.flatMap(sym => [
-    { sym, tf: 'H1', type: 'stock_us', hz: 'intraday' },
-    { sym, tf: 'M15', type: 'stock_us', hz: 'scalping' }
-  ]),
-  // Seluruh Koin Kripto Likuiditas Teratas (24/7/365: H1, M15, M5)
-  ...TOP_CRYPTO_SYMBOLS.flatMap(sym => [
-    { sym, tf: 'H1', type: 'crypto', hz: 'intraday' },
-    { sym, tf: 'M15', type: 'crypto', hz: 'scalping' },
-    { sym, tf: 'M5', type: 'crypto', hz: 'scalping' }
-  ])
-];
-
-export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE, allowNewSignals = true }) {
-  const { sym, tf, hz } = inst;
+// The cloud job is a position monitor only; it never discovers or ranks instruments.
+export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage }) {
+  const { sym, tf } = inst;
   if (!candles || candles.length < 35 || !a || a.error) return;
-
-  const score = Number(a.confluenceScore || a.confidence || 0);
-  const dir = a.direction;
   const lastBar = candles[candles.length - 1];
-  const livePrice = lastBar.close;
+  const livePrice = Number(lastBar.close);
+  if (!(livePrice > 0)) return;
 
-  console.log(`  [${sym} ${tf}] Harga: ${formatP(livePrice, sym)} | Setup: ${dir || 'NEUTRAL'} | Skor: ${score}% | Tier: ${a.signalTier || '—'}`);
-
-  // 1. Cek Sinyal Skor Tinggi Baru (>= MIN_SCORE) dengan verifikasi Top-Down Alignment
-  const isTopDownAligned = !a.topDown || a.topDown.isAligned;
-  if (!isTopDownAligned && a.topDown && a.topDown.alignmentStatus === 'WAITING_ALIGNMENT') {
-    console.log(`  [${sym} ${tf}] 🟡 Menunggu keselarasan pasar Top-Down (1D/4H vs 1H/15m) — anti counter-trend noise.`);
-  }
-
-  // Anti-Countertrend Crypto Beta Guard:
-  // DILARANG membuka SHORT pada altcoin jika BTC makro sedang BULLISH kuat
-  // DILARANG membuka LONG pada altcoin jika BTC makro sedang BEARISH kuat
-  const btcTrend = inst.btcTrend || null;
-  const isAltcoin = inst.type === 'crypto' && sym !== 'BTC/USDT';
-  if (allowNewSignals && isAltcoin && btcTrend) {
-    if (btcTrend === 'BULLISH' && dir === 'SHORT') {
-      console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BETA GUARD] SHORT dibatalkan: BTC makro sedang BULLISH kuat. Dilarang melawan arus utama kripto!`);
-      return;
-    }
-    if (btcTrend === 'BEARISH' && dir === 'LONG') {
-      console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BETA GUARD] LONG dibatalkan: BTC makro sedang BEARISH kuat. Dilarang menangkap pisau jatuh!`);
-      return;
-    }
-  }
-
-  // Anti-Correlation Basket Guard untuk Kripto:
-  // Maksimal 2 posisi crypto dengan arah yang sama (LONG atau SHORT) yang boleh aktif bersamaan!
-  // Mencegah kerugian beruntun (basket wipeout) saat seluruh altcoin bergerak serempak mengikuti BTC!
-  if (allowNewSignals && inst.type === 'crypto' && dir) {
-    const activeCryptoSameDir = Object.values(cache.slPlusLocks || {}).filter(l =>
-      l && l.symbol && (l.symbol.includes('/USDT') || l.symbol.includes('BTC') || l.symbol.includes('ETH')) &&
-      l.direction === dir && (l.status === 'PENDING_FILL' || l.status === 'FILLED' || l.status === 'ACTIVE')
-    ).length;
-
-    if (activeCryptoSameDir >= 2) {
-      console.log(`  [${sym} ${tf}] 🛡️ [CRYPTO BASKET GUARD] Sinyal ${dir} ditahan: Sudah ada ${activeCryptoSameDir} posisi crypto ${dir} aktif. Batas risiko keranjang terpenuhi.`);
-      return;
-    }
-  }
-
-  // Filter Khusus Emas (XAU/USD) untuk Keakuratan Kompetisi 7 Hari
-  const isGold = sym === 'XAU/USD';
-  if (allowNewSignals && isGold) {
-    if (a.sessionInfo && !a.sessionInfo.isOptimal && score < 80) {
-      console.log(`  [XAU/USD ${tf}] 🟡 Emas di luar sesi likuiditas puncak London/NY — hanya sinyal skor ≥ 80% yang diizinkan.`);
-      return;
-    }
-  }
-
-  if (allowNewSignals && a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
-    const L = a.levels || {};
-    const anchorTime = a.anchorClosedTime || lastBar.time;
-    const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
-
-    if (!cache.notified[setupKey]) {
-      const isGoldSetup = sym === 'XAU/USD';
-      if (!isGoldSetup && (cache.newAlertsThisRun || 0) >= 2) {
-        console.log(`  [${sym} ${tf}] 🛡️ [ANTI-SPAM] Sinyal skor tinggi (${score}%) ditahan karena batas 2 sinyal terbaik per siklus telah terpenuhi.`);
-        return;
-      }
-      cache.notified[setupKey] = Date.now();
-      cache.newAlertsThisRun = (cache.newAlertsThisRun || 0) + 1;
-
-      const hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
-      const dirEmoji = dir === 'LONG' ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
-      const tierTxt = a.signalTier === 'ELITE' ? 'ELITE ★' : 'PRO';
-      const atr = a.atr || (livePrice * 0.005);
-
-      const isCrypto = (sym || '').includes('/USDT') || (sym || '').includes('BTC') || (sym || '').includes('ETH') || (sym || '').includes('SOL');
-      const isStock = (sym || '').includes('.JK') || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].includes(sym);
-      const platformName = isCrypto ? 'exchange kripto pilihan Anda (Binance/Bybit/Tokocrypto/OKX)' : isStock ? 'aplikasi sekuritas/broker saham Anda' : 'broker/aplikasi trading Anda';
-      const platformNameEn = isCrypto ? 'your preferred crypto exchange' : isStock ? 'your stock brokerage app' : 'your trading platform / broker';
-
-      // Sniper Entry: Wajib Limit Order di zona mitigasi diskon/premium
-      // Dilarang mengejar harga pasar di pucuk atau lembah!
-      const isLong = dir === 'LONG';
-      const entryPrice = L.entry || (isLong ? livePrice - 0.20 * atr : livePrice + 0.20 * atr);
-      const orderType = isLong ? 'BUY LIMIT' : 'SELL LIMIT';
-      const orderInstruction = isLong
-        ? `Pasang antrian <b>BUY LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> pada zona diskon Order Block / FVG mitigasi (jangan kejar harga di pucuk!).`
-        : `Pasang antrian <b>SELL LIMIT</b> di <code>${formatP(entryPrice, sym)}</code> pada zona premium Order Block / FVG mitigasi (jangan kejar harga di lembah!).`;
-      const orderInstructionEn = isLong
-        ? `Place a <b>BUY LIMIT</b> order at <code>${formatP(entryPrice, sym)}</code> in the discount Order Block / FVG mitigation zone (never chase market price at peaks!).`
-        : `Place a <b>SELL LIMIT</b> order at <code>${formatP(entryPrice, sym)}</code> in the premium Order Block / FVG mitigation zone (never chase market price at lows!).`;
-
-      let topDownBlock = '';
-      if (a.topDown) {
-        const td = a.topDown;
-        topDownBlock =
-          `📊 <b>KESELARASAN PASAR (TOP-DOWN ALIGNED):</b>\n` +
-          `• 1D–4H Makro: <b>${td.macroBias}</b> (Arah & Likuiditas)\n` +
-          `• 1H–15m Struktur: <b>${td.structBias}</b> (Order Block & FVG)\n` +
-          `• 5m–1m Eksekusi: <b>${dir}</b> (Konfirmasi Entry)\n` +
-          (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
-      }
-
-      let sessionBlock = '';
-      if (a.sessionInfo) {
-        const sess = a.sessionInfo;
-        sessionBlock = `🏛️ <b>Sesi Optimal:</b> <code>${sess.bestSession}</code> (${sess.isOptimal ? 'Puncak Likuiditas 🔥' : 'Sesi Reguler'})\n`;
-      }
-
-      const alertMsg =
-        `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR (${tierTxt})]</b>\n\n` +
-        `Aset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
-        `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
-        `Confidence Score: <b>${score}%</b>\n` +
-        `Regime: <i>${a.regime || 'Institutional Flow'}</i>\n` +
-        (sessionBlock ? `${sessionBlock}` : '') +
-        (topDownBlock ? `\n${topDownBlock}\n` : '\n') +
-        `📌 <b>Tipe Order:</b> <code>${orderType}</code>\n` +
-        `🎯 <b>Titik Entry:</b> <code>${formatP(entryPrice, sym)}</code>\n` +
-        `🛡️ <b>Stop Loss:</b> <code>${formatP(L.sl, sym)}</code>\n` +
-        `✅ <b>Take Profit 1:</b> <code>${formatP(L.tp1, sym)}</code>\n` +
-        (L.tp2 ? `✅ <b>Take Profit 2:</b> <code>${formatP(L.tp2, sym)}</code>\n` : '') +
-        (L.tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(L.tp3, sym)}</code>\n` : '') +
-        `\n📱 <i>${orderInstruction} Buka ${platformName}. Bot memantau posisi dan akan mengirim peringatan SL+ (0-Risk) setelah order terisi dan meluncur menuju profit!</i>`;
-
-      const hzLabelEn = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
-
-      let topDownBlockEn = '';
-      if (a.topDown) {
-        const td = a.topDown;
-        topDownBlockEn =
-          `📊 <b>MARKET ALIGNMENT (TOP-DOWN ALIGNED):</b>\n` +
-          `• 1D–4H Macro: <b>${td.macroBias}</b> (Direction & Liquidity)\n` +
-          `• 1H–15m Structure: <b>${td.structBias}</b> (OB & FVG)\n` +
-          `• 5m–1m Execution: <b>${dir}</b> (Entry Confirmation)\n` +
-          (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
-      }
-
-      let sessionBlockEn = '';
-      if (a.sessionInfo) {
-        const sess = a.sessionInfo;
-        sessionBlockEn = `🏛️ <b>Optimal Session:</b> <code>${sess.bestSession}</code> (${sess.isOptimal ? 'Peak Liquidity 🔥' : 'Regular Hours'})\n`;
-      }
-
-      const alertMsgEn =
-        `🚀 <b>[XSTARZG 24/7 CLOUD — NEW HIGH-SCORE OPPORTUNITY (${tierTxt})]</b>\n\n` +
-        `Asset: <b>${sym}</b> (${tf} • ${hzLabelEn})\n` +
-        `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
-        `Confidence Score: <b>${score}%</b>\n` +
-        `Market Regime: <i>${a.regime || 'Institutional Flow'}</i>\n` +
-        (sessionBlockEn ? `${sessionBlockEn}` : '') +
-        (topDownBlockEn ? `\n${topDownBlockEn}\n` : '\n') +
-        `📌 <b>Order Type:</b> <code>${orderType}</code>\n` +
-        `🎯 <b>Entry Level:</b> <code>${formatP(entryPrice, sym)}</code>\n` +
-        `🛡️ <b>Stop Loss:</b> <code>${formatP(L.sl, sym)}</code>\n` +
-        `✅ <b>Take Profit 1:</b> <code>${formatP(L.tp1, sym)}</code>\n` +
-        (L.tp2 ? `✅ <b>Take Profit 2:</b> <code>${formatP(L.tp2, sym)}</code>\n` : '') +
-        (L.tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(L.tp3, sym)}</code>\n` : '') +
-        `\n📱 <i>${orderInstructionEn} Open ${platformNameEn}. Cloud bot monitors this position 24/7 and will send an SL+ (0-Risk) alert once filled and moving into profit!</i>`;
-
-      await sendFn(alertMsg, { id: alertMsg, en: alertMsgEn });
-
-      // Daftarkan ke pengawasan order
-      // PENTING: flag `justCreated = true` MENJAMIN step 2 tidak mengevaluasi SL+ pada cycle yang sama!
-      const anchorClosedTime = lastBar ? lastBar.time : (a.anchorClosedTime || Date.now());
-      const lockObj = {
-        symbol: sym,
-        tf: tf,
-        direction: dir,
-        orderType: orderType,
-        entry: entryPrice,
-        sl: L.sl,
-        tp1: L.tp1,
-        tp2: L.tp2,
-        tp3: L.tp3,
-        atr: atr,
-        status: 'PENDING_FILL',
-        filled: false,
-        filledAt: null,
-        notifiedSlPlus: false,
-        notifiedTp1: false,
-        created: Date.now(),
-        issuedAt: Date.now(),
-        anchorClosedTime: anchorClosedTime,
-        justCreated: true
-      };
-      cache.slPlusLocks[sym] = lockObj;
-      await syncJournalToCloud({ action: 'save_lock', lock: lockObj });
-    }
-  }
+  // Process only a previously saved journal lock. No new signal, entry recommendation or instrument ranking.
+  const activeLock = cache.slPlusLocks && cache.slPlusLocks[sym];
+  if (!activeLock || (activeLock.tf && activeLock.tf !== tf)) return;
 
   // 2. Pemantauan Posisi & SL+ (0-Risk Break-Even Plus Trigger)
   const activeLock = cache.slPlusLocks[sym];
@@ -1178,7 +942,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   }
 }
 
-async function scanInstrument(inst, cache, allowNewSignals = true) {
+async function scanInstrument(inst, cache) {
   const { sym, tf, type } = inst;
   if (!isAssetMarketOpen(sym)) {
     console.log(`  [${sym} ${tf}] Sesi bursa tutup (akhir pekan). Pemindaian dilewati.`);
@@ -1211,7 +975,7 @@ async function scanInstrument(inst, cache, allowNewSignals = true) {
     }
 
     const a = runFullAnalysis({ symbol: sym, timeframe: tf, candles });
-    await processInstrumentAnalysis({ inst, candles, a, cache, allowNewSignals });
+    await processInstrumentAnalysis({ inst, candles, a, cache });
   } catch (err) {
     console.log(`  [${sym} ${tf}] Fetch/analisis dilewati: ${err.message}`);
   }
@@ -1232,7 +996,6 @@ async function runSentinel() {
 
   const cache = loadCache();
   await syncActiveLocksFromCloud(cache);
-  cache.newAlertsThisRun = 0;
   cache.slHitsThisRun = 0;
 
   // The terminal is manual-analysis only. The cloud job may only monitor existing
@@ -1244,13 +1007,10 @@ async function runSentinel() {
     if (!lock || !lock.symbol || !lock.tf || terminalStatuses.has(lock.status)) continue;
     const sym = String(lock.symbol).toUpperCase();
     const tf = String(lock.tf).toUpperCase();
-    const watch = WATCHLIST.find(x => x.sym === sym && x.tf === tf);
-    const hz = ['M1', 'M5', 'M15'].includes(tf) ? 'scalping'
-      : ['D1', 'W1', 'MN', '1Y'].includes(tf) ? 'swing' : 'intraday';
-    targetsByKey.set(sym + '|' + tf, watch || {
-      sym, tf,
-      type: sym.includes('/USDT') ? 'crypto' : 'market',
-      hz
+    targetsByKey.set(sym + '|' + tf, {
+      sym,
+      tf,
+      type: sym.includes('/USDT') ? 'crypto' : 'market'
     });
   }
 
@@ -1265,7 +1025,7 @@ async function runSentinel() {
   const concurrency = 6;
   for (let i = 0; i < targets.length; i += concurrency) {
     const chunk = targets.slice(i, i + concurrency);
-    await Promise.all(chunk.map(inst => scanInstrument(inst, cache, false)));
+    await Promise.all(chunk.map(inst => scanInstrument(inst, cache)));
   }  saveCache(cache);
   console.log('🏁 [XSTARZG SENTINEL] Pemindaian selesai.');
 }
