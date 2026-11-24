@@ -39,8 +39,8 @@ test('MOBILE STARTUP — MANUAL ANALYSIS ONLY', async (t) => {
   });
 
   await t.test('the chart vendor and quant engine remain lazy-loaded after workspace entry', () => {
-    assert.ok(app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.92'"));
-    assert.ok(app.includes("bootScript.src = '/js/engine-boot.js?v=2026.92'"));
+    assert.ok(app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.93'"));
+    assert.ok(app.includes("bootScript.src = '/js/engine-boot.js?v=2026.93'"));
     assert.ok(!html.includes('<script src="/vendor/lightweight-charts.js'));
     assert.ok(!html.includes('<script type="module" src="/js/engine-boot.js'));
   });
@@ -79,7 +79,7 @@ test('MOBILE STARTUP — MANUAL ANALYSIS ONLY', async (t) => {
   });
 
   await t.test('PWA serves a fresh cache name after the manual-only refactor', () => {
-    assert.ok(sw.includes("const CACHE_NAME = 'xstarzg-pwa-v2026.92';"));
-    assert.ok(html.includes('/app.js?v=2026.92'));
+    assert.ok(sw.includes("const CACHE_NAME = 'xstarzg-pwa-v2026.93';"));
+    assert.ok(html.includes('/app.js?v=2026.93'));
   });
 });
