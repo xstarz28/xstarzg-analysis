@@ -7274,8 +7274,12 @@ function bindUiEvents() {
     if (modalAddMeme) {
       var inpSym = $id('inpAddMemeSymbol');
       var inpP = $id('inpAddMemeBuyPrice');
-      if (inpSym) inpSym.value = (activeMemeToken && activeMemeToken.symbol) || '';
-      if (inpP) inpP.value = (activeMemeToken && activeMemeToken.basePrice) || '';
+      if (inpSym) inpSym.value = (activeDexAnalysis && activeDexAnalysis.pair && activeDexAnalysis.pair.token && activeDexAnalysis.pair.token.symbol) || '';
+      if (inpP) inpP.value = (activeDexAnalysis && activeDexAnalysis.pair && activeDexAnalysis.pair.priceUsd) || '';
+      var inpCa = $id('inpAddMemeCA');
+      var chainSel = $id('selAddMemeChain');
+      if (inpCa) inpCa.value = (activeDexAnalysis && activeDexAnalysis.requested && activeDexAnalysis.requested.address) || '';
+      if (chainSel && activeDexAnalysis && activeDexAnalysis.requested) chainSel.value = activeDexAnalysis.requested.network;
       modalAddMeme.classList.remove('hidden');
     }
   });
@@ -7803,7 +7807,8 @@ function bootCore() {
     // Expanded crypto catalog is opt-in: load it only when the user selects CRYPTO.
     // Setelah restore-refresh engine mungkin belum siap saat analisa awal jalan
     // (fallback ringan) -> jalankan ulang satu kali agar 22 pilar penuh tampil.
-    if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') {
+    if (hasManualInstrumentSelection && state.candles && state.candles.length &&
+        typeof window.runFullAnalysis === 'function') {
       window.runFullAnalysis(true);
     }
   };
@@ -8327,11 +8332,6 @@ if (document.readyState === 'loading') {
         try { renderSignalJournal(); } catch (e) {}
       }
       setInterval(function () {
-        var w = document.getElementById('appWorkspaceWrapper');
-        if (w && !w.classList.contains('hidden')) {
-          try { fetchNewsCalendar(false); } catch (e) {}
-        }
-      }, 15 * 60 * 1000);      setInterval(function () {
         var w = document.getElementById('appWorkspaceWrapper');
         if (w && !w.classList.contains('hidden')) {
           try { fetchNewsCalendar(false); } catch (e) {}
