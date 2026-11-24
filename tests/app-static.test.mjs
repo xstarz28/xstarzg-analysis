@@ -31,7 +31,7 @@ const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:
 // --- Versi cache-bust ---
 chk('index.html memakai v=2026.70 (styles)', /styles\.css\?v=2026\.70/.test(html));
 chk('index.html memuat app.js v=2026.89 secara defer', /<script defer src="\/app\.js\?v=2026\.89">/.test(html));
-chk('quant engine tidak dimuat saat landing; dimuat setelah workspace entry', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js\/engine-boot.js?v=2026.88'") && app.includes('ensureQuantEnginesLoaded();'), 'engine lazy load');
+chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
 chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
 chk('i18n index import locale v=2026.70', /locales\/\$\{currentLang\}\.js\?v=2026\.70/.test(i18nIndex));
@@ -49,7 +49,7 @@ chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes
 
 
 chk('mesin kuantitatif tidak dipra-cache saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
-chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*\/\/[\s\S]*?return;/.test(app));
+chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
 
@@ -103,9 +103,9 @@ chk('pemilih tipe chart (candlestick/bar/line/area) ter-wire', html.includes('ch
 chk('chart responsif HP (ResizeObserver + defer lebar 0)', app.includes('ResizeObserver') && app.includes('__chartInitPending'));
 chk('jadwal scan radar dan kurasi otomatis dinonaktifkan', /function startRadarAutoPilot\(\) \{\s*return;/.test(app) && /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('snapshot rekomendasi lama tidak dapat dipakai ulang', !app.includes('primeFromRadarPool(sym, tf)'));
-chk('klik-through memakai snapshot segar + lock create (konsistensi skor)', app.includes('primeFromRadarPool(sym, tf)') && app.includes("computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource)"));
+chk('klik jurnal memicu analisis manual pada instrumen yang dipilih', app.includes('function gotoInstrument(sym, tf)') && app.includes('state.manualInstrumentSelection = true') && !app.includes('primeFromRadarPool(sym, tf)'));
 chk('invalidasi lock butuh penerimaan harga (anti chop)', eng.includes('againstLong') && eng.includes('STRUCTURE_INVALID'));
-chk('radar hemat kuota: TTL 15 mnt + batch 30/slot 4 mnt', app.includes('15 * 60000') && app.includes('rotatingSlice(catalogSortedStable(), 30, 4)'));
+chk('radar scan otomatis tidak dijadwalkan', /function startRadarAutoPilot\(\) \{\s*return;/.test(app));
 chk('hasil analisis tidak ditulis ke pool rekomendasi', !app.includes('writeBackRadarPools(analysis)'));
 chk('pergantian mode tidak menjalankan rescan rekomendasi', !app.includes('renderInvestorPicks(true)') && !app.includes('renderOpportunityRadar(true)'));
 chk('gate konfirmasi volume & squeeze breakout', eng.includes('volImpulse') && eng.includes('squeezeBlockedDir') && eng.includes('SQUEEZE_UNCONFIRMED'));
