@@ -12,7 +12,16 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
   await t.test('1. detectInitialLanguage default mutlak ke id (Bahasa Indonesia)', () => {
     assert.ok(i18nIndex.includes("return 'id';"), 'detectInitialLanguage harus default ke id');
     assert.ok(!i18nIndex.includes("const nav = (navigator.language"), 'detectInitialLanguage tidak boleh mendasarkan default pada navigator.language');
+    await t.test('18. startup bootstrap and post-DOM work are idempotent', () => {
+    assert.ok(appJs.includes('if (__xsBootCoreStarted) return;'), 'bootCore hanya boleh berjalan sekali');
+    assert.ok(appJs.includes('if (__xsBootPostDomStarted) return;'), 'bootPostDom hanya boleh berjalan sekali');
   });
+  await t.test('19. controllerchange tidak memaksa reload halaman', () => {
+    const controllerHandler = appJs.slice(appJs.indexOf("navigator.serviceWorker.addEventListener('controllerchange'"), appJs.indexOf("var deferredPwaPrompt"));
+    assert.ok(controllerHandler.includes('Never force a page reload'), 'controllerchange tidak memicu reload paksa');
+    assert.ok(!controllerHandler.includes('window.location.reload()'), 'controllerchange tidak berisi location.reload');
+  });
+});
 
   await t.test('2. generateSeedCandles diekspos ke window dan tersedia di scope app.js', () => {
     assert.ok(appJs.includes('window.generateSeedCandles = generateSeedCandles'), 'generateSeedCandles harus diekspos ke window');
