@@ -117,8 +117,12 @@ test('AUDIT VERIFIKASI HASIL PREDIKSI BERITA EKONOMI (ANTI-OMONG KOSONG)', async
 
 test('JURNAL INVESTOR & DEX TIDAK LAGI DIISI OLEH ENGINE REKOMENDASI', async (t) => {
   await t.test('fungsi sinkronisasi rekomendasi Investor/DEX hanya mengembalikan daftar kosong', () => {
-    assert.ok(appJs.includes("function syncRecommendedMemeToJournal() {\\n  // Legacy compatibility only: scanner candidates are not journal entries.\\n  return [];"), 'DEX recommendation sync harus no-op');
-    assert.ok(appJs.includes("function syncCuratedInvestorToJournal() {\\n  // Legacy compatibility only: recommendations are not journal entries.\\n  return [];"), 'Investor recommendation sync harus no-op');
+    const memeSyncAt = appJs.indexOf('function syncRecommendedMemeToJournal() {');
+
+    const investorSyncAt = appJs.indexOf('function syncCuratedInvestorToJournal() {');
+
+    assert.ok(memeSyncAt >= 0 && appJs.slice(memeSyncAt, memeSyncAt + 260).includes('return [];'), 'DEX recommendation sync harus no-op');
+    assert.ok(investorSyncAt >= 0 && appJs.slice(investorSyncAt, investorSyncAt + 260).includes('return [];'), 'Investor recommendation sync harus no-op');
   });
 
   await t.test('jurnal Investor/DEX hanya membaca entri yang disimpan secara manual', () => {
