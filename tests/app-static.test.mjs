@@ -1,537 +1,199 @@
-// Verifikasi statis integrasi app.js + index.html (Node, tanpa dependensi).
-// Fokus: cache-bust versi, isolasi kalkulator dari generator sinyal, keberadaan
-// wiring lock / scan multi-TF / gerbang, dan kesehatan i18n.
+// Static regression checks for manual instrument analysis, DEX contract inspection and journal monitoring.
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
-const R = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
-const html = R('../public/index.html');
-const app = R('../public/app.js');
-const boot = R('../public/js/engine-boot.js');
-const i18nIndex = R('../public/i18n/index.js');
-const eng = R('../public/js/shared/signal-engine.js');
-const edgeAnalyze = R('../functions/api/market/analyze.js');
-const edgeNews = R('../functions/api/news/calendar.js');
-const edgeMacro = R('../functions/api/macro/regime.js');
-const edgeMarket = R('../functions/api/market/analyze.js');
-const edgeQuotes = R('../functions/api/market/quotes.js');
-const calcMod = R('../public/js/calculator.js');
-const engineBoot = R('../public/js/engine-boot.js');
-const wrangler = R('../wrangler.toml');
-const css = R('../public/styles.css');
-const headers = R('../public/_headers');
-const tgRelay = R('../functions/api/notify/telegram.js');
-const sentinelScript = R('../scripts/market-sentinel.mjs');
-const sentinelWorkflow = R('../.github/workflows/market-sentinel.yml');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+const app = read('public/app.js');
+const html = read('public/index.html');
+const quant = read('public/js/shared/quant-core.js');
+const signal = read('public/js/shared/signal-engine.js');
+const dexApi = read('functions/api/dex/analyze.js');
+const sentinel = read('scripts/market-sentinel.mjs');
+const workflow = read('.github/workflows/market-sentinel.yml');
+const sw = read('public/sw.js');
+const engineBoot = read('public/js/engine-boot.js');
+const css = read('public/styles.css');
 
-let passed = 0, failed = 0;
-const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
+test('XSTARZG MANUAL-ANALYSIS REGRESSION', async (t) => {
+  await t.test('workspace startup is unique and does not fetch or analyse a default instrument', () => {
+    assert.equal((app.match(/function enterWorkspace\(\)/g) || []).length, 1);
+    assert.equal((app.match(/function showScreen\(name\)/g) || []).length, 1);
+    const start = app.indexOf('function enterWorkspace()');
+    const end = app.indexOf("if (typeof window !== 'undefined') window.enterWorkspace", start);
+    const body = app.slice(start, end);
+    assert.ok(body.includes('ensureChartVendorLoaded()'));
+    assert.ok(body.includes('ensureQuantEnginesLoaded()'));
+    assert.ok(body.includes('PILIH INSTRUMEN'));
+    assert.ok(!body.includes('generateSeedCandles('));
+    assert.ok(!body.includes('runFullAnalysis('));
+  });
 
-// --- Versi cache-bust ---
-chk('index.html memakai v=2026.70 (styles)', /styles\.css\?v=2026\.70/.test(html));
-chk('index.html memuat app.js v=2026.88 secara defer', /<script defer src="\/app\.js\?v=2026\.88">/.test(html));
-chk('quant engine tidak dimuat saat landing; dimuat setelah workspace entry', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js\/engine-boot.js?v=2026.88'") && app.includes('ensureQuantEnginesLoaded();'), 'engine lazy load');
-chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
-chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
-chk('i18n index import locale v=2026.70', /locales\/\$\{currentLang\}\.js\?v=2026\.70/.test(i18nIndex));
-chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
+  await t.test('analysis requires an explicit instrument selection', () => {
+    assert.ok(app.includes('var hasManualInstrumentSelection = false;'));
+    assert.ok(app.includes('if (!hasManualInstrumentSelection)'));
+    assert.ok(app.includes('hasManualInstrumentSelection = true;'));
+    assert.ok(app.includes('manualInstrumentSelected: hasManualInstrumentSelection === true'));
+    assert.ok(app.includes('hasManualInstrumentSelection = saved.manualInstrumentSelected === true;'));
+    assert.ok(app.includes("bind('btnAnalyzeInstrument'"));
+    assert.ok(app.includes("bind('btnRunEngine'"));
+  });
 
-// --- Isolasi kalkulator (aturan #3.3) ---
-const calcInputBindings = (app.match(/\['inpCalcBalance', 'inpCalcRiskPct'\][\s\S]{0,220}/g) || []).join('');
-chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes('updateRiskSizing') && !calcInputBindings.includes('runFullAnalysis'));
-{
-  const i = app.indexOf('function updateRiskSizing()');
-  const body = app.slice(i, app.indexOf('/* ==================== 9.', i));
-  chk('updateRiskSizing tidak memanggil engine ulang', !body.includes('computeQuantEngine') && !body.includes('runFullAnalysis(') && !body.includes('runFullAnalysis ='));
-}
-chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
+  await t.test('the selected symbol and selected timeframe are the only market-analysis request inputs', () => {
+    assert.ok(app.includes('fetchRealMarketCandles(reqSymbol, reqTf, requestController)'));
+    assert.ok(app.includes('mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf'));
+    assert.ok(app.includes('activeAnalysisController.abort()'));
+    assert.ok(app.includes('if (typeof state === \'undefined\' || !state || !state.symbol || !hasManualInstrumentSelection) return;'));
+  });
 
+  await t.test('timeframe and instrument changes cancel stale work without cross-symbol candle reuse', () => {
+    assert.ok(app.includes('let activeAnalysisController = null;'));
+    assert.ok(app.includes('analysisRequestSeq'));
+    assert.ok(app.includes('activeAnalysisController.abort()'));
+    assert.ok(app.includes('isPriceCompatibleWithSymbol(lastBar.close, reqSymbol)'));
+    assert.ok(app.includes('state.candles = [];'));
+  });
 
-chk('mesin kuantitatif tidak dipra-cache saat landing', !sw.includes("'/js/shared/signal-engine.js'") && !sw.includes("'/js/engine-boot.js'") && sw.includes('xstarzg-pwa-v2026.88'));
-chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*\/\/[\s\S]*?return;/.test(app));
-chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
-chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
+  await t.test('radar, recommendation and cross-instrument screening entrypoints are removed', () => {
+    for (const retired of [
+      'RADAR_CONFIG', 'radarScanPool', 'investorScanPool', 'fetchRadarCandidate',
+      'renderOpportunityRadar', 'renderInvestorPicks', 'writeBackRadarPools',
+      'catalogSortedStable', 'rotatingSlice', 'scheduleBestTfScan', 'startRadarAutoPilot',
+      'fetchMemeCatalogLive', 'DEFAULT_MEME_CATALOG', 'memeScanPool',
+      '/api/scanner/meme', '/api/market/top-signals', '/api/macro/regime'
+    ]) {
+      assert.ok(!app.includes(retired), retired + ' must not exist in the main terminal');
+    }
+    assert.ok(!html.includes('id="memeRadarSection"'));
+    assert.ok(!html.includes('id="memePicksGrid"'));
+  });
 
+  await t.test('DEX workspace requires a manually entered contract address and explicit Analyze action', () => {
+    for (const id of ['selMemeChain', 'inpMemeTokenAddress', 'selMemeTf', 'btnAnalyzeMemeToken', 'memeFundGrid', 'memeTechBody']) {
+      assert.ok(html.includes('id="' + id + '"'), id + ' is present');
+    }
+    assert.ok(app.includes("bind('btnAnalyzeMemeToken', analyzeDexToken)"));
+    assert.ok(app.includes("fetch('/api/dex/analyze' + query"));
+    assert.ok(app.includes('function dexAddressLooksValid('));
+    assert.ok(app.includes('activeDexAbortController.abort()'));
+    assert.ok(app.includes('requestId !== activeDexRequestSeq'));
+  });
 
-chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'") && app.includes('ensureChartVendorLoaded();'));
+  await t.test('DEX data has source provenance and never claims a smart-contract audit', () => {
+    assert.ok(dexApi.includes('api.dexscreener.com/token-pairs/v1/'));
+    assert.ok(dexApi.includes('api.geckoterminal.com/api/v2/networks/'));
+    assert.ok(dexApi.includes('ohlcv_list'));
+    assert.ok(dexApi.includes("contractSecurity: 'NOT_VERIFIED'"));
+    assert.ok(dexApi.includes('LP lock/burn'));
+    assert.ok(dexApi.includes('mint/freeze authority'));
+    assert.ok(app.includes('STATUS KEAMANAN KONTRAK: BELUM DIVERIFIKASI'));
+  });
 
+  await t.test('DEX technical indicators only use sourced OHLCV and do not fabricate missing candles', () => {
+    assert.ok(app.includes('if (candles.length < 35 || !QC)'));
+    assert.ok(app.includes('OHLCV valid belum tersedia'));
+    for (const fn of ['calcEMA', 'calcRSI', 'calcATR', 'calcMACD', 'calcVWAP', 'calcBollinger', 'calcVolumeAndTpoProfile', 'detectModernInstitutionalStructure']) {
+      assert.ok(quant.includes('export function ' + fn));
+    }
+    assert.ok(app.includes('dexRenderTechnicals(data)'));
+    assert.ok(!app.includes('generateMemeCandles'));
+  });
 
-chk('timeframe switch mempertahankan chart dan membatalkan fetch lama', app.includes("var tfBar = $id('timeframeBar')") && app.includes('activeAnalysisController.abort()') && !app.slice(app.indexOf("var tfBar = $id('timeframeBar')"), app.indexOf("/* ---- Pemilih tipe chart")).includes('state.candles = []'));
-chk('seed preview tidak menjalankan quant engine penuh', app.includes('function renderSeedCandlesPreview(candles)') && app.includes('Exactly one full quant pass per successful timeframe response.'));
-chk('DEX scanner tetap aktif hanya saat pengguna membuka Meme mode', app.includes("else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }") && app.includes("'/api/scanner/meme?chain='"));
+  await t.test('investor and DEX journals are user-entered records, not auto-seeded recommendations', () => {
+    assert.ok(app.includes('function investorJournalStore()'));
+    assert.ok(app.includes('function memeJournalStore()'));
+    assert.ok(!app.includes('syncCuratedInvestorToJournal'));
+    assert.ok(!app.includes('dex_rec_'));
+    assert.ok(!app.includes('inv_bbca_spot'));
+    assert.ok(!app.includes('inv_bbri_spot'));
+    assert.ok(app.includes("source: 'MANUAL_ANALYSIS'"));
+    assert.ok(app.includes("source: 'MANUAL_ENTRY'"));
+  });
 
-chk('feed sintetis hanya preview dan tidak menjalankan quant engine penuh', app.includes('feedIsEstimate(data.source)') && app.includes('FEED ESTIMASI — preview saja'));
+  await t.test('technical analysis and signal lifecycle tools remain available', () => {
+    for (const fn of [
+      'calcSMA', 'calcEMA', 'calcRSI', 'calcATR', 'calcMACD', 'calcBollinger',
+      'calcVWAP', 'calcVolumeAndTpoProfile', 'detectSwingsNoLookahead',
+      'detectModernInstitutionalStructure', 'runFullAnalysis', 'validateSignalLock',
+      'applyLockedSignal', 'createSignalLock'
+    ]) {
+      assert.ok(quant.includes(fn) || signal.includes(fn) || app.includes(fn), fn + ' remains available');
+    }
+    assert.ok(app.includes('function monitorLiveSignalProgress('));
+    assert.ok(app.includes('function recordSignalOutcome('));
+    assert.ok(app.includes("localStorage.setItem(SIGNAL_OUTCOME_KEY"));
+    assert.ok(app.includes('renderSignalJournal()'));
+  });
 
-// --- Wiring lock persisten (aturan #3.2) ---
-chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
-chk('radar/kurasi memakai scope apply + provenance feed (komitmen terlacak sejak tampil)', app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)"));
-chk('lock divalidasi sebelum diterapkan', app.includes('SE.validateSignalLock(') && app.includes('SE.applyLockedSignal('));
-chk('lock baru diterbitkan hanya dari sinyal eligible + 2 penjaga', /signalCooldownActive\(symbol, tfA\) && num\(a\.confluenceScore, 0\) >= adaptiveMinScore\(tfA\)\) \{\s*var nl = SE\.createSignalLock/.test(app));
+  await t.test('fundamental and positioning metrics disclose unavailable providers instead of fabricating values', () => {
+    assert.ok(signal.includes("fundamentalStatus: 'NOT_CONNECTED'"));
+    assert.ok(signal.includes("cotStatus: 'NOT_CONNECTED'"));
+    assert.ok(signal.includes('sourceVerified: false'));
+    assert.ok(signal.includes('specLongPct: null'));
+    assert.ok(app.includes("fc.sourceVerified === true"));
+    assert.ok(app.includes('DATA BELUM TERHUBUNG'));
+    assert.ok(app.includes('POSITIONING DATA UNAVAILABLE'));
+    assert.ok(!/52 \+ biasShift/.test(signal));
+    assert.ok(!/MVRV Z-Score: \$\{mvrv\}/.test(signal));
+  });
 
-// --- Wiring scan multi-TF (aturan #2) ---
-chk('9 TF dipindai', app.includes("'M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'"));
-chk('scan dijadwalkan setelah analisis', app.includes('scheduleBestTfScan();'));
-chk('papan TF terbaik dirender ke narasi', app.includes('state.bestTfBoard'));
-chk('badge NO-TRADE tersedia', app.includes('eNoTradeTf'));
-// Wiring i18n baris Institutional Gate (lulus/ditolak) + map 9 label veto
-chk('regex gate LULUS/DITOLAK di localizeEngineString', app.includes('Institutional Gate\\] LULUS') && app.includes('Institutional Gate\\] DITOLAK'));
-chk('9 label veto dipetakan di ENGINE_TEXT_MAP', ['eVetoOverext','eVetoWall','eVetoExh','eVetoDiv','eVetoHtf','eVetoScore','eVetoWr','eVetoSeq','eVetoChop'].every(k => app.includes("'" + k + "'")));
-chk('kunci narasi gate + tier dipakai', ['eGateLockOk','eGateForbidden','eGateBest','eGateBestHint','eGateScanning','eEliteSetup','eProSetup','eGatePassPro','eVetoSpotOnly','signalTier'].every(k => app.includes(k)));
+  await t.test('cloud Sentinel only monitors active journal locks and cannot issue new entries', () => {
+    assert.ok(sentinel.includes('for (const lock of Object.values(cache.slPlusLocks || {}))'));
+    assert.ok(sentinel.includes('targetsByKey.set(sym + \'|\' + tf'));
+    assert.ok(sentinel.includes('scanInstrument(inst, cache)'));
+    assert.ok(sentinel.includes('const activeLock = cache.slPlusLocks[sym]'));
+    assert.ok(sentinel.includes('SL+ (0-Risk Break-Even Plus Trigger)'));
+    assert.ok(sentinel.includes("status: 'TP_HIT'") || sentinel.includes("'TP_HIT'"));
+    assert.ok(sentinel.includes("status: 'SL_HIT'") || sentinel.includes("'SL_HIT'"));
+    for (const retired of ['WATCHLIST', 'runFullAnalysis', 'signalEligible', 'MIN_SCORE', 'allowNewSignals', 'TOP_CRYPTO_SYMBOLS']) {
+      assert.ok(!sentinel.includes(retired), retired + ' must be absent from cloud monitor');
+    }
+    assert.ok(!/cache\.slPlusLocks\[sym\]\s*=\s*lockObj/.test(sentinel));
+    assert.ok(workflow.includes('XStarZG Position Journal Monitor'));
+    assert.ok(!workflow.includes('SENTINEL_MIN_SCORE'));
+  });
 
-// --- Kesehatan i18n: 20 locale seragam ---
-const langs = ['id', 'en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'ar', 'ru', 'es', 'pt', 'fr', 'de', 'hi', 'tr', 'vi', 'th', 'ms', 'nl', 'it', 'pl'];
-const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l}.js`)));
-const ref = Object.keys(mods[0].default.ui).sort().join('|');
-let uniform = true, count = Object.keys(mods[0].default.ui).length;
-mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (587)', uniform && count === 587);
-chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
-chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
-chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
-chk('engine expose tier & skor analis', eng.includes('PRO_MIN_SCORE') && eng.includes('signalTier') && eng.includes('analystScore') && eng.includes('detectLiquidityPools'));
-chk('engine punya skor keyakinan netral-arah + spotOnly', eng.includes('convictionScore') && eng.includes('spotOnlyEffect') && eng.includes('SPOT_ONLY'));
-chk('backtest melacak statistik per-arah (longWR/shortWR)', eng.includes('longWR') && eng.includes('shortWR'));
-chk('papan TF tier-aware (★ ELITE / ✅ PRO)', app.includes("' ★ ELITE '") && app.includes("' ✅ PRO '"));
-chk('radar menyaring keyakinan >= 55', app.includes('convictionScore, 0) >= 55'));
-chk('kotak futures tidak untuk saham/spot', app.includes("a.assetClass !== 'stocks'") && app.includes('marginProduct'));
-chk('toggle spot/futures tampak di semua aset (dipulihkan v2026.59)', !app.includes("showSub = a.assetClass === 'crypto'"));
-chk('lock mengikat skor keyakinan (fix skor berubah saat refresh)', eng.includes('a.convictionScore = Math.max(a.convictionScore || 0, lock.score || 0)'));
-chk('auto-screening trader/investor dinonaktifkan di terminal', app.includes('Browser-side screening moved out of the terminal') && app.includes('Kurasi multi-instrumen dipindahkan ke proyek screener terpisah') && app.includes('Radar multi-instrumen dipindahkan ke proyek screener terpisah'));
-chk('ticker realtime lewat bucket waktu resmi (bukan timpa candle terakhir)', !app.includes('lastBar.close = liveP') && app.includes('applyLiveTick(liveP'));
-chk('pemilih tipe chart (candlestick/bar/line/area) ter-wire', html.includes('chartTypeBar') && html.includes('data-ctype="area"') && app.includes('applyChartType') && app.includes('mainSeriesPayload') && app.includes('updateMainSeries'));
-chk('chart responsif HP (ResizeObserver + defer lebar 0)', app.includes('ResizeObserver') && app.includes('__chartInitPending'));
-chk('pool radar 15 mnt & kurasi 30 mnt (rotasi penuh katalog)', app.includes('15 * 60000') && app.includes('1800000'));
-chk('kartu rekomendasi membawa snapshot candle', app.includes('candles.slice(-240)'));
-chk('klik-through memakai snapshot segar + lock create (konsistensi skor)', app.includes('primeFromRadarPool(sym, tf)') && app.includes("computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource)"));
-chk('invalidasi lock butuh penerimaan harga (anti chop)', eng.includes('againstLong') && eng.includes('STRUCTURE_INVALID'));
-chk('radar hemat kuota: TTL 15 mnt + batch 30/slot 4 mnt', app.includes('15 * 60000') && app.includes('rotatingSlice(catalogSortedStable(), 30, 4)'));
-chk('analisis workspace menulis-balik ke pool rekomendasi', app.includes('writeBackRadarPools(analysis)') && app.includes('WORKSPACE LIVE'));
-chk('pindah mode memaksa rescan rekomendasi', app.includes('renderInvestorPicks(true)') && app.includes('renderOpportunityRadar(true)'));
-chk('gate konfirmasi volume & squeeze breakout', eng.includes('volImpulse') && eng.includes('squeezeBlockedDir') && eng.includes('SQUEEZE_UNCONFIRMED'));
-chk('tier memakai performa terkini (recentWinRate)', eng.includes('recentWinRate') && eng.includes('>= 70'));
-chk('fundamental terukur (macroQuant) ada di output & UI', eng.includes('macroQuant') && app.includes('fmCycle') && app.includes('fmVolPct'));
-chk('anti-desync: heartbeat canvas fallback terhubung ke tick live', app.includes('scheduleLiveCanvasRepaint()') && app.includes('window.drawCanvasFallbackChart = drawCanvasFallbackChart'));
-chk('websocket crypto self-heal (onclose reconnect)', app.includes('ws.onclose') && app.includes('setTimeout(startBinanceStream, 3000)'));
-chk('harga tampilan ikut walau candle belum siap', app.includes("setTxt('hdrLivePrice', formatPrice(price, state.symbol))"));
-chk('cadangan anti-stall Binance ticker untuk crypto', app.includes("ticker/price?symbol=' + sym2.replace"));
-chk('lock v3 per-TF + migrasi v2 (sinyal lama tidak dibuang)', app.includes("'xstarzg_siglock_v3'") && app.includes('__migratedV2') && app.includes("'|' + String(tf || state.tf || '')"));
-chk('lifecycle outcome tercatat + cooldown pasca-SL', app.includes('recordSignalOutcome(symbol, tfA, verdict, lock)') && app.includes('signalCooldownActive(symbol, tfA)') && app.includes("'xstarzg_sigoutcome_v1'"));
-chk('kartu radar ikut menerbitkan kunci (scope create/apply)', app.includes("(scope === 'create' || scope === 'apply') && a.signalEligible"));
-chk('akurasi radar adaptif mengetatkan ambang terbit', app.includes('adaptiveMinScore(tfA)') && eng.includes('radarAdaptiveGate') && eng.includes('updateRadarAccuracy'));
-chk('badge outcome jujur di kartu radar', app.includes('latestSignalOutcome(it.sym, it.tf)') && app.includes('eOutSl'));
-chk('gate persistensi 2-candle anti fakeout', eng.includes('persistOk') && eng.includes('PERSIST_WAIT'));
-chk('candle fabrikasi edge dicap jujur EST_ANCHORED', edgeAnalyze.includes("'EST_ANCHORED:'") && edgeAnalyze.includes('candle di fungsi ini DIFABRIKASI'));
-chk('siklus hidup sinyal digerbang feed asli (feedIsReal)', app.includes('function feedIsReal(') && app.includes('if (!feedReal) a.feedUnverified = true;') && app.includes('if (feedReal && typeof SE.validateSignalLock'));
-chk('kandidat feed estimasi dikeluarkan dari rekomendasi & badge-nya jelas', app.includes('a.__estFeed = !feedIsReal(d.source)') && app.includes('!it.analysis.__estFeed') && app.includes("T('ui.eEstFeed'"));
-chk('rekonsiliasi outcome palsu -> lock dipulihkan', app.includes('reconcileSignalOutcome(symbol, tfA, closedBars0)') && app.includes('lock: lock ? {'));
-chk('banner jujur saat radar kosong (pantauan bukan rekomendasi)', app.includes('noneQualified') && app.includes('eRadarNone'));
-chk('kartu menyebut alasan gerbang (koherensi WR vs entry)', app.includes('gateShortLabel(a.gating.active[0])') && app.includes('gNoSeq'));
-chk('panel menjelaskan WR besar tapi belum boleh entry', app.includes('eWrVsEntry'));
-chk('peringatan risiko permanen (bukan nasihat keuangan) di semua halaman', html.includes('risk-disclaimer-bar') && html.includes('ui.eDisclaimer'));
+  await t.test('PWA and frontend cache versions are invalidated together', () => {
+    assert.ok(html.includes('/app.js?v=2026.91'));
+    assert.ok(app.includes('engine-boot.js?v=2026.91'));
+    assert.ok(engineBoot.includes('quant-core.js?v=2026.91'));
+    assert.ok(engineBoot.includes('signal-engine.js?v=2026.91'));
+    assert.ok(sw.includes('xstarzg-pwa-v2026.91'));
+  });
 
+  await t.test('twenty locale bundles keep an identical UI keyset', async () => {
+    const langs = ['id', 'en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'ar', 'ru', 'es', 'pt', 'fr', 'de', 'hi', 'tr', 'vi', 'th', 'ms', 'nl', 'it', 'pl'];
+    const modules = await Promise.all(langs.map((lang) => import('../public/i18n/locales/' + lang + '.js')));
+    const keys = Object.keys(modules[0].default.ui).sort().join('|');
+    for (const mod of modules) assert.equal(Object.keys(mod.default.ui).sort().join('|'), keys);
+  });
 
-/* v2026.51 DUAL-BRAIN lint */
-chk('engine punya blok Dual-Brain versi benar', /DUAL-BRAIN\+ICT ATLAS \(2026\.52\)/.test(eng) && /brain === 'SCALP'/.test(eng) && /sniperPremiumVeto/.test(eng));
-chk('engine level-ctx bawa brain + reasons brain', /oldLow: liqPools\.oldLow, brain/.test(eng) && /OTAK SCALP|SCALP Micro/.test(eng));
-chk('app gate label dual-brain', /SCALP_PRESSURE: T\('ui\.gScalpPressure'/.test(app) && /SNIPER_STRUCTURE: T\('ui\.gSniperStruct'/.test(app));
-chk('app panel badge otak', /eBrainScalp/.test(app) && /eBrainSniper/.test(app));
-/* v2026.52 ICT ATLAS + MASTER MIND lint */
-chk('engine ICT Atlas module', /ICT ATLAS \(v2026\.52\)/.test(eng) && /export function detectIctAtlas/.test(eng) && /function detectCISD/.test(eng) && /function detectAmdPhase/.test(eng));
-chk('engine Master Mind profile', /MASTER MIND \(v2026\.52\)/.test(eng) && /riskPct/.test(eng) && /beAfterTp1/.test(eng));
-chk('engine veto CISD/FOMO tersambung', /cisdCounterVeto/.test(eng) && /fomoVeto/.test(eng) && /CISD_COUNTER/.test(eng) && /riskPlan: masterProfile/.test(eng));
-chk('app label gerbang + rencana master', /CISD_COUNTER: T\('ui\.gCISD'/.test(app) && /FOMO_ZONE: T\('ui\.gFomo'/.test(app) && /eRiskPlan/.test(app));
-/* v2026.53 ADAPTIVE LIVE FEED lint */
-chk('edge punya fetchYahooCandles + resample H4', /async function fetchYahooCandles/.test(edgeAnalyze) && /resampleCandles/.test(edgeAnalyze) && /YAHOO_CANDLES:/.test(edgeAnalyze));
-chk('edge prioritas candle NYATA Yahoo sebelum fabrikasi', edgeAnalyze.indexOf('fetchYahooCandles(s, tf)') < edgeAnalyze.indexOf('buildBrokerAnchoredCandles(s, tf, liveQuote)'));
-/* v2026.54 SELARAS lint: plafon skor direm per gerbang penolak */
-chk('engine cap skor proporsional ke jumlah gerbang tolak', /gatesBlocked = gateReasons/.test(eng) && /59 - 2 \* gatesBlocked/.test(eng));
-/* v2026.55b lint */
-chk('engine cap investor NETRAL + DCA monotonic fair-value', /confluenceScore = Math\.min\(confluenceScore, 59\)/.test(eng) && /dcaZone2 = Math\.min\(dcaZone1/.test(eng) && /dcaZone3 = Math\.min\(dcaZone2/.test(eng));
-chk('engine remove kondisi NEUTRAL dari cap trader', /mode === 'trader' && !eligible\) \{/.test(eng) && !/!eligible && softBias !== 'NEUTRAL'/.test(eng));
-chk('label pillars diperbarui (28/10)', /28-Pillar|28 Pilar|26-Pillar|26 Pilar/.test(html));
-/* v2026.56 lint: judul scan tidak lagi 'sinyal terbaik' yang ambigu */
-chk('eGateBest judul status-scan jelas', /Status Scan Timeframe Terbaik/.test(app) && !app.includes('Sinyal Terbaik Saat Ini'));
-/* v2026.57 NEWS lint */
-chk('edge news endpoint ada & parse FF XML + bias map', /FOREXFACTORY/.test(edgeNews) && /buildImpacts/.test(edgeNews) && /etToUtc/.test(edgeNews));
-chk('app fetch & render panel news', /function fetchNewsCalendar/.test(app) && /function renderNewsPanel/.test(app) && /newsGrid/.test(html));
-chk('news risk chip radar & peringatan panel', /newsSoonFor/.test(app) && /eNewsWarn/.test(app));
-/* v2026.58 GLOBAL MACRO lint */
-chk('edge macro endpoint ada & classifyRegime', /classifyRegime/.test(edgeMacro) && /dcaWeights/.test(edgeMacro) && /'GOLDILOCKS'/.test(edgeNews+edgeMacro));
-chk('app fetch/render macro + strip investor', /fetchMacroRegime/.test(app) && /renderMacroMap/.test(app) && /macroMapBox/.test(html));
-chk('bobot DCA dinamis regime + konteks trader', /macroDcaWeights/.test(app) && /invDcaPace/.test(app) && /eMacroTrader/.test(app));
-/* v2026.59 FITUR DIPULIHKAN lint */
-chk('toggle Spot/Futures trader TIDAK disembunyikan lagi', !/showSub \? '' : 'none'/.test(app) && /btnSubFutures/.test(html));
-chk('kalkulator posisi: panel HTML + widget boot + wiring levels', /id="calcPanel"/.test(html) && /resPosSizeUnits/.test(html) && /__calcWidget/.test(app) && /PositionCalculator/.test(engineBoot) && /class PositionCalculator/.test(calcMod));
-chk('kalkulator memakai ATR & leverage + kunci calcTitle', /updateMarketContext/.test(calcMod) && /recalculate/.test(calcMod) && /calcTitle/.test(R('../public/i18n/locales/id.js')));
-/* v2026.60 BUGFIX lint (feed + kalender) */
-chk('banner ESTIMASI kini BENAR-BENAR reconnect (retry 45s)', /scheduleFeedReconnect/.test(app) && /feedReconnectTimer/.test(app));
-chk('edge XAU spot pakai candle Yahoo NYATA (XAUUSD=X) tanpa pengecualian', /'XAU\/USD': \['XAUUSD=X'/.test(edgeMarket) && !/"XAU\/USD" && s !== 'XAU\/IDR'/.test(edgeMarket) && /if \(s !== 'XAU\/IDR'\)/.test(edgeMarket));
-chk('kalender anti-kosong: mirror FF + stale-while-error + klien tak menghapus event', /FF_URLS/.test(edgeNews) && /cdn-nfs\.faireconomy/.test(edgeNews) && /stale: true/.test(edgeNews) && /j\.events\.length > 0 \|\| !newsState\.loaded/.test(app) && /CRYPTO_RSS_URLS/.test(edgeNews) && /cointelegraph/.test(edgeNews));
-/* v2026.61 crypto multi-exchange lint */
-chk('pair crypto non-Binance (HYPE dll) -> candle Bybit lalu OKX', /fetchBybitCandles/.test(edgeMarket) && /fetchOkxCandles/.test(edgeMarket) && /BYBIT:\$\{pair\}/.test(edgeMarket) && /OKX:\$\{instId\}/.test(edgeMarket) && edgeMarket.indexOf('fetchBinanceCandles(s, tf);\n    if (binData) return binData;\n    // v2026.61') > -1);
-chk('quotes batch: ticker Bybit->OKX->Yahoo untuk pair non-Binance', /api\.bybit\.com\/v5\/market\/tickers/.test(edgeQuotes) && /www\.okx\.com\/api\/v5\/market\/ticker/.test(edgeQuotes));
-/* v2026.62 lint: kalender selesai + zona struktur pivot */
-chk('event lewat ditandai SELESAI + hasil aktual', /eNewsDone/.test(app) && /eNewsActual/.test(app) && /actual/.test(edgeNews) && /d < 0 \|\|/.test(app));
-chk('pilar pivot menampilkan zona struktur psikologis', /psychRoundPrice/.test(app) && /ePtZone/.test(app));
-/* v2026.63 lint: fallback canvas chart */
-chk('fallback canvas punya AXIS HARGA (fxPriceAxis) & tag level (lvTag)', /function fxPriceAxis/.test(app) && /function lvTag/.test(app) && /FALLBACK VIEW — axis harga aktif/.test(app));
-chk('fallback membaca level via effectiveLevels (bukan analysis.entry undefined)', /effectiveLevels\(analysis\)/.test(app) && !/drawLine\(analysis\.entry/.test(app));
-chk('fallback menggambar overlay EMA/VWAP + harga terkini + toggle redraw', /__fxEmaList/.test(app) && /vwapN/.test(app) && /candleLastPrice/.test(app) && /window\.drawCanvasFallbackChart\(state\.candles, state\.lastAnalysis\)/.test(app));
-/* v2026.64 lint: presisi harga micro-cap */
-chk('formatPrice harga <1 pakai presisi signifikan (anti "0.00" RDNT)', /K\.floor\(Math\.log10\(a\)/.test(app) || /Math\.log10\(a\)/.test(app));
-chk('LWC series menyesuaikan priceFormat per simbol (syncChartPriceFormat)', /function lwcPriceFormat/.test(app) && /syncChartPriceFormat\(\);/.test(app) && app.split('syncChartPriceFormat();').length >= 3);
-/* v2026.65 lint jurnal sinyal + masa hidup horison */
-chk('jurnal sinyal: section + renderer + wiring outcome', /id="signalJournalList"/.test(html) && /renderSignalJournal/.test(app) && /xstarzg_siglock_v3/.test(app));
-chk('EXPIRED dicatat (bukan hilang diam-2) & ikut cooldown', /oc !== 'EXPIRED'/.test(app) && /status === 'EXPIRED'/.test(app) && /EXPIRED/.test(eng));
-/* v2026.68 lint: jurnal clickable + billing server-side (auto-approve bertanda tangan) */
-chk('kartu jurnal clickable -> gotoInstrument(sym, tf)', /jnl-card" data-sym/.test(app) && /list\.querySelectorAll\('\.radar-card\[data-sym\]'\)/.test(app) && /gotoInstrument\(card\.getAttribute\('data-sym'\)/.test(app) && /ui\.jnlOpen/.test(app));
-chk('verifikasi VIP via SERVER /api/billing/verify-bsc (grant lokal dihapus)', app.includes("'/api/billing/verify-bsc'") && !/function clientVerifyBscPayment/.test(app) && /serverVerifyBscPayment/.test(app));
-chk('sesi JWT publik /api/auth/register + dipanggil saat login', /api\/auth\/register/.test(app) && /function ensureAuthToken/.test(app) && /tvip|authToken/.test(app));
-chk('server: verify-bsc WAJIB auth 401 + meneken entitlement VIP + anti-replay', /if \(!user \|\| !user\.email\)/.test(R('../functions/api/billing/verify-bsc.js')) && /tier: 'VIP', vipUntil/.test(R('../functions/api/billing/verify-bsc.js')) && /isTxUsed/.test(R('../functions/api/billing/verify-bsc.js')));
-chk('endpoint register menerbitkan JWT FREE & tak pernah OWNER_VIP', /signJwt/.test(R('../functions/api/auth/register.js')) && /let tier = 'FREE'/.test(R('../functions/api/auth/register.js')));
-chk('revalidasi sesi VIP saat boot (verifyVipSession + /api/auth/me)', /function verifyVipSession/.test(app) && /verifyVipSession\(\);/.test(app) && /api\/auth\/me/.test(app) && /authenticateRequest/.test(R('../functions/api/auth/me.js')));
-chk('faktur invoice endpoint nyata + hidrasi modal', /onRequestGet/.test(R('../functions/api/billing/invoice.js')) && /hydrateVipInvoice/.test(app) && /id="vipInvoiceId"/.test(html) && /id="vipWalletAddr"/.test(html) && /ui\.payInvoiceId/.test(html));
-chk('wrangler.toml mengikat D1 DB (database_id terkonfigurasi)', /\[\[d1_databases\]\][\s\S]*binding\s*=\s*"DB"[\s\S]*database_id\s*=\s*"d29a4547-d50e-42fb-a700-56364d967abb"/.test(wrangler));
-/* v2026.68 HEMAT KUOTA CLOUDFLARE lint (paket gratis 100rb request/hari) */
-chk('ticker 5 dtk + 0 request saat tab latar + crypto Binance-first', /RT_TICK_MS = 5000/.test(app) && /document\.hidden\) return;/.test(app) && /data-api\.binance\.vision\/api\/v3\/ticker\/price/.test(app));
-chk('ticker tanpa cache-buster _t pada quote=1 (respons bisa di-cache)', !/analyze\?quote=1&symbol=' \+ encodeURIComponent\(sym\) \+ '&tf=' \+ encodeURIComponent\(tf\) \+ '&_t='/.test(app));
-chk('batch radar & investor diet (30/4 & 26/6) + autopilot force 4 mnt', /rotatingSlice\(catalogSortedStable\(\), 30, 4\)/.test(app) && /rotatingSlice\(investableUniverse\(\), 26, 6\)/.test(app) && />= 4 \* 60000/.test(app));
-chk('edge analyze quote-only di-cache 4 dtk lintas-user', /caches\.default/.test(edgeAnalyze) && /max-age=4/.test(edgeAnalyze));
-/* v2026.68 RESPONSIF MOBILE lint */
-chk('responsif mobile: overflow-x hidden pada html & body + radar-card min-width 0', /html\s*\{[\s\S]*overflow-x:\s*hidden/.test(css) && /radar-card\s*\{[\s\S]*min-width:\s*0/.test(css) && /#inpSearchAsset/.test(css));
-/* v2026.68 ZERO-RISK SL+ & DUAL-BRAIN MANAGEMENT lint */
-chk('trade management SL+ 0-risk di gateBlockHtml & jurnal', /eSlPlusActive/.test(app) && /BE_SAVED/.test(app) && /jnlBeActive/.test(app) && /eScalpAdvisor/.test(app) && /eSniperAdvisor/.test(app));
-/* DUAL FIBONACCI MATRIX & US STOCKS EXPANSION lint */
-chk('Dual Fibonacci matrix HTML box & elemen nilai terpasang', /id="fiboMatrixBox"/.test(html) && /id="valFibo500"/.test(html) && /id="valFibo618"/.test(html) && /id="valFiboExt161"/.test(html));
-chk('app.js mengupdate Fibo matrix & Pillar 10 Fibo', /valFibo618/.test(app) && /valFiboExt161/.test(app) && /goldenPocket/.test(app));
-chk('signal-engine mengekspor calculateDualFibonacci & menyematkan fib pada levels', /export function calculateDualFibonacci/.test(eng) && /fib,/.test(eng));
-/* VIP EXPIRY WARNING & OWNER SUBSCRIBERS LINT */
-chk('banner peringatan kedaluwarsa VIP & modal pelanggan owner terpasang', /id="vipExpiryWarningBanner"/.test(html) && /id="ownerSubscribersModal"/.test(html) && /vipExpiryDaysText/.test(app));
-chk('admin overview endpoint memverifikasi owner & query D1', /vip_entitlements/.test(R('../functions/api/admin/overview.js')) && /OWNER_EMAILS/.test(R('../functions/api/admin/overview.js')));
-chk('quotaLimit & auth/me otomatis mendowngrade VIP kedaluwarsa ke FREE', /state\.user\.tier = 'FREE'/.test(app) && /out\.tier = 'FREE'/.test(R('../functions/api/auth/me.js')));
-/* SMART SIGNAL & PRICE ALARM (v2026.69) lint */
-chk('tombol alarm sinyal, chip status & toast notifikasi terpasang di HTML', /id="btnToggleSignalAlarm"/.test(html) && /id="alarmStatusChip"/.test(html) && /id="signalAlarmToast"/.test(html));
-chk('engine alarm app.js: Web Audio chime, Web Notification & checkSignalAlarm terpasang', /playAlertChime/.test(app) && /checkSignalAlarm/.test(app) && /toggleSignalAlarm/.test(app));
-
-/* PWA (PROGRESSIVE WEB APP) & 0-CLOUDFLARE CACHE LINT */
-const manifestRaw = R('../public/manifest.webmanifest');
-const swRaw = R('../public/sw.js');
-chk('manifest PWA terpasang valid (standalone, start_url, theme_color)', /"display":\s*"standalone"/.test(manifestRaw) && /"start_url"/.test(manifestRaw) && /"theme_color"/.test(manifestRaw));
-chk('service worker sw.js terpasang dengan cache bypass untuk /api/', /caches\.open/.test(swRaw) && /url\.pathname\.startsWith\('\/api\/'\)/.test(swRaw));
-chk('HTML memuat link manifest & mobile app meta tags', /<link rel="manifest" href="\/manifest\.webmanifest"/.test(html) && /name="mobile-web-app-capable"/.test(html));
-chk('app.js meregister service worker & menangani instalasi PWA', /navigator\.serviceWorker\.register\('\/sw\.js'\)/.test(app) && /beforeinstallprompt/.test(app) && /btnInstallPwa/.test(app));
-
-/* SNIPER MINIMAL 1:2 R:R TARGET & 0-RISK ADVISORY LINT */
-chk('jurnal menampilkan Target 1:2 R:R (TP2) untuk Sniper', /Target 1:2 R:R \(TP2\)/.test(app) && /isSniper/.test(app));
-chk('advisory peringatan SL+ proteksi 0-Risk untuk setup sniper', /SNIPER ADVISOR: Target penuh minimal 1:2 R:R \(TP2\)/.test(app) && /0-RISK TERKUNCI/.test(app));
-
-/* 3 BAGAN OTAK REKOMENDASI RADAR (KRIPTO, FOREX & KOMODITAS, SAHAM) lint */
-chk('HTML memuat radarGroupBar dengan 3 kelompok instrumen', /id="radarGroupBar"/.test(html) && /data-rg="crypto"/.test(html) && /data-rg="fx_comm"/.test(html) && /data-rg="stocks"/.test(html));
-chk('app.js memisahkan kelompok radarAssetGroupOf & render 3 otak bagan', /function radarAssetGroupOf/.test(app) && /RADAR_GROUPS/.test(app) && /renderRadarCardHtml/.test(app));
-chk('kartu radar menampilkan SL, TP, Entry & Skor lengkap', /r-entry/.test(app) && /r-score/.test(app) && /tgtLbl \+ ':/.test(app));
-chk('tombol fokus bagan & render lengkap tanpa potongan 6 kartu', /data-focus-rg/.test(app) && /Menampilkan semua/.test(app));
-chk('kalender ekonomi anti-kosong dengan fallback institusional & peringatan broker', /getClientInstitutionalEvents/.test(app) && /generateInstitutionalEvents/.test(edgeNews) && /Peringatan Broker/.test(app));
-chk('tidak ada penyebutan merk broker tertentu di kalender', !/exness/i.test(app) && !/exness/i.test(html));
-chk('XAU/IDR komposit nyata dari XAUUSD & USDIDR', /s === 'XAU\/IDR'/.test(edgeMarket) && /YAHOO:XAUUSD=X x USDIDR=X/.test(edgeMarket));
-chk('katalog berimbang 3 kelompok saat scan (interleaved)', /crypto\.push/.test(app) && /stocks\.push/.test(app) && /interleaved\.push/.test(app));
-chk('radar bersih: feed estimasi dilarang masuk rekomendasi', /if \(a\.__estFeed\) return null/.test(app) && /!it\.analysis\.__estFeed/.test(app));
-chk('multi-exchange crypto diperluas dengan MEXC & perp fallback', /fetchMexcCandles/.test(edgeMarket) && /MEXC:\$\{pair\}/.test(edgeMarket));
-chk('dukungan multi-exchange BingX untuk spot & swap futures', /fetchBingxCandles/.test(edgeMarket) && /BINGX:\$\{pair\}/.test(edgeMarket) && /open-api\.bingx\.com/.test(edgeQuotes));
-chk('radar scan eksklusif aset kurasi terverifikasi', /!x\.isDynamic/.test(app));
-chk('i18n radarGroupBar & 3 otak multibahasa terpasang',
-  /data-i18n="ui\.rgAll"/.test(html) &&
-  /data-i18n="ui\.rgCrypto"/.test(html) &&
-  /ui\.rShowingAll/.test(app) &&
-  /ui\.rOpenTab/.test(app) &&
-  /getRadarGroups/.test(app));
-
-/* MULTI-EXCHANGE EXPANSION (BINGX & MEXC) GEMS & HERO STATS LINT */
-chk('katalog crypto memuat token unggulan BingX & MEXC (KAS, SUPER, POPCAT, BRETT, VIRTUAL, SPX, RAY, OM)',
-  /mkCrypto\('KAS'/.test(R('../public/js/shared/quant-core.js')) &&
-  /mkCrypto\('SUPER'/.test(R('../public/js/shared/quant-core.js')) &&
-  /mkCrypto\('POPCAT'/.test(R('../public/js/shared/quant-core.js')) &&
-  /mkCrypto\('BRETT'/.test(R('../public/js/shared/quant-core.js')) &&
-  /mkCrypto\('VIRTUAL'/.test(R('../public/js/shared/quant-core.js')));
-
-chk('dashboard depan & bar pilihan menampilkan 700+ instrumen dan 500+ pair crypto',
-  /id="heroTotalInstruments">700\+<\/span>/.test(html) &&
-  /id="heroCryptoCount">500\+<\/span>/.test(html) &&
-  /700\+\s*Aset Aktif/.test(html) &&
-  /75 Utama \+ 500\+ Pair/.test(html));
-
-/* SEO, SEARCH ENGINE & AI BOT DISCOVERY (GOOGLE, BING, PERPLEXITY, OPENAI) LINT */
-const robotsTxt = R('../public/robots.txt');
-const sitemapXml = R('../public/sitemap.xml');
-chk('robots.txt mengizinkan Googlebot, Bingbot & AI bots (GPTBot, PerplexityBot)',
-  /User-agent:\s*Googlebot/i.test(robotsTxt) &&
-  /User-agent:\s*Bingbot/i.test(robotsTxt) &&
-  /User-agent:\s*GPTBot/i.test(robotsTxt) &&
-  /User-agent:\s*PerplexityBot/i.test(robotsTxt) &&
-  /Sitemap:\s*https:\/\/xstarzganalysis\.pages\.dev\/sitemap\.xml/.test(robotsTxt));
-
-chk('sitemap.xml valid XML dengan URL halaman utama produksi',
-  /xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/.test(sitemapXml) &&
-  /<loc>https:\/\/xstarzganalysis\.pages\.dev\/<\/loc>/.test(sitemapXml));
-
-chk('index.html memuat meta SEO, canonical, OpenGraph, Twitter Card & Google verification',
-  /name="description"/.test(html) &&
-  /name="keywords"/.test(html) &&
-  /rel="canonical"/.test(html) &&
-  /name="robots"\s+content="index,\s*follow/.test(html) &&
-  /property="og:title"/.test(html) &&
-  /property="og:image"/.test(html) &&
-  /name="twitter:card"/.test(html) &&
-  /content="QK9_DVUmbva2pfdj4DWK_qWRlyWfKnrXWvYizARwA-o"/.test(html));
-
-chk('index.html memuat Schema.org JSON-LD WebApplication terstruktur untuk Google & AI Knowledge Graph',
-  /<script type="application\/ld\+json">/.test(html) &&
-  /"@type":\s*"WebApplication"/.test(html) &&
-  /"name":\s*"XStarZG Analysis"/.test(html) &&
-  /"applicationCategory":\s*"FinanceApplication"/.test(html));
-
-/* ==================== MEME & DEX GEMS SCANNER LINT ==================== */
-chk('index.html memiliki tombol mode meme dan section radar DEX meme',
-  html.includes('id="btnModeMeme"') &&
-  html.includes('id="memeRadarSection"') &&
-  html.includes('id="memeChainBar"') &&
-  html.includes('id="memeSortBar"') &&
-  html.includes('id="memePicksGrid"'));
-
-const memeApi = R('../functions/api/scanner/meme.js');
-chk('functions/api/scanner/meme.js valid dan mengekspor onRequest dengan caching 30s',
-  memeApi.includes('export async function onRequest') &&
-  memeApi.includes('s-maxage=30') &&
-  /anti-rug/i.test(memeApi) &&
-  memeApi.includes('solana'));
-
-chk('app.js memuat fungsi renderMemePicks dan integrasi mode meme',
-  app.includes('renderMemePicks') &&
-  app.includes("mode === 'meme'") &&
-  app.includes('drawMemePickCards') &&
-  css.includes('.mode-chip.meme'));
-
-chk('ruang tersendiri meme coin terisolasi total dari workspace trader/investor',
-  html.includes('id="traderInvestorWorkspaceWrap"') &&
-  html.includes('id="memeWorkspaceWrap"') &&
-  html.includes('id="memeInspectHeader"') &&
-  html.includes('id="memeDexChartIframe"') &&
-  html.includes('id="memeFundGrid"') &&
-  html.includes('id="memeTechnicalCard"') &&
-  app.includes('selectMemeToken') &&
-  memeApi.includes('metaNarrative') &&
-  memeApi.includes('devStatus'));
-
-chk('dashboard depan menampilkan mode meme coin berdampingan dengan trader dan investor',
-  html.includes('MEME &amp; DEX GEMS (ANTI-RUG SCANNER)') &&
-  html.includes('ui.feat5Title') &&
-  html.includes('ui.feat5Desc') &&
-  html.includes('Radar Khusus Koin Micin & DEX Gems'));
-
-chk('workspace DEX meme micin memiliki live ticker gerak aktif dan generator candle unik per instrumen',
-  html.includes('id="selMemeInstrument"') &&
-  html.includes('id="memeTfBar"') &&
-  app.includes('startMemeLiveTicker') &&
-  app.includes('stopMemeLiveTicker') &&
-  app.includes('formatMemePrice') &&
-  app.includes('hashMemeStr') &&
-  app.includes('activeMemeCandles') &&
-  app.includes('drawMemeCandleChart') &&
-  app.includes('switchMemeChartView'));
-
-/* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
-chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
-  app.includes('function monitorLiveSignalProgress(') &&
-  app.includes('liveMonitorInfo') &&
-  app.includes('scheduleLiveJournalUpdate') &&
-  app.includes('monitorLiveSignalProgress(state.symbol, state.tf, price, bar.high, bar.low);'));
-
-chk('sinyal workspace trader terdaftar ke siklus kunci jurnal walau feed cadangan',
-  app.includes("scope === 'create' || getSignalLock(symbol, tfA)") &&
-  app.includes('if (a.feedUnverified) nl.feedUnverified = true;') &&
-  app.includes('saveSignalLock(symbol, tfA, nl);'));
-
-chk('saveSignalLock dan renderAllVisuals memicu pembaruan jurnal seketika',
-  app.includes('localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));\n  } catch (e) {}\n  try { renderSignalJournal(); } catch (e) {}') &&
-  app.includes('try { renderSignalJournal(); } catch (e) {}\n}'));
-
-chk('ticker komoditas kapas COTTON terpetakan lengkap di TradingView dan Yahoo',
-  edgeAnalyze.includes("'COTTON': ['ICEUS:CT1!', 'NYBOT:CT1!', 'TVC:COTTON']") &&
-  edgeAnalyze.includes("'COTTON': ['CT=F', 'TT=F', 'BAL']"));
-
-chk('anti-dot spread floor & validasi skala harga di analyze.js dan app.js',
-  edgeAnalyze.includes('flatCount > candles.length * 0.35') &&
-  edgeAnalyze.includes('minSpread = Math.max(c.close * 0.0016, 0.0001)') &&
-  edgeAnalyze.includes('live > expectedP * 3.5 || live < expectedP * 0.28') &&
-  app.includes('var minSp = Math.max(cl * 0.0016, 0.0001);') &&
-  app.includes('baseP = (meta && Number(meta.basePrice) > 0) ? Number(meta.basePrice) : (SEED_PRICES[sym] || 100);'));
-
-chk('COTTON M5 masuk daftar radar scalping & dipantau aktif',
-  app.includes("{ sym: 'COTTON', tf: 'M5' }") &&
-  app.includes("monitorLiveSignalProgress(state.symbol, state.tf, price, bar.high, bar.low);"));
-
-chk('lokalisasi jurnal sinyal bebas bahasa Indonesia saat English aktif',
-  app.includes('function localizeJournalReason(reason)') &&
-  app.includes("Saved by SL+ protection (0-Risk, capital safe)") &&
-  app.includes("isEn ? '🛡️ SL+ ACTIVE (0-RISK)' : '🛡️ SL+ AKTIF (0-RISK)'") &&
-  app.includes("isEn ? 'towards TP' : 'menuju TP'"));
-
-chk('integritas anti-fake TP: harga NZD/JPY 2026, verifikasi keterisian limit & audit outcome',
-  app.includes("'NZD/JPY': 87.35") &&
-  edgeAnalyze.includes("'NZD/JPY': 87.35") &&
-  app.includes('lock.feedUnverified && isCurrentFeedReal') &&
-  app.includes('Target tercapai sebelum order limit terjemput (unfilled)') &&
-  app.includes('auditAndCleanseCorruptedStorage'));
-
-chk('kalender ekonomi & jurnal sinyal mandiri (terpisah dari dashboard analisa utama)',
-  html.includes('id="newsWorkspaceWrap"') &&
-  html.includes('id="journalWorkspaceWrap"') &&
-  html.includes('id="btnModeNews"') &&
-  html.includes('id="btnModeJournal"') &&
-  app.includes("state.mode === 'news'") &&
-  app.includes("state.mode === 'journal'"));
-
-chk('sinkronisasi mutlak chart & keterangan panel via effectiveLevels oc.lock + SEI/USDT seed',
-  app.includes("'SEI/USDT': 0.28") &&
-  app.includes("if (oc && oc.lock && (oc.status === 'TP_HIT' || oc.status === 'SL_HIT' || oc.status === 'BE_SAVED'))") &&
-  app.includes("formatPrice(tp1, symbol)") &&
-  eng.includes("const minTp1R = brainMode === 'SCALP' ? 2.0 : 1.0;") &&
-  eng.includes("const tp1Pad = brainMode === 'SCALP' ? 2.0 : 1.1;"));
-
-chk('institutional confluence matrix & sentiment flow terminal widgets',
-  html.includes('id="confluenceMatrixBox"') &&
-  html.includes('id="confluenceMatrixGrid"') &&
-  html.includes('id="sentimentFlowBox"') &&
-  html.includes('id="sentimentIndexVal"') &&
-  html.includes('id="smartMoneyFlowTxt"') &&
-  app.includes('function renderConfluenceMatrix(a)') &&
-  app.includes('function renderSentimentFlow(a)'));
-
-chk('integritas feed forex real-time EUR/USD M5 & proteksi sinyal anti-estimasi',
-  edgeAnalyze.includes('flatThresh = isForex ? 0.000005 : (lastClose * 0.0004)') &&
-  edgeAnalyze.includes("s === 'EUR/USD' || s === 'GBP/USD'") &&
-  edgeAnalyze.includes("query2.finance.yahoo.com") &&
-  app.includes("isEst ? '--' : formatPrice(L.entry, a.symbol)") &&
-  app.includes("if ((scope === 'create' || getSignalLock(symbol, tfA)) && !isFeedEstimate) feedReal = true;"));
-
-chk('radar rekomendasi saham IDX & global lancar tanpa freeze atau memuat abadi',
-  edgeAnalyze.includes("symbol.endsWith('.JK') && (tf === 'M1' || tf === 'M5' || tf === 'M15' || tf === 'M30')") &&
-  edgeAnalyze.includes("'Cache-Control': 'public, max-age=12'") &&
-  app.includes("{ sym: 'BBCA.JK', tf: 'M15' }") &&
-  app.includes("{ sym: 'BBCA.JK', tf: 'H1' }") &&
-  app.includes("{ sym: 'BBCA.JK', tf: 'D1' }"));
-
-chk('pencarian manual jurnal sinyal (filter instan tanpa scroll panjang)',
-  html.includes('id="inpJournalSearch"') &&
-  html.includes('id="btnJournalClearSearch"') &&
-  app.includes("$id('inpJournalSearch')") &&
-  app.includes("$id('btnJournalClearSearch')") &&
-  app.includes('filteredRows = rows.filter('));
-
-chk('sistem notifikasi otomatis SL+ 0-risk (Web Notification + audio chime + visual toast)',
-  html.includes('id="btnToggleSlPlusNotify"') &&
-  app.includes('notifySlPlusTriggered') &&
-  app.includes('toggleSlPlusNotification') &&
-  app.includes('sendBrowserPushNotification') &&
-  app.includes('xstarzg_slplus_notify_v1'));
-
-chk('proteksi kontaminasi silang harga antar-pair (anti-terjebak harga pair sebelumnya)',
-  app.includes('function isPriceCompatibleWithSymbol(') &&
-  app.includes('getSymbolReferencePrice(') &&
-  app.includes('analysisRequestSeq') &&
-  app.includes('mySeq !== analysisRequestSeq || state.symbol !== reqSymbol') &&
-  app.includes('!isPriceCompatibleWithSymbol(lastBar.close, reqSymbol)') &&
-  app.includes('saveSignalLock(symbol, tf, null);') &&
-  eng.includes('Skala harga sinyal tidak cocok dengan candle pair (kontaminasi silang antar pair)') &&
-  eng.includes('const aSym = String(a.symbol || \'\').toUpperCase();') &&
-  eng.includes('if (aSym && lSym && aSym !== lSym) return a;'));
-
-chk('mesin pemantau 24/7 otomatis di cloud (github actions sentinel + zero cloudflare quota)',
-  sentinelScript.includes('XSTARZG 24/7 BACKGROUND SENTINEL ENGINE') &&
-  sentinelScript.includes('fetchBinanceCandles') &&
-  sentinelScript.includes('fetchYahooCandles') &&
-  sentinelScript.includes('runFullAnalysis') &&
-  sentinelScript.includes('sendTelegramMessage') &&
-  sentinelScript.includes('XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR') &&
-  sentinelScript.includes('XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)') &&
-  sentinelWorkflow.includes('XStarZG 24/7 Market Sentinel') &&
-  sentinelWorkflow.includes("cron: '*/30 * * * *'") &&
-  sentinelWorkflow.includes('TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}') &&
-  sentinelWorkflow.includes('TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}'));
-
-chk('pembersihan fitur konek tele browser dari web ui (sepenuhnya otonom di cloud)',
-  !html.includes('id="btnOpenTelegramModal"') &&
-  !html.includes('id="btnOpenTelegramModalJnl"') &&
-  !html.includes('id="telegramConfigModal"'));
-
-chk('pengiriman notifikasi bot telegram live SL+ & sinyal institusional skor besar',
-  app.includes('xstarzg_telegram_config_v1') &&
-  app.includes('function loadPersistedTelegramConfig()') &&
-  app.includes('function savePersistedTelegramConfig()') &&
-  app.includes('function sendTelegramAlert(') &&
-  app.includes('function checkTelegramHighScoreSignal(') &&
-  app.includes('SL+ TERPICU — 0-RISK ALERT') &&
-  app.includes('PELUANG BARU SKOR BESAR') &&
-  app.includes('api.telegram.org/bot') &&
-  tgRelay.includes('export async function onRequestPost({ request })') &&
-  tgRelay.includes('api.telegram.org'));
-
-chk('validasi input token/chatId & penanganan error spesifik telegram (anti-encodeURIComponent colon)',
-  app.includes('function formatTelegramError(') &&
-  app.includes('function validateTelegramInputs(') &&
-  app.includes("replace(/^bot/i, '')") &&
-  !app.includes("encodeURIComponent(token)") &&
-  !tgRelay.includes("encodeURIComponent(cleanToken)") &&
-  app.includes("https://api.telegram.org/bot' + token + '/sendMessage") &&
-  tgRelay.includes("https://api.telegram.org/bot${cleanToken}/sendMessage"));
-
-const tgLinkFn = R('../functions/api/notify/telegram-link.js');
-const tgWebhookFn = R('../functions/api/notify/telegram-webhook.js');
-const tgSubsFn = R('../functions/api/notify/telegram-subscribers.js');
-const tgSql = R('../migrations/0002_telegram_subscribers.sql');
-
-chk('arsitektur 1 official bot multi-user dengan vip gating & paywall di web ui',
-  html.includes('id="btnTelegramVipAccess"') &&
-  html.includes('id="btnTelegramVipAccessJnl"') &&
-  html.includes('id="telegramVipModal"') &&
-  html.includes('id="tgVipPaywallBlock"') &&
-  html.includes('id="tgVipActiveBlock"') &&
-  html.includes('id="btnUpgradeToVipForTg"') &&
-  app.includes('openTelegramVipModal()') &&
-  app.includes('closeTelegramVipModal()') &&
-  app.includes("btnUpgradeTg.addEventListener('click'") &&
-  app.includes("isVip = isOwner || isAffiliate || (curUser && curUser.tier === 'VIP'"));
-
-chk('endpoint otentikasi & deep-link telegram vip serta webhook proteksi orang luar',
-  tgLinkFn.includes('isPrivilegedVip(user') &&
-  tgLinkFn.includes('upgradeRequired: true') &&
-  tgLinkFn.includes('https://t.me/') &&
-  tgWebhookFn.includes('AKSES DITOLAK — KHUSUS MEMBER VIP XSTARZG') &&
-  tgWebhookFn.includes('SELAMAT! AKUN TELEGRAM ANDA BERHASIL TERVERIFIKASI') &&
-  tgWebhookFn.includes('INSERT INTO telegram_subscribers') &&
-  tgSubsFn.includes('SELECT chat_id, email, tier, vip_until, is_owner, is_affiliate') &&
-  tgSql.includes('CREATE TABLE IF NOT EXISTS telegram_subscribers'));
-
-chk('market sentinel hanya berjalan via cron/manual, bukan setiap push kode',
-  !sentinelWorkflow.includes('  push:') &&
-  sentinelWorkflow.includes("cron: '*/30 * * * *'") &&
-  sentinelWorkflow.includes("cron: '15,45 * * * *'") &&
-  sentinelWorkflow.includes('group: xstarzg-market-sentinel') &&
-  sentinelWorkflow.includes('cancel-in-progress: false'));
-
-chk('market sentinel broadcast multi-user ke seluruh subscriber vip dari d1',
-  sentinelScript.includes('getActiveSubscribers()') &&
-  sentinelScript.includes('sendTelegramMessage(') &&
-  sentinelScript.includes('/api/notify/telegram-subscribers') &&
-  sentinelScript.includes('X-Sentinel-Key'));
-
-let syntaxOk = false;
-try {
-  execSync('node -c public/app.js public/js/engine-boot.js public/js/calculator.js public/js/shared/quant-core.js public/js/shared/signal-engine.js public/i18n/index.js public/i18n/boot.js functions/api/notify/telegram.js functions/api/notify/telegram-link.js functions/api/notify/telegram-webhook.js functions/api/notify/telegram-subscribers.js scripts/market-sentinel.mjs tests/telegram-vip.test.mjs', { stdio: 'pipe' });
-  syntaxOk = true;
-} catch (e) {
-  syntaxOk = false;
-}
-chk('sintaks JavaScript browser 100% valid tanpa syntax error (anti-freeze saat Ctrl+F5)', syntaxOk);
-
-console.log(`APP-STATIC: ${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+  await t.test('JavaScript syntax is valid for browser scripts, modules, APIs and Sentinel', () => {
+    const classic = [
+      'public/app.js',
+      'public/js/calculator.js',
+      'tests/app-static.test.mjs',
+      'tests/mobile-startup-and-i18n.test.mjs'
+    ];
+    const modules = [
+      'public/js/engine-boot.js',
+      'public/js/shared/quant-core.js',
+      'public/js/shared/signal-engine.js',
+      'public/i18n/index.js',
+      'public/i18n/boot.js',
+      'functions/api/dex/analyze.js',
+      'functions/api/market/analyze.js',
+      'functions/api/news/calendar.js'
+    ];
+    for (const file of classic) execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'pipe' });
+    for (const file of modules) {
+      const source = read(file);
+      execFileSync(process.execPath, ['--input-type=module', '--check'], { input: source, stdio: 'pipe' });
+    }
+    execFileSync(process.execPath, ['--check', path.join(root, 'scripts/market-sentinel.mjs')], { stdio: 'pipe' });
+  });
+});
