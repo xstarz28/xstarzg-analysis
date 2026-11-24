@@ -137,6 +137,7 @@ function ensureQuantEnginesLoaded() {
     console.error('XStarZG quant engine bootstrap failed:', e);
   }
 }
+var hasManualInstrumentSelection = false;
 var enterWorkspaceLock = 0;
 function enterWorkspace() {
   try {
@@ -149,22 +150,8 @@ function enterWorkspace() {
     try { if (typeof updateUserUi === 'function') updateUserUi(); } catch (e) {}
     try { if (typeof syncModeSections === 'function') syncModeSections(); } catch (e) {}
     try { if (QC && typeof renderInstrumentCatalog === 'function') renderInstrumentCatalog(); } catch (eCat) {}
-    // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
-    // agar layar HP tidak pernah menggantung dengan placeholder kosong
-    try {
-      if (!state.candles || !state.candles.length || !state.lastAnalysis) {
-        var fnSeed = (typeof generateSeedCandles === 'function') ? generateSeedCandles : (typeof window !== 'undefined' ? window.generateSeedCandles : null);
-        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : (fnSeed ? fnSeed(state.symbol || 'XAU/USD', state.tf || 'H1') : null);
-        if (seeded && seeded.candles && seeded.candles.length) {
-          state.candles = seeded.candles;
-          state.livePrice = seeded.price;
-          state.liveChangePct = 0.25;
-          state.feedSource = 'LOCAL_SEED';
-          state.lastAnalysis = null;
-          renderSeedCandlesPreview(state.candles);
-        }
-      }
-    } catch (eSeed) {}
+    // No instrument data is loaded until the user explicitly requests analysis.
+    setTxt('lblEngineStatus', 'PILIH INSTRUMEN — lalu tekan ANALISIS INSTRUMEN');
     try { if (typeof initChart === 'function') initChart(); } catch (eInit) {}
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(function () {
@@ -177,17 +164,8 @@ function enterWorkspace() {
       setTimeout(function () {
         try { if (typeof initChart === 'function') initChart(); } catch (e) { console.warn('initChart error:', e); }
         try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-        try {
-          if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-        } catch (e) { console.warn('runFullAnalysis error:', e); }
-        try { if (typeof connectRealtimeStream === 'function') connectRealtimeStream(); } catch (e) {}
-        try {
-          if (state.mode === 'investor') {
-            if (typeof renderInvestorPicks === 'function') renderInvestorPicks();
-          } else {
-            if (typeof renderOpportunityRadar === 'function') renderOpportunityRadar();
-          }
-        } catch (e) { console.warn('renderOpportunityRadar error:', e); }
+        // Chart shell only; analysis starts after explicit user instrument selection.
+        setTxt('lblEngineStatus', 'PILIH INSTRUMEN — lalu tekan ANALISIS INSTRUMEN');
       }, 60);
     }
   } catch (e) {
@@ -2757,8 +2735,8 @@ function updateModeChip() {
   var chip = $id('hdrModeChip');
   if (!chip) return;
   var cls = 'futures', txt = T('ui.chipFutures', 'FUTURES • 2-ARAH + LEV');
-  if (state.mode === 'investor') { cls = 'investor'; txt = T('ui.chipInvestor', 'INVESTOR • SPOT DCA'); }
-  else if (state.mode === 'meme') { cls = 'meme'; txt = T('ui.chipMeme', '🚀 DEX MEME • ANTI-RUG RADAR'); }
+  if (state.mode === 'investor') { cls = 'investor'; txt = T('ui.chipInvestor', 'INVESTOR • ANALISIS NILAI & AKUMULASI'); }
+  else if (state.mode === 'meme') { cls = 'meme'; txt = 'DEX TOKEN • MANUAL CONTRACT ANALYSIS'; }
   else if (state.mode === 'news') { cls = 'news'; txt = '📰 KALENDER EKONOMI & BERITA'; }
   else if (state.mode === 'journal') { cls = 'journal'; txt = '📒 JURNAL SINYAL TERVERIFIKASI'; }
   else if (state.subMode === 'spot' || (getMeta(state.symbol).assetClass === 'stocks')) { cls = 'spot'; txt = T('ui.chipSpot', 'SPOT • 1-ARAH (TANPA LEV)'); }
@@ -3161,6 +3139,7 @@ function startCandleCountdown() {
   }, 1000);
 }
 function connectRealtimeStream() {
+  if (!hasManualInstrumentSelection) return;
   try { startCandleCountdown(); } catch (e) {}
   try { startBinanceStream(); } catch (e) {}
   try {
@@ -9250,6 +9229,10 @@ function bindUiEvents() {
   }
   var instSel = $id('selInstrument');
   if (instSel) instSel.addEventListener('change', function () { if (instSel.value) selectSymbol(instSel.value); });
+  bind('btnAnalyzeInstrument', function () {
+    var selected = instSel && instSel.value ? instSel.value : state.symbol;
+    if (selected) selectSymbol(selected);
+  });
   /* ---- Timeframe bar ---- */
   var tfBar = $id('timeframeBar');
   if (tfBar) {
@@ -9935,25 +9918,22 @@ function setMode(mode) {
   if (jn) jn.classList.toggle('active', mode === 'journal');
   var sub = $id('traderSubModeWrap');
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
-  // Investor: rekomendasi diframe sebagai keputusan beli-nyata; scalping bukan untuk investor
-  if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
-  syncHorizonTabs();
+
+  // Workspace changes switch the analysis profile; they never scan other assets.
+  try { stopMemeLiveTicker(); } catch (e) {}
   syncModeSections();
-  // Rescan paksa saat pindah mode -> kartu rekomendasi menyegarkan ke kebenaran
-  // engine terbaru (anti kartu basi yg kontradiksi dengan workspace).
-  if (mode === 'investor') { stopMemeLiveTicker(); renderInvestorPicks(true); }
-  else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }
-  else {
-    stopMemeLiveTicker();
-    if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
-    else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
-    else renderOpportunityRadar(true);
-  }
-  renderMacroMap(); // strip peta makro hanya relevan di workspace investor
+  if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
+  else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
+  renderMacroMap();
   updateModeChip();
   syncTfBarForMode();
   saveSession();
-  if ((mode === 'trader' || mode === 'investor') && typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
+
+  if (hasManualInstrumentSelection &&
+      (mode === 'trader' || mode === 'investor') &&
+      typeof window.runFullAnalysis === 'function') {
+    window.runFullAnalysis(true);
+  }
 }
 function setSubMode(sub) {
   state.subMode = sub;
@@ -9964,14 +9944,14 @@ function setSubMode(sub) {
   syncTfBarForMode();
   saveSession();
   state.bestTfBoard = null;
-  if (typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
+  if (hasManualInstrumentSelection && typeof window.runFullAnalysis === 'function') {
+    window.runFullAnalysis(true);
+  }
   if (state.lastAnalysis) {
     renderPanels(state.lastAnalysis);
     renderHeader(state.lastAnalysis);
     drawChartLevels(state.lastAnalysis);
   }
-  // Repaint badge radar (SHORT futures -> TUNGGU di spot 1-arah)
-  renderOpportunityRadar(false);
 }
 function selectSymbol(sym) {
   if (!sym) return;
@@ -9979,6 +9959,7 @@ function selectSymbol(sym) {
     renderInstrumentCatalog();
     return;
   }
+  hasManualInstrumentSelection = true;
   if (feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
   state.symbol = sym;
   state.candles = [];
@@ -9987,12 +9968,11 @@ function selectSymbol(sym) {
   state.feedSource = '-';
   try { auditAndCleanseCorruptedStorage(); } catch (e) {}
   renderInstrumentCatalog();
-  saveSession(); // preferensi ikut tersimpan agar refresh tidak keluar
+  saveSession();
+  setTxt('lblEngineStatus', '⏳ MEMUAT ' + state.tf + ' — ' + sym);
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-  connectRealtimeStream();
-  renderOpportunityRadar();
 }
-
+ 
 /* ==================== 12. BOOTSTRAP ==================== */
 /* AUTO-PILOT radar & kurasi investor: memindai ulang katalog secara mandiri setiap
    slot rotasi (5 menit) sehingga instrumen berpotensi baru muncul sendiri tanpa
@@ -10104,14 +10084,13 @@ function bootCore() {
       syncTfBarForMode();
       syncHorizonTabs();
       try { syncModeButtonLabels(); } catch (e) {}
-      // force=false: gunakan cache radar/kurasi bila ada (tidak memicu fetch ulang)
-      if (state.mode === 'investor') renderInvestorPicks(false);
-      else renderOpportunityRadar(false);
+      // Refresh journal content without scanning the instrument universe.
       try { renderSignalJournal(); } catch (e) {}
       try { updateSlPlusNotifyUi(); } catch (e) {}
       try { updateTelegramUi(); } catch (e) {}
       // Narasi analisis terakhir tetap — jalankan ulang analisis agar panel sisi ikut bahasa baru
-      if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
+      if (hasManualInstrumentSelection && state.candles && state.candles.length &&
+          typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
     } catch (e) {}
   });
 }
@@ -10495,6 +10474,10 @@ if (document.readyState === 'loading') {
   // Do not block the UI with a second full quant calculation on synthetic seed candles.
   // Seed candles are only a visual placeholder; the complete engine runs once real data arrives.
   window.runFullAnalysis = async function (forceRecalc = false) {
+    if (!hasManualInstrumentSelection) {
+      setTxt('lblEngineStatus', 'PILIH INSTRUMEN — lalu tekan ANALISIS INSTRUMEN');
+      return;
+    }
     const mySeq = ++analysisRequestSeq;
     const reqSymbol = state.symbol;
     const reqTf = state.tf;
@@ -10561,8 +10544,6 @@ if (document.readyState === 'loading') {
         drawCanvasFallbackChart(state.candles, analysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
         connectRealtimeStream();
-        renderOpportunityRadar();
-        scheduleBestTfScan();
         if (feedIsEstimate(state.feedSource)) scheduleFeedReconnect();
       }
     } catch (err) {
@@ -10577,7 +10558,6 @@ if (document.readyState === 'loading') {
       state.lastAnalysis = null;
       renderSeedCandlesPreview(state.candles);
       setTxt('lblEngineStatus', '⚠ FEED ' + reqTf + ' TIDAK TERSEDIA — pratinjau lokal, sinyal belum diverifikasi');
-      renderOpportunityRadar();
       scheduleFeedReconnect();
       connectRealtimeStream();
     } finally {
@@ -10590,29 +10570,21 @@ if (document.readyState === 'loading') {
     if (__xsBootPostDomStarted) return;
     __xsBootPostDomStarted = true;
     setTimeout(function () {
-      // Do not compute/render seed analysis while the landing or login screen is visible.
       var workEl = document.getElementById('appWorkspaceWrapper');
       var isInWork = workEl && !workEl.classList.contains('hidden');
-      if (isInWork && (!state.candles || !state.candles.length)) {
-        try {
-          const seeded = generateSeedCandles(state.symbol, state.tf);
-          state.candles = seeded.candles;
-          state.livePrice = seeded.price;
-          state.feedSource = 'LOCAL_SEED';
-          state.lastAnalysis = null;
-          renderSeedCandlesPreview(state.candles);
-        } catch (eInitAn) {}
-      }
-      // Initial background feeds run only after an actual workspace entry.
+      // Keep calendar, macro context and journal available; never seed or scan markets here.
       if (isInWork) {
-        try { renderOpportunityRadar(); } catch (e) {}
         try { fetchNewsCalendar(false); } catch (e) {}
         try { fetchMacroRegime(false); } catch (e) {}
         try { renderMacroMap(); } catch (e) {}
         try { renderSignalJournal(); } catch (e) {}
-        // DEX/Meme scanner is loaded on demand when the user opens Meme mode; do not fetch it during Trader/Investor startup.
       }
       setInterval(function () {
+        var w = document.getElementById('appWorkspaceWrapper');
+        if (w && !w.classList.contains('hidden')) {
+          try { fetchNewsCalendar(false); } catch (e) {}
+        }
+      }, 15 * 60 * 1000);      setInterval(function () {
         var w = document.getElementById('appWorkspaceWrapper');
         if (w && !w.classList.contains('hidden')) {
           try { fetchNewsCalendar(false); } catch (e) {}
@@ -10646,23 +10618,7 @@ if (document.readyState === 'loading') {
         renderNewsPanel();
       });
 
-      var rgBar = $id('radarGroupBar');
-      if (rgBar) rgBar.addEventListener('click', function (ev) {
-        var b = ev.target && ev.target.closest ? ev.target.closest('[data-rg]') : null;
-        if (!b) return;
-        state.radarGroup = b.getAttribute('data-rg') || 'all';
-        rgBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
-        renderOpportunityRadar(false);
-      });
-
-      var viabBar = $id('radarViabilityBar');
-      if (viabBar) viabBar.addEventListener('click', function (ev) {
-        var b = ev.target && ev.target.closest ? ev.target.closest('[data-viab]') : null;
-        if (!b) return;
-        state.radarViability = b.getAttribute('data-viab') || 'actionable';
-        viabBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
-        renderOpportunityRadar(false);
-      });
+      // Opportunity screener controls are intentionally removed from this terminal.
 
       // ==================== PWA INSTALL & SERVICE WORKER ====================
       if ('serviceWorker' in navigator) {
