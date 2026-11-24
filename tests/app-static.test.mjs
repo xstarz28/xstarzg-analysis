@@ -390,16 +390,15 @@ chk('proteksi kontaminasi silang harga antar-pair (anti-terjebak harga pair sebe
   eng.includes('const aSym = String(a.symbol || \'\').toUpperCase();') &&
   eng.includes('if (aSym && lSym && aSym !== lSym) return a;'));
 
-chk('mesin pemantau 24/7 otomatis di cloud (github actions sentinel + zero cloudflare quota)',
-  sentinelScript.includes('XSTARZG 24/7 BACKGROUND SENTINEL ENGINE') &&
-  sentinelScript.includes('fetchBinanceCandles') &&
-  sentinelScript.includes('fetchYahooCandles') &&
-  sentinelScript.includes('runFullAnalysis') &&
-  sentinelScript.includes('sendTelegramMessage') &&
-  sentinelScript.includes('XSTARZG 24/7 CLOUD — PELUANG SKOR BESAR') &&
-  sentinelScript.includes('XSTARZG 24/7 CLOUD — SL+ TERPICU (0-RISK)') &&
-  sentinelWorkflow.includes('XStarZG 24/7 Market Sentinel') &&
-  sentinelWorkflow.includes("cron: '*/30 * * * *'") &&
+chk('Cloud Sentinel hanya memantau posisi manual aktif dan tidak melakukan discovery',
+  sentinelScript.includes('monitorOnly = false') &&
+  sentinelScript.includes('scanInstrument(inst, cache, { monitorOnly = false } = {})') &&
+  sentinelScript.includes('if (!monitorOnly && a.signalEligible') &&
+  sentinelScript.includes('const activeLocks = Object.values(cache.slPlusLocks || {})') &&
+  sentinelScript.includes('if (!activeLocks.length)') &&
+  sentinelScript.includes('WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf)') &&
+  sentinelWorkflow.includes('XStarZG 24/7 Manual Position Monitor') &&
+  sentinelWorkflow.includes("cron: '*/15 * * * *'") &&
   sentinelWorkflow.includes('TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}') &&
   sentinelWorkflow.includes('TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}'));
 
