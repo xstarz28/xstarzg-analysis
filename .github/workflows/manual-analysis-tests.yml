@@ -1,0 +1,30 @@
+name: Manual Analysis Regression Tests
+
+on:
+  push:
+    branches:
+      - refactor/manual-analysis-only
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Manual Analysis and DEX Contract Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run manual-analysis regression tests
+        run: node --test tests/app-static.test.mjs tests/mobile-startup-and-i18n.test.mjs
