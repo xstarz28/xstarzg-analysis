@@ -5051,6 +5051,7 @@ function drawInvestorPickCards(items) {
     card.addEventListener('click', function () { gotoInstrument(card.getAttribute('data-sym'), 'D1'); });
   });
 }
+function renderOpportunityRadar() { return; }
 function renderInvestorPicks(force) {
   var grid = $id('investorPicksGrid');
   if (!grid) return;
