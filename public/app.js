@@ -3278,8 +3278,9 @@ function investorJournalStore() {
     if (!Array.isArray(parsed)) return [];
     // Remove retired automatic/demo rows; preserve all user-entered records.
     var cleaned = parsed.filter(function (item) {
+      // Preserve timestamped user-entered records; discard legacy static recommendation IDs.
       return item && !item.isAuto &&
-        item.id !== 'inv_btc' && item.id !== 'inv_bbca_spot' && item.id !== 'inv_bbri_spot';
+        (!String(item.id || '').startsWith('inv_') || /^inv_\d+$/.test(String(item.id)));
     });
     if (cleaned.length !== parsed.length) saveInvestorJournalStore(cleaned);
     return cleaned;
@@ -3298,8 +3299,11 @@ function memeJournalStore() {
     if (!Array.isArray(parsed)) return [];
     // Remove only old auto-imports from the retired scanner; retain user-created records.
     var cleaned = parsed.filter(function (item) {
+      // Preserve rows created through the manual journal form or explicit DEX analysis.
+      var id = String(item && item.id || '');
+      var isManualId = /^meme_\d+$/.test(id) || /^dex_\d+$/.test(id);
       return item && !item.isAuto && item.source !== 'AUTO_RADAR' &&
-        item.id !== 'meme_pnut' && item.id !== 'meme_brett';
+        (!/^(meme_|dex_rec_)/.test(id) || isManualId);
     });
     if (cleaned.length !== parsed.length) saveMemeJournalStore(cleaned);
     return cleaned;
