@@ -901,7 +901,6 @@ function renderAllVisuals(analysis) {
   try { renderPillars(analysis); } catch (e) {}
   var isFeedEst = !analysis || analysis.__estFeed || analysis.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(state.feedSource));
   if (!isFeedEst) {
-    try { writeBackRadarPools(analysis); } catch (e) {}
     try { checkSignalAlarm(analysis); } catch (e) {}
     try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
   }
@@ -909,49 +908,6 @@ function renderAllVisuals(analysis) {
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
    TF yang sama -> kartu rekomendasi selalu mencerminkan kebenaran engine terkini. */
-function writeBackRadarPools(analysis) {
-  if (!analysis || analysis.error || !analysis.symbol || !analysis.timeframe) return;
-  var sym = analysis.symbol, tf = analysis.timeframe;
-  if (state.symbol !== sym) return;
-  if (!state.candles || !state.candles.length) return;
-  var lastBar = state.candles[state.candles.length - 1];
-  if (!lastBar || !isPriceCompatibleWithSymbol(lastBar.close, sym)) return;
-
-  // STRICT GUARD: Jika instrumen sedang dalam masa pendinginan (cooldown pasca outcome):
-  // DILARANG MEMBANGKITKAN KEMBALI kartu ke radar! Bersihkan dari radarScanPool agar tidak mencemari radar!
-  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
-    for (var hz0 in radarScanPool) {
-      if (radarScanPool[hz0]) delete radarScanPool[hz0][sym + '|' + tf];
-    }
-    return;
-  }
-  // Cegah membangkitkan sinyal yang sudah basi / tidak layak ke radar
-  if (typeof evaluateSignalViability === 'function') {
-    var vCheck = evaluateSignalViability(analysis, num(state.livePrice, analysis.lastPrice));
-    if (vCheck && vCheck.worth === false && vCheck.key !== 'PULLBACK') {
-      return;
-    }
-  }
-
-  var item = {
-    sym: sym, tf: tf, analysis: analysis,
-    candles: (state.candles || []).slice(-240),
-    price: num(state.livePrice, analysis.lastPrice),
-    changePct: num(state.liveChangePct, analysis.changePct),
-    source: 'WORKSPACE LIVE'
-  };
-  for (var hz in radarScanPool) radarScanPool[hz][sym + '|' + tf] = { ts: Date.now(), item: item };
-  // Hanya simpan ke investorScanPool jika sedang di mode investor atau TF bernuansa investasi (D1/W1)
-  // Mencegah fluktuasi cepat scalping M5/M15 mengotori rekomendasi investasi jangka panjang
-  if (state.mode === 'investor' || tf === 'D1' || tf === 'W1') {
-    investorScanPool[sym] = { ts: Date.now(), item: item };
-  }
-}
-
-/* ==================== 6. REAL-TIME PRICE ENGINE (SEMUA INSTRUMEN) ==================== */
-/* Throttle redraw chart cadangan (canvas fallback saat CDN LightweightCharts
-   diblokir ISP): candle ikut bergerak per-tick, bukan cuma saat analisis ulang. */
-var liveCanvasRepaintTimer = null;
 function scheduleLiveCanvasRepaint() {
   if (typeof LightweightCharts !== 'undefined') return; // chart utama aktif -> sudah sinkron
   if (typeof window.drawCanvasFallbackChart !== 'function') return;
@@ -3919,25 +3875,6 @@ function renderMemePicks() {
 
 function renderOpportunityRadar() {
   return;
-}
-function primeFromRadarPool(sym, tf) {
-  var now = Date.now();
-  var pools = [];
-  for (var hz in radarScanPool) pools.push(radarScanPool[hz]);
-  pools.push(investorScanPool);
-  for (var p = 0; p < pools.length; p++) {
-    var pool = pools[p];
-    for (var key in pool) {
-      var rec = pool[key];
-      if (rec && rec.item && rec.item.sym === sym && (!tf || rec.item.tf === tf) && rec.item.candles && (now - rec.ts) < 180000) {
-        var lastBar = rec.item.candles[rec.item.candles.length - 1];
-        if (lastBar && isPriceCompatibleWithSymbol(lastBar.close, sym)) {
-          return { candles: rec.item.candles, source: rec.item.source || 'BROKER FEED' };
-        }
-      }
-    }
-  }
-  return null;
 }
 function gotoInstrument(sym, tf) {
   if (!sym) return;
