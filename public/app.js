@@ -3944,18 +3944,10 @@ function gotoInstrument(sym, tf) {
   if (state.mode === 'meme') {
     var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
     var memeFound = pool.find(function (x) { return x.symbol === sym; });
-    if (memeFound) {
-      selectMemeToken(memeFound);
-      return;
-    }
+    if (memeFound) { selectMemeToken(memeFound); return; }
   }
-  if (!ensureQuotaFor(sym)) {
-    renderInstrumentCatalog();
-    return;
-  }
-  if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') {
-    setMode('trader');
-  }
+  if (!ensureQuotaFor(sym)) { renderInstrumentCatalog(); return; }
+  if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') setMode('trader');
   if (feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
   state.manualInstrumentSelection = true;
   state.symbol = sym;
@@ -3963,31 +3955,18 @@ function gotoInstrument(sym, tf) {
     state.tf = tf;
     state.timeframe = tf;
     var tfBar = $id('timeframeBar');
-    if (tfBar) {
-      Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) {
-        b.classList.toggle('active', b.getAttribute('data-tf') === tf);
-      });
-    }
+    if (tfBar) Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tf') === tf);
+    });
   }
   try { auditAndCleanseCorruptedStorage(); } catch (e) {}
-  var primed = primeFromRadarPool(sym, tf);
-  state.candles = primed ? primed.candles.slice() : [];
-  var primedSource = primed ? primed.source : null;
+  state.candles = [];
   state.lastAnalysis = null;
   state.bestTfBoard = null;
-  state.feedSource = primedSource || '-';
+  state.feedSource = '-';
   renderInstrumentCatalog();
   saveSession();
-  // Render instan dari snapshot kartu (skor/entry identik dengan yang diklik user),
-  // sekaligus scope 'create' agar sinyal yang tampil langsung TERKUNCI permanen —
-  // refresh/kalkulasi ulang berikutnya tidak bisa mengubahnya sampai TP/SL/invalidasi.
-  if (primed && state.candles.length) {
-    try {
-      var primeAnalysis = computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource);
-      if (primeAnalysis && !primeAnalysis.error && primeAnalysis.symbol === sym) renderAllVisuals(primeAnalysis, true);
-    } catch (e) {}
-  }
-  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(false);
+  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
   connectRealtimeStream();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
