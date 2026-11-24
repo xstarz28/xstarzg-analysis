@@ -11,8 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runFullAnalysis } from '../public/js/shared/signal-engine.js';
-import { calcEMA, calcSMA } from '../public/js/shared/quant-core.js';
+// Cloud Sentinel intentionally does not load or execute the signal/recommendation engine.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
@@ -20,10 +19,9 @@ const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
 // Ambil token & chatId dari environment variable (GitHub Secrets)
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN || process.env.BOT_TOKEN || '').trim().replace(/^bot/i, '');
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID || process.env.CHAT_ID || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
-const MIN_SCORE = parseInt(process.env.SENTINEL_MIN_SCORE || '78', 10) || 78;
 
-console.log('⚡ [XSTARZG SENTINEL] Memulai pemindaian pasar 24/7...');
-console.log(`📌 Konfigurasi: Min Score: ${MIN_SCORE}% | Bot Token Terpasang: ${BOT_TOKEN ? 'YA' : 'TIDAK'} | Chat ID: ${CHAT_ID ? 'YA' : 'TIDAK'}`);
+console.log('🛡️ [XSTARZG SENTINEL] Memulai pemantauan lock jurnal aktif (tanpa screening instrumen).');
+console.log(`📌 Telegram: ${BOT_TOKEN ? 'YA' : 'TIDAK'} | Chat ID: ${CHAT_ID ? 'YA' : 'TIDAK'}`);
 
 // Load / save sentinel cache to prevent duplicate alerts
 function loadCache() {
@@ -32,7 +30,7 @@ function loadCache() {
       return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
     }
   } catch (e) {}
-  return { notified: {}, slPlusLocks: {} };
+  return { slPlusLocks: {} };
 }
 
 function saveCache(cache) {
@@ -285,43 +283,12 @@ async function fetchBinanceCandles(pair, interval = '1h', limit = 150) {
       if (!Array.isArray(data) || !data.length) continue;
       return data.map(d => ({
         time: Math.floor(Number(d[0]) / 1000),
-        open: Number(d[1]),
-        high: Number(d[2]),
-        low: Number(d[3]),
-        close: Number(d[4]),
-        volume: Number(d[5])
+        open: Number(d[1]), high: Number(d[2]), low: Number(d[3]),
+        close: Number(d[4]), volume: Number(d[5])
       }));
     } catch (e) {}
   }
   return [];
-}
-
-let CACHED_BTC_TREND = null;
-
-export async function resolveBtcMacroTrend() {
-  if (CACHED_BTC_TREND) return CACHED_BTC_TREND;
-  try {
-    const btcCandles = await fetchBinanceCandles('BTC/USDT', '1h', 100);
-    if (btcCandles && btcCandles.length >= 35) {
-      const closes = btcCandles.map(c => c.close);
-      const last = closes[closes.length - 1];
-      const ema20 = calcEMA(closes, 20).pop() || last;
-      const ema50 = calcEMA(closes, 50).pop() || last;
-      const sma100 = calcSMA(closes, 100).pop() || ema50;
-      if (last > ema50 && ema20 > ema50 && last >= sma100) {
-        CACHED_BTC_TREND = 'BULLISH';
-      } else if (last < ema50 && ema20 < ema50 && last <= sma100) {
-        CACHED_BTC_TREND = 'BEARISH';
-      } else {
-        CACHED_BTC_TREND = 'NEUTRAL';
-      }
-    } else {
-      CACHED_BTC_TREND = 'NEUTRAL';
-    }
-  } catch (e) {
-    CACHED_BTC_TREND = 'NEUTRAL';
-  }
-  return CACHED_BTC_TREND;
 }
 
 // Fetch forex / commodities candles from Yahoo Finance
@@ -512,25 +479,10 @@ export function isAssetMarketOpen(symbol) {
   return true;
 }
 
-// 75 Koin Kripto Likuiditas Teratas (M5 scalping, M15 scalping, H1 intraday)
-const TOP_CRYPTO_SYMBOLS = [
-  'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'ADA/USDT', 'DOGE/USDT', 'AVAX/USDT',
-  'LINK/USDT', 'TON/USDT', 'SUI/USDT', 'DOT/USDT', 'NEAR/USDT', 'APT/USDT', 'ARB/USDT', 'OP/USDT',
-  'MATIC/USDT', 'POL/USDT', 'LDO/USDT', 'TIA/USDT', 'SEI/USDT', 'INJ/USDT', 'SATS/USDT', 'ORDI/USDT',
-  'RUNE/USDT', 'ICP/USDT', 'HBAR/USDT', 'STX/USDT', 'FIL/USDT', 'KAS/USDT', 'RENDER/USDT', 'FET/USDT',
-  'TAO/USDT', 'GRT/USDT', 'WIF/USDT', 'PEPE/USDT', 'BONK/USDT', 'FLOKI/USDT', 'SHIB/USDT', 'BCH/USDT',
-  'LTC/USDT', 'ETC/USDT', 'UNI/USDT', 'AAVE/USDT', 'MKR/USDT', 'CRV/USDT', 'PENDLE/USDT', 'ENA/USDT',
-  'JUP/USDT', 'PYTH/USDT', 'WLD/USDT', 'STRK/USDT', 'BLUR/USDT', 'DYDX/USDT', 'GALA/USDT', 'SAND/USDT',
-  'MANA/USDT', 'AXS/USDT', 'ALGO/USDT', 'ATOM/USDT', 'FTM/USDT', 'KCS/USDT', 'AR/USDT', 'CHZ/USDT',
-  'ENJ/USDT', 'ZIL/USDT', 'THETA/USDT', 'FLOW/USDT', 'SNX/USDT', 'COMP/USDT', 'AGIX/USDT', 'MEME/USDT',
-  'JTO/USDT', 'ONDO/USDT', '1INCH/USDT', 'ENS/USDT', 'SUSHI/USDT'
-];
-
-// Logam Mulia & Komoditas Energi (M15 scalping & H1 intraday)
 // The cloud job is a position monitor only; it never discovers or ranks instruments.
-export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage }) {
+export async function processInstrumentAnalysis({ inst, candles, cache, sendFn = sendTelegramMessage }) {
   const { sym, tf } = inst;
-  if (!candles || candles.length < 35 || !a || a.error) return;
+  if (!candles || candles.length < 2) return;
   const lastBar = candles[candles.length - 1];
   const livePrice = Number(lastBar.close);
   if (!(livePrice > 0)) return;
@@ -942,7 +894,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
 async function scanInstrument(inst, cache) {
   const { sym, tf, type } = inst;
   if (!isAssetMarketOpen(sym)) {
-    console.log(`  [${sym} ${tf}] Sesi bursa tutup (akhir pekan). Pemindaian dilewati.`);
+    console.log(`  [${sym} ${tf}] Sesi pasar tutup; pemantauan harga dilewati.`);
     return;
   }
   try {
@@ -966,13 +918,11 @@ async function scanInstrument(inst, cache) {
       }
     }
 
-    if (!candles || candles.length < 35) {
-      console.log(`  [${sym} ${tf}] Data candle tidak cukup (${candles ? candles.length : 0} bar).`);
+    if (!candles || candles.length < 2) {
+      console.log(`  [${sym} ${tf}] Data harga belum cukup untuk memantau posisi.`);
       return;
     }
-
-    const a = runFullAnalysis({ symbol: sym, timeframe: tf, candles });
-    await processInstrumentAnalysis({ inst, candles, a, cache });
+    await processInstrumentAnalysis({ inst, candles, cache });
   } catch (err) {
     console.log(`  [${sym} ${tf}] Fetch/analisis dilewati: ${err.message}`);
   }
@@ -1023,7 +973,8 @@ async function runSentinel() {
   for (let i = 0; i < targets.length; i += concurrency) {
     const chunk = targets.slice(i, i + concurrency);
     await Promise.all(chunk.map(inst => scanInstrument(inst, cache)));
-  }  saveCache(cache);
+  }
+  saveCache(cache);
   console.log('🏁 [XSTARZG SENTINEL] Pemindaian selesai.');
 }
 
