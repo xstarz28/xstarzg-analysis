@@ -9,10 +9,6 @@ var state = {
   mode: 'trader',            // 'trader' | 'investor'
   subMode: 'futures',        // 'futures' | 'spot'
   chartType: 'candles',      // 'candles' | 'bars' | 'line' | 'area' (ala TradingView)
-  radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
-  radarGroup: 'all',         // 'all' | 'crypto' | 'fx_comm' | 'stocks' (3 bagan terpisah)
-  radarViability: 'actionable', // 'actionable' (layak entry) | 'fresh' | 'running' | 'all'
-  bestTfBoard: null,         // papan hasil scan multi-TF (engine), diisi async
   candles: [],
   lastAnalysis: null,
   livePrice: 2680.00,
@@ -164,8 +160,11 @@ function enterWorkspace() {
       setTimeout(function () {
         try { if (typeof initChart === 'function') initChart(); } catch (e) { console.warn('initChart error:', e); }
         try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-        // Chart shell only; analysis starts after explicit user instrument selection.
-        setTxt('lblEngineStatus', 'PILIH INSTRUMEN — lalu tekan ANALISIS INSTRUMEN');
+        if (hasManualInstrumentSelection && typeof window.runFullAnalysis === 'function') {
+          window.runFullAnalysis(true);
+        } else {
+          setTxt('lblEngineStatus', 'PILIH INSTRUMEN — lalu tekan ANALISIS INSTRUMEN');
+        }
       }, 60);
     }
   } catch (e) {
@@ -539,90 +538,6 @@ var SESSION_KEY = 'xstarzg_user_v3';
 var VIP_WALLET = '0xB2Da154e6619A57A2B839D7845920e55Bc58A12C';
 var USDT_BSC_CONTRACT = '0x55d398326f99059fF775485246999027B3197955';
 var VIP_PRICE = 29;
-/* Radar rekomendasi per-horizon — setiap kelompok memindai kandidat dengan
-   timeframe kelompoknya sendiri (Scalping M1-M15, Intraday M15-H1, Swing H4-W1),
-   dan setiap kartu menampilkan arah rekomendasi (BUY/SELL utk trader, AKUMULASI/DCA utk investor). */
-var RADAR_CONFIG = {
-  scalping: {
-    label: '⚡ SCALPING', tfRange: 'M1–M15',
-    infoTrader: 'Eksekusi cepat: momentum, VWAP & orderflow M1–M15. Risiko tinggi — ukuran posisi kecil.',
-    infoInvestor: 'Horizon scalping bukan untuk akumulasi — investor disarankan memakai tab SWING.',
-    list: [
-      { sym: 'XAU/USD', tf: 'M5' }, { sym: 'XAU/USD', tf: 'M15' },
-      { sym: 'BTC/USDT', tf: 'M5' }, { sym: 'ETH/USDT', tf: 'M5' }, { sym: 'SOL/USDT', tf: 'M5' },
-      { sym: 'COTTON', tf: 'M5' },
-      { sym: 'EUR/USD', tf: 'M5' }, { sym: 'GBP/USD', tf: 'M5' }, { sym: 'USD/JPY', tf: 'M15' }, { sym: 'GBP/JPY', tf: 'M15' }, { sym: 'AUD/USD', tf: 'M5' },
-      { sym: 'NVDA', tf: 'M15' }, { sym: 'AAPL', tf: 'M15' }, { sym: 'TSLA', tf: 'M15' }, { sym: 'BBCA.JK', tf: 'M15' }, { sym: 'BBRI.JK', tf: 'M15' }
-    ]
-  },
-  intraday: {
-    label: '🎯 INTRADAY', tfRange: 'M15–H1',
-    infoTrader: 'Target harian: SMC, FVG, session breakout & VPVR pada M15–H1.',
-    infoInvestor: 'Rekomendasi pembelian nyata harian — cek kembali valuasi sebelum akumulasi.',
-    list: [
-      { sym: 'BTC/USDT', tf: 'M30' }, { sym: 'ETH/USDT', tf: 'M30' }, { sym: 'SOL/USDT', tf: 'H1' },
-      { sym: 'XAU/USD', tf: 'H1' }, { sym: 'XAU/IDR', tf: 'H1' }, { sym: 'WTI', tf: 'H1' },
-      { sym: 'EUR/USD', tf: 'H1' }, { sym: 'GBP/USD', tf: 'H1' }, { sym: 'USD/JPY', tf: 'H1' }, { sym: 'USD/IDR', tf: 'M30' }, { sym: 'GBP/JPY', tf: 'H1' },
-      { sym: 'BBCA.JK', tf: 'H1' }, { sym: 'BMRI.JK', tf: 'H1' }, { sym: 'BBRI.JK', tf: 'H1' }, { sym: 'TLKM.JK', tf: 'H1' }, { sym: 'NVDA', tf: 'H1' }, { sym: 'AAPL', tf: 'H1' }, { sym: 'TSLA', tf: 'H1' }
-    ]
-  },
-  swing: {
-    label: '🌊 SWING', tfRange: 'H4–W1',
-    infoTrader: 'Multi-hari: supply/demand, struktur tren & CFTC COT pada H4–W1.',
-    infoInvestor: 'Akumulasi spot jangka menengah-panjang: beli nyata bertahap (DCA) di zona demand.',
-    list: [
-      { sym: 'BTC/USDT', tf: 'H4' }, { sym: 'ETH/USDT', tf: 'H4' }, { sym: 'SOL/USDT', tf: 'D1' },
-      { sym: 'XAU/USD', tf: 'D1' }, { sym: 'XAU/IDR', tf: 'D1' }, { sym: 'WTI', tf: 'D1' }, { sym: 'CPO', tf: 'H4' },
-      { sym: 'EUR/USD', tf: 'H4' }, { sym: 'GBP/USD', tf: 'H4' }, { sym: 'USD/JPY', tf: 'D1' }, { sym: 'AUD/USD', tf: 'D1' }, { sym: 'EUR/GBP', tf: 'D1' },
-      { sym: 'BBCA.JK', tf: 'D1' }, { sym: 'BBRI.JK', tf: 'D1' }, { sym: 'BMRI.JK', tf: 'D1' }, { sym: 'IHSG', tf: 'D1' }, { sym: 'NVDA', tf: 'D1' }, { sym: 'AAPL', tf: 'D1' }, { sym: 'SPY', tf: 'D1' }
-    ]
-  }
-};
-var radarCache = {};
-var radarScanPool = {}; // hz -> sym|tf -> { ts, item } (cache scan bergilir katalog)
-var RADAR_STORAGE_KEY = 'xstarzg_radar_pool_v1';
-function loadPersistedRadarPool() {
-  try {
-    var raw = sessionStorage.getItem(RADAR_STORAGE_KEY);
-    if (!raw) return;
-    var parsed = JSON.parse(raw);
-    var now = Date.now();
-    for (var hz in parsed) {
-      radarScanPool[hz] = radarScanPool[hz] || {};
-      for (var k in parsed[hz]) {
-        var entry = parsed[hz][k];
-        if (entry && entry.item && entry.item.analysis && (now - entry.ts < 15 * 60000)) {
-          radarScanPool[hz][k] = entry;
-        }
-      }
-    }
-  } catch (e) {
-    try { sessionStorage.removeItem(RADAR_STORAGE_KEY); } catch (e2) {}
-  }
-}
-function persistRadarPool() {
-  try {
-    var copy = {};
-    for (var hz in radarScanPool) {
-      copy[hz] = {};
-      for (var k in radarScanPool[hz]) {
-        var it = radarScanPool[hz][k];
-        if (it && it.item && it.item.analysis) {
-          copy[hz][k] = {
-            ts: it.ts,
-            item: {
-              sym: it.item.sym, tf: it.item.tf, price: it.item.price,
-              changePct: it.item.changePct, source: it.item.source,
-              analysis: it.item.analysis
-            }
-          };
-        }
-      }
-    }
-    sessionStorage.setItem(RADAR_STORAGE_KEY, JSON.stringify(copy));
-  } catch (e) {}
-}
-try { loadPersistedRadarPool(); } catch (e) {}
 var FALLBACK_CATALOG = [
   { symbol: 'XAU/USD', name: 'Gold Spot / Emas Dunia (USD)', assetClass: 'metals', region: 'GLOBAL' },
   { symbol: 'XAU/IDR', name: 'Emas Spot / Gram (IDR Proxy)', assetClass: 'metals', region: 'ID' },
@@ -861,45 +776,6 @@ function isPriceCompatibleWithSymbol(price, symbol) {
 }
 
 /* ==================== 1. KATALOG INSTRUMEN & SELECT ==================== */
-/* Helper rotasi katalog: slice stabil (hash simbol+kelas) bergilir per slot waktu
-   sehingga SELURUH instrumen kebagian giliran analisis — tidak hanya aset besar. */
-function catalogSortedStable() {
-  var cat = currentCatalog().filter(function (x) { return !x.isDynamic; }).slice();
-  var fnHash = function (item) {
-    var h = 0, s = item.symbol + '@' + (item.assetClass || '');
-    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-    return h;
-  };
-  var crypto = [], fx = [], stocks = [];
-  for (var i = 0; i < cat.length; i++) {
-    var it = cat[i];
-    var grp = (typeof radarAssetGroupOf === 'function') ? radarAssetGroupOf(it.symbol) : (it.assetClass === 'crypto' ? 'crypto' : (it.assetClass === 'stocks' ? 'stocks' : 'fx_comm'));
-    if (grp === 'crypto') crypto.push(it);
-    else if (grp === 'stocks') stocks.push(it);
-    else fx.push(it);
-  }
-  crypto.sort(function (a, b) { return fnHash(a) - fnHash(b); });
-  fx.sort(function (a, b) { return fnHash(a) - fnHash(b); });
-  stocks.sort(function (a, b) { return fnHash(a) - fnHash(b); });
-
-  // Interleave 1 Crypto, 1 Forex/Komoditas, 1 Saham agar rotasi radar selalu berimbang rata
-  var maxLen = Math.max(crypto.length, fx.length, stocks.length);
-  var interleaved = [];
-  for (var j = 0; j < maxLen; j++) {
-    if (j < crypto.length) interleaved.push(crypto[j]);
-    if (j < fx.length) interleaved.push(fx[j]);
-    if (j < stocks.length) interleaved.push(stocks[j]);
-  }
-  return interleaved;
-}
-function rotatingSlice(arr, n, slotMinutes) {
-  if (arr.length <= n) return arr.slice();
-  var slot = Math.floor(Date.now() / (slotMinutes * 60000));
-  var start = (slot * n) % arr.length;
-  var out = [];
-  for (var i = 0; i < n; i++) out.push(arr[(start + i) % arr.length]);
-  return out;
-}
 function currentCatalog() {
   if (QC && QC.DEFAULT_INSTRUMENTS && QC.DEFAULT_INSTRUMENTS.length) return QC.DEFAULT_INSTRUMENTS;
   return FALLBACK_CATALOG;
@@ -2353,55 +2229,6 @@ function gateBlockHtml(a) {
   return out;
 }
 
-/* ==================== 2B. SCAN MULTI-TIMEFRAME (aturan #2) ====================
-   Memindai 9 TF di belakang layar, memilih 1 TF terbaik per kelompok gaya
-   trading (Scalping M1/M5/M15, Intraday M30/H1/H4, Swing D1/W1/MN), lalu
-   menyajikan papan rekomendasi. Cache 5 menit per (simbol|mode) di-invalidate
-   saat candle closed baru terbentuk (anchor berubah). */
-var bestTfScanSeq = 0;
-var bestTfScanCache = {};
-function scheduleBestTfScan() {
-  // Do not launch eight additional timeframe requests after each manual analysis.
-  return;
-  try {
-    if (!SE || !SE.pickBestTimeframes) return;
-    if (state.mode === 'investor') { state.bestTfBoard = null; return; }
-    if (!state.lastAnalysis || state.lastAnalysis.error) return;
-    var sym = state.symbol;
-    var key = sym + '|' + (state.mode || 'trader') + '|' + (state.subMode || 'futures');
-    var anchor = num(state.lastAnalysis.anchorClosedTime, 0);
-    var cached = bestTfScanCache[key];
-    if (cached && cached.anchor === anchor && (Date.now() - cached.ts) < 300000) {
-      state.bestTfBoard = cached.board;
-      renderNarrative(state.lastAnalysis);
-      return;
-    }
-    var curTf = state.tf;
-    var ALL_TFS = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'];
-    var byTf = {};
-    byTf[curTf] = state.lastAnalysis;
-    var mySeq = ++bestTfScanSeq;
-    var jobs = [];
-    for (var i = 0; i < ALL_TFS.length; i++) {
-      (function (tf) {
-        if (tf === curTf) return;
-        jobs.push(fetchRealMarketCandles(sym, tf).then(function (d) {
-          return { tf: tf, a: computeQuantEngine(d.candles, sym, tf, false, 'apply', d.source) };
-        }));
-      })(ALL_TFS[i]);
-    }
-    Promise.allSettled(jobs).then(function (rs) {
-      if (mySeq !== bestTfScanSeq || state.symbol !== sym) return;
-      for (var j = 0; j < rs.length; j++) {
-        if (rs[j].status === 'fulfilled' && rs[j].value && rs[j].value.a && !rs[j].value.a.error) byTf[rs[j].value.tf] = rs[j].value.a;
-      }
-      var board = SE.pickBestTimeframes(byTf);
-      state.bestTfBoard = board;
-      bestTfScanCache[key] = { ts: Date.now(), anchor: anchor, board: board };
-      if (state.lastAnalysis && !state.lastAnalysis.error) renderNarrative(state.lastAnalysis);
-    }).catch(function () {});
-  } catch (e) {}
-}
 /* Parameter risiko futures (leverage aman & estimasi harga likuidasi) */
 function riskParams(a) {
   var atrPct = Math.max(0.05, num(a && a.indicators ? a.indicators.atrPct : 0) || 0.5);
@@ -2809,45 +2636,6 @@ function renderAllVisuals(analysis) {
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
    TF yang sama -> kartu rekomendasi selalu mencerminkan kebenaran engine terkini. */
-function writeBackRadarPools(analysis) {
-  if (!analysis || analysis.error || !analysis.symbol || !analysis.timeframe) return;
-  var sym = analysis.symbol, tf = analysis.timeframe;
-  if (state.symbol !== sym) return;
-  if (!state.candles || !state.candles.length) return;
-  var lastBar = state.candles[state.candles.length - 1];
-  if (!lastBar || !isPriceCompatibleWithSymbol(lastBar.close, sym)) return;
-
-  // STRICT GUARD: Jika instrumen sedang dalam masa pendinginan (cooldown pasca outcome):
-  // DILARANG MEMBANGKITKAN KEMBALI kartu ke radar! Bersihkan dari radarScanPool agar tidak mencemari radar!
-  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
-    for (var hz0 in radarScanPool) {
-      if (radarScanPool[hz0]) delete radarScanPool[hz0][sym + '|' + tf];
-    }
-    return;
-  }
-  // Cegah membangkitkan sinyal yang sudah basi / tidak layak ke radar
-  if (typeof evaluateSignalViability === 'function') {
-    var vCheck = evaluateSignalViability(analysis, num(state.livePrice, analysis.lastPrice));
-    if (vCheck && vCheck.worth === false && vCheck.key !== 'PULLBACK') {
-      return;
-    }
-  }
-
-  var item = {
-    sym: sym, tf: tf, analysis: analysis,
-    candles: (state.candles || []).slice(-240),
-    price: num(state.livePrice, analysis.lastPrice),
-    changePct: num(state.liveChangePct, analysis.changePct),
-    source: 'WORKSPACE LIVE'
-  };
-  for (var hz in radarScanPool) radarScanPool[hz][sym + '|' + tf] = { ts: Date.now(), item: item };
-  // Hanya simpan ke investorScanPool jika sedang di mode investor atau TF bernuansa investasi (D1/W1)
-  // Mencegah fluktuasi cepat scalping M5/M15 mengotori rekomendasi investasi jangka panjang
-  if (state.mode === 'investor' || tf === 'D1' || tf === 'W1') {
-    investorScanPool[sym] = { ts: Date.now(), item: item };
-  }
-}
-
 /* ==================== 6. REAL-TIME PRICE ENGINE (SEMUA INSTRUMEN) ==================== */
 /* Throttle redraw chart cadangan (canvas fallback saat CDN LightweightCharts
    diblokir ISP): candle ikut bergerak per-tick, bukan cuma saat analisis ulang. */
@@ -3168,40 +2956,6 @@ function connectRealtimeStream() {
    Setiap kartu = analisis quant penuh pada candle real-time aset tsb:
    trader -> ▲ LONG / ▼ SHORT (futures) atau TUNGGU (spot 1-arah),
    investor -> AKUMULASI / DCA / TUNGGU DISKON (framing beli-nyata). */
-function fetchRadarCandidate(item) {
-  if (!isAssetMarketOpen(item.sym)) {
-    return Promise.resolve(null);
-  }
-  return fetchRealMarketCandles(item.sym, item.tf).then(function (d) {
-    var a = computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source);
-    if (!a) throw new Error('no-analysis');
-    // Kandidat berbasis feed estimasi/fabrikasi: dinonaktifkan dari rekomendasi
-    // (sinyal, komitmen, dan outcome hanya lahir dari candle broker asli).
-    a.__estFeed = !feedIsReal(d.source);
-    if (a.__estFeed) return null; // jangan masukkan kandidat estimasi ke pool radar rekomendasi!
-    return {
-      sym: item.sym, tf: item.tf, analysis: a,
-      candles: Array.isArray(d.candles) ? d.candles.slice(-240) : null, // snapshot utk konsistensi klik-through
-      price: num(d.price) > 0 ? num(d.price) : a.lastPrice,
-      changePct: Number.isFinite(Number(d.changePct)) ? Number(d.changePct) : num(a.changePct),
-      source: d.source || 'BROKER FEED'
-    };
-  });
-}
-function radarBadgeFor(a) {
-  var sc = num(a && a.confluenceScore, 50);
-  if (state.mode === 'investor') {
-    if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: T('ui.ibStrong', '● AKUMULASI KUAT') };
-    if (a.direction === 'LONG') return { cls: 'accum', txt: T('ui.ibDca', '● DICICIL / DCA') };
-    if (a.direction === 'SHORT') return { cls: 'wait', txt: T('ui.ibWait', '◆ TUNGGU DISKON') };
-    return { cls: 'wait', txt: T('ui.ibHold', '◆ HOLD / PANTAU') };
-  }
-  var isSpot = state.subMode === 'spot';
-  var star = (a.signalTier === 'ELITE' || a.lockedSignal) ? ' ★' : '';
-  if (a.direction === 'LONG') return { cls: 'long', txt: T('ui.tbLong', '▲ LONG / BUY') + star };
-  if (a.direction === 'SHORT') return isSpot ? { cls: 'wait', txt: T('ui.tbWaitSpot', '◆ TUNGGU (SPOT)') } : { cls: 'short', txt: T('ui.tbShort', '▼ SHORT / SELL') + star };
-  return { cls: 'wait', txt: T('ui.tbNeutral', '◆ NETRAL') };
-}
 /* ==================== NEWS & KALENDER EKONOMI (v2026.57) ====================
    Fetch kalender ekonomi & berita dari edge /api/news/calendar (Forex Factory
    weekly + headline kripto), dirender sebagai panel dampak per instrumen, dan
@@ -3563,96 +3317,20 @@ var INVESTOR_JOURNAL_KEY = 'xstarzg_investor_journal_v1';
 var MEME_JOURNAL_KEY = 'xstarzg_meme_journal_v1';
 var activeJournalTab = 'trader'; // 'trader' | 'investor' | 'meme'
 
-function syncCuratedInvestorToJournal() {
-  try {
-    var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
-    var all = [];
-    if (raw) {
-      try { all = JSON.parse(raw) || []; } catch (e) {}
-    }
-    // Hapus data fiktif statis lama jika ada
-    all = (Array.isArray(all) ? all : []).filter(function (x) {
-      return x && x.id !== 'inv_btc';
-    });
-
-    var existingSyms = {};
-    all.forEach(function (x) { if (x && x.symbol) existingSyms[x.symbol.toUpperCase()] = true; });
-
-    // Portofolio default spot bluechip dengan valuasi D1 riil
-    var defaultInvPicks = [
-      {
-        id: 'inv_bbca_spot',
-        symbol: 'BBCA.JK',
-        name: 'Bank Central Asia',
-        assetClass: 'stocks',
-        entryPrice: 9850,
-        currentPrice: 9850,
-        dcaZone1: 9850,
-        dcaZone2: 9550,
-        dcaZone3: 9250,
-        target1: 11200,
-        target2: 12500,
-        valuationStatus: 'FAIR VALUE (DIVIDEND BLUECHIP)',
-        notes: 'Akumulasi dividen perbankan solid & fundamental laba bersih konsisten bertumbuh.',
-        at: Date.now() - 14 * 86400000,
-        status: 'ACTIVE'
-      },
-      {
-        id: 'inv_bbri_spot',
-        symbol: 'BBRI.JK',
-        name: 'Bank Rakyat Indonesia',
-        assetClass: 'stocks',
-        entryPrice: 4420,
-        currentPrice: 4420,
-        dcaZone1: 4420,
-        dcaZone2: 4200,
-        dcaZone3: 3950,
-        target1: 5200,
-        target2: 5800,
-        valuationStatus: 'UNDERVALUE (DISKON TINGGI)',
-        notes: 'Penyaluran kredit UMKM terbesar, valuasi PBV diskon historis, dividen yield tinggi.',
-        at: Date.now() - 10 * 86400000,
-        status: 'ACTIVE'
-      }
-    ];
-
-    defaultInvPicks.forEach(function (it) {
-      var s = it.symbol.toUpperCase();
-      if (!existingSyms[s]) {
-        existingSyms[s] = true;
-        all.push(it);
-      }
-    });
-
-    // Update harga live terkini
-    all.forEach(function (j) {
-      var s = (j.symbol || '').toUpperCase();
-      if (state.symbol && state.symbol.toUpperCase() === s && Number(state.livePrice) > 0) {
-        j.currentPrice = Number(state.livePrice);
-      } else if (typeof investorScanPool !== 'undefined' && investorScanPool[s] && Number(investorScanPool[s].price) > 0) {
-        j.currentPrice = Number(investorScanPool[s].price);
-      }
-    });
-
-    saveInvestorJournalStore(all);
-    return all;
-  } catch (e) {
-    return [];
-  }
-}
-
 function investorJournalStore() {
   try {
     var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
-    if (raw) {
-      var parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        var cleaned = parsed.filter(function (x) { return x && x.id !== 'inv_btc'; });
-        if (cleaned.length) return cleaned;
-      }
-    }
-  } catch (e) {}
-  return syncCuratedInvestorToJournal();
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Remove retired automatic/demo rows; preserve all user-entered records.
+    var cleaned = parsed.filter(function (item) {
+      return item && !item.isAuto &&
+        item.id !== 'inv_btc' && item.id !== 'inv_bbca_spot' && item.id !== 'inv_bbri_spot';
+    });
+    if (cleaned.length !== parsed.length) saveInvestorJournalStore(cleaned);
+    return cleaned;
+  } catch (e) { return []; }
 }
 
 function saveInvestorJournalStore(items) {
@@ -4143,52 +3821,8 @@ function renderSignalJournal() {
   }
 }
 
-/* ==================== GLOBAL MACRO REGIME MAP (v2026.58) ==================== */
-var macroState = { data: null, ts: 0 };
-var MACRO_TTL = 30 * 60 * 1000;
-function fetchMacroRegime(force) {
-  if (!force && macroState.data && Date.now() - macroState.ts < MACRO_TTL) { renderMacroMap(); return; }
-  fetch('/api/macro/regime').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-    if (j && j.ok) { macroState = { data: j, ts: Date.now() }; }
-    renderMacroMap();
-  }).catch(function () { renderMacroMap(); });
-}
-var MACRO_REGIME_KEY = { GOLDILOCKS: 'eMacroGoldi', REFLASI: 'eMacroReflasi', STAGFLASI: 'eMacroStag', DESINFLASI_DEFENSIF: 'eMacroDef', CAMPURAN: 'eMacroMix' };
-function macroRegimeLabel() {
-  var d = macroState.data; if (!d || !d.regime) return '';
-  var key = MACRO_REGIME_KEY[d.regime] || 'eMacroMix';
-  return T('ui.' + key, d.regime);
-}
-function renderMacroMap() {
-  var box = $id('macroMapBox');
-  if (!box) return;
-  var d = macroState.data;
-  if (!d || !d.ok) { box.style.display = 'none'; return; }
-  box.style.display = state.mode === 'investor' ? 'block' : 'none';
-  if (state.mode !== 'investor') return;
-  var flowChips = '';
-  (d.flow || []).slice(0, 5).forEach(function (f) {
-    flowChips += '<span style="font-size:10px;padding:2px 8px;border-radius:99px;border:1px solid rgba(148,163,184,0.3);color:' + (f.score >= 55 ? '#34d399' : f.score <= 45 ? '#fb7185' : '#94a3b8') + ';">' + escH(f.label) + ' ' + f.score + '</span>';
-  });
-  var impChips = '';
-  (d.impacts || []).slice(0, 5).forEach(function (im) {
-    impChips += '<span style="font-size:10px;padding:2px 7px;border-radius:99px;color:' + (im.dir > 0 ? '#34d399' : '#fb7185') + ';border:1px solid rgba(148,163,184,0.25);">' + escH(im.sym) + ' ' + (im.dir > 0 ? '▲' : '▼') + '</span>';
-  });
-  box.innerHTML =
-    '<div style="font-size:11px;font-weight:800;color:#7dd3fc;">' + T('ui.eMacroTitle', '🌐 Peta Global Macro — Regime: {r} • Growth {g}% • Inflasi {i}% • USD {u}% • Risk-Appetite {x}%').replace('{r}', macroRegimeLabel()).replace('{g}', d.growth).replace('{i}', d.inflation).replace('{u}', d.usdBias).replace('{x}', d.riskAppetite) + '</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">' + flowChips + '</div>'
-    + (impChips ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + impChips + '</div>' : '')
-    + '<div style="font-size:10.5px;color:#94a3b8;margin-top:5px;">' + fillTpl(T('ui.eMacroDca', 'Bobot DCA disesuaikan regime global macro: Tahap-1 {a}% • Tahap-2 {b}% • Tahap-3 {c}%.'), { a: d.dcaWeights[0], b: d.dcaWeights[1], c: d.dcaWeights[2] }) + '</div>';
-}
-function macroDcaWeights() {
-  var d = macroState.data;
-  return d && d.ok && d.dcaWeights ? d.dcaWeights : [40, 35, 25];
-}
-
-/* Label pendek alasan gerbang (kartu radar) — WR historis besar ≠ izin entry;
-   kartu wajib menyebut APA yang masih ditunggu supaya tidak terasa kontradiktif. */
 function gateShortLabel(code) {
-  var m = {
+  var labels = {
     LOW_SCORE: T('ui.gLowScore', 'Skor berada di bawah ambang'),
     NO_SEQ: T('ui.gNoSeq', 'Menunggu urutan sweep→BOS + volume terkonfirmasi'),
     SQUEEZE_UNCONFIRMED: T('ui.eVetoSqueeze', 'Squeeze belum terkonfirmasi breakout bervolume'),
@@ -4203,904 +3837,11 @@ function gateShortLabel(code) {
     CISD_COUNTER: T('ui.gCISD', 'Change in state of delivery lawan arah — reversal sedang berjalan'),
     FOMO_ZONE: T('ui.gFomo', 'Harga jauh dari zona OTE — master tidak mengejar kereta')
   };
-  return m[code] || T('ui.gVeto', 'Veto struktur/likuiditas aktif (anti jebakan)');
+  return labels[code] || T('ui.gVeto', 'Veto struktur/likuiditas aktif (anti jebakan)');
 }
-function radarAssetGroupOf(sym) {
-  var meta = getMeta(sym);
-  var c = meta.assetClass;
-  if (c === 'crypto') return 'crypto';
-  if (c === 'forex' || c === 'metals' || c === 'commodities') return 'fx_comm';
-  if (c === 'stocks') return 'stocks';
-  var s = String(sym || '').toUpperCase();
-  if (s.indexOf('/USDT') > -1 || s.indexOf('BTC') > -1 || s.indexOf('ETH') > -1 || s.indexOf('SOL') > -1) return 'crypto';
-  if (s.slice(-3) === '.JK') return 'stocks';
-  if (s.indexOf('/') > -1 || s.indexOf('XAU') === 0 || s.indexOf('XAG') === 0 || s === 'WTI' || s === 'BRENT' || s === 'NATGAS') return 'fx_comm';
-  return 'stocks';
-}
+function macroDcaWeights() { return [40, 35, 25]; }
 
-function getRadarGroups() {
-  return [
-    { key: 'crypto', label: T('ui.rgCryptoLabel', '🪙 OTAK KRIPTO'), sub: T('ui.rgCryptoSub', 'CRYPTO SPOT & PERP INTELLIGENCE'), col: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', emptyText: T('ui.rgCryptoEmpty', 'Memindai instrumen Kripto (BTC, ETH, Altcoins)…') },
-    { key: 'fx_comm', label: T('ui.rgFxCommLabel', '💱 OTAK FOREX & KOMODITAS'), sub: T('ui.rgFxCommSub', 'FX, EMAS/LOGAM & ENERGI INTELLIGENCE'), col: '#38bdf8', bg: 'rgba(56,189,248,0.08)', border: '#38bdf8', emptyText: T('ui.rgFxCommEmpty', 'Memindai Forex & Komoditas (Gold/XAU, Emas Gram, Silver, Oil, FX)…') },
-    { key: 'stocks', label: T('ui.rgStocksLabel', '📈 OTAK SAHAM'), sub: T('ui.rgStocksSub', 'US/GLOBAL EQUITIES & SAHAM IDX INTELLIGENCE'), col: '#10b981', bg: 'rgba(16,185,129,0.08)', border: '#10b981', emptyText: T('ui.rgStocksEmpty', 'Memindai Saham Global (NVDA, AAPL) & Saham Indonesia IDX…') }
-  ];
-}
-var RADAR_GROUPS = getRadarGroups();
-
-function isActionableRadarSignal(it) {
-  if (!it || !it.analysis || it.analysis.__estFeed) return false;
-  var a = it.analysis;
-  var hasScore = num(it.analysis.convictionScore, 0) >= 55;
-  var sc = (a.convictionScore != null || a.confluenceScore != null) ? num(a.convictionScore, a.confluenceScore) : 0;
-  // Rekomendasi eksekusi engine WAJIB minimal skor 78% (skor 60-an dilarang masuk rekomendasi)
-  if (sc > 0 && sc < 78) return false;
-  if (state.mode === 'investor') {
-    return hasScore && (a.direction === 'LONG' || (a.levels && a.levels.dcaZone1 > 0));
-  }
-  return hasScore && (a.direction === 'LONG' || a.direction === 'SHORT') &&
-    a.levels && a.levels.entry != null;
-}
-
-/* ==================== ADAPTIVE ENTRY VIABILITY ENGINE ====================
-   Mengevaluasi kelayakan eksekusi sinyal secara real-time saat pengguna membuka
-   aplikasi XStarZG. Mencegah trader memaksakan entry pada setup yang sudah jalan
-   jauh (terlambat/pucuk) atau posisi yang sedang floating minus rawan SL. */
-function evaluateSignalViability(it) {
-  if (!it || !it.analysis) {
-    return { key: 'NONE', label: '--', sub: '', worth: false, badgeCls: 'wait', priority: 99, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
-  }
-  var a = it.analysis;
-  var sym = String(it.sym || a.symbol || '').toUpperCase();
-  var tf = it.tf || a.timeframe || 'H1';
-  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
-  var isInvestor = state.mode === 'investor';
-  var L = a.levels || {};
-  var dir = a.direction;
-  var isLong = dir === 'LONG';
-  var isShort = dir === 'SHORT';
-  var curP = Number(it.price || a.lastPrice || 0);
-
-  var lock = (typeof getSignalLock === 'function') ? getSignalLock(sym, tf) : null;
-  if (!lock && a.lockedSignal) lock = a.lockedSignal;
-  var isOwnTrade = it.isUserActiveTrade || Boolean(lock && lock.status === 'ACTIVE') || Boolean(a.lockedSignal && a.lockedSignal.status === 'ACTIVE');
-
-  // 1. Cek jam buka bursa / market open (kecuali untuk posisi aktif milik user yang sedang dipantau)
-  var isMarketOpen = (typeof isAssetMarketOpen === 'function') ? isAssetMarketOpen(sym) : true;
-  var isCrypto = sym.indexOf('/USDT') > -1 || sym.indexOf('/USDC') > -1 || sym.indexOf('BTC') > -1 || sym.indexOf('ETH') > -1 || sym.indexOf('/SOL') > -1;
-  if (!isMarketOpen && !isCrypto && !isOwnTrade) {
-    return {
-      key: 'CLOSED',
-      label: isEn ? '⏸️ MARKET CLOSED (OFF-HOURS)' : '⏸️ SESI TUTUP (AKHIR PEKAN/LIBUR)',
-      sub: isEn ? 'Market Closed • Awaiting Session Open' : 'Bursa Sedang Tutup • Menunggu Pembukaan Sesi',
-      worth: false,
-      badgeCls: 'wait',
-      priority: 50,
-      color: '#94a3b8',
-      bg: 'rgba(148,163,184,0.12)'
-    };
-  }
-
-  // 2. Mode Investor (Standar Ambang Batas Elit WAJIB >= 78%)
-  if (isInvestor) {
-    var hasInvScore = (a.convictionScore != null || a.confluenceScore != null);
-    var sc = hasInvScore ? num(a.convictionScore, a.confluenceScore) : null;
-    if (sc !== null && sc > 0 && sc < 78 && !isOwnTrade) {
-      return {
-        key: 'WATCHLIST',
-        label: isEn ? '👀 WATCHLIST (SCORE ' + Math.round(sc) + '/100)' : '👀 PANTAUAN (SKOR ' + Math.round(sc) + '/100)',
-        sub: isEn ? 'Score < 78% • Awaiting Elite Confluence Standard' : 'Skor < 78% • Belum Memenuhi Standar Elit Eksekusi (≥78%)',
-        worth: false,
-        badgeCls: 'wait',
-        priority: 45,
-        color: '#94a3b8',
-        bg: 'rgba(148,163,184,0.12)'
-      };
-    }
-    var dca1 = Number(L.dcaZone1 || curP);
-    var nearDca = curP > 0 && dca1 > 0 ? (curP <= dca1 * 1.03) : true;
-    if ((sc == null || sc >= 78) && nearDca) {
-      return {
-        key: 'FRESH',
-        label: isEn ? '🟢 ACCUMULATION ZONE (ACTIONABLE)' : '🟢 ZONA AKUMULASI (LAYAK BIKIN PORTO)',
-        sub: isEn ? 'Price Near Fair Value / Buy Zone' : 'Harga di Bawah Nilai Wajar • Diskon DCA 1',
-        worth: true,
-        badgeCls: 'long',
-        priority: 1,
-        color: '#10b981',
-        bg: 'rgba(16,185,129,0.14)'
-      };
-    }
-    return {
-      key: 'PULLBACK',
-      label: isEn ? '🔵 HOLD / WAIT FOR DIP' : '🔵 PANTAU HARGA DISKON',
-      sub: isEn ? 'Wait for Retracement to DCA Level' : 'Tunggu Koreksi Mendekati Area Cicil DCA',
-      worth: false,
-      badgeCls: 'wait',
-      priority: 20,
-      color: '#38bdf8',
-      bg: 'rgba(56,189,248,0.12)'
-    };
-  }
-
-  // 3. Sinyal Netral / Konsolidasi
-  if (!isLong && !isShort) {
-    return {
-      key: 'NEUTRAL',
-      label: isEn ? '◆ NEUTRAL / CHOPPY' : '◆ NETRAL (KONSOLIDASI)',
-      sub: isEn ? 'Awaiting Structure Breakout' : 'Menunggu Breakout Struktur & Arah Jelas',
-      worth: false,
-      badgeCls: 'wait',
-      priority: 90,
-      color: '#94a3b8',
-      bg: 'rgba(148,163,184,0.10)'
-    };
-  }
-
-  // 4. Belum selaras Top-Down
-  if (a.topDown && !a.topDown.isAligned && !isOwnTrade) {
-    return {
-      key: 'UNALIGNED',
-      label: isEn ? '🟡 AWAITING HTF ALIGNMENT' : '🟡 MENUNGGU ALIGNMENT (POTENSIAL)',
-      sub: isEn ? 'Macro Bias (' + (a.topDown.macroBias || 'NEUTRAL') + ') vs Struct' : 'Arah HTF (' + (a.topDown.macroBias || 'NETRAL') + ') Belum Selaras',
-      worth: false,
-      badgeCls: 'wait',
-      priority: 40,
-      color: '#f59e0b',
-      bg: 'rgba(245,158,11,0.12)'
-    };
-  }
-
-  // 5. Standar Elit Eksekusi Trader: WAJIB skor >= 78%
-  // Jika skor berada di bawah 78 (mis. skor 60-an), TIDAK BOLEH masuk ke rekomendasi eksekusi / FRESH / PULLBACK.
-  var hasScoreProvided = (a.convictionScore != null || a.confluenceScore != null);
-  var scTrader = hasScoreProvided ? num(a.convictionScore, a.confluenceScore) : null;
-  if (scTrader !== null && scTrader > 0 && scTrader < 78 && !isOwnTrade) {
-    return {
-      key: 'WATCHLIST',
-      label: isEn ? '👀 WATCHLIST (SCORE ' + Math.round(scTrader) + '/100)' : '👀 PANTAUAN (SKOR ' + Math.round(scTrader) + '/100)',
-      sub: isEn ? 'Score < 78% • Awaiting Elite Confluence Standard' : 'Skor < 78% • Belum Memenuhi Standar Elit Eksekusi (≥78%)',
-      worth: false,
-      badgeCls: 'wait',
-      priority: 45,
-      color: '#94a3b8',
-      bg: 'rgba(148,163,184,0.12)'
-    };
-  }
-
-  // 6. Masa Pendinginan / Siklus Selesai (Cooldown pasca outcome)
-  // Sinyal yang sedang dalam masa pendinginan (cooldown) DILARANG masuk radar sebagai FRESH!
-  if (!isOwnTrade && typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
-    return {
-      key: 'COOLDOWN',
-      label: isEn ? '⚪ COMPLETED / COOLDOWN' : '⚪ SELESAI / COOLDOWN',
-      sub: isEn ? 'Setup Finished / Cooling Down • Awaiting Next Cycle' : 'Siklus Setup Selesai • Masa Pendinginan (Anti-FOMO)',
-      worth: false,
-      badgeCls: 'wait',
-      priority: 85,
-      color: '#94a3b8',
-      bg: 'rgba(148,163,184,0.12)'
-    };
-  }
-
-  var entry = Number(L.entry || 0);
-  var sl = Number(L.sl || 0);
-  var tp1 = Number(L.tp1 || 0);
-  var atr = Number(a.atr || 1);
-
-  var isFilled = lock && lock.filled === true;
-  var isBePlusActive = lock && (lock.bePlusActive === true || lock.notifiedSlPlus === true || lock.slPlusAlerted === true);
-
-  // 7. Proteksi Setup Usang / Pending Limit Terlalu Lama (Timeout > 12 lilin)
-  var ageMs = lock ? (Date.now() - (lock.issuedAt || lock.created || 0)) : 0;
-  var maxPendingMs = (tf === 'M1' || tf === 'M5' || tf === 'M15') ? (60 * 60 * 1000) : (tf === 'M30' || tf === 'H1') ? (8 * 3600 * 1000) : (24 * 3600 * 1000);
-  if (lock && !isFilled && !isOwnTrade && ageMs > maxPendingMs) {
-    return {
-      key: 'EXPIRED',
-      label: isEn ? '⌛ EXPIRED (TIMEOUT)' : '⌛ KEDALUWARSA (TIMEOUT)',
-      sub: isEn ? 'Pending Window Closed (>12 Bars) • Setup Stale' : 'Batas Waktu Tunggu Habis (>12 Lilin) • Setup Usang',
-      worth: false,
-      badgeCls: 'wait',
-      priority: 75,
-      color: '#94a3b8',
-      bg: 'rgba(148,163,184,0.12)'
-    };
-  }
-
-  if (!entry || !sl || !tp1 || curP <= 0) {
-    return {
-      key: 'FRESH',
-      label: isEn ? '🟢 READY TO ENTER (NEW)' : '🟢 SIAP ENTRY (BARU)',
-      sub: isEn ? 'New Pending Limit Setup' : 'Antrean Limit Baru Terbit',
-      worth: true,
-      badgeCls: 'long',
-      priority: 1,
-      color: '#10b981',
-      bg: 'rgba(16,185,129,0.14)'
-    };
-  }
-
-  var targetDist = Math.max(Math.abs(tp1 - entry), 1e-9);
-  var riskDist = Math.max(Math.abs(entry - sl), 1e-9);
-
-  // Jarak kemajuan (floating favorable progress)
-  var favDist = isLong ? (curP - entry) : (entry - curP);
-  var favRatio = favDist / targetDist; // positif = profit, negatif = floating minus
-
-  // Sisa Risk-to-Reward jika trader baru masuk sekarang pada curP (mengacu ke target penuh TP2 atau TP1)
-  var targetHigh = Number(L.tp2 || L.tp1 || 0);
-  var remReward = isLong ? Math.max(0, targetHigh - curP) : Math.max(0, curP - targetHigh);
-  var remRisk = isLong ? Math.max(1e-9, curP - sl) : Math.max(1e-9, sl - curP);
-  var curRR = remReward / remRisk;
-
-  // Kasus A: Rawan SL / Calon Invalidasi (Floating minus >= 50% jarak risiko)
-  var againstDist = isLong ? (entry - curP) : (curP - entry);
-  if (againstDist >= 0.50 * riskDist) {
-    return {
-      key: 'NEAR_SL',
-      label: isOwnTrade
-        ? (isEn ? '🔴 YOUR ACTIVE TRADE (NEAR SL / UNDER PRESSURE)' : '🔴 POSISI ANDA (RAWAN SL / MINUS)')
-        : (isEn ? '🔴 NEAR SL (AVOID ENTRY)' : '🔴 RAWAN SL (JANGAN IKUT)'),
-      sub: isOwnTrade
-        ? (isEn ? 'Price Under Pressure Near SL • Monitor Risk' : 'Harga Tertekan Dekat SL • Pantau Ketat Risiko')
-        : (isEn ? 'Price Under Pressure Near SL • Risk of Invalidation' : 'Harga Tertekan Dekat SL • Calon Batal, Amankan Modal'),
-      worth: false,
-      badgeCls: 'wait',
-      priority: 80,
-      color: '#f43f5e',
-      bg: 'rgba(244,63,94,0.14)'
-    };
-  }
-
-  // Kasus B: Terlambat / Jangan Kejar (Sinyal lama yang sudah jalan jauh)
-  // - SL+ (0-Risk) sudah terpicu
-  // - ATAU harga sudah lari >= 28% ke arah TP1
-  // - ATAU sudah jalan >= 20% DAN sisa R:R baru sudah di bawah 1:1
-  if (isBePlusActive || favRatio >= 0.28 || (favRatio >= 0.20 && curRR < 1.0)) {
-    var pctTxt = Math.max(0, Math.round(favRatio * 100));
-    return {
-      key: 'LATE',
-      label: isOwnTrade
-        ? (isBePlusActive
-            ? (isEn ? '🛡️ YOUR ACTIVE TRADE (SL+ 0-RISK ACTIVE)' : '🛡️ POSISI ANDA (SL+ 0-RISIKO AMAN)')
-            : (isEn ? '🏃 YOUR ACTIVE TRADE (RUNNING +' + pctTxt + '%)' : '🏃 POSISI ANDA (PROFIT +' + pctTxt + '%)'))
-        : (isEn ? '🟡 DO NOT CHASE (LATE)' : '🟡 JANGAN KEJAR (TERLAMBAT)'),
-      sub: isOwnTrade
-        ? (isBePlusActive
-            ? (isEn ? 'Running +' + pctTxt + '% to TP • SL+ Safeguards Capital' : 'Profit +' + pctTxt + '% Menuju TP • SL+ Melindungi Modal')
-            : (isEn ? 'Progressing Towards TP1 • Journey In-Flight' : 'Perjalanan Menuju TP1 • Pantau Perjalanan ke Target'))
-        : (isEn ? 'Running Profit +' + pctTxt + '% • Unfavorable R:R for New Entry' : 'Profit Sedang Berjalan +' + pctTxt + '% • R:R Baru Jelek, Jangan Kejar Pucuk'),
-      worth: false,
-      badgeCls: isOwnTrade ? 'long' : 'wait',
-      priority: isOwnTrade ? 1 : 30,
-      color: isBePlusActive ? '#10b981' : '#fbbf24',
-      bg: isBePlusActive ? 'rgba(16,185,129,0.14)' : 'rgba(245,158,11,0.12)'
-    };
-  }
-
-  // Kasus C: Sedang Berjalan Tapi Masih Layak Ikut (Pullback / Retest ke Zona Entry)
-  // - Order sempat terjemput / filled ATAU isOwnTrade dengan favRatio < 20%
-  // - favRatio masih tipis (< 20%) atau harga sedang pullback tepat di area entry
-  // - Sisa R:R masih sehat
-  if ((isFilled || isOwnTrade) && favRatio < 0.20) {
-    return {
-      key: 'PULLBACK',
-      label: isOwnTrade
-        ? (isEn ? '🔵 YOUR ACTIVE TRADE (AT ENTRY ZONE)' : '🔵 POSISI ANDA (DI AREA ENTRY)')
-        : (isEn ? '🔵 RUNNING • WORTH JOINING (PULLBACK)' : '🔵 BERJALAN • BISA IKUT (PULLBACK)'),
-      sub: isOwnTrade
-        ? (isEn ? 'Price Floating Near Entry Area • Position Active' : 'Harga Bergerak Dekat Titik Masuk • Posisi Sedang Aktif')
-        : (isEn ? 'Retesting Entry Area • Remaining R:R ' + curRR.toFixed(1) + ':1' : 'Retest Area Entry • Sisa R:R ' + curRR.toFixed(1) + ':1 Masih Sehat'),
-      worth: true,
-      badgeCls: 'long',
-      priority: 2,
-      color: '#38bdf8',
-      bg: 'rgba(56,189,248,0.14)'
-    };
-  }
-
-  // Kasus D: Sinyal Baru / Fresh Entry (Antrean Limit Siap Pasang)
-  // - Belum terjemput
-  // - R:R awal utuh
-  var initialRR = L.rrRatio ? Number(L.rrRatio).toFixed(1) : '2.0';
-  return {
-    key: 'FRESH',
-    label: isEn ? '🟢 READY TO ENTER (NEW)' : '🟢 SIAP ENTRY (BARU)',
-    sub: isEn ? 'Pending Limit Order • R:R ' + initialRR + ':1 Intact' : 'Antrean Limit Siap Pasang • R:R ' + initialRR + ':1 Utuh',
-    worth: true,
-    badgeCls: 'long',
-    priority: 1,
-    color: '#10b981',
-    bg: 'rgba(16,185,129,0.14)'
-  };
-}
-try { window.evaluateSignalViability = evaluateSignalViability; } catch (e) {}
-
-function syncRadarViabilityTabs() {
-  var bar = $id('radarViabilityBar');
-  if (!bar) return;
-  var v = state.radarViability || 'actionable';
-  Array.prototype.forEach.call(bar.querySelectorAll('.hz-btn'), function (b) {
-    b.classList.toggle('active', (b.getAttribute('data-viab') || 'actionable') === v);
-  });
-}
-
-function renderRadarCardHtml(it) {
-  if (!it || !it.analysis) return '';
-  var a = it.analysis;
-  var meta = getMeta(it.sym) || {};
-  var badge = radarBadgeFor(a);
-  if (a.__estFeed) badge = { cls: 'wait', txt: T('ui.eEstFeed', '○ Data estimasi — sinyal nonaktif') };
-  var chg = num(it.changePct, num(a.changePct));
-  var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
-  var sc = num(a.convictionScore, a.confluenceScore);
-  var entryRef = state.mode === 'investor'
-    ? (a.levels && a.levels.dcaZone1 ? a.levels.dcaZone1 : a.lastPrice)
-    : (a.levels && a.levels.entry != null ? a.levels.entry : (a.direction !== 'NEUTRAL' ? (it.price || a.lastPrice) : null));
-  var entryDisplay = (entryRef != null && (state.mode === 'investor' || a.direction !== 'NEUTRAL'))
-    ? formatPrice(entryRef, it.sym)
-    : '--';
-  var isActive = it.sym === state.symbol && it.tf === state.tf;
-  var outBadge = '';
-  var oc = (typeof latestSignalOutcome === 'function') ? latestSignalOutcome(it.sym, it.tf) : null;
-  if (oc && a.__estFeed) oc = null;
-  if (oc) {
-    var ocTxt = oc.status === 'TP_HIT' ? T('ui.eOutTp', 'TP tercapai — setup selesai')
-      : oc.status === 'BE_SAVED' ? T('ui.eOutBe', 'Terselamatkan SL+ (0-Risk, modal aman)')
-      : oc.status === 'STRUCTURE_INVALID' ? T('ui.eOutInv', 'Dibatalkan struktur + penerimaan harga')
-      : T('ui.eOutSl', 'SL tersentuh — sinyal invalid');
-    var dt = new Date(oc.at);
-    var hhmm = ('0' + dt.getHours()).slice(-2) + ':' + ('0' + dt.getMinutes()).slice(-2);
-    outBadge = '<span class="sig-badge ' + (oc.status === 'TP_HIT' || oc.status === 'BE_SAVED' ? 'long' : 'wait') + '" style="margin-top:4px;">'
-      + (oc.status === 'TP_HIT' ? '✓ ' : oc.status === 'BE_SAVED' ? '🛡️ ' : '✗ ') + ocTxt + ' • ' + hhmm + '</span>';
-  }
-  var tpSlRow = '';
-  if (a.levels && a.levels.sl && a.levels.tp1 && state.mode !== 'investor') {
-    var tgtVal = a.levels.tp2 ? a.levels.tp2 : a.levels.tp1;
-    var tgtLbl = a.levels.tp2 ? 'Target 1:2 (TP2)' : 'TP1';
-    tpSlRow = '<div style="display:flex;justify-content:space-between;gap:4px;margin-top:3px;font-size:10px;color:#94a3b8;font-family:var(--font-mono);">' +
-      '<span>SL: <b style="color:#fca5a5;">' + formatPrice(a.levels.sl, it.sym) + '</b></span>' +
-      '<span>' + tgtLbl + ': <b style="color:#6ee7b7;">' + formatPrice(tgtVal, it.sym) + '</b></span>' +
-    '</div>';
-  }
-
-  var journeyBarHtml = '';
-  if (state.mode !== 'investor' && a.levels && a.levels.entry && a.levels.tp1 && (it.isUserActiveTrade || a.lockedSignal || viab.key === 'LATE' || viab.key === 'PULLBACK' || viab.key === 'NEAR_SL')) {
-    var entryPrice = Number(a.levels.entry);
-    var tp1Price = Number(a.levels.tp1);
-    var curPrice = Number(it.price || a.lastPrice || entryPrice);
-    var tDist = Math.max(Math.abs(tp1Price - entryPrice), 1e-9);
-    var isLongCard = a.direction === 'LONG';
-    var fDistCard = isLongCard ? (curPrice - entryPrice) : (entryPrice - curPrice);
-    var fRatioCard = fDistCard / tDist;
-    var jPct = Math.min(100, Math.max(0, Math.round(fRatioCard * 100)));
-    var jCol = fRatioCard >= 0.5 ? '#10b981' : (fRatioCard > 0 ? '#38bdf8' : (fRatioCard < -0.2 ? '#f43f5e' : '#fbbf24'));
-    var jStatusText = (fDistCard >= 0 ? '+' : '') + jPct + '% ke TP1';
-    if (a.lockedSignal && (a.lockedSignal.bePlusActive || a.lockedSignal.notifiedSlPlus)) {
-      jStatusText = '🛡️ SL+ 0-Risk (' + jStatusText + ')';
-    }
-    journeyBarHtml = '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(148,163,184,0.18);">' +
-      '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:#94a3b8;font-family:var(--font-mono);margin-bottom:2px;">' +
-        '<span>' + (it.isUserActiveTrade ? '🔒 POSISI ANDA' : 'JOURNEY') + '</span>' +
-        '<span style="color:' + jCol + ';font-weight:700;">' + jStatusText + '</span>' +
-      '</div>' +
-      '<div style="background:rgba(255,255,255,0.07);border-radius:99px;height:5px;overflow:hidden;position:relative;">' +
-        '<div style="background:' + jCol + ';width:' + jPct + '%;height:100%;border-radius:99px;"></div>' +
-      '</div>' +
-    '</div>';
-  }
-
-  var viab = evaluateSignalViability(it);
-  var viabBadgeHtml = (state.mode !== 'investor' || viab.key === 'FRESH') ? (
-    '<div style="font-size:10px;font-weight:800;color:' + viab.color + ';background:' + viab.bg + ';border:1px solid ' + viab.color + '44;padding:3.5px 8px;border-radius:6px;margin-top:4px;display:flex;flex-direction:column;gap:1.5px;">' +
-      '<span>' + escH(viab.label) + '</span>' +
-      '<span style="font-size:9.5px;font-weight:600;opacity:0.88;">' + escH(viab.sub) + '</span>' +
-    '</div>'
-  ) : '';
-
-  var cardBorder = (viab.key === 'FRESH')
-    ? 'border-color:rgba(16,185,129,0.4);box-shadow:0 0 10px rgba(16,185,129,0.08);'
-    : (viab.key === 'PULLBACK')
-      ? 'border-color:rgba(56,189,248,0.4);box-shadow:0 0 10px rgba(56,189,248,0.08);'
-      : (viab.key === 'LATE')
-        ? 'border-color:rgba(245,158,11,0.25);opacity:0.88;'
-        : (viab.key === 'NEAR_SL')
-          ? 'border-color:rgba(244,63,94,0.3);opacity:0.85;'
-          : '';
-
-  return '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '" data-tf="' + it.tf + '" style="' + cardBorder + '">' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
-      '<span class="r-sym">' + it.sym + ' <small style="color:#64748b;font-weight:700;">' + it.tf + '</small></span>' +
-      '<span class="r-live">' + (feedIsEstimate(it.source) ? '○ EST' : '● LIVE') + '</span>' +
-    '</div>' +
-    '<span class="r-name">' + escH(meta.name || it.sym) + '</span>' +
-    '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
-      '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
-      '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
-    '</div>' +
-    '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' + outBadge +
-    viabBadgeHtml +
-    (function () {
-      var tdHtml = '';
-      if (a && a.topDown) {
-        var td = a.topDown;
-        var isEnTd = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
-        if (td.isAligned) {
-          tdHtml = '<div style="font-size:10px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
-            '🟢 ALIGNED: 1D/4H (' + escH(td.macroBias) + ') ➔ 1H/15m ➔ 5m</div>';
-        } else {
-          tdHtml = '<div style="font-size:10px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.1);padding:2px 6px;border-radius:4px;margin-top:3px;">' +
-            '🟡 ' + (isEnTd ? 'Awaiting Alignment' : 'Menunggu Keselarasan') + ' (' + escH(td.macroBias) + ' vs ' + escH(td.structBias) + ')</div>';
-        }
-      }
-      var sessHtml = '';
-      if (a && a.sessionInfo) {
-        var sess = a.sessionInfo;
-        var sessCol = sess.isOptimal ? '#38bdf8' : '#94a3b8';
-        sessHtml = '<div style="font-size:9.5px;color:' + sessCol + ';margin-top:2px;">' +
-          (sess.isOptimal ? '⚡ Sesi Optimal: ' : '🌐 Sesi: ') + '<b>' + escH(sess.bestSession) + '</b></div>';
-      }
-      return tdHtml + sessHtml;
-    })() +
-    (state.mode === 'trader' && !a.signalEligible && !a.lockedSignal && !a.__estFeed && a.gating && a.gating.active && a.gating.active.length
-      ? '<div style="font-size:10.5px;color:#f59e0b;margin-top:3px;line-height:1.35;">⛔ ' + gateShortLabel(a.gating.active[0]) + '</div>' : '') +
-    (function () { var nw = newsSoonFor(it.sym, 120); return nw ? '<div style="font-size:10.5px;color:#7dd3fc;margin-top:3px;">⏰ ' + escH(nw.title).slice(0, 34) + ' • ' + newsFmtTime(nw.ts) + '</div>' : ''; })() +
-    '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:5px;">' +
-      '<span class="r-entry">' + (state.mode === 'investor' ? T('ui.cDcaShort', 'Zona DCA 1: ') : T('ui.cEntry', 'Entry: ')) + entryDisplay + '</span>' +
-      '<span class="r-score">' + T('ui.cScore', 'SKOR') + ' ' + sc + '</span>' +
-    '</div>' +
-    tpSlRow +
-    journeyBarHtml +
-  '</div>';
-}
-
-function syncRadarGroupTabs() {
-  var bar = $id('radarGroupBar');
-  if (!bar) return;
-  var g = state.radarGroup || 'all';
-  Array.prototype.forEach.call(bar.querySelectorAll('.hz-btn'), function (b) {
-    b.classList.toggle('active', (b.getAttribute('data-rg') || 'all') === g);
-  });
-}
-
-function paintRadarItems(cfg, items, noneQualified) {
-  var grid = $id('opportunityRadarGrid');
-  if (!grid) return;
-  items = items ? items.slice() : [];
-
-  // INJEKSI POSISI AKTIF PENGGUNA (Active Locks dari signalLockStore):
-  // Pengguna membutuhkan pemantauan perjalanan entry mereka di tab "Running Setups".
-  // Pastikan setiap trade aktif yang sedang berjalan masuk ke daftar radar dan diprioritaskan!
-  try {
-    var allLocks = (typeof signalLockStore === 'function') ? signalLockStore() : {};
-    for (var lkKey in allLocks) {
-      if (lkKey === '__migratedV2') continue;
-      var lk = allLocks[lkKey];
-      if (!lk || lk.status !== 'ACTIVE' || !lk.tf || !lk.symbol) continue;
-      var lkSym = lk.symbol.toUpperCase();
-      var lkTf = lk.tf;
-      var foundIdx = -1;
-      for (var i = 0; i < items.length; i++) {
-        if (items[i] && items[i].sym && items[i].sym.toUpperCase() === lkSym && items[i].tf === lkTf) {
-          foundIdx = i;
-          break;
-        }
-      }
-      var curP = (state.symbol && state.symbol.toUpperCase() === lkSym && state.livePrice > 0)
-        ? state.livePrice
-        : (lk.lastPrice || lk.entry);
-      if (foundIdx >= 0) {
-        items[foundIdx].isUserActiveTrade = true;
-        if (items[foundIdx].analysis) {
-          items[foundIdx].analysis.lockedSignal = lk;
-          if (curP) items[foundIdx].price = curP;
-        }
-      } else {
-        var itAnalysis = {
-          symbol: lk.symbol,
-          timeframe: lk.tf,
-          direction: lk.direction,
-          lastPrice: curP,
-          confluenceScore: lk.score || 80,
-          convictionScore: lk.score || 80,
-          signalEligible: true,
-          lockedSignal: lk,
-          levels: {
-            entry: lk.entry,
-            sl: lk.sl,
-            tp1: lk.tp1,
-            tp2: lk.tp2,
-            rrRatio: lk.rrRatio || 2.0
-          },
-          topDown: { isAligned: true, macroBias: lk.direction === 'LONG' ? 'BULLISH' : 'BEARISH' }
-        };
-        items.unshift({
-          sym: lk.symbol,
-          tf: lk.tf,
-          price: curP,
-          changePct: 0.5,
-          analysis: itAnalysis,
-          source: 'ACTIVE_LOCK',
-          isUserActiveTrade: true
-        });
-      }
-    }
-  } catch (e) {}
-
-  if (!items.length) {
-    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarFeedEmpty', 'Feed radar belum tersedia — coba lagi sebentar.') + '</span></div>';
-    return;
-  }
-  syncRadarGroupTabs();
-  syncRadarViabilityTabs();
-  var html = '';
-  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
-  var viabFilter = state.radarViability || 'actionable';
-
-  /* Kejujuran daftar: bila TIDAK ADA yang lolos gerbang, tampilkan banner tegas —
-     daftar di bawahnya hanyalah pantauan (kandidat terbaik yang tersedia), bukan
-     rekomendasi. (Skor mereka ditahan <62 oleh engine = memang belum layak eksekusi.) */
-  if (noneQualified && state.mode !== 'investor') {
-    html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.06);"><span class="r-name" style="color:#fbbf24;">' +
-      T('ui.eRadarNone', '⚠️ Belum ada sinyal yang lolos gerbang ketat saat ini. Daftar di bawah = PANTAUAN saja (bukan rekomendasi) — lazim saat pasar sepi/akhir pekan & feed estimasi. Rekomendasi kembali begitu setup nyata matang.') +
-      '</span></div>';
-  }
-
-  var activeGroup = state.radarGroup || 'all';
-  var curGroups = getRadarGroups();
-
-  function sortAndFilterRadarGroup(rawItems) {
-    var copy = rawItems.slice();
-    copy.sort(function (x, y) {
-      var xUser = (x && (x.isUserActiveTrade || (x.analysis && x.analysis.lockedSignal && x.analysis.lockedSignal.status === 'ACTIVE'))) ? 1 : 0;
-      var yUser = (y && (y.isUserActiveTrade || (y.analysis && y.analysis.lockedSignal && y.analysis.lockedSignal.status === 'ACTIVE'))) ? 1 : 0;
-      if (xUser !== yUser) return yUser - xUser;
-
-      var vx = evaluateSignalViability(x);
-      var vy = evaluateSignalViability(y);
-      if (vx.priority !== vy.priority) return vx.priority - vy.priority;
-      var xAligned = (x && x.analysis && x.analysis.topDown && x.analysis.topDown.isAligned) ? 1 : 0;
-      var yAligned = (y && y.analysis && y.analysis.topDown && y.analysis.topDown.isAligned) ? 1 : 0;
-      if (xAligned !== yAligned) return yAligned - xAligned;
-      var xScore = (x && x.analysis) ? num(x.analysis.convictionScore, 0) : 0;
-      var yScore = (y && y.analysis) ? num(y.analysis.convictionScore, 0) : 0;
-      return yScore - xScore;
-    });
-
-    if (viabFilter === 'actionable') {
-      return copy.filter(function (it) {
-        return evaluateSignalViability(it).worth === true;
-      });
-    }
-    if (viabFilter === 'fresh') {
-      return copy.filter(function (it) {
-        return evaluateSignalViability(it).key === 'FRESH';
-      });
-    }
-    if (viabFilter === 'running') {
-      return copy.filter(function (it) {
-        var isLocked = it.isUserActiveTrade || (it.analysis && it.analysis.lockedSignal && it.analysis.lockedSignal.status === 'ACTIVE');
-        if (isLocked) return true;
-        var k = evaluateSignalViability(it).key;
-        return k === 'PULLBACK' || k === 'LATE' || k === 'NEAR_SL';
-      });
-    }
-    return copy;
-  }
-
-  if (activeGroup === 'all') {
-    curGroups.forEach(function (grp, gIdx) {
-      var grpItems = items.filter(function (it) { return it && it.analysis && radarAssetGroupOf(it.sym) === grp.key && !it.analysis.__estFeed; });
-      var actCount = grpItems.filter(function (it) { return evaluateSignalViability(it).worth; }).length;
-      var filteredGrp = sortAndFilterRadarGroup(grpItems);
-      var strongGrp = filteredGrp.filter(isActionableRadarSignal);
-      // TAMPILKAN SEMUA sinyal yang lolos filter (jangan dipotong/disembunyikan)!
-      var displayItems = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
-        ? filteredGrp
-        : (strongGrp.length ? strongGrp : (viabFilter === 'actionable' && !filteredGrp.length ? grpItems.slice(0, 4) : filteredGrp.slice(0, 6)));
-
-      var badgeText = '';
-      if (viabFilter === 'running') {
-        badgeText = filteredGrp.length > 0
-          ? ('<span style="font-size:10.5px;color:#38bdf8;font-weight:800;background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.4);padding:2px 9px;border-radius:99px;">🏃 ' + filteredGrp.length + ' ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>')
-          : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>');
-      } else if (viabFilter === 'fresh') {
-        badgeText = filteredGrp.length > 0
-          ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">⚡ ' + filteredGrp.length + ' ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>')
-          : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>');
-      } else if (viabFilter === 'all') {
-        badgeText = '<span style="font-size:10.5px;color:#cbd5e1;font-weight:800;background:rgba(148,163,184,0.18);border:1px solid rgba(148,163,184,0.4);padding:2px 9px;border-radius:99px;">📋 ' + filteredGrp.length + ' ' + (isEn ? 'All Pairs' : 'Semua Pair') + '</span>';
-      } else {
-        badgeText = actCount > 0
-          ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">🎯 ' + actCount + ' ' + (isEn ? 'Actionable Now' : 'Layak Ikut Entry') + '</span>')
-          : (grpItems.length
-            ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + grpItems.length + ' ' + (isEn ? 'Watchlist' : 'Pantauan') + '</span>'
-            : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
-      }
-
-      var focusTitle = T('ui.rFocusTitle', 'Fokus pada bagan {label}').replace('{label}', grp.label);
-      html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + grp.bg + ';border:1px solid ' + grp.border + '44;border-left:4px solid ' + grp.col + ';margin-top:' + (gIdx > 0 ? '18px' : '4px') + ';flex-wrap:wrap;gap:8px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-          '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + grp.label + '</strong>' +
-          '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;">' + grp.sub + '</span>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;">' +
-          badgeText +
-          '<button type="button" class="btn-group-focus hz-btn" data-focus-rg="' + grp.key + '" title="' + escH(focusTitle) + '" style="font-size:10.5px;padding:3px 10px;border-radius:6px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#7dd3fc;cursor:pointer;font-weight:700;">' +
-            T('ui.rFocusBtn', 'Fokus Bagan ↗') +
-          '</button>' +
-        '</div>' +
-      '</div>';
-      if (!grpItems.length) {
-        html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:12px;font-size:11.5px;color:#94a3b8;">' + grp.emptyText + '</div>';
-      } else {
-        if (viabFilter === 'actionable' && !actCount) {
-          html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:6px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
-            '<span>' + (isEn ? '💡 No fresh/pullback setups currently available in this group (positions are running or consolidating). Showing running setups below (avoid chasing late moves):' : '💡 Belum ada setup baru atau pullback di kelompok ini saat Anda buka app (posisi sedang berjalan jauh atau konsolidasi). Menampilkan setup yang sedang berjalan (jangan kejar pucuk):') + '</span>' +
-            '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;text-decoration:underline;">' + (isEn ? 'View All Watchlist →' : 'Buka Semua Pantauan →') + '</button>' +
-            '</div>';
-        } else if (viabFilter === 'actionable' && !strongGrp.length) {
-          html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:5px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
-            '<span>' + T('ui.rNoticeConsolidation', '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur agar modal aman. Menampilkan kandidat pantauan terdekat:') + '</span>' +
-            '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;text-decoration:underline;">' + T('ui.rOpenAllWatch', 'Buka Semua Pantauan →') + '</button>' +
-            '</div>';
-        } else if (viabFilter === 'running' && !displayItems.length) {
-          html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
-            (isEn ? 'ℹ️ No active/running entries in this asset class right now. When you take a trade or a setup enters pullback/late stage, it will appear here so you can monitor its journey to TP/SL+.' : 'ℹ️ Belum ada posisi aktif/setup yang sedang berjalan di kelompok aset ini. Begitu Anda ambil entry atau setup memasuki fase perjalanan/pullback, perjalanannya menuju TP/SL+ akan terpantau di sini.') +
-            '</div>';
-        } else if (viabFilter === 'fresh' && !displayItems.length) {
-          html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
-            (isEn ? 'ℹ️ No brand new (fresh) pending setups currently in this group. Waiting for institutional setup confirmation.' : 'ℹ️ Belum ada sinyal limit baru (fresh) di kelompok ini saat ini. Menunggu konfirmasi setup institusional berikutnya.') +
-            '</div>';
-        }
-        displayItems.forEach(function (it) {
-          html += renderRadarCardHtml(it);
-        });
-        var totalCount = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
-          ? filteredGrp.length
-          : (strongGrp.length || grpItems.length);
-        var showAllSummary = T('ui.rShowingAll', '✅ Menampilkan semua <b>{shown} dari {total}</b> instrumen {label} (lengkap, tidak ada yang disembunyikan)')
-          .replace('{shown}', displayItems.length)
-          .replace('{total}', totalCount)
-          .replace('{label}', grp.label);
-        var openTabLabel = T('ui.rOpenTab', 'Buka Tab Khusus {label} →').replace('{label}', grp.label);
-        html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:5px 10px;font-size:11px;color:#94a3b8;border-bottom:1px dashed rgba(148,163,184,0.2);margin-bottom:6px;flex-wrap:wrap;gap:6px;">' +
-          '<span>' + showAllSummary + '</span>' +
-          '<button type="button" class="btn-group-focus" data-focus-rg="' + grp.key + '" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;">' + openTabLabel + '</button>' +
-        '</div>';
-      }
-    });
-  } else {
-    var selGrp = curGroups.find(function (g) { return g.key === activeGroup; }) || curGroups[0];
-    var selItems = items.filter(function (it) { return it && it.analysis && radarAssetGroupOf(it.sym) === activeGroup && !it.analysis.__estFeed; });
-    var selActCount = selItems.filter(function (it) { return evaluateSignalViability(it).worth; }).length;
-    var filteredSel = sortAndFilterRadarGroup(selItems);
-    var strongSel = filteredSel.filter(isActionableRadarSignal);
-    var showSel = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
-      ? filteredSel
-      : (strongSel.length ? strongSel : (viabFilter === 'actionable' && !filteredSel.length ? selItems.slice(0, 6) : filteredSel));
-
-    var statusBadge = '';
-    if (viabFilter === 'running') {
-      statusBadge = filteredSel.length > 0
-        ? ('<span style="font-size:10.5px;color:#38bdf8;font-weight:800;background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.4);padding:2px 9px;border-radius:99px;">🏃 ' + filteredSel.length + ' ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>')
-        : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Running Setups' : 'Setup Berjalan') + '</span>');
-    } else if (viabFilter === 'fresh') {
-      statusBadge = filteredSel.length > 0
-        ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">⚡ ' + filteredSel.length + ' ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>')
-        : ('<span style="font-size:10.5px;color:#94a3b8;font-weight:700;background:rgba(148,163,184,0.15);padding:2px 9px;border-radius:99px;">0 ' + (isEn ? 'Fresh Signals' : 'Sinyal Baru') + '</span>');
-    } else if (viabFilter === 'all') {
-      statusBadge = '<span style="font-size:10.5px;color:#cbd5e1;font-weight:800;background:rgba(148,163,184,0.18);border:1px solid rgba(148,163,184,0.4);padding:2px 9px;border-radius:99px;">📋 ' + filteredSel.length + ' ' + (isEn ? 'All Pairs' : 'Semua Pair') + '</span>';
-    } else {
-      statusBadge = selActCount > 0
-        ? ('<span style="font-size:10.5px;color:#10b981;font-weight:800;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);padding:2px 9px;border-radius:99px;">🎯 ' + selActCount + ' ' + (isEn ? 'Actionable Now' : 'Layak Ikut Entry') + '</span>')
-        : (selItems.length
-          ? '<span style="font-size:10.5px;color:#fbbf24;font-weight:800;background:rgba(245,158,11,0.15);padding:2px 9px;border-radius:99px;">' + selItems.length + ' ' + (isEn ? 'Watchlist' : 'Pantauan') + '</span>'
-          : '<span style="font-size:10.5px;color:#94a3b8;font-weight:700;">' + T('ui.rScanningShort', 'Memindai…') + '</span>');
-    }
-
-    html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-radius:9px;background:' + selGrp.bg + ';border:1px solid ' + selGrp.border + '44;border-left:4px solid ' + selGrp.col + ';margin-top:4px;flex-wrap:wrap;gap:8px;">' +
-      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-        '<button type="button" class="btn-group-focus hz-btn" data-focus-rg="all" style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.4);color:#cbd5e1;cursor:pointer;font-weight:700;">' +
-          T('ui.rBack3Groups', '← Kembali ke 3 Bagan') +
-        '</button>' +
-        '<strong style="color:#f8fafc;font-size:13px;letter-spacing:0.3px;">' + selGrp.label + '</strong>' +
-        '<span style="font-size:9.5px;color:#94a3b8;font-weight:700;">' + selGrp.sub + '</span>' +
-      '</div>' +
-      statusBadge +
-    '</div>';
-    if (!selItems.length) {
-      html += '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:14px;font-size:12px;color:#94a3b8;">' + selGrp.emptyText + '</div>';
-    } else {
-      if (viabFilter === 'actionable' && !selActCount) {
-        html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:6px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;">' +
-          (isEn ? '💡 No fresh/pullback setups currently available in this group (positions are running or consolidating). Showing running setups below (avoid chasing late moves):' : '💡 Belum ada setup baru atau pullback di kelompok ini saat Anda buka app (posisi sedang berjalan jauh atau konsolidasi). Menampilkan setup yang sedang berjalan (jangan kejar pucuk):') +
-          '</div>';
-      } else if (viabFilter === 'actionable' && !strongSel.length) {
-        html += '<div style="grid-column:1/-1;font-size:10.5px;color:#fbbf24;margin:2px 0 6px;padding:5px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;">' +
-          T('ui.rNoticeConsolidationAll', '💡 Belum ada setup yang lolos gerbang ketat institusional (skor ≥ 70) pada kelompok ini saat ini — pasar sedang konsolidasi atau menunggu konfirmasi struktur. Menampilkan seluruh kandidat pantauan:') +
-          '</div>';
-      } else if (viabFilter === 'running' && !showSel.length) {
-        html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
-          (isEn ? 'ℹ️ No active/running entries in this group right now. When you take a trade or a setup enters pullback/late stage, it will appear here so you can monitor its journey to TP/SL+.' : 'ℹ️ Belum ada posisi aktif/setup yang sedang berjalan di kelompok ini. Begitu Anda ambil entry atau setup memasuki fase perjalanan/pullback, perjalanannya menuju TP/SL+ akan terpantau di sini.') +
-          '</div>';
-      } else if (viabFilter === 'fresh' && !showSel.length) {
-        html += '<div style="grid-column:1/-1;font-size:10.5px;color:#94a3b8;margin:2px 0 6px;padding:6px 12px;background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:8px;">' +
-          (isEn ? 'ℹ️ No brand new (fresh) pending setups in this group currently. Waiting for institutional setup confirmation.' : 'ℹ️ Belum ada sinyal limit baru (fresh) di kelompok ini saat ini. Menunggu konfirmasi setup institusional berikutnya.') +
-          '</div>';
-      }
-      showSel.forEach(function (it) {
-        html += renderRadarCardHtml(it);
-      });
-      var totalSelCount = (viabFilter === 'running' || viabFilter === 'fresh' || viabFilter === 'all')
-        ? filteredSel.length
-        : (strongSel.length || selItems.length);
-      var showSelSummary = T('ui.rShowingAll', '✅ Menampilkan semua <b>{shown} dari {total}</b> instrumen {label} (lengkap, tidak ada yang disembunyikan)')
-        .replace('{shown}', showSel.length)
-        .replace('{total}', totalSelCount)
-        .replace('{label}', selGrp.label);
-      html += '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:11px;color:#94a3b8;margin-top:8px;">' +
-        '<span>' + showSelSummary + '</span>' +
-        '<button type="button" class="btn-group-focus" data-focus-rg="all" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-weight:700;font-size:11px;">' + T('ui.rBack3GroupsFull', '← Kembali ke Tampilan 3 Bagan Lengkap') + '</button>' +
-      '</div>';
-    }
-  }
-
-  grid.innerHTML = html;
-  Array.prototype.forEach.call(grid.querySelectorAll('.radar-card[data-sym]'), function (card) {
-    card.addEventListener('click', function () {
-      gotoInstrument(card.getAttribute('data-sym'), card.getAttribute('data-tf'));
-    });
-  });
-  Array.prototype.forEach.call(grid.querySelectorAll('[data-focus-rg]'), function (btn) {
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var rg = btn.getAttribute('data-focus-rg') || 'all';
-      state.radarGroup = rg;
-      syncRadarGroupTabs();
-      renderOpportunityRadar(false);
-    });
-  });
-}
-function syncHorizonTabs() {
-  var bar = $id('radarHorizonBar');
-  if (!bar) return;
-  Array.prototype.forEach.call(bar.querySelectorAll('.hz-btn[data-hz]'), function (b) {
-    b.classList.toggle('active', b.getAttribute('data-hz') === state.radarHorizon);
-  });
-}
-
-/* ============ REKOMENDASI KHUSUS INVESTOR (bukan radar trader) ============ */
-// Kurasi aset berkualitas untuk akumulasi jangka panjang (12–36 bulan), dinilai
-// dari valuasi (MoS vs nilai wajar), zona cicil DCA, dan kesehatan tren makro.
-/* Semesta investasi diambil dari SELURUH katalog (saham IDX/global, logam, crypto) —
-   dinilai merata, bukan cuma aset besar. Kurasi menampilkan hanya kandidat yang
-   bias makro D1/W1 akumulatif (layak diinvestasikan sesuai horizon waktunya). */
-function investableUniverse() {
-  return catalogSortedStable().filter(function (inst) {
-    return inst.assetClass === 'stocks' || inst.assetClass === 'metals' || inst.assetClass === 'crypto';
-  });
-}
-var investorPickRunSeq = 0;
-var investorPickCache = { ts: 0, items: [] };
-var investorScanPool = {}; // sym -> { ts, item }; cache bergilir semesta investasi (TTL 10 mnt)
-// Label kategori kartu kurasi investor (dilokalkan sesuai bahasa aktif)
-var INV_CAT_KEY = {
-  'SAFE-HAVEN • LOGAM MULIA': 'eIcHaven',
-  'LOGAM • ENERGI HIJAU': 'eIcMetal',
-  'BLUECHIP CRYPTO • ETF SPOT': 'eIcBtc',
-  'BLUECHIP CRYPTO • SMART CONTRACT': 'eIcEth',
-  'INDEKS NASIONAL': 'eIcIdx',
-  'BLUECHIP • PERBANKAN': 'eIcBank',
-  'BLUECHIP • DIVIDEN': 'eIcDiv',
-  'DEFENSIF • TELEKOMUNIKASI': 'eIcTelco',
-  'BLUECHIP • KONGLOMERASI': 'eIcKong',
-  'GROWTH • AI & CHIP': 'eIcAi',
-  'GROWTH • MEGA-CAP AS': 'eIcMega'
-};
-function invCatOf(cat) {
-  var k = INV_CAT_KEY[cat];
-  return k ? T('ui.' + k, cat) : cat;
-}
-function investorRatingFor(a) {
-  var sc = num(a && a.confluenceScore, 50);
-  if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: T('ui.ibStrong', '● AKUMULASI KUAT') };
-  if (a.direction === 'LONG') return { cls: 'accum', txt: T('ui.ibDcaStep', '● DICICIL / DCA BERTAHAP') };
-  if (a.direction === 'SHORT') return { cls: 'wait', txt: T('ui.ibWaitMore', '◆ TUNGGU DISKON LAGI') };
-  return { cls: 'wait', txt: T('ui.ibHold', '◈ HOLD / PANTAU') };
-}
-function drawInvestorPickCards(items) {
-  var grid = $id('investorPicksGrid');
-  if (!grid) return;
-  if (!items || !items.length) {
-    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.invEmpty', 'Kurasi portofolio belum termuat — coba beberapa saat lagi…') + '</span></div>';
-    return;
-  }
-  var html = '';
-  for (var i = 0; i < items.length; i++) {
-    var it = items[i];
-    var a = it.analysis;
-    var meta = getMeta(it.sym);
-    var badge = investorRatingFor(a);
-    var lv = a.levels || {};
-    // Nilai wajar ala panel investor: 55% POC volume + 45% VWAP sesi
-    var fair = num(lv.poc, a.lastPrice) * 0.55 + num(lv.vwap, a.lastPrice) * 0.45;
-    if (fair <= 0) fair = a.lastPrice;
-    var mosPct = ((a.lastPrice - fair) / fair) * 100; // negatif = harga di bawah nilai wajar (diskon)
-    var mosTxt = mosPct <= 0 ? T('ui.cDisc', 'DISKON') + ' ' + Math.abs(mosPct).toFixed(1) + '%' : T('ui.cPrem', 'PREMIUM') + ' ' + Math.abs(mosPct).toFixed(1) + '%';
-    var chg = num(it.changePct, num(a.changePct));
-    var chgCol = chg >= 0 ? '#10b981' : '#f43f5e';
-    var sc = num(a.confluenceScore, 50);
-    var isActive = it.sym === state.symbol;
-    html += '<div class="radar-card inv-pick-card' + (isActive ? ' active' : '') + '" data-sym="' + it.sym + '">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
-        '<span class="r-sym">' + it.sym + '</span>' +
-        '<span class="r-live">' + (feedIsEstimate(it.source) ? '○ EST' : '● LIVE') + '</span>' +
-      '</div>' +
-      '<span class="r-name">' + (meta.name || it.sym) + ' <span class="inv-cat">' + invCatOf(it.cat) + '</span></span>' +
-      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">' +
-        '<span class="r-price">' + formatPrice(it.price, it.sym) + '</span>' +
-        '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
-      '</div>' +
-      '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' +
-      '<div class="inv-rows">' +
-        '<div><span>' + T('ui.cFair', 'Nilai Wajar') + '</span><b>' + formatPrice(fair, it.sym) + '</b></div>' +
-        '<div><span>' + T('ui.cDca', 'Zona Cicil (DCA 1)') + '</span><b>' + formatPrice(num(lv.dcaZone1, it.price * 0.99), it.sym) + '</b></div>' +
-        '<div><span>' + T('ui.cTarget', 'Target Siklus 12–36 bln') + '</span><b style="color:#34d399;">' + formatPrice(num(lv.invTarget1, it.price * 1.12), it.sym) + '</b></div>' +
-        '<div><span>' + T('ui.cMos', 'Margin of Safety') + '</span><b style="color:' + (mosPct <= 0 ? '#10b981' : '#f59e0b') + ';">' + mosTxt + '</b></div>' +
-      '</div>' +
-      '<div class="r-score" style="margin-top:5px;">' + T('ui.cScore', 'SKOR KONFLUENSI') + ' ' + sc + '/100</div>' +
-    '</div>';
-  }
-  grid.innerHTML = html;
-  Array.prototype.forEach.call(grid.querySelectorAll('.inv-pick-card'), function (card) {
-    card.addEventListener('click', function () { gotoInstrument(card.getAttribute('data-sym'), 'D1'); });
-  });
-}
-function renderOpportunityRadar() { return; }
-function renderInvestorPicks(force) {
-  var grid = $id('investorPicksGrid');
-  if (!grid) return;
-  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Kurasi multi-instrumen dipindahkan ke proyek screener terpisah. Analisis instrumen individual tetap tersedia di terminal.</span></div>';
-  return;
-  var now = Date.now();
-  var cachedItems = [];
-  for (var k0 in investorScanPool) if (now - investorScanPool[k0].ts < 1800000) cachedItems.push(investorScanPool[k0].item);
-  var longOnly = cachedItems.filter(function (it) { return it.analysis.direction === 'LONG'; });
-  longOnly.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
-  var shown0 = longOnly.slice(0, 12);
-  if (!force && shown0.length >= 4) { drawInvestorPickCards(shown0); return; }
-  if (shown0.length) drawInvestorPickCards(shown0);
-  var mySeq = ++investorPickRunSeq;
-  // v2026.66: batch 26 simbol / slot 6 menit (dulu 34/5) demi kuota Functions gratis.
-  var batch = rotatingSlice(investableUniverse(), 26, 6);
-  if (!shown0.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.invScanning', 'Mengkurasi {n} aset portofolio dengan data broker real-time (D1/W1)…').replace('{n}', batch.length + '+') + '</span></div>';
-  Promise.allSettled(batch.map(function (inst) {
-    return fetchRadarCandidate({ sym: inst.symbol, tf: 'D1' }).then(function (r) { if (r) r.cat = catLabelOf(getMeta(inst.symbol)); return r; });
-  })).then(function (results) {
-    if (mySeq !== investorPickRunSeq) return;
-    for (var i = 0; i < results.length; i++) {
-      if (results[i].status === 'fulfilled' && results[i].value) {
-        var it = results[i].value;
-        investorScanPool[it.sym] = { ts: Date.now(), item: it };
-      }
-    }
-    var merged = [];
-    var now2 = Date.now();
-    for (var k in investorScanPool) if (now2 - investorScanPool[k].ts < 1800000) merged.push(investorScanPool[k].item);
-    // Hanya aset yang bias makronya memang akumulatif (LONG D1/W1) yang direkomendasikan
-    // untuk diinvestasikan — diurut dari skor konfluensi makro terkuat.
-    var longs = merged.filter(function (it) { return it.analysis.direction === 'LONG' && num(it.analysis.convictionScore, 0) >= 55; });
-    longs.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
-    var shown = longs.slice(0, 12);
-    if (!shown.length) { // fallback: kandidat terbaik yang sedang terpantau
-      merged.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
-      shown = merged.slice(0, 6);
-    }
-    drawInvestorPickCards(shown);
-    try { syncCuratedInvestorToJournal(); } catch (e) {}
-  }).catch(function () {});
-}
-/* ==================== MEME & DEX GEM RADAR (ANTI-RUG SCANNER) ==================== */
+// Manual DEX contract analysis only.
 // User-selected DEX contracts only. There is no token catalog, ranker or background poller.
 var activeDexAnalysis = null;
 var activeDexRequestSeq = 0;
@@ -6278,9 +5019,9 @@ function saveSession() {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       v: 4,
       user: state.user,
-      // Preferensi workspace ikut tersimpan: refresh halaman tidak menendang user keluar
+      // Re-run only the instrument explicitly selected by the user.
       symbol: state.symbol, tf: state.tf, mode: state.mode, subMode: state.subMode,
-      radarHorizon: state.radarHorizon, at: Date.now()
+      manualInstrumentSelected: hasManualInstrumentSelection === true, at: Date.now()
     }));
     var tok = (state.user && (state.user.ownerToken || state.user.authToken)) || '';
     if (tok) localStorage.setItem('xstarzg_jwt', tok);
@@ -6307,6 +5048,7 @@ function loadSession() {
 // Terapkan preferensi workspace dari sesi tersimpan (dipakai saat restore setelah refresh)
 function applyWorkspacePrefs(saved) {
   if (!saved) return;
+  hasManualInstrumentSelection = saved.manualInstrumentSelected === true;
   if (typeof saved.symbol === 'string' && saved.symbol.length > 1) state.symbol = saved.symbol;
   var btns, i, on;
   var tfBar = $id('timeframeBar');
@@ -6338,10 +5080,6 @@ function applyWorkspacePrefs(saved) {
     if (f) f.classList.toggle('active', saved.subMode === 'futures');
     if (s) s.classList.toggle('active', saved.subMode === 'spot');
   }
-  if (saved.radarHorizon === 'scalping' || saved.radarHorizon === 'intraday' || saved.radarHorizon === 'swing') {
-    state.radarHorizon = saved.radarHorizon;
-    if (typeof syncHorizonTabs === 'function') syncHorizonTabs();
-  }
   if (typeof updateModeChip === 'function') updateModeChip();
   if (typeof syncTfBarForMode === 'function') syncTfBarForMode();
 }
@@ -6351,7 +5089,6 @@ function syncModeSections() {
   var memeWrap = $id('memeWorkspaceWrap');
   var newsWrap = $id('newsWorkspaceWrap');
   var journalWrap = $id('journalWorkspaceWrap');
-  var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection');
   var isInv = state.mode === 'investor';
   var isMeme = state.mode === 'meme';
   var isNews = state.mode === 'news';
@@ -6361,8 +5098,6 @@ function syncModeSections() {
   if (memeWrap) memeWrap.classList.toggle('hidden', !isMeme);
   if (newsWrap) newsWrap.classList.toggle('hidden', !isNews);
   if (journalWrap) journalWrap.classList.toggle('hidden', !isJournal);
-  if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
-  if (invSec) invSec.classList.toggle('hidden', !isInv);
   if (typeof syncModeButtonLabels === 'function') syncModeButtonLabels();
 }
 function syncModeButtonLabels() {
@@ -6660,81 +5395,7 @@ function ensureQuotaFor(symbol) {
   }
   return false;
 }
-function showScreen(name) {
-  try {
-    var front = $id('frontLandingScreen'), gate = $id('loginGateScreen'), work = $id('appWorkspaceWrapper');
-    if (front) {
-      if (name === 'front') front.classList.remove('hidden'); else front.classList.add('hidden');
-    }
-    if (gate) {
-      if (name === 'gate') gate.classList.remove('hidden'); else gate.classList.add('hidden');
-    }
-    if (work) {
-      if (name === 'work') {
-        work.classList.remove('hidden');
-        var sk = document.getElementById('tvChartLoadingSkeleton');
-        if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
-      } else {
-        work.classList.add('hidden');
-      }
-    }
-    var dd = $id('userProfileDropdown');
-    if (dd) dd.classList.add('hidden');
-    try { window.scrollTo({ top: 0 }); } catch (e) {}
-  } catch (e) {
-    console.warn('showScreen error:', e);
-  }
-}
-function enterWorkspace() {
-  try {
-    showScreen('work');
-    var sk = document.getElementById('tvChartLoadingSkeleton');
-    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
-    updateUserUi();
-    syncModeSections();
-    try { renderInstrumentCatalog(); } catch (eCat) {}
-    // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
-    // agar layar HP tidak pernah menggantung dengan placeholder kosong
-    try {
-      if (!state.candles || !state.candles.length || !state.lastAnalysis) {
-        var fnSeed = (typeof generateSeedCandles === 'function') ? generateSeedCandles : (typeof window !== 'undefined' ? window.generateSeedCandles : null);
-        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : (fnSeed ? fnSeed(state.symbol || 'XAU/USD', state.tf || 'H1') : null);
-        if (seeded && seeded.candles && seeded.candles.length) {
-          state.candles = seeded.candles;
-          state.livePrice = seeded.price;
-          state.liveChangePct = 0.25;
-          state.feedSource = 'LOCAL_SEED';
-          var instant = typeof computeQuantEngine === 'function' ? computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED') : null;
-          if (instant && typeof renderAllVisuals === 'function') renderAllVisuals(instant, true);
-        }
-      }
-    } catch (eSeed) {}
-    try { initChart(); } catch (eInit) {}
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(function () {
-        try { if (typeof initChart === 'function') initChart(); } catch (e) {}
-      });
-    }
-    var now = Date.now();
-    if (now - enterWorkspaceLock > 300) {
-      enterWorkspaceLock = now;
-      setTimeout(function () {
-        try { initChart(); } catch (e) { console.warn('initChart error:', e); }
-        try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-        try {
-          if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-        } catch (e) { console.warn('runFullAnalysis error:', e); }
-        try { connectRealtimeStream(); } catch (e) {}
-        try {
-          if (state.mode === 'investor') renderInvestorPicks();
-          else renderOpportunityRadar();
-        } catch (e) { console.warn('renderOpportunityRadar error:', e); }
-      }, 60);
-    }
-  } catch (e) {
-    console.error('enterWorkspace error:', e);
-  }
-}
+// showScreen() and enterWorkspace() are defined once in the startup prelude.
 try { if (typeof window !== 'undefined') { window.showScreen = showScreen; window.enterWorkspace = enterWorkspace; } } catch (e) {}
 
 /* ==================== 10. VIP PAYMENT (ON-CHAIN BSC VERIFY) ==================== */
@@ -7023,6 +5684,7 @@ function bindUiEvents() {
   bind('btnBackToFrontFromMenu', function () { showScreen('front'); });
   var doLogout = function () {
     state.user = null;
+    hasManualInstrumentSelection = false;
     try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
     updateUserUi();
     showScreen('front');
@@ -7071,7 +5733,7 @@ function bindUiEvents() {
         // Keep the last valid chart visible while the new timeframe is loading.
         // Clearing candles here forced runFullAnalysis to synchronously seed and
         // quantify 220 synthetic bars before fetching the real timeframe.
-        state.bestTfBoard = null;
+
         saveSession();
         setTxt('lblEngineStatus', '⏳ MEMUAT ' + tf + ' — mengambil candle broker…');
         try { startCandleCountdown(); } catch (e) {}
@@ -7677,11 +6339,10 @@ function setMode(mode) {
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
 
   // Workspace changes switch the analysis profile; they never scan other assets.
-  try { stopMemeLiveTicker(); } catch (e) {}
   syncModeSections();
   if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
   else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
-  renderMacroMap();
+
   updateModeChip();
   syncTfBarForMode();
   saveSession();
@@ -7700,7 +6361,7 @@ function setSubMode(sub) {
   updateModeChip();
   syncTfBarForMode();
   saveSession();
-  state.bestTfBoard = null;
+
   if (hasManualInstrumentSelection && typeof window.runFullAnalysis === 'function') {
     window.runFullAnalysis(true);
   }
@@ -7721,7 +6382,7 @@ function selectSymbol(sym) {
   state.symbol = sym;
   state.candles = [];
   state.lastAnalysis = null;
-  state.bestTfBoard = null;
+
   state.feedSource = '-';
   try { auditAndCleanseCorruptedStorage(); } catch (e) {}
   renderInstrumentCatalog();
@@ -7731,29 +6392,7 @@ function selectSymbol(sym) {
 }
  
 /* ==================== 12. BOOTSTRAP ==================== */
-/* AUTO-PILOT radar & kurasi investor: memindai ulang katalog secara mandiri setiap
-   slot rotasi (5 menit) sehingga instrumen berpotensi baru muncul sendiri tanpa
-   refresh manual. Repaint murah tiap 60 dtk; scan batch penuh tiap 5 menit;
-   jeda otomatis saat tab tidak terlihat. */
-var radarAutoLastForce = 0;
-function startRadarAutoPilot() {
-  // Browser-side screening moved out of the terminal; the dedicated cloud Sentinel remains active.
-  return;
-  if (window.__radarAutoTimer) return;
-  window.__radarAutoTimer = setInterval(function () {
-    try {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      // Do not run the automatic radar while the user is on the landing/login
-      // screens. This background scan was active even without the workspace.
-      var workspace = document.getElementById('appWorkspaceWrapper');
-      if (!workspace || workspace.classList.contains('hidden')) return;
-      var force = (Date.now() - radarAutoLastForce) >= 4 * 60000;
-      if (force) radarAutoLastForce = Date.now();
-      if (state.mode === 'investor') renderInvestorPicks(force);
-      else renderOpportunityRadar(force);
-    } catch (e) {}
-  }, 60000);
-}
+/* Workspace startup is idempotent; market screening is not part of this terminal. */
 var __xsBootCoreStarted = false;
 function bootCore() {
   if (__xsBootCoreStarted) return;
@@ -7840,7 +6479,7 @@ function bootCore() {
       updateUserUi();
       updateModeChip();
       syncTfBarForMode();
-      syncHorizonTabs();
+
       try { syncModeButtonLabels(); } catch (e) {}
       // Refresh journal content without scanning the instrument universe.
       try { renderSignalJournal(); } catch (e) {}
@@ -8333,8 +6972,8 @@ if (document.readyState === 'loading') {
       // Keep calendar, macro context and journal available; never seed or scan markets here.
       if (isInWork) {
         try { fetchNewsCalendar(false); } catch (e) {}
-        try { fetchMacroRegime(false); } catch (e) {}
-        try { renderMacroMap(); } catch (e) {}
+
+
         try { renderSignalJournal(); } catch (e) {}
       }
       setInterval(function () {
@@ -8346,13 +6985,13 @@ if (document.readyState === 'loading') {
       setInterval(function () {
         var w = document.getElementById('appWorkspaceWrapper');
         if (w && !w.classList.contains('hidden')) {
-          try { fetchMacroRegime(false); } catch (e) {}
+
         }
       }, MACRO_TTL);
       setInterval(function () {
         var w = document.getElementById('appWorkspaceWrapper');
         if (w && !w.classList.contains('hidden')) {
-          try { renderMacroMap(); } catch (e) {}
+
         }
       }, 60 * 1000);
       setInterval(function () {
