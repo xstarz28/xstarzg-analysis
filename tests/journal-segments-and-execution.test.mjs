@@ -136,3 +136,17 @@ test('SINKRONISASI OTOMATIS DEX MEME & ISOLASI INVESTOR DARI FLUKTUASI M5 SCALPI
   });
 });
 
+test('RESET RIWAYAT JURNAL BERSIH KE AWAL (CLEAR ALL HISTORY)', async (t) => {
+  await t.test('HTML memiliki tombol btnClearAllJournalHistory di toolbar jurnal', () => {
+    assert.ok(html.includes('id="btnClearAllJournalHistory"'), 'Harus ada tombol id="btnClearAllJournalHistory"');
+  });
+
+  await t.test('app.js mengikat event listener btnClearAllJournalHistory dan membersihkan semua key storage', () => {
+    assert.ok(appJs.includes("bind('btnClearAllJournalHistory'"), 'Harus ada binding btnClearAllJournalHistory');
+    assert.ok(appJs.includes("localStorage.removeItem(SIGNAL_LOCK_KEY)"), 'Harus membersihkan SIGNAL_LOCK_KEY');
+    assert.ok(appJs.includes("localStorage.removeItem(SIGNAL_OUTCOME_KEY)"), 'Harus membersihkan SIGNAL_OUTCOME_KEY');
+    assert.ok(appJs.includes("localStorage.removeItem(INVESTOR_JOURNAL_KEY)"), 'Harus membersihkan INVESTOR_JOURNAL_KEY');
+    assert.ok(appJs.includes("localStorage.removeItem(MEME_JOURNAL_KEY)"), 'Harus membersihkan MEME_JOURNAL_KEY');
+  });
+});
+

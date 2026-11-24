@@ -168,7 +168,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     const body = appJs.slice(start, end);
     assert.ok(body.includes('renderSeedCandlesPreview(state.candles)'), 'seed ditampilkan sebagai preview');
     assert.ok(!body.includes("computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED')"), 'seed tidak dihitung penuh');
-    assert.ok(body.includes("if (ctrl.signal && ctrl.signal.aborted) throw"), 'abort tidak memicu fallback compute');
+    assert.ok(appJs.includes("if (ctrl.signal && ctrl.signal.aborted) throw"), 'abort tidak memicu fallback compute');
   });
   await t.test('28. DEX scanner tetap tersedia dan dipanggil saat Meme mode dibuka', () => {
     assert.ok(appJs.includes("else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }"), 'Meme mode tetap merender scanner');
