@@ -57,7 +57,7 @@ chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.inc
 chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.89'") && app.includes('ensureChartVendorLoaded();'));
 
 
-chk('timeframe switch mempertahankan chart dan membatalkan fetch lama', app.includes("var tfBar = $id('timeframeBar')") && app.includes('activeAnalysisController.abort()') && !app.slice(app.indexOf("var tfBar = $id('timeframeBar')"), app.indexOf("/* ---- Pemilih tipe chart")).includes('state.candles = []'));
+chk('timeframe switch retains last valid chart and cancels prior analysis fetch', (() => { const a = app.indexOf('/* ---- Timeframe bar ---- */'); const b = app.indexOf('/* ---- Tab filter & sort DEX Meme Radar */', a); const block = a >= 0 ? app.slice(a, b > a ? b : a + 2500) : ''; return block.includes('state.tf = tf') && !block.includes('state.candles = []') && app.includes('activeAnalysisController.abort()'); })());
 chk('seed preview tidak menjalankan quant engine penuh', app.includes('function renderSeedCandlesPreview(candles)') && app.includes('Exactly one full quant pass per successful timeframe response.'));
 chk('DEX workspace tetap manual tanpa scanner rekomendasi', html.includes('id="memeWorkspaceWrap"') && html.includes('id="selMemeInstrument"') && !html.includes('id="memeRadarSection"') && !html.includes('id="memePicksGrid"') && app.includes('— Pilih token DEX secara manual —'));
 
@@ -65,14 +65,14 @@ chk('feed sintetis hanya preview dan tidak menjalankan quant engine penuh', app.
 
 // --- Wiring lock persisten (aturan #3.2) ---
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
-chk('engine rekomendasi lintas-instrumen tidak lagi aktif', !app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)") && !html.includes('id="opportunityRadarGrid"'));
+chk('multi-instrument recommendation engine is disabled', !app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)") && /function fetchRadarCandidate\(\) \{\s*return Promise\.resolve\(null\);/.test(app) && !html.includes('id="opportunityRadarGrid"'));
 chk('lock divalidasi sebelum diterapkan', app.includes('SE.validateSignalLock(') && app.includes('SE.applyLockedSignal('));
-chk('jurnal hanya menerima instrumen manual dengan skor tinggi dan top-down alignment', app.includes('var journalEligible = state.manualInstrumentSelection === true') && app.includes("alignmentStatus === 'ALIGNED_BULLISH'") && app.includes("alignmentStatus === 'ALIGNED_BEARISH'") && app.includes("scope === 'create'") && app.includes('Math.max(80, adaptiveMinScore(tfA))'));
+chk('journal accepts only manually selected high-score aligned setups', app.includes('var manualJournalEligible = state.manualInstrumentSelection === true') && app.includes("alignmentStatus === 'ALIGNED_BULLISH'") && app.includes("alignmentStatus === 'ALIGNED_BEARISH'") && app.includes("scope === 'create'") && app.includes('Math.max(80, adaptiveMinScore(tfA))'));
 
 // --- Wiring scan multi-TF (aturan #2) ---
 chk('pilihan timeframe manual tetap tersedia', ['M1','M5','M15','M30','H1','H4','D1','W1','MN'].every(tf => app.includes("'" + tf + "'")));
 chk('pemindaian best-timeframe otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
-chk('engine manual tetap menggunakan timeframe aktif pilihan user', app.includes('state.tf') && app.includes('function runFullAnalysis') && app.includes('manualInstrumentSelection'));
+chk('manual engine retains the user-selected timeframe', app.includes('state.tf') && app.includes('window.runFullAnalysis = async function') && app.includes('manualInstrumentSelection'));
 chk('badge NO-TRADE tersedia', app.includes('eNoTradeTf'));
 // Wiring i18n baris Institutional Gate (lulus/ditolak) + map 9 label veto
 chk('regex gate LULUS/DITOLAK di localizeEngineString', app.includes('Institutional Gate\\] LULUS') && app.includes('Institutional Gate\\] DITOLAK'));
@@ -107,7 +107,7 @@ chk('klik jurnal memicu analisis manual pada instrumen yang dipilih', app.includ
 chk('invalidasi lock butuh penerimaan harga (anti chop)', eng.includes('againstLong') && eng.includes('STRUCTURE_INVALID'));
 chk('radar scan otomatis tidak dijadwalkan', /function startRadarAutoPilot\(\) \{\s*return;/.test(app));
 chk('hasil analisis tidak ditulis ke pool rekomendasi', !app.includes('writeBackRadarPools(analysis)'));
-chk('pergantian mode tidak menjalankan rescan rekomendasi', !app.includes('renderInvestorPicks(true)') && !app.includes('renderOpportunityRadar(true)'));
+chk('mode changes do not invoke recommendation renderers', (() => { const a = app.indexOf('function setMode(mode) {'); const b = app.indexOf('function setSubMode(sub) {', a); const block = app.slice(a, b); return a >= 0 && !block.includes('renderInvestorPicks(') && !block.includes('renderOpportunityRadar(') && !block.includes('renderMemePicks('); })());
 chk('gate konfirmasi volume & squeeze breakout', eng.includes('volImpulse') && eng.includes('squeezeBlockedDir') && eng.includes('SQUEEZE_UNCONFIRMED'));
 chk('tier memakai performa terkini (recentWinRate)', eng.includes('recentWinRate') && eng.includes('>= 70'));
 chk('fundamental terukur (macroQuant) ada di output & UI', eng.includes('macroQuant') && app.includes('fmCycle') && app.includes('fmVolPct'));
@@ -117,7 +117,7 @@ chk('harga tampilan ikut walau candle belum siap', app.includes("setTxt('hdrLive
 chk('cadangan anti-stall Binance ticker untuk crypto', app.includes("ticker/price?symbol=' + sym2.replace"));
 chk('lock v3 per-TF + migrasi v2 (sinyal lama tidak dibuang)', app.includes("'xstarzg_siglock_v3'") && app.includes('__migratedV2') && app.includes("'|' + String(tf || state.tf || '')"));
 chk('lifecycle outcome tercatat + cooldown pasca-SL', app.includes('recordSignalOutcome(symbol, tfA, verdict, lock)') && app.includes('signalCooldownActive(symbol, tfA)') && app.includes("'xstarzg_sigoutcome_v1'"));
-chk('pembuatan jurnal mensyaratkan scope create dan alignment arah', app.includes("scope === 'create'") && app.includes('directionAligned') && app.includes('journalEligible'));
+chk('journal creation requires create scope and directional alignment', app.includes("scope === 'create'") && app.includes('directionAligned') && app.includes('manualJournalEligible'));
 chk('ambang skor minimal jurnal adalah 80', app.includes('Math.max(80, adaptiveMinScore(tfA))'));
 chk('siklus outcome jurnal tetap aktif tanpa kartu radar', app.includes('recordSignalOutcome(symbol, tfA, verdict, lock)') && app.includes('signalCooldownActive(symbol, tfA)'));
 chk('gate persistensi 2-candle anti fakeout', eng.includes('persistOk') && eng.includes('PERSIST_WAIT'));
@@ -196,7 +196,7 @@ chk('wrangler.toml mengikat D1 DB (database_id terkonfigurasi)', /\[\[d1_databas
 /* v2026.68 HEMAT KUOTA CLOUDFLARE lint (paket gratis 100rb request/hari) */
 chk('ticker 5 dtk + 0 request saat tab latar + crypto Binance-first', /RT_TICK_MS = 5000/.test(app) && /document\.hidden\) return;/.test(app) && /data-api\.binance\.vision\/api\/v3\/ticker\/price/.test(app));
 chk('ticker tanpa cache-buster _t pada quote=1 (respons bisa di-cache)', !/analyze\?quote=1&symbol=' \+ encodeURIComponent\(sym\) \+ '&tf=' \+ encodeURIComponent\(tf\) \+ '&_t='/.test(app));
-chk('batch radar & investor diet (30/4 & 26/6) + autopilot force 4 mnt', /rotatingSlice\(catalogSortedStable\(\), 30, 4\)/.test(app) && /rotatingSlice\(investableUniverse\(\), 26, 6\)/.test(app) && />= 4 \* 60000/.test(app));
+chk('radar and investor auto-scans are retired', /function startRadarAutoPilot\(\) \{\s*return;/.test(app) && /function scheduleBestTfScan\(\) \{\s*return;/.test(app) && !app.includes('rotatingSlice(catalogSortedStable(), 30, 4)'));
 chk('edge analyze quote-only di-cache 4 dtk lintas-user', /caches\.default/.test(edgeAnalyze) && /max-age=4/.test(edgeAnalyze));
 /* v2026.68 RESPONSIF MOBILE lint */
 chk('responsif mobile: overflow-x hidden pada html & body + radar-card min-width 0', /html\s*\{[\s\S]*overflow-x:\s*hidden/.test(css) && /radar-card\s*\{[\s\S]*min-width:\s*0/.test(css) && /#inpSearchAsset/.test(css));
