@@ -47,45 +47,13 @@ function showScreen(name) {
 }
 if (typeof window !== 'undefined') window.showScreen = showScreen;
 
-function saveSession() {
-  if (!state || !state.user) return;
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify({
-      v: 4,
-      user: state.user,
-      symbol: state.symbol || 'XAU/USD', tf: state.tf || 'H1', mode: state.mode || 'trader', subMode: state.subMode || 'futures',
-      radarHorizon: state.radarHorizon || 'intraday', at: Date.now()
-    }));
-    var tok = (state.user && (state.user.ownerToken || state.user.authToken)) || '';
-    if (tok) localStorage.setItem('xstarzg_jwt', tok);
-  } catch (e) {}
-}
-
-function loadSession() {
-  try {
-    var raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    var p = JSON.parse(raw);
-    if (!p) return null;
-    var user = p.user || (p.email ? p : null);
-    if (!user || !user.email) return null;
-    if (user.tier === 'VIP' && user.vipUntil && Date.now() > user.vipUntil) user.tier = 'FREE';
-    p.user = user;
-    var tok = (user.ownerToken || user.authToken) || '';
-    if (tok) {
-      try { localStorage.setItem('xstarzg_jwt', tok); } catch (e) {}
-    }
-    return p;
-  } catch (e) { return null; }
-}
-
 var __xsChartVendorRequested = false;
 function ensureChartVendorLoaded() {
   try {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2026.88';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2026.91';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -122,7 +90,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2026.88';
+    bootScript.src = '/js/engine-boot.js?v=2026.91';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
