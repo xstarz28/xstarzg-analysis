@@ -107,6 +107,17 @@ function ensureChartVendorLoaded() {
     __xsChartVendorRequested = false;
   }
 }
+function renderSeedCandlesPreview(candles) {
+  if (!Array.isArray(candles) || !candles.length) return;
+  try {
+    if (candleSeries && typeof mainSeriesPayload === 'function') {
+      candleSeries.setData(mainSeriesPayload(candles));
+      if (chartInstance && chartInstance.timeScale) chartInstance.timeScale().fitContent();
+    } else if (typeof window !== 'undefined' && typeof window.drawCanvasFallbackChart === 'function') {
+      window.drawCanvasFallbackChart(candles, null);
+    }
+  } catch (e) {}
+}
 var __xsEngineBootRequested = false;
 function ensureQuantEnginesLoaded() {
   try {
@@ -149,8 +160,8 @@ function enterWorkspace() {
           state.livePrice = seeded.price;
           state.liveChangePct = 0.25;
           state.feedSource = 'LOCAL_SEED';
-          var instant = typeof computeQuantEngine === 'function' ? computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED') : null;
-          if (instant && typeof renderAllVisuals === 'function') renderAllVisuals(instant, true);
+          state.lastAnalysis = null;
+          renderSeedCandlesPreview(state.candles);
         }
       }
     } catch (eSeed) {}
@@ -1763,9 +1774,9 @@ function computeQuickAnalysis(candles, symbol, tf) {
 }
 
 /* ==================== 3. FEED DATA PASAR (candlestick OHLCV) ==================== */
-function fetchRealMarketCandles(symbol, tf) {
+function fetchRealMarketCandles(symbol, tf, requestController) {
   return new Promise(function (resolve) {
-    var ctrl = new AbortController();
+    var ctrl = requestController || new AbortController();
     var timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 12000);
     fetch('/api/market/analyze?symbol=' + encodeURIComponent(symbol) + '&tf=' + encodeURIComponent(tf || 'H1'), {
       cache: 'no-store', signal: ctrl.signal
@@ -1809,8 +1820,10 @@ function fetchRealMarketCandles(symbol, tf) {
         }
       }
       throw new Error('DATA_SHORT');
-    }).catch(function () {
+    }).catch(function (fetchError) {
       clearTimeout(timer);
+      // Canceled/stale request: let the caller discard it instead of generating fallback candles.
+      if (ctrl.signal && ctrl.signal.aborted) throw fetchError || new Error('REQUEST_ABORTED');
       // Fallback lokal terkalibrasi (agar UI tidak pernah kosong)
       var local;
       try {
@@ -9246,11 +9259,14 @@ function bindUiEvents() {
         if (!tf || tf === state.tf) return;
         Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) { b.classList.toggle('active', b === btn); });
         state.tf = tf; state.timeframe = tf;
-        state.candles = [];
+        // Keep the last valid chart visible while the new timeframe is loading.
+        // Clearing candles here forced runFullAnalysis to synchronously seed and
+        // quantify 220 synthetic bars before fetching the real timeframe.
         state.bestTfBoard = null;
         saveSession();
+        setTxt('lblEngineStatus', '⏳ MEMUAT ' + tf + ' — mengambil candle broker…');
+        try { startCandleCountdown(); } catch (e) {}
         if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-        connectRealtimeStream();
       });
     });
   }
@@ -10475,71 +10491,80 @@ if (document.readyState === 'loading') {
   window.generateSeedCandles = generateSeedCandles;
   window.SEED_PRICES = SEED_PRICES;
   let analysisRequestSeq = 0;
-  // Override runFullAnalysis agar 100% langsung menggambar data & chart dalam 0 detik lalu menyinkronkan harga live
+  let activeAnalysisController = null;
+  // Do not block the UI with a second full quant calculation on synthetic seed candles.
+  // Seed candles are only a visual placeholder; the complete engine runs once real data arrives.
   window.runFullAnalysis = async function (forceRecalc = false) {
     const mySeq = ++analysisRequestSeq;
     const reqSymbol = state.symbol;
     const reqTf = state.tf;
+    if (activeAnalysisController) {
+      try { activeAnalysisController.abort(); } catch (e) {}
+    }
+    const requestController = new AbortController();
+    activeAnalysisController = requestController;
     try {
       if (!chartInstance && typeof initChart === 'function') initChart();
       try { auditAndCleanseCorruptedStorage(); } catch (e) {}
-      // 1. Jika state.candles masih kosong atau berganti simbol, langsung tampilkan seed terkalibrasi (0ms delay)
-      if (!state.candles || state.candles.length === 0 || (state.lastAnalysis && state.lastAnalysis.symbol !== state.symbol)) {
-        const seeded = generateSeedCandles(state.symbol, state.tf);
+
+      // Initial workspace entry only: draw a lightweight seed preview without running
+      // computeQuantEngine/renderAllVisuals. A timeframe switch retains the prior bars
+      // and therefore skips this branch entirely.
+      if (!state.candles || state.candles.length === 0 || (state.lastAnalysis && state.lastAnalysis.symbol !== reqSymbol)) {
+        const seeded = generateSeedCandles(reqSymbol, reqTf);
         if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
         state.candles = seeded.candles;
         state.livePrice = seeded.price;
         state.liveChangePct = 0.25;
         state.feedSource = 'LOCAL_SEED';
-        const instantAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
-        if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol) return;
-        renderAllVisuals(instantAnalysis, true);
-        drawCanvasFallbackChart(state.candles, instantAnalysis);
-        if (chartInstance) chartInstance.timeScale().fitContent();
-        renderOpportunityRadar();
+        state.lastAnalysis = null;
+        renderSeedCandlesPreview(state.candles);
       }
-      // 2. Ambil kuotasi & candlestick broker real-time dari server
-      const data = await fetchRealMarketCandles(reqSymbol, reqTf);
-      // Validasi ketat anti balap (race condition) saat user berganti pair bolak-balik:
-      if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) {
-        return; // Response kadaluwarsa dari pair sebelumnya — abaikan langsung!
-      }
-      if (data && data.symbol && data.symbol !== reqSymbol) {
-        return; // Simbol response tidak cocok dengan simbol aktif
-      }
+
+      setTxt('lblEngineStatus', '⏳ MEMUAT ' + reqTf + ' — mengambil candle broker…');
+      const data = await fetchRealMarketCandles(reqSymbol, reqTf, requestController);
+      // Ignore responses from requests superseded by a newer symbol/timeframe selection.
+      if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
+      if (data && data.symbol && data.symbol !== reqSymbol) return;
+
       if (data && Array.isArray(data.candles) && data.candles.length >= 5) {
         const lastBar = data.candles[data.candles.length - 1];
-        if (!isPriceCompatibleWithSymbol(lastBar.close, reqSymbol)) {
-          return; // Harga candlestick tidak kompatibel dengan pair aktif — cegah kontaminasi!
-        }
+        if (!isPriceCompatibleWithSymbol(lastBar.close, reqSymbol)) return;
         state.candles = data.candles;
         state.livePrice = Number(data.price) || lastBar.close;
         state.liveChangePct = Number(data.changePct) || 0.25;
         state.feedSource = data.source || 'LIVE_BROKER';
-        if (!feedIsEstimate(state.feedSource) && feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
-        const analysis = computeQuantEngine(state.candles, state.symbol, state.tf, forceRecalc, 'create', data.source || 'LIVE_BROKER');
+        if (!feedIsEstimate(state.feedSource) && feedReconnectTimer) {
+          try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {}
+        }
+        // Exactly one full quant pass per successful timeframe response.
+        const analysis = computeQuantEngine(state.candles, reqSymbol, reqTf, forceRecalc, 'create', data.source || 'LIVE_BROKER');
         if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
         renderAllVisuals(analysis, true);
         drawCanvasFallbackChart(state.candles, analysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
+        connectRealtimeStream();
+        renderOpportunityRadar();
+        scheduleBestTfScan();
+        if (feedIsEstimate(state.feedSource)) scheduleFeedReconnect();
       }
-      connectRealtimeStream();
-      renderOpportunityRadar();
-      scheduleBestTfScan();
-      if (feedIsEstimate(state.feedSource)) scheduleFeedReconnect();
     } catch (err) {
       if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
-      const seeded = generateSeedCandles(state.symbol, state.tf);
+      // Do not run the expensive quant engine over synthetic fallback candles.
+      // Keep the chart usable, mark the feed as unverified, and allow a retry.
+      const seeded = generateSeedCandles(reqSymbol, reqTf);
       state.candles = seeded.candles;
       state.livePrice = seeded.price;
+      state.liveChangePct = 0;
       state.feedSource = 'LOCAL_SEED';
-      const fallbackAnalysis = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
-      if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol) return;
-      renderAllVisuals(fallbackAnalysis, true);
-      drawCanvasFallbackChart(state.candles, fallbackAnalysis);
+      state.lastAnalysis = null;
+      renderSeedCandlesPreview(state.candles);
+      setTxt('lblEngineStatus', '⚠ FEED ' + reqTf + ' TIDAK TERSEDIA — pratinjau lokal, sinyal belum diverifikasi');
       renderOpportunityRadar();
-      scheduleBestTfScan();
       scheduleFeedReconnect();
+      connectRealtimeStream();
+    } finally {
+      if (activeAnalysisController === requestController) activeAnalysisController = null;
     }
   };
   // Pre-warm radar & initial analysis on load
@@ -10557,8 +10582,8 @@ if (document.readyState === 'loading') {
           state.candles = seeded.candles;
           state.livePrice = seeded.price;
           state.feedSource = 'LOCAL_SEED';
-          const initAn = computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED');
-          renderAllVisuals(initAn, false);
+          state.lastAnalysis = null;
+          renderSeedCandlesPreview(state.candles);
         } catch (eInitAn) {}
       }
       // Initial background feeds run only after an actual workspace entry.
@@ -10568,7 +10593,7 @@ if (document.readyState === 'loading') {
         try { fetchMacroRegime(false); } catch (e) {}
         try { renderMacroMap(); } catch (e) {}
         try { renderSignalJournal(); } catch (e) {}
-        try { fetchMemeCatalogLive(true); startMemePoolBackgroundTicker(); } catch (e) {}
+        // DEX/Meme scanner is loaded on demand when the user opens Meme mode; do not fetch it during Trader/Investor startup.
       }
       setInterval(function () {
         var w = document.getElementById('appWorkspaceWrapper');
