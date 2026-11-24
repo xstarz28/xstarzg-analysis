@@ -8862,7 +8862,6 @@ function bindUiEvents() {
         state.radarHorizon = hz;
         syncHorizonTabs();
         saveSession();
-        renderOpportunityRadar(true);
       });
     });
   }
