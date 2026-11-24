@@ -255,8 +255,7 @@ if (typeof document !== 'undefined') {
    bagian bawah file DIPERTAHANKAN apa adanya agar tetap selaras dengan hasil
    penyempurnaan sesi sebelumnya — core ini mendefinisikan semua global yang
    mereka butuhkan (state, chartInstance, candleSeries, initChart,
-   computeQuantEngine, renderAllVisuals, renderOpportunityRadar,
-   fetchRealMarketCandles, connectRealtimeStream, formatPrice).
+   computeQuantEngine, renderAllVisuals, fetchRealMarketCandles, connectRealtimeStream, formatPrice).
    ================================================================================ */
 
 /* ==================== 0. UTILITAS & STATE GLOBAL ==================== */
@@ -510,10 +509,6 @@ var state = {
   mode: 'trader',            // 'trader' | 'investor'
   subMode: 'futures',        // 'futures' | 'spot'
   chartType: 'candles',      // 'candles' | 'bars' | 'line' | 'area' (ala TradingView)
-  radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
-  radarGroup: 'all',         // 'all' | 'crypto' | 'fx_comm' | 'stocks' (3 bagan terpisah)
-  radarViability: 'actionable', // 'actionable' (layak entry) | 'fresh' | 'running' | 'all'
-  bestTfBoard: null,         // papan hasil scan multi-TF (engine), diisi async
   candles: [],
   lastAnalysis: null,
   livePrice: 0,
@@ -2205,27 +2200,7 @@ function gateBlockHtml(a) {
     out += '<div style="margin-top:6px;padding:6px 9px;border-radius:7px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);font-size:11.5px;color:#fde68a;">' +
       fillTpl(T('ui.eNewsWarn', '⏰ PERINGATAN NEWS: {t} ({imp}) sekitar {w} — volatilitas dapat melonjak dua arah; disiplin master = tunggu resolusi news, jangan entry tepat sebelum rilis.'), { t: escH(newsWarn.title), imp: newsWarn.impact, w: newsFmtTime(newsWarn.ts) }) + '</div>';
   }
-  if (macroState.data && macroState.data.ok) {
-    var md = macroState.data;
-    out += '<div style="margin-top:6px;padding:5px 9px;border-radius:7px;background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.25);font-size:11px;color:#bae6fd;">' +
-      fillTpl(T('ui.eMacroTrader', '🌐 Konteks Makro: {r} • Growth {g}% • Inflasi {i}% • USD {u}% • Risk {x}% — sesuaikan ekspektasi & sizing dengan cuaca makro.'), { r: macroRegimeLabel(), g: md.growth, i: md.inflation, u: md.usdBias, x: md.riskAppetite }) + '</div>';
-  }
-  var b = state.bestTfBoard;
-  if (b && b.groups) {
-    var cell = function (g) {
-      if (!g || !g.tf) return '—';
-      if (g.tier === 'ELITE') return g.tf + ' ★ ELITE ' + num(g.winRate).toFixed(0) + '%';
-      if (g.tier === 'PRO') return g.tf + ' ✅ PRO ' + num(g.winRate).toFixed(0) + '%';
-      return g.tf + ' ✖';
-    };
-    out += '<div style="margin-top:6px;font-size:11.5px;font-weight:700;color:#e2e8f0;">' +
-      fillTpl(T('ui.eGateBest', 'Status Scan Timeframe Terbaik → Scalping: {sc} | Intraday: {id} | Swing: {sw}'), {
-        sc: cell(b.groups.scalping), id: cell(b.groups.intraday), sw: cell(b.groups.swing)
-      }) + '</div>' +
-      '<div style="font-size:10.8px;color:#94a3b8;">' + T('ui.eGateBestHint', '✖ artinya horizon itu BELUM ADA setup layak (ditahan gerbang — bukan rekomendasi). Buka TF berlogo ✅ (PRO, skor ≥62) atau ★ (ELITE, skor ≥84 & WR ≥78%).') + '</div>';
-  } else if (!a.signalEligible && !a.lockedSignal) {
-    out += '<div style="font-size:10.8px;color:#94a3b8;margin-top:4px;">' + T('ui.eGateScanning', 'Memindai 9 timeframe di belakang layar untuk mengarahkan ke sinyal terbaik…') + '</div>';
-  }
+  // Analisis hanya pada instrumen dan timeframe yang dipilih pengguna.
   return out;
 }
 
@@ -3540,14 +3515,8 @@ function renderSignalJournal() {
       var curP = 0;
       if (state.symbol && state.symbol.toUpperCase() === sym && Number(state.livePrice) > 0) {
         curP = Number(state.livePrice);
-      } else if (typeof investorScanPool !== 'undefined' && investorScanPool[sym] && Number(investorScanPool[sym].price) > 0) {
-        curP = Number(investorScanPool[sym].price);
-      } else if (typeof radarScanPool !== 'undefined' && radarScanPool.swing && radarScanPool.swing[sym + '|D1'] && Number(radarScanPool.swing[sym + '|D1'].item.price) > 0) {
-        curP = Number(radarScanPool.swing[sym + '|D1'].item.price);
-      } else if (Number(it.currentPrice) > 0) {
-        curP = Number(it.currentPrice);
       } else {
-        curP = Number(it.entryPrice);
+        curP = Number(it.currentPrice) > 0 ? Number(it.currentPrice) : Number(it.entryPrice);
       }
       it._curP = curP;
       var pnl = (it.entryPrice > 0 && curP > 0) ? ((curP - it.entryPrice) / it.entryPrice) * 100 : 0;
@@ -6505,7 +6474,7 @@ if (document.readyState === 'loading') {
   setInterval(async function () {
     if (rtBusy) return;
     try {
-      if (typeof state === 'undefined' || !state || !state.symbol) return;
+      if (typeof state === 'undefined' || !state || !state.symbol || !hasManualInstrumentSelection) return;
       /* HEMAT KUOTA CLOUDFLARE (v2026.66): Functions request dibatasi 100rb/hari
          di paket gratis, jadi ticker diperketat tanpa mengurangi fitur:
          1) tab latar belakang -> 0 request (document.hidden);
