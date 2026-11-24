@@ -175,4 +175,13 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(appJs.includes("var url = '/api/scanner/meme?chain='"), 'endpoint DEX scanner tetap dipakai');
     assert.ok(appJs.includes('function fetchMemeCatalogLive(force)'), 'fungsi fetch DEX tetap ada');
   });
+
+  await t.test('29. feed sintetis tidak menjalankan full quant engine', () => {
+    const start = appJs.indexOf('window.runFullAnalysis = async function');
+    const end = appJs.indexOf('// Pre-warm radar & initial analysis on load', start);
+    const body = appJs.slice(start, end);
+    assert.ok(body.includes('feedIsEstimate(data.source)'), 'provenance feed diperiksa sebelum quant');
+    assert.ok(body.includes('FEED ESTIMASI'), 'feed sintetis hanya ditampilkan sebagai preview');
+    assert.ok(body.includes('scheduleFeedReconnect();'), 'reconnect broker tetap dijadwalkan');
+  });
 });
