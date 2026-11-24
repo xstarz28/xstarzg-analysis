@@ -117,13 +117,13 @@ test('AUDIT VERIFIKASI HASIL PREDIKSI BERITA EKONOMI (ANTI-OMONG KOSONG)', async
 
 test('JURNAL INVESTOR & DEX TIDAK LAGI DIISI OLEH ENGINE REKOMENDASI', async (t) => {
   await t.test('fungsi sinkronisasi rekomendasi Investor/DEX hanya mengembalikan daftar kosong', () => {
-    assert.match(appJs, /function syncRecommendedMemeToJournal\\(\\) \\{[\\s\\S]*?return \\[\\];/);
-    assert.match(appJs, /function syncCuratedInvestorToJournal\\(\\) \\{[\\s\\S]*?return \\[\\];/);
+    assert.ok(appJs.includes("function syncRecommendedMemeToJournal() {\\n  // Legacy compatibility only: scanner candidates are not journal entries.\\n  return [];"), 'DEX recommendation sync harus no-op');
+    assert.ok(appJs.includes("function syncCuratedInvestorToJournal() {\\n  // Legacy compatibility only: recommendations are not journal entries.\\n  return [];"), 'Investor recommendation sync harus no-op');
   });
 
   await t.test('jurnal Investor/DEX hanya membaca entri yang disimpan secara manual', () => {
-    assert.match(appJs, /function investorJournalStore\\(\\) \\{[\\s\\S]*?localStorage\\.getItem\\(INVESTOR_JOURNAL_KEY\\)/);
-    assert.match(appJs, /function memeJournalStore\\(\\) \\{[\\s\\S]*?localStorage\\.getItem\\(MEME_JOURNAL_KEY\\)/);
+    assert.ok(appJs.includes('function investorJournalStore() {') && appJs.includes('localStorage.getItem(INVESTOR_JOURNAL_KEY)'), 'Investor journal membaca storage lokal manual');
+    assert.ok(appJs.includes('function memeJournalStore() {') && appJs.includes('localStorage.getItem(MEME_JOURNAL_KEY)'), 'DEX journal membaca storage lokal manual');
   });
 
   await t.test('checkSignalAlarm memblokir feed estimasi, seed lokal, dan pasar tutup', () => {
