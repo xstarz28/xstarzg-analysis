@@ -498,9 +498,7 @@ function gateBlockHtml(a) {
    saat candle closed baru terbentuk (anchor berubah). */
 var bestTfScanSeq = 0;
 var bestTfScanCache = {};
-function scheduleBestTfScan() {
-  return;
-}
+function scheduleBestTfScan() { return; }
 function riskParams(a) {
   var atrPct = Math.max(0.05, num(a && a.indicators ? a.indicators.atrPct : 0) || 0.5);
   var lev = atrPct < 0.4 ? 25 : atrPct < 0.9 ? 20 : atrPct < 1.8 ? 15 : atrPct < 3.2 ? 10 : 5;
@@ -3042,9 +3040,7 @@ function drawInvestorPickCards(items) {
     card.addEventListener('click', function () { gotoInstrument(card.getAttribute('data-sym'), 'D1'); });
   });
 }
-function renderInvestorPicks() {
-  return;
-}
+function renderInvestorPicks() { return; }
 function formatCompactNum(n) {
   var numVal = Number(n) || 0;
   if (numVal >= 1e9) return (numVal / 1e9).toFixed(2) + 'B';
@@ -3873,9 +3869,7 @@ function renderMemePicks() {
   renderMemeInstrumentOptions();
 }
 
-function renderOpportunityRadar() {
-  return;
-}
+function renderOpportunityRadar() { return; }
 function gotoInstrument(sym, tf) {
   if (!sym) return;
   if (state.mode === 'meme') {
@@ -6406,9 +6400,7 @@ function selectSymbol(sym) {
    refresh manual. Repaint murah tiap 60 dtk; scan batch penuh tiap 5 menit;
    jeda otomatis saat tab tidak terlihat. */
 var radarAutoLastForce = 0;
-function startRadarAutoPilot() {
-  return;
-}
+function startRadarAutoPilot() { return; }
 
 var __xsBootCoreStarted = false;
 function bootCore() {
