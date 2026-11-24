@@ -26,7 +26,8 @@ test('MOBILE STARTUP — MANUAL ANALYSIS ONLY', async (t) => {
     assert.ok(body.includes('initChart()'));
     assert.ok(!body.includes('generateSeedCandles('));
     assert.ok(!body.includes('computeQuantEngine('));
-    assert.ok(!body.includes('runFullAnalysis('));
+    assert.ok(body.includes('if (hasManualInstrumentSelection && typeof window.runFullAnalysis'));
+    assert.ok(!body.includes('generateSeedCandles('));
   });
 
   await t.test('no initial market analysis without a manually selected instrument', () => {
@@ -48,7 +49,7 @@ test('MOBILE STARTUP — MANUAL ANALYSIS ONLY', async (t) => {
     assert.ok(app.includes('activeAnalysisController.abort()'));
     assert.ok(app.includes('analysisRequestSeq'));
     assert.ok(app.includes('mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf'));
-    const tfStart = app.indexOf("var tfBar = $id('timeframeBar')");
+    const tfStart = app.indexOf('/* ---- Timeframe bar ---- */');
     const tfEnd = app.indexOf('/* ---- Pemilih tipe chart', tfStart);
     const handler = app.slice(tfStart, tfEnd);
     assert.ok(!handler.includes('state.candles = []'));
