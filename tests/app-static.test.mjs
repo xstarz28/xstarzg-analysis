@@ -55,6 +55,11 @@ chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.inc
 
 chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'") && app.includes('ensureChartVendorLoaded();'));
 
+
+chk('timeframe switch mempertahankan chart dan membatalkan fetch lama', app.includes("var tfBar = $id('timeframeBar')") && app.includes('activeAnalysisController.abort()') && !app.slice(app.indexOf("var tfBar = $id('timeframeBar')"), app.indexOf("/* ---- Pemilih tipe chart")).includes('state.candles = []'));
+chk('seed preview tidak menjalankan quant engine penuh', app.includes('function renderSeedCandlesPreview(candles)') && app.includes('Exactly one full quant pass per successful timeframe response.'));
+chk('DEX scanner tetap aktif hanya saat pengguna membuka Meme mode', app.includes("else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }") && app.includes("'/api/scanner/meme?chain='"));
+
 // --- Wiring lock persisten (aturan #3.2) ---
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
 chk('radar/kurasi memakai scope apply + provenance feed (komitmen terlacak sejak tampil)', app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)"));
