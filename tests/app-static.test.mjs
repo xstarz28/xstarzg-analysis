@@ -60,6 +60,8 @@ chk('timeframe switch mempertahankan chart dan membatalkan fetch lama', app.incl
 chk('seed preview tidak menjalankan quant engine penuh', app.includes('function renderSeedCandlesPreview(candles)') && app.includes('Exactly one full quant pass per successful timeframe response.'));
 chk('DEX scanner tetap aktif hanya saat pengguna membuka Meme mode', app.includes("else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }") && app.includes("'/api/scanner/meme?chain='"));
 
+chk('feed sintetis hanya preview dan tidak menjalankan quant engine penuh', app.includes('feedIsEstimate(data.source)') && app.includes('FEED ESTIMASI — preview saja'));
+
 // --- Wiring lock persisten (aturan #3.2) ---
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
 chk('radar/kurasi memakai scope apply + provenance feed (komitmen terlacak sejak tampil)', app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)"));

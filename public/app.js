@@ -10527,6 +10527,23 @@ if (document.readyState === 'loading') {
       if (mySeq !== analysisRequestSeq || state.symbol !== reqSymbol || state.tf !== reqTf) return;
       if (data && data.symbol && data.symbol !== reqSymbol) return;
 
+      // Successful HTTP responses can still contain broker-fallback/synthetic candles.
+      // Show them as an unverified preview only; never spend a full quant pass on them.
+      if (data && Array.isArray(data.candles) && data.candles.length >= 5 && feedIsEstimate(data.source)) {
+        const estimatedLastBar = data.candles[data.candles.length - 1];
+        if (!isPriceCompatibleWithSymbol(estimatedLastBar.close, reqSymbol)) return;
+        state.candles = data.candles;
+        state.livePrice = Number(data.price) || estimatedLastBar.close;
+        state.liveChangePct = Number(data.changePct) || 0;
+        state.feedSource = data.source || 'EDGE_SYNTHETIC_CALIBRATED';
+        state.lastAnalysis = null;
+        renderSeedCandlesPreview(state.candles);
+        setTxt('lblEngineStatus', '⚠ FEED ESTIMASI — preview saja; sinyal belum diverifikasi');
+        connectRealtimeStream();
+        scheduleFeedReconnect();
+        return;
+      }
+
       if (data && Array.isArray(data.candles) && data.candles.length >= 5) {
         const lastBar = data.candles[data.candles.length - 1];
         if (!isPriceCompatibleWithSymbol(lastBar.close, reqSymbol)) return;
