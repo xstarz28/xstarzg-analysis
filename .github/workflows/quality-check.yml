@@ -23,9 +23,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check core JavaScript syntax
+      - name: Check core JavaScript and test syntax
         run: |
           node --check public/app.js
+          node --check tests/app-static.test.mjs
+          node --check tests/journal-segments-and-execution.test.mjs
+          node --check tests/sentinel-journal-fix.test.mjs
           node --check public/js/engine-boot.js
           node --check public/js/shared/signal-engine.js
           node --check scripts/market-sentinel.mjs
