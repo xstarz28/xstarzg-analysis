@@ -1178,15 +1178,23 @@ function clearLocalJournalStores(resetAt) {
     localStorage.setItem(JOURNAL_RESET_KEY, String(Number(resetAt) || Date.now()));
   } catch (e) {}
 }
+function applyCloudJournalReset(resetAt) {
+  var remoteReset = Number(resetAt) || 0;
+  var localReset = 0;
+  try { localReset = Number(localStorage.getItem(JOURNAL_RESET_KEY) || 0); } catch (e) {}
+  if (!remoteReset || remoteReset <= localReset) return false;
+  clearLocalJournalStores(remoteReset);
+  return true;
+}
 function syncCloudSignalJournal() {
   fetch('/api/market/journal-sync', { cache: 'no-store' })
     .then(function (r) { return r && r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d || !d.ok) return;
-      var remoteReset = Number(d.resetAt) || 0;
       var localReset = 0;
       try { localReset = Number(localStorage.getItem(JOURNAL_RESET_KEY) || 0); } catch (e) {}
-      if (remoteReset > localReset) clearLocalJournalStores(remoteReset);
+      var resetApplied = applyCloudJournalReset(d.resetAt);
+      var remoteReset = Number(d.resetAt) || 0;
       var fresh = { __migratedV2: 1 };
       (Array.isArray(d.activeLocks) ? d.activeLocks : []).forEach(function (l) {
         if (!l || !l.symbol || !l.tf) return;
