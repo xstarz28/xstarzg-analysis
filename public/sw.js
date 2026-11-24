@@ -5,7 +5,6 @@ const STATIC_ASSETS = [
   '/index.html',
   '/styles.css',
   '/app.js',
-  '/vendor/lightweight-charts.js',
   '/i18n/boot.js',
   '/i18n/index.js',
   '/i18n/locales/id.json',
