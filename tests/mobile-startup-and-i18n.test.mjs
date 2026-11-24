@@ -120,4 +120,24 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     const pilot = appJs.slice(pilotStart, pilotEnd);
     assert.ok(pilot.includes("workspace.classList.contains('hidden')"), 'auto-pilot memeriksa visibilitas workspace');
   });
+
+  await t.test('21. quant/signal engine baru dimuat setelah workspace dibuka', () => {
+    assert.ok(appJs.includes('function ensureQuantEnginesLoaded()'), 'lazy loader tersedia');
+    assert.ok(appJs.includes('ensureQuantEnginesLoaded();'), 'workspace meminta engine');
+    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.88'"), 'modul engine tidak di-load dari landing');
+  });
+  await t.test('22. bootPostDom tidak menghitung seed saat landing/login', () => {
+    const bootStart = appJs.indexOf('function bootPostDom()');
+    const bootEnd = appJs.indexOf('// ==================== PWA INSTALL', bootStart);
+    const bootBody = appJs.slice(bootStart, bootEnd);
+    assert.ok(bootBody.includes('if (isInWork && (!state.candles || !state.candles.length))'), 'seed analysis hanya saat workspace aktif');
+  });
+  await t.test('23. auto-screening dan Best TF tidak berjalan di terminal utama', () => {
+    const radarStart = appJs.indexOf('function renderOpportunityRadar(force)');
+    const investorStart = appJs.indexOf('function renderInvestorPicks(force)');
+    const tfStart = appJs.indexOf('function scheduleBestTfScan()');
+    assert.ok(appJs.indexOf('return;', radarStart) < appJs.indexOf('rotatingSlice(catalogSortedStable()', radarStart), 'radar berhenti sebelum batch fetch');
+    assert.ok(appJs.indexOf('return;', investorStart) < appJs.indexOf('rotatingSlice(investableUniverse()', investorStart), 'investor scan berhenti sebelum batch fetch');
+    assert.ok(appJs.indexOf('return;', tfStart) < appJs.indexOf('var ALL_TFS =', tfStart), 'Best TF berhenti sebelum fetch delapan timeframe');
+  });
 });
