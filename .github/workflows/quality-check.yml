@@ -23,6 +23,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check core JavaScript syntax
+        run: |
+          node --check public/app.js
+          node --check public/js/engine-boot.js
+          node --check public/js/shared/signal-engine.js
+          node --check scripts/market-sentinel.mjs
+          node --check functions/api/market/journal-sync.js
       - name: Verify workspace UI and manual-only analysis
         run: node tests/app-static.test.mjs
       - name: Verify manual journal and reset invariants
