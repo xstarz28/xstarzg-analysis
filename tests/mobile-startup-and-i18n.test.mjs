@@ -140,4 +140,9 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(appJs.indexOf('return;', investorStart) < appJs.indexOf('rotatingSlice(investableUniverse()', investorStart), 'investor scan berhenti sebelum batch fetch');
     assert.ok(appJs.indexOf('return;', tfStart) < appJs.indexOf('var ALL_TFS =', tfStart), 'Best TF berhenti sebelum fetch delapan timeframe');
   });
+
+  await t.test('24. vendor chart tidak dimuat sebelum workspace', () => {
+    assert.ok(!appJs.includes('<script src="/vendor/lightweight-charts.js'), 'vendor chart tidak ada di app bootstrap HTML');
+    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'"), 'chart vendor dimuat saat entry workspace');
+  });
 });
