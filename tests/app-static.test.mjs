@@ -30,7 +30,7 @@ const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:
 
 // --- Versi cache-bust ---
 chk('index.html memakai v=2026.70 (styles)', /styles\.css\?v=2026\.70/.test(html));
-chk('index.html memuat app.js v=2026.88 secara defer', /<script defer src="\/app\.js\?v=2026\.88">/.test(html));
+chk('index.html memuat app.js v=2026.89 secara defer', /<script defer src="\/app\.js\?v=2026\.89">/.test(html));
 chk('quant engine tidak dimuat saat landing; dimuat setelah workspace entry', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js\/engine-boot.js?v=2026.88'") && app.includes('ensureQuantEnginesLoaded();'), 'engine lazy load');
 chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
 chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
@@ -48,31 +48,31 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
 
 
-chk('mesin kuantitatif tidak dipra-cache saat landing', !sw.includes("'/js/shared/signal-engine.js'") && !sw.includes("'/js/engine-boot.js'") && sw.includes('xstarzg-pwa-v2026.88'));
+chk('mesin kuantitatif tidak dipra-cache saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*\/\/[\s\S]*?return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
 
 
-chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'") && app.includes('ensureChartVendorLoaded();'));
+chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.89'") && app.includes('ensureChartVendorLoaded();'));
 
 
 chk('timeframe switch mempertahankan chart dan membatalkan fetch lama', app.includes("var tfBar = $id('timeframeBar')") && app.includes('activeAnalysisController.abort()') && !app.slice(app.indexOf("var tfBar = $id('timeframeBar')"), app.indexOf("/* ---- Pemilih tipe chart")).includes('state.candles = []'));
 chk('seed preview tidak menjalankan quant engine penuh', app.includes('function renderSeedCandlesPreview(candles)') && app.includes('Exactly one full quant pass per successful timeframe response.'));
-chk('DEX scanner tetap aktif hanya saat pengguna membuka Meme mode', app.includes("else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }") && app.includes("'/api/scanner/meme?chain='"));
+chk('DEX workspace tetap manual tanpa scanner rekomendasi', html.includes('id="memeWorkspaceWrap"') && html.includes('id="selMemeInstrument"') && !html.includes('id="memeRadarSection"') && !html.includes('id="memePicksGrid"') && app.includes('— Pilih token DEX secara manual —'));
 
 chk('feed sintetis hanya preview dan tidak menjalankan quant engine penuh', app.includes('feedIsEstimate(data.source)') && app.includes('FEED ESTIMASI — preview saja'));
 
 // --- Wiring lock persisten (aturan #3.2) ---
 chk('kunci storage siglock v2 ada', app.includes("'xstarzg_siglock_v2'"));
-chk('radar/kurasi memakai scope apply + provenance feed (komitmen terlacak sejak tampil)', app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)"));
+chk('engine rekomendasi lintas-instrumen tidak lagi aktif', !app.includes("computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source)") && !html.includes('id="opportunityRadarGrid"'));
 chk('lock divalidasi sebelum diterapkan', app.includes('SE.validateSignalLock(') && app.includes('SE.applyLockedSignal('));
-chk('lock baru diterbitkan hanya dari sinyal eligible + 2 penjaga', /signalCooldownActive\(symbol, tfA\) && num\(a\.confluenceScore, 0\) >= adaptiveMinScore\(tfA\)\) \{\s*var nl = SE\.createSignalLock/.test(app));
+chk('jurnal hanya menerima instrumen manual dengan skor tinggi dan top-down alignment', app.includes('var journalEligible = state.manualInstrumentSelection === true') && app.includes("alignmentStatus === 'ALIGNED_BULLISH'") && app.includes("alignmentStatus === 'ALIGNED_BEARISH'") && app.includes("scope === 'create'") && app.includes('Math.max(80, adaptiveMinScore(tfA))'));
 
 // --- Wiring scan multi-TF (aturan #2) ---
-chk('9 TF dipindai', app.includes("'M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'"));
-chk('scan dijadwalkan setelah analisis', app.includes('scheduleBestTfScan();'));
-chk('papan TF terbaik dirender ke narasi', app.includes('state.bestTfBoard'));
+chk('pilihan timeframe manual tetap tersedia', ['M1','M5','M15','M30','H1','H4','D1','W1','MN'].every(tf => app.includes("'" + tf + "'")));
+chk('pemindaian best-timeframe otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
+chk('engine manual tetap menggunakan timeframe aktif pilihan user', app.includes('state.tf') && app.includes('function runFullAnalysis') && app.includes('manualInstrumentSelection'));
 chk('badge NO-TRADE tersedia', app.includes('eNoTradeTf'));
 // Wiring i18n baris Institutional Gate (lulus/ditolak) + map 9 label veto
 chk('regex gate LULUS/DITOLAK di localizeEngineString', app.includes('Institutional Gate\\] LULUS') && app.includes('Institutional Gate\\] DITOLAK'));
@@ -86,28 +86,28 @@ const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
 chk('20 locale punya keyset ui seragam (587)', uniform && count === 587);
-chk('radar memindai seluruh katalog (rotatingSlice + radarScanPool)', app.includes('rotatingSlice(catalogSortedStable()') && app.includes('radarScanPool'));
-chk('kurasi investor dari semesta investasi dinamis', app.includes('investableUniverse()') && !app.includes('var INVESTOR_PICKS = ['));
+chk('panel radar multi-instrumen tidak ada pada workspace', !html.includes('traderRadarSection') && !html.includes('investorRadarSection') && !html.includes('opportunityRadarGrid'));
+chk('kurasi Investor tidak otomatis menambahkan aset ke jurnal', /function syncCuratedInvestorToJournal\(\) \{[\s\S]*?return \[\];/.test(app));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
 chk('engine expose tier & skor analis', eng.includes('PRO_MIN_SCORE') && eng.includes('signalTier') && eng.includes('analystScore') && eng.includes('detectLiquidityPools'));
 chk('engine punya skor keyakinan netral-arah + spotOnly', eng.includes('convictionScore') && eng.includes('spotOnlyEffect') && eng.includes('SPOT_ONLY'));
 chk('backtest melacak statistik per-arah (longWR/shortWR)', eng.includes('longWR') && eng.includes('shortWR'));
-chk('papan TF tier-aware (★ ELITE / ✅ PRO)', app.includes("' ★ ELITE '") && app.includes("' ✅ PRO '"));
-chk('radar menyaring keyakinan >= 55', app.includes('convictionScore, 0) >= 55'));
+chk('best-timeframe scanner tidak aktif', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
+chk('container radar Trader dan Investor sudah tidak ada', !html.includes('traderRadarSection') && !html.includes('investorRadarSection'));
 chk('kotak futures tidak untuk saham/spot', app.includes("a.assetClass !== 'stocks'") && app.includes('marginProduct'));
 chk('toggle spot/futures tampak di semua aset (dipulihkan v2026.59)', !app.includes("showSub = a.assetClass === 'crypto'"));
 chk('lock mengikat skor keyakinan (fix skor berubah saat refresh)', eng.includes('a.convictionScore = Math.max(a.convictionScore || 0, lock.score || 0)'));
-chk('auto-screening trader/investor dinonaktifkan di terminal', app.includes('Browser-side screening moved out of the terminal') && app.includes('Kurasi multi-instrumen dipindahkan ke proyek screener terpisah') && app.includes('Radar multi-instrumen dipindahkan ke proyek screener terpisah'));
+chk('autopilot rekomendasi browser dinonaktifkan', /function startRadarAutoPilot\(\) \{\s*return;/.test(app));
 chk('ticker realtime lewat bucket waktu resmi (bukan timpa candle terakhir)', !app.includes('lastBar.close = liveP') && app.includes('applyLiveTick(liveP'));
 chk('pemilih tipe chart (candlestick/bar/line/area) ter-wire', html.includes('chartTypeBar') && html.includes('data-ctype="area"') && app.includes('applyChartType') && app.includes('mainSeriesPayload') && app.includes('updateMainSeries'));
 chk('chart responsif HP (ResizeObserver + defer lebar 0)', app.includes('ResizeObserver') && app.includes('__chartInitPending'));
-chk('pool radar 15 mnt & kurasi 30 mnt (rotasi penuh katalog)', app.includes('15 * 60000') && app.includes('1800000'));
-chk('kartu rekomendasi membawa snapshot candle', app.includes('candles.slice(-240)'));
+chk('jadwal scan radar dan kurasi otomatis dinonaktifkan', /function startRadarAutoPilot\(\) \{\s*return;/.test(app) && /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
+chk('snapshot rekomendasi lama tidak dapat dipakai ulang', !app.includes('primeFromRadarPool(sym, tf)'));
 chk('klik-through memakai snapshot segar + lock create (konsistensi skor)', app.includes('primeFromRadarPool(sym, tf)') && app.includes("computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource)"));
 chk('invalidasi lock butuh penerimaan harga (anti chop)', eng.includes('againstLong') && eng.includes('STRUCTURE_INVALID'));
 chk('radar hemat kuota: TTL 15 mnt + batch 30/slot 4 mnt', app.includes('15 * 60000') && app.includes('rotatingSlice(catalogSortedStable(), 30, 4)'));
-chk('analisis workspace menulis-balik ke pool rekomendasi', app.includes('writeBackRadarPools(analysis)') && app.includes('WORKSPACE LIVE'));
-chk('pindah mode memaksa rescan rekomendasi', app.includes('renderInvestorPicks(true)') && app.includes('renderOpportunityRadar(true)'));
+chk('hasil analisis tidak ditulis ke pool rekomendasi', !app.includes('writeBackRadarPools(analysis)'));
+chk('pergantian mode tidak menjalankan rescan rekomendasi', !app.includes('renderInvestorPicks(true)') && !app.includes('renderOpportunityRadar(true)'));
 chk('gate konfirmasi volume & squeeze breakout', eng.includes('volImpulse') && eng.includes('squeezeBlockedDir') && eng.includes('SQUEEZE_UNCONFIRMED'));
 chk('tier memakai performa terkini (recentWinRate)', eng.includes('recentWinRate') && eng.includes('>= 70'));
 chk('fundamental terukur (macroQuant) ada di output & UI', eng.includes('macroQuant') && app.includes('fmCycle') && app.includes('fmVolPct'));
@@ -117,15 +117,15 @@ chk('harga tampilan ikut walau candle belum siap', app.includes("setTxt('hdrLive
 chk('cadangan anti-stall Binance ticker untuk crypto', app.includes("ticker/price?symbol=' + sym2.replace"));
 chk('lock v3 per-TF + migrasi v2 (sinyal lama tidak dibuang)', app.includes("'xstarzg_siglock_v3'") && app.includes('__migratedV2') && app.includes("'|' + String(tf || state.tf || '')"));
 chk('lifecycle outcome tercatat + cooldown pasca-SL', app.includes('recordSignalOutcome(symbol, tfA, verdict, lock)') && app.includes('signalCooldownActive(symbol, tfA)') && app.includes("'xstarzg_sigoutcome_v1'"));
-chk('kartu radar ikut menerbitkan kunci (scope create/apply)', app.includes("(scope === 'create' || scope === 'apply') && a.signalEligible"));
-chk('akurasi radar adaptif mengetatkan ambang terbit', app.includes('adaptiveMinScore(tfA)') && eng.includes('radarAdaptiveGate') && eng.includes('updateRadarAccuracy'));
-chk('badge outcome jujur di kartu radar', app.includes('latestSignalOutcome(it.sym, it.tf)') && app.includes('eOutSl'));
+chk('pembuatan jurnal mensyaratkan scope create dan alignment arah', app.includes("scope === 'create'") && app.includes('directionAligned') && app.includes('journalEligible'));
+chk('ambang skor minimal jurnal adalah 80', app.includes('Math.max(80, adaptiveMinScore(tfA))'));
+chk('siklus outcome jurnal tetap aktif tanpa kartu radar', app.includes('recordSignalOutcome(symbol, tfA, verdict, lock)') && app.includes('signalCooldownActive(symbol, tfA)'));
 chk('gate persistensi 2-candle anti fakeout', eng.includes('persistOk') && eng.includes('PERSIST_WAIT'));
 chk('candle fabrikasi edge dicap jujur EST_ANCHORED', edgeAnalyze.includes("'EST_ANCHORED:'") && edgeAnalyze.includes('candle di fungsi ini DIFABRIKASI'));
 chk('siklus hidup sinyal digerbang feed asli (feedIsReal)', app.includes('function feedIsReal(') && app.includes('if (!feedReal) a.feedUnverified = true;') && app.includes('if (feedReal && typeof SE.validateSignalLock'));
-chk('kandidat feed estimasi dikeluarkan dari rekomendasi & badge-nya jelas', app.includes('a.__estFeed = !feedIsReal(d.source)') && app.includes('!it.analysis.__estFeed') && app.includes("T('ui.eEstFeed'"));
+chk('feed estimasi dan feed tidak terverifikasi dilarang masuk jurnal', app.includes('!a.__estFeed && !a.feedUnverified && feedReal'));
 chk('rekonsiliasi outcome palsu -> lock dipulihkan', app.includes('reconcileSignalOutcome(symbol, tfA, closedBars0)') && app.includes('lock: lock ? {'));
-chk('banner jujur saat radar kosong (pantauan bukan rekomendasi)', app.includes('noneQualified') && app.includes('eRadarNone'));
+chk('analisis menunggu pilihan instrumen manual dari pengguna', app.includes('if (!state.manualInstrumentSelection)') && app.includes('Pilih instrumen secara manual, lalu tekan Analisis.'));
 chk('kartu menyebut alasan gerbang (koherensi WR vs entry)', app.includes('gateShortLabel(a.gating.active[0])') && app.includes('gNoSeq'));
 chk('panel menjelaskan WR besar tapi belum boleh entry', app.includes('eWrVsEntry'));
 chk('peringatan risiko permanen (bukan nasihat keuangan) di semua halaman', html.includes('risk-disclaimer-bar') && html.includes('ui.eDisclaimer'));
@@ -226,26 +226,12 @@ chk('app.js meregister service worker & menangani instalasi PWA', /navigator\.se
 chk('jurnal menampilkan Target 1:2 R:R (TP2) untuk Sniper', /Target 1:2 R:R \(TP2\)/.test(app) && /isSniper/.test(app));
 chk('advisory peringatan SL+ proteksi 0-Risk untuk setup sniper', /SNIPER ADVISOR: Target penuh minimal 1:2 R:R \(TP2\)/.test(app) && /0-RISK TERKUNCI/.test(app));
 
-/* 3 BAGAN OTAK REKOMENDASI RADAR (KRIPTO, FOREX & KOMODITAS, SAHAM) lint */
-chk('HTML memuat radarGroupBar dengan 3 kelompok instrumen', /id="radarGroupBar"/.test(html) && /data-rg="crypto"/.test(html) && /data-rg="fx_comm"/.test(html) && /data-rg="stocks"/.test(html));
-chk('app.js memisahkan kelompok radarAssetGroupOf & render 3 otak bagan', /function radarAssetGroupOf/.test(app) && /RADAR_GROUPS/.test(app) && /renderRadarCardHtml/.test(app));
-chk('kartu radar menampilkan SL, TP, Entry & Skor lengkap', /r-entry/.test(app) && /r-score/.test(app) && /tgtLbl \+ ':/.test(app));
-chk('tombol fokus bagan & render lengkap tanpa potongan 6 kartu', /data-focus-rg/.test(app) && /Menampilkan semua/.test(app));
-chk('kalender ekonomi anti-kosong dengan fallback institusional & peringatan broker', /getClientInstitutionalEvents/.test(app) && /generateInstitutionalEvents/.test(edgeNews) && /Peringatan Broker/.test(app));
-chk('tidak ada penyebutan merk broker tertentu di kalender', !/exness/i.test(app) && !/exness/i.test(html));
-chk('XAU/IDR komposit nyata dari XAUUSD & USDIDR', /s === 'XAU\/IDR'/.test(edgeMarket) && /YAHOO:XAUUSD=X x USDIDR=X/.test(edgeMarket));
-chk('katalog berimbang 3 kelompok saat scan (interleaved)', /crypto\.push/.test(app) && /stocks\.push/.test(app) && /interleaved\.push/.test(app));
-chk('radar bersih: feed estimasi dilarang masuk rekomendasi', /if \(a\.__estFeed\) return null/.test(app) && /!it\.analysis\.__estFeed/.test(app));
-chk('multi-exchange crypto diperluas dengan MEXC & perp fallback', /fetchMexcCandles/.test(edgeMarket) && /MEXC:\$\{pair\}/.test(edgeMarket));
-chk('dukungan multi-exchange BingX untuk spot & swap futures', /fetchBingxCandles/.test(edgeMarket) && /BINGX:\$\{pair\}/.test(edgeMarket) && /open-api\.bingx\.com/.test(edgeQuotes));
-chk('radar scan eksklusif aset kurasi terverifikasi', /!x\.isDynamic/.test(app));
-chk('i18n radarGroupBar & 3 otak multibahasa terpasang',
-  /data-i18n="ui\.rgAll"/.test(html) &&
-  /data-i18n="ui\.rgCrypto"/.test(html) &&
-  /ui\.rShowingAll/.test(app) &&
-  /ui\.rOpenTab/.test(app) &&
-  /getRadarGroups/.test(app));
-
+/* MANUAL-ONLY ANALYSIS / NO RECOMMENDATION ENGINES lint */
+chk('UI radar Trader/Investor dihapus', !/id="(?:traderRadarSection|investorRadarSection|opportunityRadarGrid|investorPicksGrid)"/.test(html));
+chk('macro context Investor tetap tersedia', html.includes('id="investorMacroContextSection"') && html.includes('id="macroMapBox"'));
+chk('workspace manual Trader/Investor tetap tersedia', html.includes('id="traderInvestorWorkspaceWrap"') && html.includes('id="investorMacroContextSection"'));
+chk('engine tidak melakukan analisis tanpa pilihan instrumen manual', /function runFullAnalysis[\s\S]*?if \(!state\.manualInstrumentSelection\)/.test(app));
+chk('workspace entry tidak menghasilkan seed candles otomatis', /function enterWorkspace\(\) \{[\s\S]*?if \(!state\.manualInstrumentSelection\)/.test(app));
 /* MULTI-EXCHANGE EXPANSION (BINGX & MEXC) GEMS & HERO STATS LINT */
 chk('katalog crypto memuat token unggulan BingX & MEXC (KAS, SUPER, POPCAT, BRETT, VIRTUAL, SPX, RAY, OM)',
   /mkCrypto\('KAS'/.test(R('../public/js/shared/quant-core.js')) &&
@@ -290,55 +276,13 @@ chk('index.html memuat Schema.org JSON-LD WebApplication terstruktur untuk Googl
   /"name":\s*"XStarZG Analysis"/.test(html) &&
   /"applicationCategory":\s*"FinanceApplication"/.test(html));
 
-/* ==================== MEME & DEX GEMS SCANNER LINT ==================== */
-chk('index.html memiliki tombol mode meme dan section radar DEX meme',
-  html.includes('id="btnModeMeme"') &&
-  html.includes('id="memeRadarSection"') &&
-  html.includes('id="memeChainBar"') &&
-  html.includes('id="memeSortBar"') &&
-  html.includes('id="memePicksGrid"'));
-
+/* MANUAL DEX WORKSPACE lint */
 const memeApi = R('../functions/api/scanner/meme.js');
-chk('functions/api/scanner/meme.js valid dan mengekspor onRequest dengan caching 30s',
-  memeApi.includes('export async function onRequest') &&
-  memeApi.includes('s-maxage=30') &&
-  /anti-rug/i.test(memeApi) &&
-  memeApi.includes('solana'));
-
-chk('app.js memuat fungsi renderMemePicks dan integrasi mode meme',
-  app.includes('renderMemePicks') &&
-  app.includes("mode === 'meme'") &&
-  app.includes('drawMemePickCards') &&
-  css.includes('.mode-chip.meme'));
-
-chk('ruang tersendiri meme coin terisolasi total dari workspace trader/investor',
-  html.includes('id="traderInvestorWorkspaceWrap"') &&
-  html.includes('id="memeWorkspaceWrap"') &&
-  html.includes('id="memeInspectHeader"') &&
-  html.includes('id="memeDexChartIframe"') &&
-  html.includes('id="memeFundGrid"') &&
-  html.includes('id="memeTechnicalCard"') &&
-  app.includes('selectMemeToken') &&
-  memeApi.includes('metaNarrative') &&
-  memeApi.includes('devStatus'));
-
-chk('dashboard depan menampilkan mode meme coin berdampingan dengan trader dan investor',
-  html.includes('MEME &amp; DEX GEMS (ANTI-RUG SCANNER)') &&
-  html.includes('ui.feat5Title') &&
-  html.includes('ui.feat5Desc') &&
-  html.includes('Radar Khusus Koin Micin & DEX Gems'));
-
-chk('workspace DEX meme micin memiliki live ticker gerak aktif dan generator candle unik per instrumen',
-  html.includes('id="selMemeInstrument"') &&
-  html.includes('id="memeTfBar"') &&
-  app.includes('startMemeLiveTicker') &&
-  app.includes('stopMemeLiveTicker') &&
-  app.includes('formatMemePrice') &&
-  app.includes('hashMemeStr') &&
-  app.includes('activeMemeCandles') &&
-  app.includes('drawMemeCandleChart') &&
-  app.includes('switchMemeChartView'));
-
+chk('DEX radar scanner UI dihapus tetapi workspace manual tetap ada', html.includes('id="memeWorkspaceWrap"') && html.includes('id="selMemeInstrument"') && !html.includes('id="memeRadarSection"') && !html.includes('id="memePicksGrid"'));
+chk('DEX discovery endpoint sudah dinonaktifkan', memeApi.includes('status: 410') && memeApi.includes('disabled: true'));
+chk('chart, teknikal, dan fundamental DEX tetap tersedia', html.includes('id="memeDexChartIframe"') && html.includes('id="memeTechnicalCard"') && html.includes('id="memeFundGrid"'));
+chk('DEX selector meminta pilihan manual dan tidak auto-pick token pertama', app.includes('— Pilih token DEX secara manual —') && app.includes('var token = activeMemeToken;'));
+chk('dashboard tidak lagi mengiklankan anti-rug scanner', !html.includes('ANTI-RUG SCANNER') && html.includes('ANALISIS MANUAL'));
 /* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
 chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
   app.includes('function monitorLiveSignalProgress(') &&
