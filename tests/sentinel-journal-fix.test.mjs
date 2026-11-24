@@ -5,6 +5,7 @@ import assert from 'node:assert';
 import { processInstrumentAnalysis, formatP, syncActiveLocksFromCloud, WATCHLIST } from '../scripts/market-sentinel.mjs';
 import * as SE from '../public/js/shared/signal-engine.js';
 import { onRequestGet, onRequestPost, onRequestOptions } from '../functions/api/market/journal-sync.js';
+import { signJwt } from '../functions/lib/auth.js';
 
 let passed = 0;
 let failed = 0;
@@ -347,6 +348,46 @@ await asyncChk('Cloud Journal Sync Endpoint: GET, POST save_lock, and record_out
   const solOutcome = data3.recentOutcomes.find(o => o.symbol === 'SOL/USDT' && o.tf === 'M15');
   chk('Lock aktif dihapus setelah outcome tercapai', !solLockActive);
   chk('Outcome tercatat di recentOutcomes', !!solOutcome && solOutcome.status === 'TP_HIT');
+
+  const nonOwner = await signJwt({ email: 'trader@example.com', role: 'user', tier: 'FREE' });
+  const deniedClear = new Request('http://localhost/api/market/journal-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + nonOwner },
+    body: JSON.stringify({ action: 'clear_all' })
+  });
+  const deniedResponse = await onRequestPost({ request: deniedClear, env: {} });
+  chk('clear_all ditolak untuk akun non-owner', deniedResponse.status === 403);
+
+  const ownerToken = await signJwt({
+    email: 'sevenfoldarmy2822@gmail.com',
+    role: 'owner',
+    tier: 'OWNER_VIP'
+  });
+  const ownerClear = new Request('http://localhost/api/market/journal-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + ownerToken },
+    body: JSON.stringify({ action: 'clear_all' })
+  });
+  const cleared = await onRequestPost({ request: ownerClear, env: {} });
+  const clearedData = await cleared.json();
+  chk('owner terverifikasi dapat mengosongkan cloud journal', clearedData.ok === true && clearedData.cleared === true);
+  chk('clear_all menetapkan resetAt server', Number(clearedData.resetAt) > 0);
+
+  const afterClear = await onRequestGet({ env: {} });
+  const afterClearData = await afterClear.json();
+  chk('GET setelah reset benar-benar kosong dari lock/outcome lama',
+    afterClearData.activeLocks.length === 0 && afterClearData.recentOutcomes.length === 0);
+
+  const staleSave = new Request('http://localhost/api/market/journal-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'save_lock',
+      lock: { ...testLock, symbol: 'BTC/USDT', issuedAt: Number(clearedData.resetAt) - 1000 }
+    })
+  });
+  const staleResponse = await onRequestPost({ request: staleSave, env: {} });
+  chk('lock terbit sebelum reset ditolak dan tidak dapat hidup kembali', staleResponse.status === 409);
 });
 
 // 5. Integrasi Sinkronisasi Cloud Sentinel ke Jurnal
