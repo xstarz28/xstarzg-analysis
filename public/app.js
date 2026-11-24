@@ -893,7 +893,7 @@ function lazyLoadCryptoPairs() {
 var SIGNAL_LOCK_KEY = 'xstarzg_siglock_v3';
 var SIGNAL_LOCK_KEY_V2 = 'xstarzg_siglock_v2';
 var SIGNAL_OUTCOME_KEY = 'xstarzg_sigoutcome_v1';
-var RADAR_ACC_KEY = 'xstarzg_radaracc_v1';
+var SIGNAL_ACCURACY_KEY = 'xstarzg_signalaccuracy_v1';
 function signalLockStore() {
   var p = {};
   try { p = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY) || '{}') || {}; } catch (e) { p = {}; }
@@ -986,12 +986,22 @@ function syncCloudSignalJournal() {
       }
     }).catch(function () {});
 }
-/* --- Outcome tercatat & akurasi radar terukur (loop umpan-balik jujur) --- */
+/* --- Outcome tercatat & akurasi sinyal terukur (loop umpan-balik jujur) --- */
 function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(SIGNAL_OUTCOME_KEY) || '{}') || {}; } catch (e) { return {}; } }
 function hzOfTf(tf) { var t = String(tf || ''); if (t === 'M1' || t === 'M5' || t === 'M15') return 'scalping'; if (t === 'M30' || t === 'H1') return 'intraday'; return 'swing'; }
 function outcomeCooldownMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 30 * 60000 : hz === 'intraday' ? 90 * 60000 : 6 * 3600000; }
 function outcomeBadgeWindowMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 45 * 60000 : hz === 'intraday' ? 3 * 3600000 : 12 * 3600000; }
-function radarAccStore() { try { return JSON.parse(localStorage.getItem(RADAR_ACC_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function signalAccuracyStore() {
+  try {
+    var raw = localStorage.getItem(SIGNAL_ACCURACY_KEY);
+    // One-time migration preserves historical hit-rate stats from the retired radar key.
+    if (!raw) {
+      raw = localStorage.getItem('xstarzg_radaracc_v1');
+      if (raw) localStorage.setItem(SIGNAL_ACCURACY_KEY, raw);
+    }
+    return JSON.parse(raw || '{}') || {};
+  } catch (e) { return {}; }
+}
 
 function notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock) {
   try {
@@ -1165,11 +1175,11 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
     var ks = Object.keys(out);
     while (ks.length > 80) { var k0 = ks.shift(); delete out[k0]; }
     localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(out));
-    if (SE && SE.updateRadarAccuracy && (oc === 'TP_HIT' || oc === 'SL_HIT') && finalStatus !== 'BE_SAVED') {
-      var acc = radarAccStore();
+    if (SE && SE.updateSignalAccuracy && (oc === 'TP_HIT' || oc === 'SL_HIT') && finalStatus !== 'BE_SAVED') {
+      var acc = signalAccuracyStore();
       var hz = hzOfTf(tf);
-      acc[hz] = SE.updateRadarAccuracy(acc[hz], oc === 'TP_HIT' ? 'TP' : 'SL');
-      localStorage.setItem(RADAR_ACC_KEY, JSON.stringify(acc));
+      acc[hz] = SE.updateSignalAccuracy(acc[hz], oc === 'TP_HIT' ? 'TP' : 'SL');
+      localStorage.setItem(SIGNAL_ACCURACY_KEY, JSON.stringify(acc));
     }
     try { notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock); } catch (e) {}
     try {
@@ -1213,7 +1223,7 @@ function latestSignalOutcome(symbol, tf) {
 }
 function adaptiveMinScore(tf) {
   try {
-    if (SE && SE.radarAdaptiveGate) return Math.max(SE.radarAdaptiveGate(radarAccStore()[hzOfTf(tf)]).minScore, 78);
+    if (SE && SE.signalAdaptiveGate) return Math.max(SE.signalAdaptiveGate(signalAccuracyStore()[hzOfTf(tf)]).minScore, 78);
   } catch (e) {}
   return 78;
 }
@@ -1317,14 +1327,14 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
         all[key] = Object.assign({}, L, { status: 'ACTIVE' });
         localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
       }
-      var acc = radarAccStore(); var hz = hzOfTf(tf); var st = acc[hz];
+      var acc = signalAccuracyStore(); var hz = hzOfTf(tf); var st = acc[hz];
       if (st && Array.isArray(st.recent) && st.recent.length) {
         st.recent = st.recent.slice(0, -1);
         var w = st.recent.reduce(function (a2, b) { return a2 + b; }, 0);
         st.sample = st.recent.length; st.wins = w; st.losses = st.recent.length - w;
         st.winRate = st.recent.length ? Math.round((w / st.recent.length) * 100) : 0;
         acc[hz] = st;
-        localStorage.setItem(RADAR_ACC_KEY, JSON.stringify(acc));
+        localStorage.setItem(SIGNAL_ACCURACY_KEY, JSON.stringify(acc));
       }
     }
   } catch (e) {}
@@ -3364,7 +3374,7 @@ function renderSignalJournal() {
     if (memeBar) memeBar.classList.add('hidden');
 
     if (sum) {
-      var acc = radarAccStore(); var chips = '';
+      var acc = signalAccuracyStore(); var chips = '';
       ['scalping', 'intraday', 'swing'].forEach(function (hz) {
         var st = acc[hz];
         if (!st || !st.sample) return;
@@ -3966,8 +3976,6 @@ function openDexJournalRecord(record) {
   if (address) address.value = record.address;
   analyzeDexToken();
 }
-function stopMemeLiveTicker() { /* retired with the old simulated DEX ticker */ }
-
 function gotoInstrument(sym, tf) {
   if (!sym) return;
   if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') setMode('trader');
