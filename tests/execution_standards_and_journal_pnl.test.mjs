@@ -108,61 +108,12 @@ test('STANDAR EKSEKUSI MINIMAL SKOR 78 & FILTER KELAYAKAN RADAR', async (t) => {
   });
 });
 
-test('KALKULASI PROFIT JURNAL DEX MEME & ANTI-STAGNAN 0%', async (t) => {
-  // Ekstrak syncRecommendedMemeToJournal
-  const syncMatch = appJs.match(/function syncRecommendedMemeToJournal\([\s\S]*?\n\}\n\nfunction memeJournalStore/);
-  assert.ok(syncMatch, 'syncRecommendedMemeToJournal harus ditemukan');
-  const syncCode = syncMatch[0].replace(/\nfunction memeJournalStore[\s\S]*$/, '');
-
-  let store = [];
-  const mockLocalStorage = {
-    getItem: (key) => JSON.stringify(store),
-    setItem: (key, val) => {
-      try { store = JSON.parse(val); } catch (e) { store = []; }
-    }
-  };
-
-  const memeFactory = new Function('mockCtx', `
-    const MEME_JOURNAL_KEY = 'XSTARZG_MEME_JOURNAL_V1';
-    const DEFAULT_MEME_CATALOG = [];
-    let memeScanPool = [];
-    const localStorage = mockCtx.localStorage;
-    const saveMemeJournalStore = function(arr) { mockCtx.localStorage.setItem('XSTARZG_MEME_JOURNAL_V1', JSON.stringify(arr)); };
-    ${syncCode}
-    return { syncRecommendedMemeToJournal, getStore: () => store };
-  `);
-
-  const { syncRecommendedMemeToJournal } = memeFactory({ localStorage: mockLocalStorage });
-
-  await t.test('1. Sinyal koin micin dengan momentum positif menghasilkan entry price berbasis breakout, bukan 0% profit', () => {
-    const sampleItems = [
-      {
-        symbol: 'PEPE',
-        name: 'Pepe',
-        chain: 'ethereum',
-        chainLabel: '💠 Ethereum',
-        basePrice: 0.000021,
-        safetyScore: 92,
-        change1h: 15.0, // Naik 15% dalam 1 jam terakhir
-        change24h: 30.0,
-        address: 'pepe_pool'
-      }
-    ];
-
-    syncRecommendedMemeToJournal(sampleItems);
-    assert.strictEqual(store.length, 1, 'Token harus tersinkronisasi ke jurnal');
-
-    const saved = store[0];
-    assert.strictEqual(saved.symbol, 'PEPE');
-    assert.strictEqual(saved.currentPrice, 0.000021);
-    // Baseline harga beli dihitung dari breakout: 0.000021 / (1 + 0.15) = 0.00001826...
-    assert.ok(saved.buyPrice < saved.currentPrice, 'Harga beli baseline harus lebih rendah dari harga breakout saat ini');
-
-    const mult = saved.currentPrice / saved.buyPrice;
-    assert.ok(mult > 1.05, `Multiplier harus merefleksikan keuntungan breakout (didapat ${mult.toFixed(2)}x)`);
-    const gainPct = (mult - 1) * 100;
-    assert.ok(gainPct >= 10, `Gain PnL harus di atas 10% (didapat ${gainPct.toFixed(1)}%)`);
-  });
+test('JURNAL DEX HANYA MENYIMPAN INPUT MANUAL DAN TIDAK MEMBUAT KATALOG', () => {
+  const syncMatch = appJs.match(/function syncRecommendedMemeToJournal\(\) \{ return \[\]; \}/);
+  assert.ok(syncMatch, 'Fungsi sinkron rekomendasi harus no-op');
+  const generated = new Function(`${syncMatch[0]}; return syncRecommendedMemeToJournal();`)();
+  assert.deepStrictEqual(generated, []);
+  assert.ok(appJs.includes('localStorage.getItem(journalStorageKey(MEME_JOURNAL_KEY))'));
 });
 
 test('NETRALISASI SEED FEED & PERLINDUNGAN ALARM AKURASI', async (t) => {
@@ -172,9 +123,9 @@ test('NETRALISASI SEED FEED & PERLINDUNGAN ALARM AKURASI', async (t) => {
     assert.ok(appJs.includes("a.signalEligible = false;"));
   });
 
-  await t.test('2. renderAllVisuals mencegah penulisan radar dan alarm pada feed estimasi atau seed lokal', () => {
+  await t.test('2. Tidak ada jalur penulisan radar; alarm tetap menolak feed seed lokal', () => {
     assert.ok(appJs.includes("analysis.feedSource === 'LOCAL_SEED'") || appJs.includes("analysis.source === 'LOCAL_SEED'"));
-    assert.ok(appJs.includes("writeBackRadarPools(analysis)"));
+    assert.ok(appJs.includes('function writeBackRadarPools() {\n  return;\n}'));
   });
 
   await t.test('3. checkSignalAlarm memeriksa status pasar dan kompatibilitas harga', () => {
@@ -223,10 +174,10 @@ test('KALIBRASI HARGA REALISTIS (XAU/USD & RAY/USDT) & ANTI-FAKE OUTCOME', async
     assert.ok(appJs.includes("s !== '-'"), 'feedIsReal harus menolak simbol -');
   });
 
-  await t.test('7. Proteksi klik jurnal: evaluateSignalViability & writeBackRadarPools menolak membangkitkan sinyal cooldown / expired', () => {
+  await t.test('7. Proteksi jurnal menjaga status cooldown / expired tanpa membuat ulang radar', () => {
     assert.ok(appJs.includes("key: 'COOLDOWN'"), 'evaluateSignalViability harus menangani status COOLDOWN');
     assert.ok(appJs.includes("key: 'EXPIRED'"), 'evaluateSignalViability harus menangani status EXPIRED');
-    assert.ok(appJs.includes("delete radarScanPool[hz0][sym + '|' + tf]"), 'writeBackRadarPools harus membersihkan sinyal cooldown dari radar');
+    assert.ok(appJs.includes('function writeBackRadarPools() {\n  return;\n}'), 'Penulisan otomatis ke radar harus tetap dinonaktifkan');
     assert.ok(appJs.includes("staleUnfilled"), 'auditAndCleanseCorruptedStorage harus membersihkan limit order usang');
   });
 });
