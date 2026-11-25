@@ -28,7 +28,7 @@ test('PWA & SERVICE WORKER: Solusi tuntas bug startup layar menggantung pasca up
     assert.ok(!swJs.includes("'/js/shared/quant-core.js'"), 'quant-core dimuat setelah workspace dibuka');
     assert.ok(!swJs.includes("'/js/shared/signal-engine.js'"), 'signal-engine dimuat setelah workspace dibuka');
     assert.ok(!swJs.includes("'/js/calculator.js'"), 'calculator dimuat setelah workspace dibuka');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.88'), 'versi cache PWA dinaikkan');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.90'), 'versi cache PWA dinaikkan');
   });
 
   await t.test('4. _headers mencegah Cloudflare/browser meng-cache sw.js dan index.html', () => {
@@ -58,9 +58,13 @@ test('MOBILE STARTUP & ZERO-DELAY CHART RENDERING', async (t) => {
     assert.ok(appJs.includes('bootPostDom();'), 'app.js mengeksekusi langsung jika readyState sudah complete/interactive');
   });
 
-  await t.test('3. enterWorkspace mengeksekusi instant pre-render terkalibrasi 0ms', () => {
-    assert.ok(appJs.includes('Instant pre-render: Tampilkan harga terkalibrasi'), 'enterWorkspace memuat instant pre-render');
-    assert.ok(appJs.includes("generateSeedCandles(state.symbol || 'XAU/USD'"), 'enterWorkspace mengalibrasi seed candles langsung');
+  await t.test('3. enterWorkspace menampilkan workspace tanpa mengisi harga sintetis', () => {
+    const start = appJs.lastIndexOf('function enterWorkspace()');
+    const end = appJs.indexOf('/* ==================== 10.', start);
+    const body = appJs.slice(start, end);
+    assert.ok(body.includes('ensureChartVendorLoaded()'), 'chart vendor dimuat secara lazy');
+    assert.ok(body.includes('state.candles = []'), 'data candle lama dibersihkan untuk pemilihan manual baru');
+    assert.ok(!body.includes('generateSeedCandles('), 'entry workspace tidak membuat harga sintetis');
   });
 
   await t.test('4. initChart & drawCanvasFallbackChart mencegah pitch-black void', () => {
@@ -87,8 +91,8 @@ test('GOOGLE SEARCH CONSOLE & SEO DISCOVERY CONFIGURATION', async (t) => {
 
   await t.test('6. app.js dan engine-boot memuat chart/quant setelah workspace', () => {
     assert.ok(!html.includes('<script src="/vendor/lightweight-charts.js'), 'index.html tidak mengunduh chart vendor saat landing');
-    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'"), 'chart vendor lazy loaded');
+    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.89'"), 'chart vendor lazy loaded');
     assert.ok(!html.includes('/js/engine-boot.js'), 'engine-boot tidak diimpor saat landing');
-    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.88'"), 'quant engine lazy loaded');
+    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.89'"), 'quant engine lazy loaded');
   });
 });

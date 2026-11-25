@@ -1,10 +1,9 @@
-name: XStarZG 24/7 Market Sentinel
+name: XStarZG 24/7 Manual Position Monitor
 
 on:
   schedule:
-    # Berjalan otomatis di cloud GitHub setiap 10-15 menit nonstop (24/7, 0 kuota Cloudflare)
-    - cron: '*/30 * * * *'
-    - cron: '15,45 * * * *'
+    # Pemantauan posisi manual aktif setiap 15 menit; tidak melakukan discovery instrumen baru
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     # Tombol pemicu manual di dashboard GitHub ("Run workflow")
     inputs:
@@ -19,7 +18,7 @@ concurrency:
 
 jobs:
   sentinel:
-    name: Scan Market & Alert Telegram
+    name: Monitor Manual Positions & Telegram Alerts
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -46,8 +45,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID || secrets.CHAT_ID }}
           XSTARZG_API_HOST: 'https://xstarzganalysis.pages.dev'
-          SENTINEL_SECRET: 'xstarzg-2026-quant-secret'
-          SENTINEL_MIN_SCORE: '78'
+          SENTINEL_SECRET: ${{ secrets.SENTINEL_SECRET }}
         run: |
           if [ "${{ inputs.test_mode }}" = "true" ]; then
             node scripts/market-sentinel.mjs --test

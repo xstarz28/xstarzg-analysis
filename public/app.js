@@ -7,6 +7,7 @@ var state = {
   symbol: 'XAU/USD',
   tf: 'H1', timeframe: 'H1',
   mode: 'trader',            // 'trader' | 'investor'
+  manualInstrumentSelection: false,
   subMode: 'futures',        // 'futures' | 'spot'
   chartType: 'candles',      // 'candles' | 'bars' | 'line' | 'area' (ala TradingView)
   radarHorizon: 'intraday',  // 'scalping' | 'intraday' | 'swing'
@@ -89,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2026.88';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2026.89';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -126,7 +127,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2026.88';
+    bootScript.src = '/js/engine-boot.js?v=2026.89';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -137,65 +138,6 @@ function ensureQuantEnginesLoaded() {
     console.error('XStarZG quant engine bootstrap failed:', e);
   }
 }
-var enterWorkspaceLock = 0;
-function enterWorkspace() {
-  try {
-    showScreen('work');
-    // Heavy chart and quant/signal modules are loaded only after workspace entry.
-    ensureChartVendorLoaded();
-    ensureQuantEnginesLoaded();
-    var sk = document.getElementById('tvChartLoadingSkeleton');
-    if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
-    try { if (typeof updateUserUi === 'function') updateUserUi(); } catch (e) {}
-    try { if (typeof syncModeSections === 'function') syncModeSections(); } catch (e) {}
-    try { if (QC && typeof renderInstrumentCatalog === 'function') renderInstrumentCatalog(); } catch (eCat) {}
-    // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
-    // agar layar HP tidak pernah menggantung dengan placeholder kosong
-    try {
-      if (!state.candles || !state.candles.length || !state.lastAnalysis) {
-        var fnSeed = (typeof generateSeedCandles === 'function') ? generateSeedCandles : (typeof window !== 'undefined' ? window.generateSeedCandles : null);
-        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : (fnSeed ? fnSeed(state.symbol || 'XAU/USD', state.tf || 'H1') : null);
-        if (seeded && seeded.candles && seeded.candles.length) {
-          state.candles = seeded.candles;
-          state.livePrice = seeded.price;
-          state.liveChangePct = 0.25;
-          state.feedSource = 'LOCAL_SEED';
-          state.lastAnalysis = null;
-          renderSeedCandlesPreview(state.candles);
-        }
-      }
-    } catch (eSeed) {}
-    try { if (typeof initChart === 'function') initChart(); } catch (eInit) {}
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(function () {
-        try { if (typeof initChart === 'function') initChart(); } catch (e) {}
-      });
-    }
-    var now = Date.now();
-    if (now - enterWorkspaceLock > 300) {
-      enterWorkspaceLock = now;
-      setTimeout(function () {
-        try { if (typeof initChart === 'function') initChart(); } catch (e) { console.warn('initChart error:', e); }
-        try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-        try {
-          if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-        } catch (e) { console.warn('runFullAnalysis error:', e); }
-        try { if (typeof connectRealtimeStream === 'function') connectRealtimeStream(); } catch (e) {}
-        try {
-          if (state.mode === 'investor') {
-            if (typeof renderInvestorPicks === 'function') renderInvestorPicks();
-          } else {
-            if (typeof renderOpportunityRadar === 'function') renderOpportunityRadar();
-          }
-        } catch (e) { console.warn('renderOpportunityRadar error:', e); }
-      }, 60);
-    }
-  } catch (e) {
-    console.error('enterWorkspace error:', e);
-  }
-}
-if (typeof window !== 'undefined') window.enterWorkspace = enterWorkspace;
-
 // 1) Deteksi dini PWA/APK (start_url ?pwa=1 atau mode standalone)
 (function () {
   try {
@@ -258,21 +200,6 @@ if (typeof document !== 'undefined') {
         var cinp = document.getElementById('ownerCodeInput');
         if (einp && !einp.value) einp.value = 'sevenfoldarmy2822@gmail.com';
         if (cinp) setTimeout(function () { try { cinp.focus(); } catch (e) {} }, 80);
-      } else if (id === 'btnClearAllJournalHistory') {
-        var isEn = (typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
-        var msg = isEn
-          ? 'Clear all trading journal records (Trader, Investor, DEX) and start fresh? This action cannot be undone.'
-          : 'Hapus seluruh riwayat jurnal trading (Trader, Investor, DEX) dan mulai dari awal? Tindakan ini akan mengosongkan riwayat lama agar bersih.';
-        if (!confirm(msg)) return;
-        try {
-          localStorage.removeItem('xstarzg_siglock_v3');
-          localStorage.removeItem('xstarzg_sigoutcome_v1');
-          localStorage.removeItem('xstarzg_radaracc_v1');
-          localStorage.removeItem('xstarzg_investor_journal_v1');
-          localStorage.removeItem('xstarzg_meme_journal_v1');
-        } catch (e) {}
-        try { if (typeof renderSignalJournal === 'function') renderSignalJournal(); } catch (e) {}
-        alert(isEn ? 'All journal records have been cleared. You are starting fresh.' : 'Seluruh riwayat jurnal berhasil dibersihkan ke awal.');
       }
     } catch (eClk) {}
   }, true);
@@ -1089,27 +1016,33 @@ function lazyLoadCryptoPairs() {
    SETIAP pelepasan lock dicatat outcome-nya (jujur, bukan hilang tanpa jejak) dan
    SL/invalidasi memicu cooldown penerbitan ulang untuk simbol+TF yang sama. */
 var SIGNAL_LOCK_KEY = 'xstarzg_siglock_v3';
-var SIGNAL_LOCK_KEY_V2 = 'xstarzg_siglock_v2';
 var SIGNAL_OUTCOME_KEY = 'xstarzg_sigoutcome_v1';
-var RADAR_ACC_KEY = 'xstarzg_radaracc_v1';
+var LEGACY_JOURNAL_KEYS = [
+  'xstarzg_siglock_v2', SIGNAL_LOCK_KEY, SIGNAL_OUTCOME_KEY, 'xstarzg_radaracc_v1',
+  'xstarzg_investor_journal_v1', 'xstarzg_meme_journal_v1'
+];
+function journalStorageKey(key) {
+  var email = state.user && state.user.email ? String(state.user.email).trim().toLowerCase() : 'guest';
+  return key + ':' + encodeURIComponent(email);
+}
+function journalTombstoneKey() { return 'xstarzg_journal_clear_v1:' + journalStorageKey('account'); }
+function journalClearState() {
+  try { return JSON.parse(localStorage.getItem(journalTombstoneKey()) || 'null'); } catch (e) { return null; }
+}
+function clearLocalJournalKeys() {
+  var accountSuffix = ':' + encodeURIComponent(
+    state.user && state.user.email ? String(state.user.email).trim().toLowerCase() : 'guest'
+  );
+  var keys = [];
+  for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+  keys.forEach(function (key) {
+    if (LEGACY_JOURNAL_KEYS.some(function (base) { return key === base + accountSuffix; })) {
+      localStorage.removeItem(key);
+    }
+  });
+}
 function signalLockStore() {
-  var p = {};
-  try { p = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY) || '{}') || {}; } catch (e) { p = {}; }
-  if (!p.__migratedV2) {
-    try {
-      var old = JSON.parse(localStorage.getItem(SIGNAL_LOCK_KEY_V2) || '{}') || {};
-      for (var ok in old) {
-        var ol = old[ok];
-        if (ol && ol.status === 'ACTIVE' && ol.tf) {
-          var nk = ok + '|' + ol.tf;
-          if (!p[nk]) p[nk] = ol;
-        }
-      }
-    } catch (e) {}
-    p.__migratedV2 = 1;
-    try { localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(p)); } catch (e) {}
-  }
-  return p;
+  try { return JSON.parse(localStorage.getItem(journalStorageKey(SIGNAL_LOCK_KEY)) || '{}') || {}; } catch (e) { return {}; }
 }
 function signalLockId(symbol, tf) {
   return (symbol || '').toUpperCase() + '|' + (state.mode || 'trader') + '|' + (state.mode === 'investor' ? 'spot' : (state.subMode || 'futures')) + '|' + String(tf || state.tf || '');
@@ -1127,50 +1060,90 @@ function getSignalLock(symbol, tf) {
   return l;
 }
 function saveSignalLock(symbol, tf, lock) {
+  var savedLocal = false;
   try {
     var all = signalLockStore();
     var id = signalLockId(symbol, tf);
     if (lock) {
+      if (!lock.analysis || !journalAdmission(lock.analysis, symbol, tf)) return null;
       if (!isPriceCompatibleWithSymbol(lock.entry, symbol)) {
-        return;
+        return null;
       }
       all[id] = lock;
+      savedLocal = true;
       try {
         var outs = signalOutcomeStore();
         if (outs[id]) {
           delete outs[id];
-          localStorage.setItem(SIGNAL_OUTCOME_KEY, JSON.stringify(outs));
+          localStorage.setItem(journalStorageKey(SIGNAL_OUTCOME_KEY), JSON.stringify(outs));
         }
       } catch (e) {}
     } else {
       delete all[id];
     }
-    var ks = Object.keys(all).filter(function (k) { return k !== '__migratedV2'; });
+    var ks = Object.keys(all);
     while (ks.length > 60) { var k0 = ks.shift(); delete all[k0]; }
-    localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+    localStorage.setItem(journalStorageKey(SIGNAL_LOCK_KEY), JSON.stringify(all));
   } catch (e) {}
   try { renderSignalJournal(); } catch (e) {}
-  if (lock) {
+  if (lock && savedLocal) {
     try {
-      fetch('/api/market/journal-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save_lock', lock: lock })
-      }).catch(function () {});
+      if (lock.analysis && journalAdmission(lock.analysis, lock.symbol, lock.tf)) {
+        return ensureAuthToken().then(function (token) {
+          if (!token) throw new Error('Authenticated journal sync requires a session token');
+          return fetch('/api/market/journal-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ action: 'save_lock', lock: lock })
+          }).then(function (r) {
+            if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
+            return r.json();
+          });
+        }).catch(function (err) { console.warn('Cloud journal save failed:', err.message); return null; });
+      }
     } catch (e) {}
   }
+  return null;
 }
 
 function syncCloudSignalJournal() {
-  fetch('/api/market/journal-sync')
-    .then(function (r) { return r && r.ok ? r.json() : null; })
+  if (!state.user || !state.user.email) return Promise.resolve(null);
+  return ensureAuthToken().then(function (token) {
+    if (!token) throw new Error('Cloud journal sync requires an authenticated session');
+    var cleared = journalClearState();
+    if (cleared && cleared.pending) {
+      return fetch('/api/market/journal-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ action: 'clear_user_journal' })
+      }).then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
+        return r.json();
+      }).then(function (data) {
+        if (!data || !data.ok) throw new Error('Cloud journal reset was not confirmed');
+        cleared.at = Number(data.clearedAt) || cleared.at;
+        cleared.pending = false;
+        localStorage.setItem(journalTombstoneKey(), JSON.stringify(cleared));
+        return { ok: true, activeLocks: [], recentOutcomes: [] };
+      });
+    }
+    return fetch('/api/market/journal-sync', { headers: { 'Authorization': 'Bearer ' + token } });
+  })
+    .then(function (r) {
+      if (!r || !r.ok) return r ? r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); }) : null;
+      if (Array.isArray(r.activeLocks)) return r;
+      return r.json();
+    })
     .then(function (d) {
-      if (!d || !d.ok) return;
+      if (!d || !d.ok) throw new Error('Cloud journal sync returned an invalid response');
       var all = signalLockStore();
       var changed = false;
       if (Array.isArray(d.activeLocks) && d.activeLocks.length) {
         d.activeLocks.forEach(function (l) {
           if (!l || !l.symbol || !l.tf) return;
+          var cleared = journalClearState();
+          if (cleared && Number(l.issuedAt || l.created || 0) <= Number(cleared.at || 0)) return;
+          if (!journalAdmission(l.analysis, l.symbol, l.tf)) return;
           var id = signalLockId(l.symbol, l.tf);
           if (!all[id] || (l.issuedAt && (!all[id].issuedAt || l.issuedAt > all[id].issuedAt))) {
             all[id] = l;
@@ -1179,17 +1152,91 @@ function syncCloudSignalJournal() {
         });
       }
       if (changed) {
-        localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));
+        localStorage.setItem(journalStorageKey(SIGNAL_LOCK_KEY), JSON.stringify(all));
         try { renderSignalJournal(); } catch (e) {}
       }
-    }).catch(function () {});
+    });
 }
-/* --- Outcome tercatat & akurasi radar terukur (loop umpan-balik jujur) --- */
-function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(SIGNAL_OUTCOME_KEY) || '{}') || {}; } catch (e) { return {}; } }
+/* --- Hasil sinyal yang sudah memenuhi syarat jurnal --- */
+function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(journalStorageKey(SIGNAL_OUTCOME_KEY)) || '{}') || {}; } catch (e) { return {}; } }
 function hzOfTf(tf) { var t = String(tf || ''); if (t === 'M1' || t === 'M5' || t === 'M15') return 'scalping'; if (t === 'M30' || t === 'H1') return 'intraday'; return 'swing'; }
 function outcomeCooldownMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 30 * 60000 : hz === 'intraday' ? 90 * 60000 : 6 * 3600000; }
 function outcomeBadgeWindowMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 45 * 60000 : hz === 'intraday' ? 3 * 3600000 : 12 * 3600000; }
-function radarAccStore() { try { return JSON.parse(localStorage.getItem(RADAR_ACC_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function buildManualJournalAnalysisSnapshot(a, symbol, tf, feedSource) {
+  if (!a || a.error) return null;
+  var sym = String(symbol || a.symbol || '').toUpperCase();
+  var tfVal = String(tf || a.timeframe || state.tf || '');
+  var dir = a.direction;
+  var td = a.topDown && typeof a.topDown === 'object' ? a.topDown : null;
+  var alignStatus = td && td.alignmentStatus ? td.alignmentStatus : null;
+  var htfLtfAligned = !!(
+    td && td.isAligned !== false &&
+    ((dir === 'LONG' && alignStatus === 'ALIGNED_BULLISH') ||
+     (dir === 'SHORT' && alignStatus === 'ALIGNED_BEARISH'))
+  );
+  var modeVal = a.mode || state.mode || 'trader';
+  var subModeVal = modeVal === 'investor' ? 'spot' : (state.subMode || a.subMode || 'futures');
+  var spotOnlyVal = !!(a.spotOnly || modeVal === 'investor' || subModeVal === 'spot');
+  var src = a.feedSource || a.source || feedSource || null;
+  var rawAct = String(a.action || a.label || '').trim().toUpperCase();
+  var act = rawAct || (dir === 'LONG' ? 'BUY' : (dir === 'SHORT' ? 'SELL' : 'WAIT'));
+  var sc = num(a.confluenceScore, num(a.convictionScore, 0));
+  return {
+    symbol: sym,
+    timeframe: tfVal,
+    mode: modeVal,
+    subMode: subModeVal,
+    spotOnly: spotOnlyVal,
+    direction: dir,
+    action: act,
+    signalEligible: a.signalEligible === true,
+    signalTier: a.signalTier || null,
+    confluenceScore: sc,
+    convictionScore: num(a.convictionScore, sc),
+    htfLtfAligned: htfLtfAligned,
+    topDown: td ? {
+      isAligned: td.isAligned === true,
+      alignmentStatus: alignStatus,
+      macroBias: td.macroBias || null,
+      structBias: td.structBias || null,
+      execBias: td.execBias || null
+    } : null,
+    manualSelection: a.manualSelection === true,
+    feedSource: src,
+    source: src,
+    feedUnverified: a.feedUnverified === true,
+    __estFeed: a.__estFeed === true
+  };
+}
+function journalAdmission(analysis, symbol, tf) {
+  if (!analysis || analysis.error || analysis.manualSelection !== true) return false;
+  var sym = String(symbol || '').toUpperCase();
+  var direction = analysis.direction;
+  var alignment = analysis.topDown && analysis.topDown.alignmentStatus;
+  var aligned = analysis.htfLtfAligned === true && (direction === 'LONG'
+    ? alignment === 'ALIGNED_BULLISH'
+    : direction === 'SHORT' && alignment === 'ALIGNED_BEARISH');
+  var score = Number(analysis.confluenceScore || analysis.convictionScore || 0);
+  var source = analysis.feedSource || analysis.source;
+  var actionUpper = String(analysis.action || analysis.label || '').trim().toUpperCase();
+  var isWaitAction = !actionUpper ? false : (
+    actionUpper === 'WAIT' || actionUpper === 'WAIT_ZONE' || actionUpper === 'WAIT ZONE' ||
+    actionUpper === 'TUNGGU' || actionUpper === 'NEUTRAL' || actionUpper === 'UNALIGNED' ||
+    /\b(WAIT|TUNGGU|NO-TRADE|NEUTRAL|UNALIGNED|HOLD)\b/.test(actionUpper)
+  );
+  var spotLongOnlyOk = (analysis.mode !== 'investor' || direction === 'LONG') &&
+    ((!analysis.spotOnly && analysis.subMode !== 'spot') || direction === 'LONG');
+  return analysis.signalEligible === true &&
+    (direction === 'LONG' || direction === 'SHORT') &&
+    !isWaitAction &&
+    score >= 78 && aligned &&
+    !analysis.feedUnverified && !analysis.__estFeed &&
+    typeof feedIsReal === 'function' && feedIsReal(source) &&
+    !!analysis.symbol && String(analysis.symbol).toUpperCase() === sym &&
+    spotLongOnlyOk &&
+    !!analysis.timeframe &&
+    String(tf || analysis.timeframe || state.tf) === String(analysis.timeframe);
+}
 
 function notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock) {
   try {
@@ -1354,10 +1401,12 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
       // (jika badge lahir dari feed fabrikasi, lock dipulihkan & badge dicabut).
       lock: lock ? {
         v: lock.v, symbol: lock.symbol, tf: lock.tf, direction: lock.direction,
+        mode: lock.mode || null, subMode: lock.subMode || null, source: lock.source || null,
         entry: lock.entry, sl: lock.sl, tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
         slPlus: lock.slPlus, bePlusActive: beSaved, filled: !!lock.filled,
         rrRatio: lock.rrRatio, score: lock.score, winRate: lock.winRate,
-        anchorClosedTime: lock.anchorClosedTime, anchorPrice: lock.anchorPrice, issuedAt: lock.issuedAt
+        anchorClosedTime: lock.anchorClosedTime, anchorPrice: lock.anchorPrice,
+        analysis: lock.analysis || null, issuedAt: lock.issuedAt
       } : null
     };
     var ks = Object.keys(out);
@@ -1541,7 +1590,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
       var a = SE.runFullAnalysis({
         symbol: symbol, timeframe: tf || 'H1',
         mode: state.mode || 'trader', horizon: 'all',
-        spotOnly: state.subMode === 'spot', candles: candles
+        spotOnly: state.mode === 'investor' || state.subMode === 'spot', candles: candles
       });
       if (a && !a.error) {
         a.candles = candles;
@@ -1564,6 +1613,8 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
         if (!feedReal || isFeedEstimate || feedSource === 'LOCAL_SEED') {
           a.feedUnverified = true;
           a.signalEligible = false;
+          a.htfLtfAligned = false;
+          a.manualSelection = false;
           // Seed sintetis hanya untuk visual candlestick awal chart, cegah skor palsu & alarm sesaat
           a.convictionScore = 50;
           a.confluenceScore = 50;
@@ -1575,14 +1626,24 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
         // lock aktif yang sedang dipantau trader (mis. komoditas Kapas/COTTON M5 scalping)
         // WAJIB diikutkan ke siklus pemantauan jurnal sinyal menuju TP/SL HANYA bila feed bukan estimasi.
         var tfA = a.timeframe || tf;
+        a.manualSelection = !!(
+          state.manualInstrumentSelection === true &&
+          scope === 'create' &&
+          String(symbol || '').toUpperCase() === String(state.symbol || '').toUpperCase() &&
+          String(tfA || '') === String(state.tf || '')
+        );
         if ((scope === 'create' || getSignalLock(symbol, tfA)) && !isFeedEstimate) feedReal = true;
         if (!feedIsReal(feedSource) || isFeedEstimate || feedSource === 'LOCAL_SEED') {
           feedReal = false;
           a.feedUnverified = true;
           a.signalEligible = false;
+          a.htfLtfAligned = false;
+          a.manualSelection = false;
           a.convictionScore = 50;
           a.confluenceScore = 50;
           a.direction = 'NEUTRAL';
+          a.label = 'NEUTRAL';
+          a.action = 'TUNGGU';
         }
         try {
           if (feedReal && typeof SE.validateSignalLock === 'function') {
@@ -1631,11 +1692,34 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             /* Kartu yang TAMPIL (create/apply) = komitmen terlacak. Penerbitan baru
                dihormati 3 penjaga: feed asli + cooldown pasca-SL/invalidasi + ambang
                adaptif dari akurasi terukur horizon (mengetat otomatis saat radar buruk). */
-            if (!a.lockedSignal && (scope === 'create' || scope === 'apply') && a.signalEligible && !a.__estFeed && !a.feedUnverified && feedReal
-                && !signalCooldownActive(symbol, tfA) && num(a.confluenceScore, 0) >= adaptiveMinScore(tfA)) {
-              var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
+            var alignmentStatus = a.topDown && a.topDown.alignmentStatus;
+            var directionAligned = (a.direction === 'LONG' && alignmentStatus === 'ALIGNED_BULLISH') ||
+              (a.direction === 'SHORT' && alignmentStatus === 'ALIGNED_BEARISH');
+            a.htfLtfAligned = !!(directionAligned && a.topDown && a.topDown.isAligned !== false);
+            var actUpper = String(a.action || a.label || '').trim().toUpperCase();
+            var isWaitZoneAction = !actUpper ? false : (
+              actUpper === 'WAIT' || actUpper === 'WAIT_ZONE' || actUpper === 'WAIT ZONE' ||
+              actUpper === 'TUNGGU' || actUpper === 'NEUTRAL' || actUpper === 'UNALIGNED' ||
+              /\b(WAIT|TUNGGU|NO-TRADE|NEUTRAL|UNALIGNED|HOLD)\b/.test(actUpper)
+            );
+            var spotLongOnlyOk = (state.mode !== 'investor' || a.direction === 'LONG') &&
+              ((state.subMode !== 'spot' && !a.spotOnly) || a.direction === 'LONG');
+            var manualJournalEligible = state.manualInstrumentSelection === true &&
+              a.manualSelection === true &&
+              state.mode === 'trader' && scope === 'create' &&
+              String(symbol).toUpperCase() === String(state.symbol).toUpperCase() &&
+              tfA === state.tf && directionAligned && a.htfLtfAligned === true &&
+              spotLongOnlyOk && !isWaitZoneAction &&
+              (a.signalTier === 'PRO' || a.signalTier === 'ELITE') &&
+              num(a.confluenceScore, 0) >= Math.max(80, adaptiveMinScore(tfA)) &&
+              a.signalEligible && !a.__estFeed && !a.feedUnverified && feedReal &&
+              !signalCooldownActive(symbol, tfA);
+            if (!a.lockedSignal && manualJournalEligible) {
+              var lockSnapshot = buildManualJournalAnalysisSnapshot(a, symbol, tfA, feedSource);
+              var nl = (lockSnapshot && journalAdmission(lockSnapshot, symbol, tfA)) ? SE.createSignalLock(a, symbol, state.mode, state.subMode) : null;
               if (nl && isAssetMarketOpen(symbol) && isPriceCompatibleWithSymbol(nl.entry, symbol)) {
                 if (a.feedUnverified) nl.feedUnverified = true;
+                nl.analysis = lockSnapshot;
                 saveSignalLock(symbol, tfA, nl);
                 SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false });
                 try { checkTelegramHighScoreSignal(a, { sym: symbol, tf: tfA }); } catch (e) {}
@@ -2390,48 +2474,7 @@ function gateBlockHtml(a) {
    saat candle closed baru terbentuk (anchor berubah). */
 var bestTfScanSeq = 0;
 var bestTfScanCache = {};
-function scheduleBestTfScan() {
-  // Do not launch eight additional timeframe requests after each manual analysis.
-  return;
-  try {
-    if (!SE || !SE.pickBestTimeframes) return;
-    if (state.mode === 'investor') { state.bestTfBoard = null; return; }
-    if (!state.lastAnalysis || state.lastAnalysis.error) return;
-    var sym = state.symbol;
-    var key = sym + '|' + (state.mode || 'trader') + '|' + (state.subMode || 'futures');
-    var anchor = num(state.lastAnalysis.anchorClosedTime, 0);
-    var cached = bestTfScanCache[key];
-    if (cached && cached.anchor === anchor && (Date.now() - cached.ts) < 300000) {
-      state.bestTfBoard = cached.board;
-      renderNarrative(state.lastAnalysis);
-      return;
-    }
-    var curTf = state.tf;
-    var ALL_TFS = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN'];
-    var byTf = {};
-    byTf[curTf] = state.lastAnalysis;
-    var mySeq = ++bestTfScanSeq;
-    var jobs = [];
-    for (var i = 0; i < ALL_TFS.length; i++) {
-      (function (tf) {
-        if (tf === curTf) return;
-        jobs.push(fetchRealMarketCandles(sym, tf).then(function (d) {
-          return { tf: tf, a: computeQuantEngine(d.candles, sym, tf, false, 'apply', d.source) };
-        }));
-      })(ALL_TFS[i]);
-    }
-    Promise.allSettled(jobs).then(function (rs) {
-      if (mySeq !== bestTfScanSeq || state.symbol !== sym) return;
-      for (var j = 0; j < rs.length; j++) {
-        if (rs[j].status === 'fulfilled' && rs[j].value && rs[j].value.a && !rs[j].value.a.error) byTf[rs[j].value.tf] = rs[j].value.a;
-      }
-      var board = SE.pickBestTimeframes(byTf);
-      state.bestTfBoard = board;
-      bestTfScanCache[key] = { ts: Date.now(), anchor: anchor, board: board };
-      if (state.lastAnalysis && !state.lastAnalysis.error) renderNarrative(state.lastAnalysis);
-    }).catch(function () {});
-  } catch (e) {}
-}
+function scheduleBestTfScan() { return; }
 /* Parameter risiko futures (leverage aman & estimasi harga likuidasi) */
 function riskParams(a) {
   var atrPct = Math.max(0.05, num(a && a.indicators ? a.indicators.atrPct : 0) || 0.5);
@@ -2833,7 +2876,6 @@ function renderAllVisuals(analysis) {
   try { renderPillars(analysis); } catch (e) {}
   var isFeedEst = !analysis || analysis.__estFeed || analysis.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(state.feedSource));
   if (!isFeedEst) {
-    try { writeBackRadarPools(analysis); } catch (e) {}
     try { checkSignalAlarm(analysis); } catch (e) {}
     try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
   }
@@ -2841,43 +2883,8 @@ function renderAllVisuals(analysis) {
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
    TF yang sama -> kartu rekomendasi selalu mencerminkan kebenaran engine terkini. */
-function writeBackRadarPools(analysis) {
-  if (!analysis || analysis.error || !analysis.symbol || !analysis.timeframe) return;
-  var sym = analysis.symbol, tf = analysis.timeframe;
-  if (state.symbol !== sym) return;
-  if (!state.candles || !state.candles.length) return;
-  var lastBar = state.candles[state.candles.length - 1];
-  if (!lastBar || !isPriceCompatibleWithSymbol(lastBar.close, sym)) return;
-
-  // STRICT GUARD: Jika instrumen sedang dalam masa pendinginan (cooldown pasca outcome):
-  // DILARANG MEMBANGKITKAN KEMBALI kartu ke radar! Bersihkan dari radarScanPool agar tidak mencemari radar!
-  if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) {
-    for (var hz0 in radarScanPool) {
-      if (radarScanPool[hz0]) delete radarScanPool[hz0][sym + '|' + tf];
-    }
-    return;
-  }
-  // Cegah membangkitkan sinyal yang sudah basi / tidak layak ke radar
-  if (typeof evaluateSignalViability === 'function') {
-    var vCheck = evaluateSignalViability(analysis, num(state.livePrice, analysis.lastPrice));
-    if (vCheck && vCheck.worth === false && vCheck.key !== 'PULLBACK') {
-      return;
-    }
-  }
-
-  var item = {
-    sym: sym, tf: tf, analysis: analysis,
-    candles: (state.candles || []).slice(-240),
-    price: num(state.livePrice, analysis.lastPrice),
-    changePct: num(state.liveChangePct, analysis.changePct),
-    source: 'WORKSPACE LIVE'
-  };
-  for (var hz in radarScanPool) radarScanPool[hz][sym + '|' + tf] = { ts: Date.now(), item: item };
-  // Hanya simpan ke investorScanPool jika sedang di mode investor atau TF bernuansa investasi (D1/W1)
-  // Mencegah fluktuasi cepat scalping M5/M15 mengotori rekomendasi investasi jangka panjang
-  if (state.mode === 'investor' || tf === 'D1' || tf === 'W1') {
-    investorScanPool[sym] = { ts: Date.now(), item: item };
-  }
+function writeBackRadarPools() {
+  return;
 }
 
 /* ==================== 6. REAL-TIME PRICE ENGINE (SEMUA INSTRUMEN) ==================== */
@@ -3199,25 +3206,8 @@ function connectRealtimeStream() {
    Setiap kartu = analisis quant penuh pada candle real-time aset tsb:
    trader -> ▲ LONG / ▼ SHORT (futures) atau TUNGGU (spot 1-arah),
    investor -> AKUMULASI / DCA / TUNGGU DISKON (framing beli-nyata). */
-function fetchRadarCandidate(item) {
-  if (!isAssetMarketOpen(item.sym)) {
-    return Promise.resolve(null);
-  }
-  return fetchRealMarketCandles(item.sym, item.tf).then(function (d) {
-    var a = computeQuantEngine(d.candles, item.sym, item.tf, false, 'apply', d.source);
-    if (!a) throw new Error('no-analysis');
-    // Kandidat berbasis feed estimasi/fabrikasi: dinonaktifkan dari rekomendasi
-    // (sinyal, komitmen, dan outcome hanya lahir dari candle broker asli).
-    a.__estFeed = !feedIsReal(d.source);
-    if (a.__estFeed) return null; // jangan masukkan kandidat estimasi ke pool radar rekomendasi!
-    return {
-      sym: item.sym, tf: item.tf, analysis: a,
-      candles: Array.isArray(d.candles) ? d.candles.slice(-240) : null, // snapshot utk konsistensi klik-through
-      price: num(d.price) > 0 ? num(d.price) : a.lastPrice,
-      changePct: Number.isFinite(Number(d.changePct)) ? Number(d.changePct) : num(a.changePct),
-      source: d.source || 'BROKER FEED'
-    };
-  });
+function fetchRadarCandidate() {
+  return Promise.resolve(null);
 }
 function radarBadgeFor(a) {
   var sc = num(a && a.confluenceScore, 50);
@@ -3594,87 +3584,11 @@ var INVESTOR_JOURNAL_KEY = 'xstarzg_investor_journal_v1';
 var MEME_JOURNAL_KEY = 'xstarzg_meme_journal_v1';
 var activeJournalTab = 'trader'; // 'trader' | 'investor' | 'meme'
 
-function syncCuratedInvestorToJournal() {
-  try {
-    var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
-    var all = [];
-    if (raw) {
-      try { all = JSON.parse(raw) || []; } catch (e) {}
-    }
-    // Hapus data fiktif statis lama jika ada
-    all = (Array.isArray(all) ? all : []).filter(function (x) {
-      return x && x.id !== 'inv_btc';
-    });
-
-    var existingSyms = {};
-    all.forEach(function (x) { if (x && x.symbol) existingSyms[x.symbol.toUpperCase()] = true; });
-
-    // Portofolio default spot bluechip dengan valuasi D1 riil
-    var defaultInvPicks = [
-      {
-        id: 'inv_bbca_spot',
-        symbol: 'BBCA.JK',
-        name: 'Bank Central Asia',
-        assetClass: 'stocks',
-        entryPrice: 9850,
-        currentPrice: 9850,
-        dcaZone1: 9850,
-        dcaZone2: 9550,
-        dcaZone3: 9250,
-        target1: 11200,
-        target2: 12500,
-        valuationStatus: 'FAIR VALUE (DIVIDEND BLUECHIP)',
-        notes: 'Akumulasi dividen perbankan solid & fundamental laba bersih konsisten bertumbuh.',
-        at: Date.now() - 14 * 86400000,
-        status: 'ACTIVE'
-      },
-      {
-        id: 'inv_bbri_spot',
-        symbol: 'BBRI.JK',
-        name: 'Bank Rakyat Indonesia',
-        assetClass: 'stocks',
-        entryPrice: 4420,
-        currentPrice: 4420,
-        dcaZone1: 4420,
-        dcaZone2: 4200,
-        dcaZone3: 3950,
-        target1: 5200,
-        target2: 5800,
-        valuationStatus: 'UNDERVALUE (DISKON TINGGI)',
-        notes: 'Penyaluran kredit UMKM terbesar, valuasi PBV diskon historis, dividen yield tinggi.',
-        at: Date.now() - 10 * 86400000,
-        status: 'ACTIVE'
-      }
-    ];
-
-    defaultInvPicks.forEach(function (it) {
-      var s = it.symbol.toUpperCase();
-      if (!existingSyms[s]) {
-        existingSyms[s] = true;
-        all.push(it);
-      }
-    });
-
-    // Update harga live terkini
-    all.forEach(function (j) {
-      var s = (j.symbol || '').toUpperCase();
-      if (state.symbol && state.symbol.toUpperCase() === s && Number(state.livePrice) > 0) {
-        j.currentPrice = Number(state.livePrice);
-      } else if (typeof investorScanPool !== 'undefined' && investorScanPool[s] && Number(investorScanPool[s].price) > 0) {
-        j.currentPrice = Number(investorScanPool[s].price);
-      }
-    });
-
-    saveInvestorJournalStore(all);
-    return all;
-  } catch (e) {
-    return [];
-  }
-}
+function syncCuratedInvestorToJournal() { return []; }
 
 function investorJournalStore() {
   try {
-    var raw = localStorage.getItem(INVESTOR_JOURNAL_KEY);
+    var raw = localStorage.getItem(journalStorageKey(INVESTOR_JOURNAL_KEY));
     if (raw) {
       var parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length) {
@@ -3687,83 +3601,14 @@ function investorJournalStore() {
 }
 
 function saveInvestorJournalStore(items) {
-  try { localStorage.setItem(INVESTOR_JOURNAL_KEY, JSON.stringify(items || [])); } catch (e) {}
+  try { localStorage.setItem(journalStorageKey(INVESTOR_JOURNAL_KEY), JSON.stringify(items || [])); } catch (e) {}
 }
 
-function syncRecommendedMemeToJournal(memeList) {
-  try {
-    var raw = localStorage.getItem(MEME_JOURNAL_KEY);
-    var all = [];
-    if (raw) {
-      try { all = JSON.parse(raw) || []; } catch (e) {}
-    }
-    // Bersihkan seed dummy statis lama
-    all = (Array.isArray(all) ? all : []).filter(function (x) {
-      return x && x.id !== 'meme_pnut' && x.id !== 'meme_brett';
-    });
-
-    var existingSyms = {};
-    all.forEach(function (x) { if (x && x.symbol) existingSyms[x.symbol.toUpperCase()] = true; });
-
-    var pool = (memeList && memeList.length) ? memeList : ((typeof memeScanPool !== 'undefined' && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG);
-    var topCandidates = pool.filter(function (it) {
-      return (it.safetyScore || 0) >= 80;
-    }).slice(0, 8);
-
-    topCandidates.forEach(function (it) {
-      var s = (it.symbol || '').toUpperCase();
-      if (s && !existingSyms[s]) {
-        existingSyms[s] = true;
-        var baseP = Number(it.basePrice) || 0.1;
-        var buyP = Number((baseP / (1 + Math.max(1.5, Number(it.change5m || it.change1h || 5)) / 100)).toFixed(baseP < 0.01 ? 6 : (baseP < 1 ? 4 : 2)));
-        all.push({
-          id: 'dex_rec_' + it.symbol.toLowerCase() + '_' + (it.chain || 'solana'),
-          symbol: it.symbol,
-          name: it.name,
-          chain: it.chain,
-          chainLabel: it.chainLabel || (it.chain ? it.chain.toUpperCase() : 'Solana'),
-          address: it.address || it.pairAddress || '',
-          buyPrice: buyP,
-          currentPrice: baseP,
-          targetX: 2.0,
-          tp1Secured: false,
-          notes: 'Rekomendasi Teratas DEX Workspace (' + (it.chainLabel || it.chain) + ') • Safety ' + (it.safetyScore || 90) + '/100.',
-          at: Date.now() - (it.ageHours ? Math.min(it.ageHours * 3600000, 24 * 3600000) : 3600000),
-          status: 'ACTIVE',
-          isAuto: true
-        });
-      }
-    });
-
-    // Update harga live koin micin
-    var catMap = {};
-    pool.forEach(function (it) { if (it && it.symbol) catMap[it.symbol.toUpperCase()] = it; });
-    all.forEach(function (j) {
-      var found = catMap[(j.symbol || '').toUpperCase()];
-      if (found && Number(found.basePrice) > 0) {
-        j.currentPrice = Number(found.basePrice);
-        if (j.buyPrice > 0 && Math.abs(j.currentPrice - j.buyPrice) < 0.000001) {
-          var chg = Number(found.change1h || found.change5m || 8.5);
-          if (chg > 0) {
-            j.buyPrice = Number((j.currentPrice / (1 + chg / 100)).toFixed(j.currentPrice < 0.01 ? 6 : (j.currentPrice < 1 ? 4 : 2)));
-          }
-        }
-        if (j.currentPrice >= 2.0 * j.buyPrice) {
-          j.tp1Secured = true;
-        }
-      }
-    });
-
-    saveMemeJournalStore(all);
-    return all;
-  } catch (e) {
-    return [];
-  }
-}
+function syncRecommendedMemeToJournal() { return []; }
 
 function memeJournalStore() {
   try {
-    var raw = localStorage.getItem(MEME_JOURNAL_KEY);
+    var raw = localStorage.getItem(journalStorageKey(MEME_JOURNAL_KEY));
     if (raw) {
       var parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length) {
@@ -3772,11 +3617,11 @@ function memeJournalStore() {
       }
     }
   } catch (e) {}
-  return syncRecommendedMemeToJournal(DEFAULT_MEME_CATALOG);
+  return [];
 }
 
 function saveMemeJournalStore(items) {
-  try { localStorage.setItem(MEME_JOURNAL_KEY, JSON.stringify(items || [])); } catch (e) {}
+  try { localStorage.setItem(journalStorageKey(MEME_JOURNAL_KEY), JSON.stringify(items || [])); } catch (e) {}
 }
 
 window.removeInvestorJournalItem = function (id) {
@@ -4103,26 +3948,14 @@ function renderSignalJournal() {
     if (invBar) invBar.classList.add('hidden');
     if (memeBar) memeBar.classList.remove('hidden');
 
-    // Minta pembaruan live prices koin DEX di latar belakang secara otomatis
-    try { fetchMemeCatalogLive(false); } catch (e) {}
-
     var totalMemeCount = memeItems.length;
     var bestX = 1.0;
     var safeCount = 0;
 
     memeItems.forEach(function (m) {
-      var poolToken = (typeof memeScanPool !== 'undefined' && memeScanPool.length ? memeScanPool : DEFAULT_MEME_CATALOG).find(function (x) { return x.symbol === m.symbol; });
       var curP = (activeMemeToken && activeMemeToken.symbol === m.symbol && activeMemeToken.basePrice > 0)
         ? activeMemeToken.basePrice
-        : (poolToken && Number(poolToken.basePrice) > 0 ? Number(poolToken.basePrice) : (m.currentPrice || m.buyPrice));
-
-      // Sembuhkan item historis di mana buyPrice masih sama dengan curP karena bug lama simpan statis
-      if (m.buyPrice > 0 && Math.abs(curP - m.buyPrice) < 0.000001 && poolToken) {
-        var chg = Number(poolToken.change1h || poolToken.change5m || 8.5);
-        if (chg > 0) {
-          m.buyPrice = Number((curP / (1 + chg / 100)).toFixed(curP < 0.01 ? 6 : (curP < 1 ? 4 : 2)));
-        }
-      }
+        : (Number(m.currentPrice) > 0 ? Number(m.currentPrice) : Number(m.buyPrice));
       m._curP = curP;
       var mult = curP > 0 && m.buyPrice > 0 ? (curP / m.buyPrice) : 1.0;
       m._mult = mult;
@@ -4227,9 +4060,13 @@ function renderSignalJournal() {
     function openMemeAsset(sym) {
       if (!sym) return;
       setMode('meme');
-      var pool = (typeof memeScanPool !== 'undefined' && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
-      var found = pool.find(function (x) { return (x.symbol || '').toUpperCase() === (sym || '').toUpperCase(); });
-      if (found) selectMemeToken(found);
+      var saved = memeItems.find(function (item) { return (item.symbol || '').toUpperCase() === String(sym).toUpperCase(); });
+      if (!saved || !saved.address) return;
+      var chain = $id('selMemeChain');
+      var address = $id('inpMemeAddress');
+      if (chain && saved.chain) chain.value = saved.chain;
+      if (address) address.value = saved.address;
+      searchManualDexToken();
     }
 
     Array.prototype.forEach.call(list.querySelectorAll('.meme-jnl-card'), function (card) {
@@ -5173,1321 +5010,169 @@ function drawInvestorPickCards(items) {
     card.addEventListener('click', function () { gotoInstrument(card.getAttribute('data-sym'), 'D1'); });
   });
 }
-function renderInvestorPicks(force) {
-  var grid = $id('investorPicksGrid');
-  if (!grid) return;
-  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Kurasi multi-instrumen dipindahkan ke proyek screener terpisah. Analisis instrumen individual tetap tersedia di terminal.</span></div>';
-  return;
-  var now = Date.now();
-  var cachedItems = [];
-  for (var k0 in investorScanPool) if (now - investorScanPool[k0].ts < 1800000) cachedItems.push(investorScanPool[k0].item);
-  var longOnly = cachedItems.filter(function (it) { return it.analysis.direction === 'LONG'; });
-  longOnly.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
-  var shown0 = longOnly.slice(0, 12);
-  if (!force && shown0.length >= 4) { drawInvestorPickCards(shown0); return; }
-  if (shown0.length) drawInvestorPickCards(shown0);
-  var mySeq = ++investorPickRunSeq;
-  // v2026.66: batch 26 simbol / slot 6 menit (dulu 34/5) demi kuota Functions gratis.
-  var batch = rotatingSlice(investableUniverse(), 26, 6);
-  if (!shown0.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.invScanning', 'Mengkurasi {n} aset portofolio dengan data broker real-time (D1/W1)…').replace('{n}', batch.length + '+') + '</span></div>';
-  Promise.allSettled(batch.map(function (inst) {
-    return fetchRadarCandidate({ sym: inst.symbol, tf: 'D1' }).then(function (r) { if (r) r.cat = catLabelOf(getMeta(inst.symbol)); return r; });
-  })).then(function (results) {
-    if (mySeq !== investorPickRunSeq) return;
-    for (var i = 0; i < results.length; i++) {
-      if (results[i].status === 'fulfilled' && results[i].value) {
-        var it = results[i].value;
-        investorScanPool[it.sym] = { ts: Date.now(), item: it };
-      }
-    }
-    var merged = [];
-    var now2 = Date.now();
-    for (var k in investorScanPool) if (now2 - investorScanPool[k].ts < 1800000) merged.push(investorScanPool[k].item);
-    // Hanya aset yang bias makronya memang akumulatif (LONG D1/W1) yang direkomendasikan
-    // untuk diinvestasikan — diurut dari skor konfluensi makro terkuat.
-    var longs = merged.filter(function (it) { return it.analysis.direction === 'LONG' && num(it.analysis.convictionScore, 0) >= 55; });
-    longs.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
-    var shown = longs.slice(0, 12);
-    if (!shown.length) { // fallback: kandidat terbaik yang sedang terpantau
-      merged.sort(function (x, y) { return num(y.analysis.confluenceScore, 50) - num(x.analysis.confluenceScore, 50); });
-      shown = merged.slice(0, 6);
-    }
-    drawInvestorPickCards(shown);
-    try { syncCuratedInvestorToJournal(); } catch (e) {}
-  }).catch(function () {});
-}
+function renderInvestorPicks() { return; }
 /* ==================== MEME & DEX GEM RADAR (ANTI-RUG SCANNER) ==================== */
-var DEFAULT_MEME_CATALOG = [
-  {
-    "symbol": "PNUT",
-    "metaNarrative": "Viral Squirrel Martyr & Free Speech Symbol — gelombang viralitas global pasca pemilu AS.",
-    "devStatus": "100% Community Takeover (CTO) — Dev awal telah keluar penuh, dikelola komunitas murni.",
-    "name": "Peanut the Squirrel",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "2qEHjAnGOpmjqAtwhcvxBygfAnphEpcVs2uwRN3BEAn2",
-    "pairAddress": "2qEHjAnGOpmjqAtwhcvxBygfAnphEpcVs2uwRN3BEAn2",
-    "dex": "Raydium",
-    "basePrice": 1.12,
-    "change5m": 3.4,
-    "change1h": 12.8,
-    "change24h": 38.5,
-    "liquidity": 4850000,
-    "volume24h": 38200000,
-    "volume5m": 185000,
-    "marketCap": 1120000000,
-    "txBuys5m": 142,
-    "txSells5m": 38,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 12.4,
-    "ageHours": 420,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 96,
-    "reasons": [
-      "🛡️ LP 100% Burned permanen — tidak ada risiko dev mencabut likuiditas.",
-      "🔐 Mint Authority & Freeze Authority dinonaktifkan (bebas honeypot).",
-      "⚡ Buy pressure 5 menit mendominasi (78.9% transaksi beli).",
-      "👥 Distribusi suplai sehat: Top 10 dompet hanya memegang 12.4% total suplai."
-    ]
-  },
-  {
-    "symbol": "GOAT",
-    "metaNarrative": "Autonomous AI Terminal Agent (Truth Terminal) — pelopor narasi AI Memecoin otonom Solana.",
-    "devStatus": "AI Agent & Open Community — Likuiditas di pool Raydium 100% dibakar permanen.",
-    "name": "Goatseus Maximus",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "CzLSujWBLFsSjncfkh59rQD4NJSmggxtkvQF1ZP5pump",
-    "pairAddress": "CzLSujWBLFsSjncfkh59rQD4NJSmggxtkvQF1ZP5pump",
-    "dex": "Raydium",
-    "basePrice": 0.78,
-    "change5m": 2.1,
-    "change1h": 8.4,
-    "change24h": 24.2,
-    "liquidity": 3200000,
-    "volume24h": 21500000,
-    "volume5m": 120000,
-    "marketCap": 780000000,
-    "txBuys5m": 118,
-    "txSells5m": 42,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.1,
-    "ageHours": 680,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 94,
-    "reasons": [
-      "🛡️ Likuiditas terkunci 100% pada pool Raydium.",
-      "🤖 Narasi AI Agent viral — volume 24 jam mencapai $21.5M dengan kedalaman likuiditas solid.",
-      "📊 Rasio Volume/Likuiditas 5 menit aktif di atas 2.2x normal.",
-      "👥 Tidak terdeteksi kluster wallet dev yang mencurigakan."
-    ]
-  },
-  {
-    "symbol": "ACT",
-    "metaNarrative": "Multi-Agent AI Collaboration Network — narasi riset agen AI desentralisasi.",
-    "devStatus": "Community Takeover (CTO) — Dev dump di awal lalu diambil alih komunitas secara desentralisasi.",
-    "name": "Act I : The AI Prophecy",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfNbYmpump",
-    "pairAddress": "GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfNbYmpump",
-    "dex": "Raydium",
-    "basePrice": 0.48,
-    "change5m": 4.8,
-    "change1h": 15.2,
-    "change24h": 42.1,
-    "liquidity": 2400000,
-    "volume24h": 18200000,
-    "volume5m": 95000,
-    "marketCap": 480000000,
-    "txBuys5m": 165,
-    "txSells5m": 44,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 13.8,
-    "ageHours": 510,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 93,
-    "reasons": [
-      "🛡️ LP Burned 100% & Smart Contract lolos verifikasi RugCheck score 0 (Sangat Aman).",
-      "⚡ Lonjakan transaksi beli 5 menit (Buy:Sell = 3.75 : 1).",
-      "📈 Momentum breakout dari zona konsolidasi 1 jam.",
-      "👥 Distribusi komunitas merata tanpa kepemilikan dominan individu."
-    ]
-  },
-  {
-    "symbol": "MOODENG",
-    "metaNarrative": "Viral Thai Pygmy Hippo Internet Phenomenon — tren meme satwa global terpopuler di Solana.",
-    "devStatus": "Community Driven — Dev keluar di menit-menit awal, LP 100% burned permanen.",
-    "name": "Moo Deng",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "ED5nyyWEZyPPVisSt826CuG3LLRSu2BPSSH1D2xpump",
-    "pairAddress": "ED5nyyWEZyPPVisSt826CuG3LLRSu2BPSSH1D2xpump",
-    "dex": "Raydium",
-    "basePrice": 0.45,
-    "change5m": 1.8,
-    "change1h": 6.2,
-    "change24h": 19.8,
-    "liquidity": 2900000,
-    "volume24h": 14800000,
-    "volume5m": 88000,
-    "marketCap": 450000000,
-    "txBuys5m": 88,
-    "txSells5m": 29,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 15.2,
-    "ageHours": 920,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 92,
-    "reasons": [
-      "🛡️ LP 100% Burned — kontrak bersih tanpa fitur pembekuan saldo.",
-      "🌐 Viralitas media sosial global konsisten memicu arus masuk likuiditas baru.",
-      "📊 Net Inflow positif pada kerangka 15 menit dan 1 jam.",
-      "⚠️ Catatan: Ambil profit bertahap saat menyentuh resisten baru."
-    ]
-  },
-  {
-    "symbol": "FARTCOIN",
-    "metaNarrative": "AI Humor & Internet Satire — hasil percakapan tanpa filter model AI Truth Terminal.",
-    "devStatus": "CTO / Full Community — Suplai 100% beredar bebas tanpa kepemilikan orang dalam.",
-    "name": "Fartcoin AI",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
-    "pairAddress": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
-    "dex": "Raydium",
-    "basePrice": 0.38,
-    "change5m": 5.6,
-    "change1h": 18.2,
-    "change24h": 52.4,
-    "liquidity": 1850000,
-    "volume24h": 16400000,
-    "volume5m": 142000,
-    "marketCap": 380000000,
-    "txBuys5m": 210,
-    "txSells5m": 48,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 16.2,
-    "ageHours": 410,
-    "riskRating": "MEDIUM_SPECULATIVE",
-    "safetyScore": 88,
-    "reasons": [
-      "⚡ Lonjakan momentum eksplosif: Volume 5 menit mencapai $142K (rasio 2.9x normal).",
-      "🛡️ LP Burned 100% & Mint Authority dicabut.",
-      "👥 Rasio Pembeli/Penjual 4.3 : 1 menandakan akumulasi agresif trader ritel.",
-      "⚠️ Peringatan: Volatilitas sangat tinggi, pasang target profit cepat (scalp 2x-3x)."
-    ]
-  },
-  {
-    "symbol": "POPCAT",
-    "metaNarrative": "OG Cat Mascot Solana — meme legendaris kucing mulut terbuka dari web clicker 2020.",
-    "devStatus": "100% Community Takeover — LP terkunci permanen, suplai terdesentralisasi sehat.",
-    "name": "Popcat",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
-    "pairAddress": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
-    "dex": "Raydium",
-    "basePrice": 1.2,
-    "change5m": 0.8,
-    "change1h": 3.5,
-    "change24h": 11.2,
-    "liquidity": 9500000,
-    "volume24h": 24000000,
-    "volume5m": 110000,
-    "marketCap": 1200000000,
-    "txBuys5m": 85,
-    "txSells5m": 35,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 10.8,
-    "ageHours": 5200,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 98,
-    "reasons": [
-      "🛡️ Pemimpin sektor Cat Meme di Solana — likuiditas $9.5M sangat dalam dan aman.",
-      "🔐 Tidak ada fungsi dev minting atau blacklist.",
-      "👥 Distribusi suplai terbaik di kelasnya (Top 10 hanya 10.8%).",
-      "📈 Momentum stabil di atas EMA 20 dan VWAP harian."
-    ]
-  },
-  {
-    "symbol": "AI16Z",
-    "metaNarrative": "Marc AIndreessen AI Venture DAO — DAO investasi otonom pertama yang dikelola kecerdasan buatan.",
-    "devStatus": "Eliza Framework Open-Source Developers — Ekosistem AI agent terdepan di Web3.",
-    "name": "ai16z DAO",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC",
-    "pairAddress": "HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC",
-    "dex": "Raydium",
-    "basePrice": 0.42,
-    "change5m": 3.8,
-    "change1h": 11.4,
-    "change24h": 34.6,
-    "liquidity": 2100000,
-    "volume24h": 15800000,
-    "volume5m": 115000,
-    "marketCap": 420000000,
-    "txBuys5m": 135,
-    "txSells5m": 41,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 15.8,
-    "ageHours": 490,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 91,
-    "reasons": [
-      "🤖 Proyek AI Venture DAO pertama di Solana dengan dukungan komunitas pengembang aktif.",
-      "🛡️ LP Burned 100% dan smart contract aman.",
-      "⚡ Dominasi volume beli 5m (Buy pressure 76.7%).",
-      "👥 Kenaikan jumlah wallet holder baru +18% dalam 24 jam terakhir."
-    ]
-  },
-  {
-    "symbol": "BONK",
-    "metaNarrative": "The People's Dog of Solana — memecoin anjing legendaris penyembuh ekosistem Solana pasca-FTX.",
-    "devStatus": "Full Decentralized Community — Terintegrasi di 100+ dApps ekosistem Solana.",
-    "name": "Bonk",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    "pairAddress": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    "dex": "Raydium / Orca",
-    "basePrice": 0.000038,
-    "change5m": 1.1,
-    "change1h": 4.2,
-    "change24h": 12.8,
-    "liquidity": 18500000,
-    "volume24h": 62000000,
-    "volume5m": 290000,
-    "marketCap": 2800000000,
-    "txBuys5m": 240,
-    "txSells5m": 90,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 9.8,
-    "ageHours": 9800,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 99,
-    "reasons": [
-      "🛡️ Bluechip meme paling likuid di Solana dengan likuiditas >$18M.",
-      "🔐 Kontrak terverifikasi penuh, 0% tax, tanpa kendali sentral dev.",
-      "📈 Likuiditas institusional dan adopsi merchant luas.",
-      "👥 Top 10 wallet < 10% suplai total."
-    ]
-  },
-  {
-    "symbol": "WIF",
-    "metaNarrative": "Dogwifhat — Ikonik anjing bertopi rajut merah muda, simbol kultur meme murni Solana.",
-    "devStatus": "100% Community Takeover — Dev menjual seluruh token di hari pertama.",
-    "name": "dogwifhat",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    "pairAddress": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    "dex": "Raydium",
-    "basePrice": 3.25,
-    "change5m": 1.5,
-    "change1h": 5.8,
-    "change24h": 18.4,
-    "liquidity": 22000000,
-    "volume24h": 98000000,
-    "volume5m": 420000,
-    "marketCap": 3250000000,
-    "txBuys5m": 310,
-    "txSells5m": 105,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 11.5,
-    "ageHours": 7200,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 98,
-    "reasons": [
-      "🛡️ Likuiditas kolam $22M+ menjamin eksekusi cepat tanpa slippage tinggi.",
-      "🧢 Narasi kultural terkuat di Solana dengan pengakuan global.",
-      "⚡ Volume perdagangan harian mendominasi DEX Solana.",
-      "👥 Top 10 wallet tersebar di institusi kustodian & smart money."
-    ]
-  },
-  {
-    "symbol": "CHILLGUY",
-    "metaNarrative": "Just a Chill Guy — karakter viral internet animasi anjing santai bertopi wol coklat.",
-    "devStatus": "Community Movement — Viralitas organik TikTok & Instagram dengan jutaan kreasi konten.",
-    "name": "Just a Chill Guy",
-    "chain": "solana",
-    "chainLabel": "🟣 Solana",
-    "address": "Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump",
-    "pairAddress": "Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump",
-    "dex": "Raydium",
-    "basePrice": 0.52,
-    "change5m": 4.2,
-    "change1h": 14.5,
-    "change24h": 46.8,
-    "liquidity": 3600000,
-    "volume24h": 31000000,
-    "volume5m": 195000,
-    "marketCap": 520000000,
-    "txBuys5m": 230,
-    "txSells5m": 55,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 13.9,
-    "ageHours": 350,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 92,
-    "reasons": [
-      "🛡️ LP 100% Burned, Mint & Freeze dinonaktifkan.",
-      "🌐 Viralitas mainstream lintas platform media sosial mengalirkan jutaan pengguna Web2.",
-      "⚡ Volume 5 menit tembus $195K dengan rasio beli 80.7%.",
-      "👥 Peningkatan holder harian tercepat di pump.fun."
-    ]
-  },
-  {
-    "symbol": "BRETT",
-    "metaNarrative": "Mascot Terbesar Ekosistem Base — Karakter Boys Club karya Matt Furie (sahabat Pepe).",
-    "devStatus": "OG Base Builder Community — Terkoneksi kuat dengan ekosistem Layer-2 Base Coinbase.",
-    "name": "Brett (Base Mascot)",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0x532f27101965dd16442e59d40670faf5ebb142e4",
-    "pairAddress": "0x532f27101965dd16442e59d40670faf5ebb142e4",
-    "dex": "Aerodrome",
-    "basePrice": 0.125,
-    "change5m": 1.2,
-    "change1h": 4.8,
-    "change24h": 14.5,
-    "liquidity": 8200000,
-    "volume24h": 28500000,
-    "volume5m": 145000,
-    "marketCap": 1250000000,
-    "txBuys5m": 92,
-    "txSells5m": 31,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 11.2,
-    "ageHours": 3200,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 97,
-    "reasons": [
-      "🛡️ Bluechip meme ekosistem Base — likuiditas $8.2M terkunci permanen di Aerodrome.",
-      "🔐 Kepemilikan kontrak dilepas (Renounced Ownership), 0% tax jual-beli.",
-      "👥 Top 10 wallet hanya 11.2%, tersebar di ribuan holder independen.",
-      "📈 Cocok untuk swing momentum ekosistem Layer-2 Coinbase."
-    ]
-  },
-  {
-    "symbol": "VIRTUAL",
-    "metaNarrative": "Base AI Agent Launchpad Protocol — infrastruktur penciptaan dan monetisasi agen AI otonom.",
-    "devStatus": "Public Based Team — Tim pengembang protokol aktif dan transparan.",
-    "name": "Virtuals Protocol",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0x444444444444c1a66f394025ac839a535246fcc8",
-    "pairAddress": "0x444444444444c1a66f394025ac839a535246fcc8",
-    "dex": "Aerodrome / Uniswap",
-    "basePrice": 1.85,
-    "change5m": 2.8,
-    "change1h": 9.5,
-    "change24h": 31.2,
-    "liquidity": 5400000,
-    "volume24h": 32000000,
-    "volume5m": 210000,
-    "marketCap": 1850000000,
-    "txBuys5m": 178,
-    "txSells5m": 52,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.6,
-    "ageHours": 1100,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 95,
-    "reasons": [
-      "🤖 Platform peluncuran AI Agent terdepan dengan ekonomi token burning on-chain.",
-      "🛡️ Likuiditas tinggi $5.4M dengan slip rendah untuk transaksi retail.",
-      "⚡ Tekanan beli masif (Buy tx > 77% pada jendela 5 menit).",
-      "📈 Struktur Higher High (HH) terkonfirmasi di kerangka H1."
-    ]
-  },
-  {
-    "symbol": "DEGEN",
-    "metaNarrative": "Farcaster Native Tipping Currency — token apresiasi sosial terpopuler di Web3 social layer.",
-    "devStatus": "Farcaster Open Community — Terdistribusi ke ribuan kreator & developer Base.",
-    "name": "Degen (Farcaster)",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0x4ed4e862860bed51a9570b96d89af5e1b0efefed",
-    "pairAddress": "0x4ed4e862860bed51a9570b96d89af5e1b0efefed",
-    "dex": "Aerodrome / Uniswap",
-    "basePrice": 0.0195,
-    "change5m": 1.6,
-    "change1h": 6.2,
-    "change24h": 22.4,
-    "liquidity": 6100000,
-    "volume24h": 19500000,
-    "volume5m": 125000,
-    "marketCap": 280000000,
-    "txBuys5m": 145,
-    "txSells5m": 48,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 12.8,
-    "ageHours": 4100,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 96,
-    "reasons": [
-      "🛡️ Ekosistem tipping sosial organik terbesar di Base & Farcaster.",
-      "🔐 Kontrak bersih, bebas fungsi blacklist dan fee tersembunyi.",
-      "👥 Holder lebih dari 100,000 wallet independen.",
-      "📈 Volume 24 jam mencapai $19.5M dengan likuiditas $6.1M."
-    ]
-  },
-  {
-    "symbol": "TOSHI",
-    "metaNarrative": "Brian Armstrong Cat Mascot — kucing peliharaan CEO Coinbase yang menjadi maskot Base.",
-    "devStatus": "Community Builders — Tim developer komunitas aktif membangun toolset Base.",
-    "name": "Toshi (Base Cat)",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0xac1bd2486aaf3b5c0fc3fd868558b082a531b2b4",
-    "pairAddress": "0xac1bd2486aaf3b5c0fc3fd868558b082a531b2b4",
-    "dex": "SushiSwap / Aerodrome",
-    "basePrice": 0.00031,
-    "change5m": 2.2,
-    "change1h": 7.1,
-    "change24h": 17.5,
-    "liquidity": 3800000,
-    "volume24h": 9200000,
-    "volume5m": 78000,
-    "marketCap": 130000000,
-    "txBuys5m": 85,
-    "txSells5m": 26,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 13.5,
-    "ageHours": 5400,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 94,
-    "reasons": [
-      "🛡️ Likuiditas terkunci di Sushiswap & Aerodrome.",
-      "🐱 Maskot kucing terpopuler di Base dengan basis komunitas setia.",
-      "⚡ Buy pressure 76.5% di kerangka waktu 5m.",
-      "👥 Top 10 wallet hanya 13.5% suplai total."
-    ]
-  },
-  {
-    "symbol": "HIGHER",
-    "metaNarrative": "Aim Higher — gerakan visual dan meme optimisme kultur internet Farcaster.",
-    "devStatus": "Community Movement — Tanpa roadmap kaku, murni kultur desentralisasi.",
-    "name": "Higher",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0x0578d8a44db98b23bf096a382e016e29a5ce0ffe",
-    "pairAddress": "0x0578d8a44db98b23bf096a382e016e29a5ce0ffe",
-    "dex": "Uniswap / Aerodrome",
-    "basePrice": 0.048,
-    "change5m": 3.1,
-    "change1h": 8.9,
-    "change24h": 28.5,
-    "liquidity": 2400000,
-    "volume24h": 7400000,
-    "volume5m": 65000,
-    "marketCap": 48000000,
-    "txBuys5m": 95,
-    "txSells5m": 28,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 15.1,
-    "ageHours": 2900,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 92,
-    "reasons": [
-      "🛡️ LP Burned 100%, kontrak renounced.",
-      "🎯 Narasi brand kultur internet dengan adopsi luas di Farcaster Frames.",
-      "📊 Rasio Volume/Likuiditas sehat di atas 3x normal.",
-      "👥 Komunitas organik tanpa bayaran influencer berlebihan."
-    ]
-  },
-  {
-    "symbol": "KEYCAT",
-    "metaNarrative": "Keyboard Cat on Base — meme internet klasik era 2007 kucing bermain keyboard.",
-    "devStatus": "Retro Internet Community — Revitalisasi meme klasik 90s/00s di ekosistem Base.",
-    "name": "Keyboard Cat",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0x9a26f5433671751c3276a065f57e5a02d2817973",
-    "pairAddress": "0x9a26f5433671751c3276a065f57e5a02d2817973",
-    "dex": "Aerodrome",
-    "basePrice": 0.0078,
-    "change5m": 1.4,
-    "change1h": 5.2,
-    "change24h": 15.6,
-    "liquidity": 1600000,
-    "volume24h": 4200000,
-    "volume5m": 48000,
-    "marketCap": 35000000,
-    "txBuys5m": 62,
-    "txSells5m": 20,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.8,
-    "ageHours": 3100,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 91,
-    "reasons": [
-      "🛡️ Likuiditas kolam Aerodrome terkunci.",
-      "🎹 Nostalgia meme legendaris dengan pengenalan publik instan.",
-      "⚡ 0% Fee jual beli on-chain.",
-      "👥 Wallet holders terus bertumbuh secara organik."
-    ]
-  },
-  {
-    "symbol": "CHOMP",
-    "metaNarrative": "Chomp Coin — maskot ikan piranha lucu pemburu likuiditas di Base.",
-    "devStatus": "Base Community Project — Dikelola komunitas Web3 kreatif.",
-    "name": "ChompCoin",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0xe352014740e408d66042dbbbfe97d4486638e55e",
-    "pairAddress": "0xe352014740e408d66042dbbbfe97d4486638e55e",
-    "dex": "Aerodrome",
-    "basePrice": 0.058,
-    "change5m": 2.5,
-    "change1h": 7.4,
-    "change24h": 21,
-    "liquidity": 1250000,
-    "volume24h": 3800000,
-    "volume5m": 42000,
-    "marketCap": 28000000,
-    "txBuys5m": 58,
-    "txSells5m": 17,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 16.2,
-    "ageHours": 2400,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 90,
-    "reasons": [
-      "🛡️ LP Burned dan kepemilikan dilepas.",
-      "🐟 Maskot satwa unik dengan daya tarik visual kuat.",
-      "⚡ Rasio buy 77.3% di timeframe 5 menit.",
-      "👥 Partisipasi aktif dalam hackathon Base."
-    ]
-  },
-  {
-    "symbol": "LUM",
-    "metaNarrative": "Lumia on Base — narasi modular liquidity & decentralized memecoin exchange.",
-    "devStatus": "Community Dev Team — Integrasi ekosistem DeFi Base.",
-    "name": "Lumia Base",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA",
-    "pairAddress": "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA",
-    "dex": "Aerodrome",
-    "basePrice": 0.24,
-    "change5m": 1.9,
-    "change1h": 6.5,
-    "change24h": 19.2,
-    "liquidity": 2100000,
-    "volume24h": 5600000,
-    "volume5m": 54000,
-    "marketCap": 48000000,
-    "txBuys5m": 72,
-    "txSells5m": 22,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 15.4,
-    "ageHours": 1900,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 92,
-    "reasons": [
-      "🛡️ Kontrak diverifikasi di Basescan dengan skor keamanan tinggi.",
-      "🔐 LP terkunci dan mint authority dinonaktifkan.",
-      "📈 Momentum breakout dengan volume stabil.",
-      "👥 Aliran smart money positif dalam 24 jam terakhir."
-    ]
-  },
-  {
-    "symbol": "BASED",
-    "metaNarrative": "Pure Based Culture — etos 'Based' asli dalam ekosistem Layer-2 Coinbase.",
-    "devStatus": "Decentralized Farcaster Builders — Komunitas murni tanpa otoritas tunggal.",
-    "name": "Based Coin",
-    "chain": "base",
-    "chainLabel": "🔵 Base",
-    "address": "0x8382d56a2a46e10ddc299cffbaae6e84d9c02506",
-    "pairAddress": "0x8382d56a2a46e10ddc299cffbaae6e84d9c02506",
-    "dex": "Aerodrome",
-    "basePrice": 0.082,
-    "change5m": 3.4,
-    "change1h": 10.2,
-    "change24h": 27.6,
-    "liquidity": 1750000,
-    "volume24h": 4900000,
-    "volume5m": 62000,
-    "marketCap": 36000000,
-    "txBuys5m": 80,
-    "txSells5m": 24,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.2,
-    "ageHours": 1800,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 91,
-    "reasons": [
-      "🛡️ LP Burned 100% di Aerodrome.",
-      "🌐 Identitas kultural ekosistem Base yang otentik.",
-      "⚡ Buy dominance 76.9% pada jendela 5m.",
-      "👥 Tidak ada konsentrasi paus di atas 3% per wallet."
-    ]
-  },
-  {
-    "symbol": "FOUR",
-    "metaNarrative": "Binance Smart Chain (BSC) Meme Mascot — parodi gesture 4 CZ Binance (Ignore FUD).",
-    "devStatus": "Community Driven — Pool PancakeSwap LP 100% burned permanen.",
-    "name": "Four Meme (BSC Launch)",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0x4444444444444444444444444444444444444444",
-    "pairAddress": "0x4444444444444444444444444444444444444444",
-    "dex": "PancakeSwap",
-    "basePrice": 0.042,
-    "change5m": 2.4,
-    "change1h": 7.8,
-    "change24h": 21.5,
-    "liquidity": 1450000,
-    "volume24h": 6800000,
-    "volume5m": 65000,
-    "marketCap": 42000000,
-    "txBuys5m": 64,
-    "txSells5m": 19,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.5,
-    "ageHours": 720,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 92,
-    "reasons": [
-      "🛡️ LP PancakeSwap terkunci permanen — bebas risiko cabut pool.",
-      "🔐 Kontrak BSC terverifikasi di BscScan, tidak ada kode tersembunyi.",
-      "⚡ Biaya gas BEP-20 ultra murah, memudahkan take profit bertahap.",
-      "👥 Rasio buy transaksi 77.1% di kerangka 5 menit."
-    ]
-  },
-  {
-    "symbol": "FLOKI",
-    "metaNarrative": "The People's Cryptocurrency & Valhalla Gaming — anjing Viking legendaris di BSC.",
-    "devStatus": "Floki Core Team — Ekosistem utilitas edukasi, metaverse & staking institusional.",
-    "name": "Floki",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0xfb5b838b64eba96e6307965dd82d5613d1314e44",
-    "pairAddress": "0xfb5b838b64eba96e6307965dd82d5613d1314e44",
-    "dex": "PancakeSwap v3",
-    "basePrice": 0.000245,
-    "change5m": 1.1,
-    "change1h": 3.8,
-    "change24h": 11.2,
-    "liquidity": 24000000,
-    "volume24h": 75000000,
-    "volume5m": 310000,
-    "marketCap": 2400000000,
-    "txBuys5m": 210,
-    "txSells5m": 75,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 8.9,
-    "ageHours": 12000,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 99,
-    "reasons": [
-      "🛡️ Bluechip meme terbesar di ekosistem BSC dengan likuiditas >$24M.",
-      "🔐 Audit berlapis CertiK & kepemilikan terdesentralisasi penuh.",
-      "🎮 Utilitas game metaverse Valhalla aktif memicu burn token on-chain.",
-      "👥 Holder tersebar di 500,000+ dompet global."
-    ]
-  },
-  {
-    "symbol": "CHEEMS",
-    "metaNarrative": "Lord Cheems on BSC — anjing Shiba Inu pemalu pelindung likuiditas BNB Chain.",
-    "devStatus": "Community HODLers — Komunitas murni penjaga tradisi meme klasik BSC.",
-    "name": "Cheems BSC",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0x0df0587216a4a1bb7d5082fdc491d93d2dd4b413",
-    "pairAddress": "0x0df0587216a4a1bb7d5082fdc491d93d2dd4b413",
-    "dex": "PancakeSwap",
-    "basePrice": 4.5e-7,
-    "change5m": 2.1,
-    "change1h": 6.9,
-    "change24h": 18.5,
-    "liquidity": 1950000,
-    "volume24h": 4800000,
-    "volume5m": 52000,
-    "marketCap": 21000000,
-    "txBuys5m": 78,
-    "txSells5m": 22,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 15.2,
-    "ageHours": 6400,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 93,
-    "reasons": [
-      "🛡️ LP PancakeSwap 100% dibakar ke dead address.",
-      "🐶 Meme anjing legendaris dengan afeksi komunitas tinggi.",
-      "⚡ 0% Pajak beli-jual di DEX.",
-      "👥 Top 10 wallet terkontrol sehat."
-    ]
-  },
-  {
-    "symbol": "BABYGROK",
-    "metaNarrative": "Baby Grok — parodi AI maskot Elon Musk Grok x Baby meme kultur BSC.",
-    "devStatus": "Community Takeover — Dev awal mundur, kendali dipegang DAO komunitas.",
-    "name": "Baby Grok",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0x88da9901b3a02fe24e498e1ed683d2310383e295",
-    "pairAddress": "0x88da9901b3a02fe24e498e1ed683d2310383e295",
-    "dex": "PancakeSwap",
-    "basePrice": 1.8e-8,
-    "change5m": 3.5,
-    "change1h": 11.2,
-    "change24h": 32.4,
-    "liquidity": 1100000,
-    "volume24h": 3600000,
-    "volume5m": 45000,
-    "marketCap": 18000000,
-    "txBuys5m": 92,
-    "txSells5m": 27,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 16.8,
-    "ageHours": 3200,
-    "riskRating": "MEDIUM_SPECULATIVE",
-    "safetyScore": 89,
-    "reasons": [
-      "🛡️ LP Burned dan kontrak telah diverifikasi bersih.",
-      "🤖 Narasi AI x Elon Musk selalu memicu lonjakan spekulasi musiman.",
-      "⚡ Tekanan beli 77.3% di timeframe pendek 5m.",
-      "⚠️ Volatilitas tinggi: disarankan amankan profit bertahap."
-    ]
-  },
-  {
-    "symbol": "CAT",
-    "metaNarrative": "Simon's Cat Official Meme on BNB Chain — adaptasi resmi animasi kucing legendaris.",
-    "devStatus": "Official IP Backed Team — Kemitraan resmi dengan pemegang hak cipta animasi.",
-    "name": "Simon's Cat",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0x6894cde390a3f51155ea41ed24a33a4827d3063d",
-    "pairAddress": "0x6894cde390a3f51155ea41ed24a33a4827d3063d",
-    "dex": "PancakeSwap",
-    "basePrice": 0.000032,
-    "change5m": 1.8,
-    "change1h": 5.4,
-    "change24h": 16.8,
-    "liquidity": 7800000,
-    "volume24h": 21000000,
-    "volume5m": 135000,
-    "marketCap": 290000000,
-    "txBuys5m": 160,
-    "txSells5m": 51,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 12.1,
-    "ageHours": 1900,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 97,
-    "reasons": [
-      "🛡️ Likuiditas kolam $7.8M terdalam di sektor Cat Meme BSC.",
-      "🐱 Memegang IP resmi dengan jutaan fans animasi global.",
-      "🔐 Kontrak terbebas dari fungsi cetak suplai baru.",
-      "👥 Masuknya smart money institusi BSC."
-    ]
-  },
-  {
-    "symbol": "TKO",
-    "metaNarrative": "Tokocrypto Ecosystem & Community Token — pusat aktivitas komunitas kripto Nusantara.",
-    "devStatus": "Binance Ecosystem Verified — Terintegrasi dengan launchpad dan exchange resmi.",
-    "name": "Tokocrypto Meme Community",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0x9f0be9e3e552a251e347ff09abe14a0437436b7f",
-    "pairAddress": "0x9f0be9e3e552a251e347ff09abe14a0437436b7f",
-    "dex": "PancakeSwap",
-    "basePrice": 0.385,
-    "change5m": 0.9,
-    "change1h": 3.2,
-    "change24h": 9.8,
-    "liquidity": 5200000,
-    "volume24h": 14500000,
-    "volume5m": 85000,
-    "marketCap": 95000000,
-    "txBuys5m": 88,
-    "txSells5m": 32,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.1,
-    "ageHours": 8500,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 96,
-    "reasons": [
-      "🛡️ Dukungan ekosistem exchange teregulasi dan likuiditas kuat.",
-      "🇮🇩 Basis komunitas trader lokal terbesar di Indonesia.",
-      "⚡ Spread tipis dengan kedalaman orderbook DEX teruji.",
-      "👥 Distribusi suplai transparan on-chain."
-    ]
-  },
-  {
-    "symbol": "KOMA",
-    "metaNarrative": "Koma Inu — anjing penjaga kuil Jepang simbol perlindungan investor retail di BSC.",
-    "devStatus": "Community Builders — 100% Desentralisasi, zero admin keys.",
-    "name": "Koma Inu",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0xd1f0c2a512d1b069fae3bf8e807212d26fdf24cb",
-    "pairAddress": "0xd1f0c2a512d1b069fae3bf8e807212d26fdf24cb",
-    "dex": "PancakeSwap",
-    "basePrice": 0.054,
-    "change5m": 2.8,
-    "change1h": 8.5,
-    "change24h": 24.1,
-    "liquidity": 2200000,
-    "volume24h": 7200000,
-    "volume5m": 75000,
-    "marketCap": 48000000,
-    "txBuys5m": 98,
-    "txSells5m": 30,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 13.9,
-    "ageHours": 1400,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 93,
-    "reasons": [
-      "🛡️ LP Burned permanen, bebas celah mint/blacklist.",
-      "🐕 Tren memecoin anjing dengan pertumbuhan komunitas organik pesat.",
-      "⚡ Buy pressure 76.5% di kerangka 5 menit.",
-      "👥 Kenaikan wallet aktif harian +22%."
-    ]
-  },
-  {
-    "symbol": "BSCMEME",
-    "metaNarrative": "Binance Smart Chain Community Hero — representasi kebangkitan DEX trading BEP-20.",
-    "devStatus": "BNB Ecosystem Collective — Dikelola kolektif trader veteran BSC.",
-    "name": "BSC Meme Hero",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",
-    "pairAddress": "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",
-    "dex": "PancakeSwap",
-    "basePrice": 0.0125,
-    "change5m": 1.5,
-    "change1h": 4.9,
-    "change24h": 15.2,
-    "liquidity": 1650000,
-    "volume24h": 4100000,
-    "volume5m": 48000,
-    "marketCap": 25000000,
-    "txBuys5m": 65,
-    "txSells5m": 21,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 15.6,
-    "ageHours": 2100,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 91,
-    "reasons": [
-      "🛡️ Kontrak terverifikasi BscScan, LP locked 100%.",
-      "⚡ Gas fee murah memicu transaksi retail aktif.",
-      "📈 Trend breakout dari resisten harian.",
-      "👥 Top 10 wallet memegang <16% suplai."
-    ]
-  },
-  {
-    "symbol": "GROK",
-    "metaNarrative": "Grok on BSC — AI humor chatbot token terinspirasi model xAI.",
-    "devStatus": "Community Takeover — Dev mundur, smart contract renounced.",
-    "name": "Grok BSC",
-    "chain": "bsc",
-    "chainLabel": "🟡 BSC (BEP-20)",
-    "address": "0xc7900b5230b11a7a9385966a01dfb00ba8b98299",
-    "pairAddress": "0xc7900b5230b11a7a9385966a01dfb00ba8b98299",
-    "dex": "PancakeSwap",
-    "basePrice": 0.0084,
-    "change5m": 2.2,
-    "change1h": 7.2,
-    "change24h": 20.8,
-    "liquidity": 1850000,
-    "volume24h": 5300000,
-    "volume5m": 59000,
-    "marketCap": 34000000,
-    "txBuys5m": 82,
-    "txSells5m": 26,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.8,
-    "ageHours": 2800,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 92,
-    "reasons": [
-      "🛡️ LP Burned dan kontrak 0% tax.",
-      "🤖 Minat narasi AI konsisten tinggi di pasar derivatif dan spot.",
-      "⚡ Rasio buy/sell 3.1:1 di timeframe 5 menit.",
-      "👥 Holder tersebar luas tanpa kepemilikan terpusat."
-    ]
-  },
-  {
-    "symbol": "SPX",
-    "metaNarrative": "SPX6900 — Gerakan satire pasar saham finansial tradisional dengan target market cap $69T.",
-    "devStatus": "Cult Community Movement — Komunitas HODL militan di Ethereum & Base.",
-    "name": "SPX6900",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0xE0f63A424a4439cBE457D80E4f4b51aD25b2c56C",
-    "pairAddress": "0xE0f63A424a4439cBE457D80E4f4b51aD25b2c56C",
-    "dex": "Uniswap v2",
-    "basePrice": 0.75,
-    "change5m": 1.5,
-    "change1h": 5.4,
-    "change24h": 16.8,
-    "liquidity": 7100000,
-    "volume24h": 12500000,
-    "volume5m": 92000,
-    "marketCap": 750000000,
-    "txBuys5m": 74,
-    "txSells5m": 22,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 13.2,
-    "ageHours": 4800,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 96,
-    "reasons": [
-      "🛡️ Komunitas kultus terdesentralisasi murni — likuiditas terkunci permanen di Uniswap.",
-      "🔐 Kontrak Renounced 100%, 0% Tax, tidak ada whitelist/blacklist.",
-      "📊 Akumulasi konsisten oleh holder jangka menengah.",
-      "👥 Top 10 holder stabil di 13.2% tanpa penjualan panik."
-    ]
-  },
-  {
-    "symbol": "PEPE",
-    "metaNarrative": "The King of Memes — Kodok legendaris Matt Furie yang memimpin kebangkitan meme era modern.",
-    "devStatus": "100% Community Takeover — Multi-sig dev dibakar, pasokan murni bebas beredar.",
-    "name": "Pepe",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
-    "pairAddress": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
-    "dex": "Uniswap v2 / v3",
-    "basePrice": 0.0000195,
-    "change5m": 1.2,
-    "change1h": 4.1,
-    "change24h": 13.5,
-    "liquidity": 48000000,
-    "volume24h": 280000000,
-    "volume5m": 850000,
-    "marketCap": 8200000000,
-    "txBuys5m": 480,
-    "txSells5m": 155,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 7.8,
-    "ageHours": 14000,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 100,
-    "reasons": [
-      "🛡️ Likuiditas on-chain $48M+ terdalam di Uniswap Ethereum.",
-      "🐸 Ikon kultural internet universal paling dikenal di dunia kripto.",
-      "🔐 Kontrak abadi tanpa pemilik (Renounced), bebas risiko backdoor.",
-      "👥 Lebih dari 300,000 wallet holder mandiri on-chain."
-    ]
-  },
-  {
-    "symbol": "SHIB",
-    "metaNarrative": "The Dogecoin Killer & Shibarium Ecosystem — pelopor memecoin komunitas Ethereum.",
-    "devStatus": "Decentralized Foundation — Ekosistem L2 Shibarium, DEX ShibaSwap & DAO voting.",
-    "name": "Shiba Inu",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
-    "pairAddress": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
-    "dex": "Uniswap / ShibaSwap",
-    "basePrice": 0.0000248,
-    "change5m": 0.8,
-    "change1h": 2.9,
-    "change24h": 8.6,
-    "liquidity": 65000000,
-    "volume24h": 190000000,
-    "volume5m": 620000,
-    "marketCap": 14600000000,
-    "txBuys5m": 340,
-    "txSells5m": 120,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 6.9,
-    "ageHours": 28000,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 100,
-    "reasons": [
-      "🛡️ Likuiditas raksasa $65M dengan ketahanan pasar bear market teruji.",
-      "🐕 Ekosistem utilitas terintegrasi luas di seluruh bursa global.",
-      "🔐 Separuh suplai awal dibakar permanen oleh Vitalik Buterin.",
-      "👥 Basis jutaan ShibArmy global."
-    ]
-  },
-  {
-    "symbol": "MOG",
-    "metaNarrative": "Mog Coin — The Internet's First Culture Coin, narasi kacamata pit viper & dominasi penuh.",
-    "devStatus": "100% Community Takeover — Komunitas kultus Twitter/X paling aktif dan militan.",
-    "name": "Mog Coin",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0xaaee1a9723aadb7afa2810263653a34ba2c21c7a",
-    "pairAddress": "0xaaee1a9723aadb7afa2810263653a34ba2c21c7a",
-    "dex": "Uniswap v2",
-    "basePrice": 0.0000023,
-    "change5m": 2.4,
-    "change1h": 7.8,
-    "change24h": 23.4,
-    "liquidity": 11500000,
-    "volume24h": 34000000,
-    "volume5m": 175000,
-    "marketCap": 920000000,
-    "txBuys5m": 180,
-    "txSells5m": 54,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 10.4,
-    "ageHours": 8900,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 97,
-    "reasons": [
-      "🛡️ Likuiditas kolam $11.5M terkunci permanen di Uniswap v2.",
-      "😹 Narasi viralitas kultur meme murni dengan engagement media sosial tertinggi.",
-      "⚡ Buy pressure 76.9% di kerangka 5 menit.",
-      "👥 Top 10 wallet hanya 10.4% suplai total."
-    ]
-  },
-  {
-    "symbol": "TURBO",
-    "metaNarrative": "First AI Generated Memecoin — dibuat sepenuhnya dengan modal $69 oleh ChatGPT-4.",
-    "devStatus": "Founder Rhett Mankind & Community DAO — Diluncurkan transparan tanpa private sale.",
-    "name": "Turbo",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0xa35923162c49cf95e6bf26623385eb431ad920d3",
-    "pairAddress": "0xa35923162c49cf95e6bf26623385eb431ad920d3",
-    "dex": "Uniswap v3",
-    "basePrice": 0.0089,
-    "change5m": 1.7,
-    "change1h": 5.6,
-    "change24h": 17.2,
-    "liquidity": 8400000,
-    "volume24h": 29000000,
-    "volume5m": 140000,
-    "marketCap": 610000000,
-    "txBuys5m": 145,
-    "txSells5m": 44,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 11.8,
-    "ageHours": 9200,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 98,
-    "reasons": [
-      "🤖 Pionir sejarah memecoin kecerdasan buatan pertama di dunia kripto.",
-      "🛡️ Kontrak 100% renounced, 0% tax, suplai terdesentralisasi.",
-      "📈 Likuiditas dalam dan listing di bursa tier-1 global.",
-      "👥 Holder organik terus mencatat rekor tertinggi."
-    ]
-  },
-  {
-    "symbol": "NEIRO",
-    "metaNarrative": "First Neiro on Ethereum — anjing Shiba Inu adopsi baru pemilik asli Kabosu (ibu Doge).",
-    "devStatus": "Community Takeover (CTO) — Dev awal menjual dan menyerahkan ke komunitas.",
-    "name": "First Neiro on Ethereum",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0x812ba41e071c7b7fa4ebcfb62df5f45f6fa853ee",
-    "pairAddress": "0x812ba41e071c7b7fa4ebcfb62df5f45f6fa853ee",
-    "dex": "Uniswap v2",
-    "basePrice": 0.00192,
-    "change5m": 3.2,
-    "change1h": 9.8,
-    "change24h": 31.5,
-    "liquidity": 9800000,
-    "volume24h": 48000000,
-    "volume5m": 230000,
-    "marketCap": 810000000,
-    "txBuys5m": 215,
-    "txSells5m": 62,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 12.3,
-    "ageHours": 2400,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 96,
-    "reasons": [
-      "🛡️ LP Burned 100% dan terdaftar di bursa tier-1 dunia.",
-      "🐕 Pewaris emosional sah trah Dogecoin & Kabosu.",
-      "⚡ Volume 24 jam mencapai $48M dengan kedalaman likuiditas solid.",
-      "👥 Top 10 wallet tersebar di dompet bursa terkemuka."
-    ]
-  },
-  {
-    "symbol": "APU",
-    "metaNarrative": "Apu Apustaja — si kodok lugu sahabat internet yang selalu optimis dan ramah.",
-    "devStatus": "Community Foundation — Komunitas murni tanpa komisi dev.",
-    "name": "Apu Apustaja",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0x594dda864e53b0e19360c705971860d6419d2a26",
-    "pairAddress": "0x594dda864e53b0e19360c705971860d6419d2a26",
-    "dex": "Uniswap v2",
-    "basePrice": 0.00088,
-    "change5m": 2,
-    "change1h": 6.4,
-    "change24h": 18.9,
-    "liquidity": 6200000,
-    "volume24h": 16800000,
-    "volume5m": 95000,
-    "marketCap": 290000000,
-    "txBuys5m": 110,
-    "txSells5m": 34,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 13.5,
-    "ageHours": 4900,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 95,
-    "reasons": [
-      "🛡️ LP Uniswap v2 burned permanen.",
-      "🐸 Salah satu varian kodok internet paling dicintai setelah Pepe.",
-      "⚡ 0% Biaya transaksi di kontrak.",
-      "👥 Komunitas HODL terorganisir rapi."
-    ]
-  },
-  {
-    "symbol": "WOJAK",
-    "metaNarrative": "Wojak Meme (Feels Guy) — representasi psikologis trader retail dalam siklus suka dan duka.",
-    "devStatus": "Decentralized Community — Suplai beredar 100% di tangan publik.",
-    "name": "Wojak",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0x5026caddbe8ac7eb9c49a632d571550197446904",
-    "pairAddress": "0x5026caddbe8ac7eb9c49a632d571550197446904",
-    "dex": "Uniswap v2",
-    "basePrice": 0.00115,
-    "change5m": 1.6,
-    "change1h": 5.1,
-    "change24h": 15.8,
-    "liquidity": 4200000,
-    "volume24h": 11500000,
-    "volume5m": 72000,
-    "marketCap": 79000000,
-    "txBuys5m": 85,
-    "txSells5m": 28,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 14.1,
-    "ageHours": 11000,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 96,
-    "reasons": [
-      "🛡️ Kontrak Renounced, likuiditas terkunci di Uniswap.",
-      "😭 Maskot psikologi pasar kripto terpopuler di jagat internet.",
-      "⚡ Volume perdagangan konsisten di berbagai fase market.",
-      "👥 Distribusi sehat tanpa pemegang dominan."
-    ]
-  },
-  {
-    "symbol": "BITCOIN",
-    "metaNarrative": "HarryPotterObamaSonic10Inu (Ticker: BITCOIN) — karya seni satire absurdisme Web3 tertinggi.",
-    "devStatus": "Decentralized Cult — Komunitas HODL tanpa pemimpin yang aktif menciptakan meme legendaris.",
-    "name": "HarryPotterObamaSonic10Inu",
-    "chain": "ethereum",
-    "chainLabel": "💎 Ethereum",
-    "address": "0x72e4f9f737c5148066ac914468ca0f6323421143",
-    "pairAddress": "0x72e4f9f737c5148066ac914468ca0f6323421143",
-    "dex": "Uniswap v2",
-    "basePrice": 0.165,
-    "change5m": 2.7,
-    "change1h": 8.2,
-    "change24h": 24.8,
-    "liquidity": 5800000,
-    "volume24h": 18500000,
-    "volume5m": 112000,
-    "marketCap": 165000000,
-    "txBuys5m": 125,
-    "txSells5m": 38,
-    "lpBurned": true,
-    "mintRevoked": true,
-    "freezeDisabled": true,
-    "top10HoldersPct": 12.7,
-    "ageHours": 11500,
-    "riskRating": "LOW_RISK",
-    "safetyScore": 97,
-    "reasons": [
-      "🛡️ LP Burned 100%, 0% Tax, smart contract renounced.",
-      "⚡ Memecoin kultus legendaris dengan basis komunitas paling kreatif.",
-      "📈 Buy pressure 76.7% pada jendela 5 menit.",
-      "👥 Suplai terdistribusi merata ke ribuan dompet hodler."
-    ]
-  }
-];
-var memeScanPool = DEFAULT_MEME_CATALOG.slice();
-var activeMemeChain = 'all';
-var activeMemeSort = 'momentum';
 var activeMemeToken = null;
-var activeMemeChartView = 'candles'; // 'candles' (native canvas anti-blokir) atau 'dex' (iframe)
+var activeMemeChartView = 'candles';
 var activeMemeTf = 'M5';
-var activeMemeCandles = null;
-var memeCandleCache = {};
-var memeLiveTickerTimer = null;
-var memePriceFlash = null;
-var memeCandleTickCount = 0;
+var activeMemeCandles = [];
+var memePairSearchSeq = 0;
+var memePairAnalysisSeq = 0;
+var memePairResults = [];
+
+function setDexText(id, value) {
+  var el = $id(id);
+  if (el) el.textContent = value == null || value === '' ? 'Unavailable' : String(value);
+}
+function renderDexTechnical(candles) {
+  var target = $id('memeTechBody');
+  if (!target) return;
+  if (!Array.isArray(candles) || candles.length < 20) {
+    target.textContent = 'Technical analysis unavailable: insufficient verified OHLCV data.';
+    return;
+  }
+  var closes = candles.map(function (c) { return Number(c.close); });
+  var ema = function (period) {
+    var k = 2 / (period + 1), value = closes[0];
+    for (var i = 1; i < closes.length; i++) value = closes[i] * k + value * (1 - k);
+    return value;
+  };
+  var gains = 0, losses = 0;
+  for (var i = Math.max(1, closes.length - 14); i < closes.length; i++) {
+    var delta = closes[i] - closes[i - 1];
+    if (delta > 0) gains += delta; else losses -= delta;
+  }
+  var periods = Math.min(14, closes.length - 1);
+  var avgGain = gains / periods, avgLoss = losses / periods;
+  var rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+  var e20 = ema(20), e50 = closes.length >= 50 ? ema(50) : null;
+  var trend = e50 == null ? 'Insufficient bars for EMA50' : (e20 > e50 ? 'EMA20 above EMA50' : e20 < e50 ? 'EMA20 below EMA50' : 'EMA20 equals EMA50');
+  target.textContent = trend + ' · EMA20 ' + formatMemePrice(e20) + (e50 == null ? '' : ' · EMA50 ' + formatMemePrice(e50)) + ' · RSI14 ' + rsi.toFixed(1);
+}
+function renderDexMarket(result) {
+  var pair = result && result.pair;
+  if (!pair) throw new Error('Market provider returned no pair data');
+  activeMemeToken = pair;
+  activeMemeCandles = Array.isArray(result.candles) ? result.candles : [];
+  var label = (pair.baseToken && (pair.baseToken.symbol || pair.baseToken.name)) || pair.symbol || 'Token';
+  setDexText('memeInspectSymbol', label);
+  setDexText('memeInspectName', (pair.baseToken && pair.baseToken.name) || pair.name || label);
+  setDexText('memeChartTitle', label + ' / ' + ((pair.quoteToken && pair.quoteToken.symbol) || '—') + ' · ' + activeMemeTf);
+  setDexText('memeInspectPrice', Number(pair.priceUsd) > 0 ? formatMemePrice(pair.priceUsd) : 'Unavailable');
+  setDexText('memeInspectLiq', Number(pair.liquidityUsd) > 0 ? '$' + formatCompactNum(pair.liquidityUsd) : 'Unavailable');
+  setDexText('memeInspectVol5m', Number(pair.volume24h) > 0 ? '$' + formatCompactNum(pair.volume24h) + ' (24h)' : 'Unavailable');
+  setDexText('memeInspectMcap', Number(pair.fdv) > 0 ? '$' + formatCompactNum(pair.fdv) : 'Unavailable');
+  setDexText('memeInspectChg24h', pair.marketStatus || 'Unavailable');
+  var security = result.security || {};
+  setDexText('memeInspectSafetyBadge', security.status === 'verified' ? 'Verified' : 'Unverified');
+  setDexText('memeInspectBuyPressure', security.holderDistribution || 'Unavailable');
+  setDexText('memeSecurityStatus', security.message || 'On-chain security data unavailable/unverified.');
+  var fund = $id('memeFundGrid');
+  if (fund) {
+    fund.textContent = '';
+    [
+      'Security source: ' + (security.source || 'Unavailable'),
+      'Contract risk: ' + (security.riskSummary || 'Unavailable'),
+      'Holder distribution: ' + (security.holderDistribution || 'Unavailable'),
+      'Tokenomics: ' + (security.tokenomics || 'Unavailable'),
+      'Sentiment: Unavailable (no verified sentiment source)'
+    ].forEach(function (text) { var item = document.createElement('div'); item.textContent = text; fund.appendChild(item); });
+  }
+  setDexText('memeMarketSource', 'Market source: ' + (result.marketSource || 'Unavailable') + ' · OHLCV source: ' + (result.ohlcvSource || 'Unavailable') + ' · as of ' + (result.asOf || 'Unavailable') + ' · freshness: ' + (result.freshness || 'Unavailable') + ' · validity: ' + (result.validity || 'unverified'));
+  renderDexTechnical(activeMemeCandles);
+  drawMemeCandleChart(pair, activeMemeCandles);
+}
+async function analyzeManualDexPair(pairAddress) {
+  if (!pairAddress || !activeMemeChainValue()) return;
+  var seq = ++memePairAnalysisSeq;
+  var status = $id('memeSearchStatus');
+  if (status) status.textContent = 'Loading current market data, OHLCV, and available on-chain checks…';
+  try {
+    var params = new URLSearchParams({ action: 'analyze', chain: activeMemeChainValue(), pairAddress: pairAddress, tf: activeMemeTf });
+    var response = await fetch('/api/dex/analysis?' + params.toString());
+    var data = await response.json();
+    if (seq !== memePairAnalysisSeq) return;
+    if (!response.ok || !data.ok) throw new Error(data.error || ('HTTP ' + response.status));
+    renderDexMarket(data);
+    if (status) status.textContent = data.validity === 'verified' ? 'Market data loaded from the stated provider.' : 'Market/security data is unavailable or unverified; no signal is issued.';
+  } catch (error) {
+    if (seq !== memePairAnalysisSeq) return;
+    activeMemeToken = null;
+    activeMemeCandles = [];
+    if (status) status.textContent = 'Unable to load DEX data: ' + error.message;
+    setDexText('memeMarketSource', 'Market source: unavailable · OHLCV source: unavailable · validity: unverified');
+    renderDexTechnical([]);
+    drawMemeCandleChart(null, []);
+  }
+}
+function activeMemeChainValue() {
+  var select = $id('selMemeChain');
+  return select ? select.value : '';
+}
+async function searchManualDexToken() {
+  var chain = activeMemeChainValue();
+  var addressInput = $id('inpMemeAddress');
+  var address = (addressInput && addressInput.value || '').trim();
+  var results = $id('memeSearchResults');
+  var status = $id('memeSearchStatus');
+  if (!chain || address.length < 6 || address.length > 100) {
+    if (status) status.textContent = 'Enter a valid contract or pair address for the selected blockchain.';
+    if (results) results.textContent = '';
+    return;
+  }
+  var seq = ++memePairSearchSeq;
+  if (status) status.textContent = 'Searching the selected blockchain…';
+  if (results) results.textContent = '';
+  try {
+    var params = new URLSearchParams({ action: 'search', chain: chain, address: address });
+    var response = await fetch('/api/dex/analysis?' + params.toString());
+    var data = await response.json();
+    if (seq !== memePairSearchSeq) return;
+    if (!response.ok || !data.ok) throw new Error(data.error || ('HTTP ' + response.status));
+    memePairResults = Array.isArray(data.pairs) ? data.pairs : [];
+    if (!memePairResults.length) {
+      if (status) status.textContent = 'No matching market pair was returned by the provider.';
+      return;
+    }
+    if (status) status.textContent = 'Choose an exact pair returned by the provider to load its actual market data.';
+    memePairResults.forEach(function (pair) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'hz-btn';
+      button.style.textAlign = 'left';
+      var base = pair.baseToken && (pair.baseToken.symbol || pair.baseToken.name) || 'Token';
+      var quote = pair.quoteToken && pair.quoteToken.symbol || '—';
+      button.textContent = base + '/' + quote + ' · ' + (pair.dexId || 'DEX') + ' · ' + (pair.pairAddress || 'pair unavailable');
+      button.addEventListener('click', function () { analyzeManualDexPair(pair.pairAddress); });
+      results.appendChild(button);
+    });
+  } catch (error) {
+    if (seq === memePairSearchSeq && status) status.textContent = 'DEX search failed: ' + error.message;
+  }
+}
+
+function invalidateManualDexSelection() {
+  memePairSearchSeq++;
+  memePairAnalysisSeq++;
+  memePairResults = [];
+  activeMemeToken = null;
+  activeMemeCandles = [];
+  var results = $id('memeSearchResults');
+  if (results) results.textContent = '';
+  var status = $id('memeSearchStatus');
+  if (status) status.textContent = 'Selection changed. Search again to load matching market data.';
+  ['memeInspectSymbol', 'memeInspectName', 'memeInspectPrice', 'memeInspectLiq',
+    'memeInspectVol5m', 'memeInspectMcap', 'memeInspectChg24h',
+    'memeInspectSafetyBadge', 'memeInspectBuyPressure'].forEach(function (id) {
+    setDexText(id, 'Unavailable');
+  });
+  setDexText('memeSecurityStatus', 'On-chain security data unavailable/unverified.');
+  setDexText('memeMarketSource', 'Market source: unavailable · OHLCV source: unavailable · validity: unverified');
+  var fund = $id('memeFundGrid');
+  if (fund) fund.textContent = 'Tokenomics, holder distribution, and sentiment are unavailable until verified data is loaded.';
+  renderDexTechnical([]);
+  drawMemeCandleChart(null, []);
+}
 
 function formatCompactNum(n) {
   var numVal = Number(n) || 0;
@@ -6508,193 +5193,12 @@ function formatMemePrice(price) {
   return '$' + p.toFixed(2);
 }
 
-function hashMemeStr(str) {
-  var s = String(str || '');
-  var h = 0;
-  for (var i = 0; i < s.length; i++) {
-    h = ((h << 5) - h) + s.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
-}
-
 function switchMemeChartView(view) {
   activeMemeChartView = view;
-  var btnC = $id('btnMemeViewCandles');
-  var btnD = $id('btnMemeViewDex');
-  var cvs = $id('memeCandleCanvas');
-  var ifr = $id('memeDexChartIframe');
-  if (btnC) {
-    btnC.classList.toggle('active', view === 'candles');
-    btnC.style.background = view === 'candles' ? 'rgba(168,85,247,0.25)' : 'rgba(15,23,42,0.8)';
-    btnC.style.color = view === 'candles' ? '#d8b4fe' : '#94a3b8';
-    btnC.style.borderColor = view === 'candles' ? 'rgba(168,85,247,0.45)' : 'rgba(148,163,184,0.3)';
-  }
-  if (btnD) {
-    btnD.classList.toggle('active', view === 'dex');
-    btnD.style.background = view === 'dex' ? 'rgba(56,189,248,0.22)' : 'rgba(15,23,42,0.8)';
-    btnD.style.color = view === 'dex' ? '#7dd3fc' : '#94a3b8';
-    btnD.style.borderColor = view === 'dex' ? 'rgba(56,189,248,0.45)' : 'rgba(148,163,184,0.3)';
-  }
-  if (cvs) cvs.style.display = view === 'candles' ? 'block' : 'none';
-  if (ifr) {
-    ifr.style.display = view === 'dex' ? 'block' : 'none';
-    if (view === 'dex' && activeMemeToken) {
-      var pairOrCa = activeMemeToken.pairAddress || activeMemeToken.address;
-      ifr.src = 'https://dexscreener.com/' + encodeURIComponent(activeMemeToken.chain || 'solana') + '/' + encodeURIComponent(pairOrCa) + '?embed=1&theme=dark&trades=0&info=0';
-    }
-  }
-  if (view === 'candles' && activeMemeToken) {
-    if (!activeMemeCandles || !activeMemeCandles.length) {
-      activeMemeCandles = generateMemeCandles(activeMemeToken, activeMemeTf);
-    }
-    drawMemeCandleChart(activeMemeToken, activeMemeCandles);
-    startMemeLiveTicker();
-  } else if (view === 'dex') {
-    stopMemeLiveTicker();
-  }
-}
-
-function generateMemeCandles(item, tf) {
-  var sym = (item && item.symbol) || 'MEME';
-  var timeF = tf || activeMemeTf || 'M5';
-  var p = Number(item && item.basePrice) || 1.0;
-  var c24 = Number(item && item.change24h) || 10;
-
-  var count = 75;
-  var seed = hashMemeStr(sym + '_' + (item && item.chain || 'sol') + '_' + (item && item.address || ''));
-  var rand = function () {
-    seed = (seed * 16807 + 11) % 2147483647;
-    return (seed % 10000) / 10000;
-  };
-
-  // 5 distinct market archetypes for truly unique chart structures per instrument
-  var patternType = seed % 5;
-  var tfSec = (timeF === 'M1' ? 60 : (timeF === 'M15' ? 900 : (timeF === 'H1' ? 3600 : 300)));
-  var now = Math.floor(Date.now() / 1000);
-  var candles = [];
-
-  var startPrice = Math.max(p * 0.001, p / Math.max(0.01, (1 + c24 / 100)));
-  var midPrice2 = patternType === 3 ? (p * 1.35) : (patternType === 4 ? (startPrice * 0.85) : (startPrice + (p - startPrice) * 0.5));
-  var atrPct = 0.018 + (seed % 25) * 0.0015;
-
-  var curClose = startPrice;
-  for (var i = 0; i < count; i++) {
-    var t = now - (count - 1 - i) * tfSec;
-    var prog = i / (count - 1);
-    var target;
-
-    if (patternType === 0) {
-      if (prog < 0.4) target = startPrice + Math.sin(prog * Math.PI / 0.4) * (startPrice * 0.08);
-      else if (prog < 0.7) target = startPrice * 0.95 + (prog - 0.4) * (p - startPrice);
-      else target = p * 0.92 + ((prog - 0.7) / 0.3) * (p * 0.08);
-    } else if (patternType === 1) {
-      var wave = Math.sin(prog * Math.PI * 4) * (p * 0.12 * (0.5 + prog * 0.8));
-      target = startPrice + (p - startPrice) * Math.pow(prog, 1.1) + wave;
-    } else if (patternType === 2) {
-      var stepProg = Math.floor(prog * 5) / 5;
-      target = startPrice + (p - startPrice) * stepProg + ((prog * 5) % 1) * ((p - startPrice) / 5) * 0.7;
-    } else if (patternType === 3) {
-      if (prog < 0.5) target = startPrice + (midPrice2 - startPrice) * Math.pow(prog / 0.5, 2);
-      else target = midPrice2 - (midPrice2 - p) * Math.pow((prog - 0.5) / 0.5, 0.7);
-    } else {
-      if (prog < 0.3) target = startPrice - (startPrice * 0.12) * Math.sin(prog / 0.3 * Math.PI);
-      else if (prog < 0.6) target = startPrice * 0.92 + (startPrice * 0.15) * Math.sin((prog - 0.3) / 0.3 * Math.PI);
-      else target = startPrice + (p - startPrice) * Math.pow((prog - 0.6) / 0.4, 1.4);
-    }
-
-    if (i === count - 1) target = p;
-
-    var barAtr = target * atrPct;
-    var o = (i === 0) ? startPrice : curClose;
-    var noise = (rand() - 0.49) * barAtr * 1.5;
-    var c = (i === count - 1) ? p : Math.max(target * 0.05, target + noise);
-    var h = Math.max(o, c) + rand() * barAtr * 0.9;
-    var l = Math.max(target * 0.01, Math.min(o, c) - rand() * barAtr * 0.9);
-    var isUp = c >= o;
-    var baseV = Number(item && item.volume5m) || 60000;
-    var vMult = (patternType === 3 && prog > 0.4 && prog < 0.6) ? 3.2 : (isUp ? (0.8 + rand() * 1.4) : (0.5 + rand() * 0.8));
-    var v = Math.round(baseV * vMult);
-
-    candles.push({ time: t, open: o, high: h, low: l, close: c, volume: v });
-    curClose = c;
-  }
-
-  return candles;
-}
-
-function startMemeLiveTicker() {
-  if (memeLiveTickerTimer) clearInterval(memeLiveTickerTimer);
-  memeLiveTickerTimer = setInterval(function () {
-    try {
-      if (state.mode !== 'meme') return;
-      if (typeof document !== 'undefined' && document.hidden) return;
-      var wrap = $id('memeWorkspaceWrap');
-      if (!wrap || wrap.classList.contains('hidden')) return;
-      if (!activeMemeToken || !activeMemeCandles || !activeMemeCandles.length) return;
-      if (activeMemeChartView !== 'candles') return;
-
-      var token = activeMemeToken;
-      var candles = activeMemeCandles;
-      var lastIdx = candles.length - 1;
-      var last = candles[lastIdx];
-      var oldClose = last.close;
-
-      // Realistic tick step based on buy/sell order flow pressure
-      var buyPct = (token.txBuys5m || 10) / Math.max(1, (token.txBuys5m || 10) + (token.txSells5m || 10));
-      var isBuy = Math.random() < buyPct;
-      var volPct = 0.0012 + Math.random() * 0.0035;
-      var tickDelta = oldClose * volPct * (isBuy ? 1 : -0.92);
-      var newPrice = Math.max(oldClose * 0.2, oldClose + tickDelta);
-
-      last.close = newPrice;
-      if (newPrice > last.high) last.high = newPrice;
-      if (newPrice < last.low) last.low = newPrice;
-      last.volume += Math.round(500 + Math.random() * 3000);
-
-      token.basePrice = newPrice;
-      memePriceFlash = isBuy ? 'up' : 'down';
-      setTimeout(function () { memePriceFlash = null; }, 350);
-
-      memeCandleTickCount++;
-      // Form new candle after 28 ticks (~32 seconds of live terminal action)
-      if (memeCandleTickCount >= 28) {
-        memeCandleTickCount = 0;
-        var tfSec = (activeMemeTf === 'M1' ? 60 : (activeMemeTf === 'M15' ? 900 : (activeMemeTf === 'H1' ? 3600 : 300)));
-        var newTime = last.time + tfSec;
-        candles.push({
-          time: newTime,
-          open: newPrice,
-          high: newPrice,
-          low: newPrice,
-          close: newPrice,
-          volume: Math.round(2000 + Math.random() * 5000)
-        });
-        if (candles.length > 85) candles.shift();
-      }
-
-      // Live update DOM price display in inspection header
-      var priceEl = $id('memeInspectPrice');
-      if (priceEl) {
-        priceEl.textContent = formatMemePrice(newPrice);
-        priceEl.style.color = isBuy ? '#34d399' : '#f43f5e';
-      }
-
-      // Redraw canvas with moving live tick & pulsing bead
-      drawMemeCandleChart(token, candles);
-    } catch (e) {}
-  }, 1200);
-}
-
-function stopMemeLiveTicker() {
-  if (memeLiveTickerTimer) {
-    clearInterval(memeLiveTickerTimer);
-    memeLiveTickerTimer = null;
-  }
+  if (activeMemeToken) drawMemeCandleChart(activeMemeToken, activeMemeCandles);
 }
 
 function drawMemeCandleChart(item, candleList) {
-  if (!item) return;
   var canvas = $id('memeCandleCanvas');
   if (!canvas) return;
   var parent = canvas.parentElement;
@@ -6721,10 +5225,9 @@ function drawMemeCandleChart(item, candleList) {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, w, h);
 
-  var candles = candleList || activeMemeCandles || generateMemeCandles(item, activeMemeTf);
-  activeMemeCandles = candles;
+  var candles = Array.isArray(candleList) ? candleList : (Array.isArray(activeMemeCandles) ? activeMemeCandles : []);
   var N = candles.length;
-  if (!N) { ctx.restore(); return; }
+  if (!N) { ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif'; ctx.fillText('Verified OHLCV unavailable', 18, 30); ctx.restore(); return; }
 
   var chartTop = 45;
   var chartBottom = h - 90;
@@ -6881,29 +5384,11 @@ function drawMemeCandleChart(item, candleList) {
 
   // Right pill
   var pillW = Math.max(78, axisRightW - 4);
-  ctx.fillStyle = memePriceFlash === 'up' ? '#10b981' : (memePriceFlash === 'down' ? '#f43f5e' : tickColor);
+  ctx.fillStyle = tickColor;
   ctx.fillRect(plotW + 2, lastY - 8, pillW, 16);
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 9.5px monospace';
   ctx.fillText(formatMemePrice(lastP), plotW + 4, lastY + 4);
-
-  // Reference Levels: TP1 (+50%), SL (-15%)
-  var drawLevelLine = function (price, color, label) {
-    if (price <= minP || price >= maxP) return;
-    var y = Math.round(yOf(price));
-    ctx.strokeStyle = color;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath();
-    ctx.moveTo(0, y + 0.5);
-    ctx.lineTo(plotW, y + 0.5);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = color;
-    ctx.font = '9px monospace';
-    ctx.fillText(label, 8, y - 3);
-  };
-  drawLevelLine(lastP * 1.5, '#10b981', '🎯 TARGET TP1 (+50%): ' + formatMemePrice(lastP * 1.5));
-  drawLevelLine(lastP * 0.85, '#f43f5e', '🛡️ STOP LOSS (-15%): ' + formatMemePrice(lastP * 0.85));
 
   // Top HUD Bar
   var hudW = Math.min(w - 12, 600);
@@ -6914,16 +5399,18 @@ function drawMemeCandleChart(item, candleList) {
 
   ctx.fillStyle = '#f8fafc';
   ctx.font = 'bold 12px monospace';
-  var chainQuote = (item.chain === 'solana' ? 'SOL' : (item.chain === 'base' ? 'ETH' : (item.chain === 'bsc' ? 'BNB' : 'ETH')));
-  ctx.fillText(item.symbol + ' / ' + chainQuote, 14, 25);
+  var chainQuote = (item.chainId === 'solana' ? 'SOL' : (item.chainId === 'base' ? 'ETH' : (item.chainId === 'bsc' ? 'BNB' : 'ETH')));
+  ctx.fillText((item && item.baseToken && item.baseToken.symbol || 'Token') + ' / ' + chainQuote, 14, 25);
 
   ctx.font = 'bold 11px monospace';
   ctx.fillStyle = tickColor;
   ctx.fillText(formatMemePrice(lastP), 140, 25);
 
-  var chg24 = num(item.change24h, 0);
-  ctx.fillStyle = chg24 >= 0 ? '#10b981' : '#f43f5e';
-  var chg24Txt = (chg24 >= 0 ? '+' : '') + chg24.toFixed(1) + '% (24h)';
+  var changeValue = item && item.change24h;
+  var hasChange = changeValue !== null && changeValue !== undefined && String(changeValue).trim() !== '' && Number.isFinite(Number(changeValue));
+  var chg24 = hasChange ? Number(item.change24h) : 0;
+  ctx.fillStyle = !hasChange ? '#94a3b8' : (chg24 >= 0 ? '#10b981' : '#f43f5e');
+  var chg24Txt = hasChange ? ((chg24 >= 0 ? '+' : '') + chg24.toFixed(1) + '% (24h)') : '24h change unavailable';
   ctx.fillText(chg24Txt, 240, 25);
 
   ctx.font = '10px monospace';
@@ -6934,585 +5421,43 @@ function drawMemeCandleChart(item, candleList) {
 
   ctx.fillStyle = '#10b981';
   ctx.font = 'bold 9.5px monospace';
-  ctx.fillText('● ' + (activeMemeTf || 'M5') + ' LIVE', hudW - 65, 25);
+  ctx.fillText('● ' + (activeMemeTf || 'M5') + ' DATA', hudW - 70, 25);
 
   // Bottom Watermark
   ctx.fillStyle = '#475569';
   ctx.font = '9.5px monospace';
-  ctx.fillText('XSTARZG • NATIVE MEME CANDLESTICK ENGINE • LIVE DEX STREAM', 8, h - 7);
+  ctx.fillText('XSTARZG • OHLCV PROVIDER DATA', 8, h - 7);
 
   ctx.restore();
 }
 
-function renderMemeInstrumentOptions() {
-  var sel = $id('selMemeInstrument');
-  if (!sel) return;
-  var items = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
-  var html = '';
-  items.forEach(function (it) {
-    var isSel = activeMemeToken && activeMemeToken.symbol === it.symbol;
-    html += '<option value="' + escH(it.symbol) + '"' + (isSel ? ' selected' : '') + '>' +
-      escH(it.symbol) + ' — ' + escH(it.name) + ' (' + escH(it.chainLabel || it.chain.toUpperCase()) + ')' +
-      '</option>';
-  });
-  sel.innerHTML = html;
-}
-
-function getFilteredMemeCatalog(chain, sort) {
-  var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG.slice();
-  var filtered = (chain && chain !== 'all') ? pool.filter(function (it) { return it.chain === chain; }) : pool.slice();
-  if (sort === 'safety') {
-    filtered.sort(function (a, b) { return (b.safetyScore || 0) - (a.safetyScore || 0); });
-  } else if (sort === 'gainers') {
-    filtered.sort(function (a, b) { return (b.change24h || 0) - (a.change24h || 0); });
-  } else if (sort === 'volume') {
-    filtered.sort(function (a, b) { return (b.volume24h || 0) - (a.volume24h || 0); });
-  } else {
-    // default: momentum
-    filtered.sort(function (a, b) {
-      var pA = ((a.txBuys5m || 10) / Math.max(1, (a.txBuys5m || 10) + (a.txSells5m || 5))) * 100 + (a.change5m || 0) * 2;
-      var pB = ((b.txBuys5m || 10) / Math.max(1, (b.txBuys5m || 10) + (b.txSells5m || 5))) * 100 + (b.change5m || 0) * 2;
-      return pB - pA;
-    });
-  }
-  return filtered;
-}
-
-function selectMemeToken(item) {
-  if (!item) return;
-  activeMemeToken = item;
-
-  // 1. Update Header Bar
-  setTxt('memeInspectSymbol', item.symbol);
-  setTxt('memeInspectName', item.name);
-  setTxt('memeInspectChainBadge', item.chainLabel || item.chain.toUpperCase());
-  setTxt('memeInspectCaShort', (item.address || '').slice(0, 6) + '...' + (item.address || '').slice(-4));
-  var copyBtn = $id('memeBtnCopyCa');
-  if (copyBtn) {
-    copyBtn.onclick = function () {
-      try {
-        navigator.clipboard.writeText(item.address);
-        copyBtn.textContent = '✓ Tersalin!';
-        setTimeout(function () { copyBtn.textContent = '📋 Salin CA'; }, 2000);
-      } catch (e) {}
-    };
-  }
-  var priceStr = formatMemePrice(item.basePrice);
-  setTxt('memeInspectPrice', priceStr);
-
-  // Sync token dropdown selector
-  var selM = $id('selMemeInstrument');
-  if (selM && selM.value !== item.symbol) {
-    selM.value = item.symbol;
-  }
-
-  var c5m = num(item.change5m, 0), c1h = num(item.change1h, 0), c24h = num(item.change24h, 0);
-  var col5m = c5m >= 0 ? '#10b981' : '#f43f5e';
-  var col1h = c1h >= 0 ? '#10b981' : '#f43f5e';
-  var col24h = c24h >= 0 ? '#10b981' : '#f43f5e';
-  var c5mEl = $id('memeInspectChg5m');
-  if (c5mEl) { c5mEl.textContent = '5m: ' + (c5m >= 0 ? '+' : '') + c5m + '%'; c5mEl.style.color = col5m; }
-  var c1hEl = $id('memeInspectChg1h');
-  if (c1hEl) { c1hEl.textContent = '1h: ' + (c1h >= 0 ? '+' : '') + c1h + '%'; c1hEl.style.color = col1h; }
-  var c24hEl = $id('memeInspectChg24h');
-  if (c24hEl) { c24hEl.textContent = '24h: ' + (c24h >= 0 ? '+' : '') + c24h + '%'; c24hEl.style.color = col24h; }
-
-  setTxt('memeInspectMcap', '$' + formatCompactNum(item.marketCap));
-  setTxt('memeInspectLiq', '$' + formatCompactNum(item.liquidity));
-  setTxt('memeInspectVol5m', '$' + formatCompactNum(item.volume5m));
-  var totalTx5m = (item.txBuys5m || 0) + (item.txSells5m || 0);
-  var buyPct = totalTx5m > 0 ? Math.round((item.txBuys5m / totalTx5m) * 100) : 50;
-  setTxt('memeInspectBuyPressure', buyPct + '% BUY');
-
-  var safetyBadge = $id('memeInspectSafetyBadge');
-  if (safetyBadge) {
-    safetyBadge.textContent = '🛡️ ' + item.safetyScore + '/100 ' + (item.safetyScore >= 90 ? 'AMAN' : 'SPEKULATIF');
-    safetyBadge.style.background = item.safetyScore >= 90 ? 'rgba(16,185,129,0.18)' : 'rgba(245,158,11,0.18)';
-    safetyBadge.style.color = item.safetyScore >= 90 ? '#34d399' : '#fbbf24';
-  }
-
-  // 2. Update Interactive Chart Iframe & Native Candlestick Canvas
-  var chainQuote = (item.chain === 'solana' ? 'SOL' : (item.chain === 'base' ? 'ETH' : (item.chain === 'bsc' ? 'BNB' : 'ETH')));
-  setTxt('memeChartTitle', 'Grafik Real-Time — ' + item.symbol + ' / ' + chainQuote);
-  var pairOrCa = item.pairAddress || item.address;
-  var dexChartUrl = 'https://dexscreener.com/' + encodeURIComponent(item.chain || 'solana') + '/' + encodeURIComponent(pairOrCa) + '?embed=1&theme=dark&trades=0&info=0';
-  var iframe = $id('memeDexChartIframe');
-  if (iframe) {
-    iframe.src = dexChartUrl;
-  }
-  var openDexLink = $id('memeDexOpenExternal');
-  if (openDexLink) openDexLink.href = 'https://dexscreener.com/' + encodeURIComponent(item.chain || 'solana') + '/' + encodeURIComponent(pairOrCa);
-
-  // Generate distinct candles for this token & render
-  activeMemeCandles = generateMemeCandles(item, activeMemeTf);
-  drawMemeCandleChart(item, activeMemeCandles);
-
-  // Start live tick movement engine
-  startMemeLiveTicker();
-
-  // 3. Update 6 Fundamental Pillars khusus Memecoin
-  var fundGrid = $id('memeFundGrid');
-  if (fundGrid) {
-    var pillars = [
-      {
-        title: '1. Meme Narrative & Viral Meta',
-        status: 'VIRAL',
-        badgeColor: '#a855f7',
-        val: item.metaNarrative || ('Kategori viral: ' + item.name + ' (' + item.symbol + '). Memiliki daya tarik media sosial tinggi dan komunitas organik yang aktif.'),
-        detail: 'Faktor pendorong utama harga micin adalah perhatian publik (Attention Economy) dan narasi kultur internet.'
-      },
-      {
-        title: '2. Deployer & Dev Tracking',
-        status: item.lpBurned ? 'SAFE / CTO' : 'MONITORED',
-        badgeColor: item.lpBurned ? '#10b981' : '#f59e0b',
-        val: item.devStatus || (item.lpBurned ? 'Dev Out / 100% Community Takeover (CTO)' : 'Deployer memegang kontrol likuiditas'),
-        detail: 'Riwayat deployer bersih, tidak ditemukan riwayat rug pull sebelumnya.'
-      },
-      {
-        title: '3. Tokenomics & Vesting Lock',
-        status: '100% CIRCULATING',
-        badgeColor: '#38bdf8',
-        val: '100% Suplai telah beredar bebas di pool DEX.',
-        detail: 'Tidak ada alokasi vesting rahasia tim atau pembukaan kunci token berkala yang dapat mendump pasar.'
-      },
-      {
-        title: '4. Distribusi Suplai (Top 10)',
-        status: item.top10HoldersPct <= 20 ? 'SEHAT (<20%)' : 'WASPADA (>20%)',
-        badgeColor: item.top10HoldersPct <= 20 ? '#10b981' : '#f59e0b',
-        val: 'Top 10 Dompet memegang ' + item.top10HoldersPct + '% total suplai.',
-        detail: item.top10HoldersPct <= 20 ? 'Risiko dump masal oleh satu dompet paus sangat rendah.' : 'Perhatikan pergerakan dompet paus teratas.'
-      },
-      {
-        title: '5. Audit Kontrak (Anti-Rug)',
-        status: item.safetyScore >= 90 ? 'VERIFIED' : 'CAUTION',
-        badgeColor: item.safetyScore >= 90 ? '#10b981' : '#f59e0b',
-        val: 'LP: ' + (item.lpBurned ? '100% Burned' : 'Unlocked') + ' • Mint: ' + (item.mintRevoked ? 'Revoked' : 'Active') + ' • Freeze: ' + (item.freezeDisabled ? 'Disabled' : 'Enabled'),
-        detail: 'Bebas honeypot: fungsi pembekuan dompet pembeli dinonaktifkan secara permanen.'
-      },
-      {
-        title: '6. Social Velocity & Hype',
-        status: 'ACTIVE',
-        badgeColor: '#ec4899',
-        val: 'Volume 24 Jam: $' + formatCompactNum(item.volume24h) + ' di pool ' + (item.dex || 'DEX') + '.',
-        detail: 'Sentimen komunitas Twitter/X & Telegram berada dalam fase akumulasi aktif.'
-      }
-    ];
-
-    fundGrid.innerHTML = pillars.map(function (p) {
-      return '<div style="background:rgba(2,6,23,0.65);border:1px solid rgba(168,85,247,0.2);border-radius:10px;padding:12px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-          '<strong style="font-size:12px;color:#f8fafc;">' + p.title + '</strong>' +
-          '<span style="font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:4px;background:' + p.badgeColor + '22;color:' + p.badgeColor + ';border:1px solid ' + p.badgeColor + '44;">' + p.status + '</span>' +
-        '</div>' +
-        '<div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">' + p.val + '</div>' +
-        '<div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">' + p.detail + '</div>' +
-      '</div>';
-    }).join('');
-  }
-
-  // 4. Update Technical Panel Khusus DEX
-  var techBody = $id('memeTechBody');
-  if (techBody) {
-    var volLiqRatio = item.liquidity > 0 ? (item.volume5m / (item.liquidity * 0.05)).toFixed(1) : '1.0';
-    techBody.innerHTML = '' +
-      '<div style="background:rgba(2,6,23,0.7);padding:10px;border-radius:8px;border:1px solid var(--border-subtle);">' +
-        '<div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Tekanan Beli 5 Menit (Net Inflow):</div>' +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
-          '<strong style="font-size:18px;color:#34d399;">' + buyPct + '% BUY DOMINANCE</strong>' +
-          '<span style="font-size:11.5px;color:#94a3b8;">' + (item.txBuys5m || 0) + ' Beli / ' + (item.txSells5m || 0) + ' Jual</span>' +
-        '</div>' +
-        '<div style="width:100%;height:6px;background:#334155;border-radius:99px;margin-top:6px;overflow:hidden;display:flex;">' +
-          '<div style="height:100%;background:#10b981;width:' + buyPct + '%;"></div>' +
-          '<div style="height:100%;background:#f43f5e;width:' + (100 - buyPct) + '%;"></div>' +
-        '</div>' +
-      '</div>' +
-      '<div style="background:rgba(2,6,23,0.7);padding:10px;border-radius:8px;border:1px solid var(--border-subtle);">' +
-        '<div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Volume-to-Liquidity Velocity:</div>' +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
-          '<strong style="font-size:15px;color:#38bdf8;">' + volLiqRatio + 'x Normal Velocity</strong>' +
-          '<span style="font-size:11px;color:#94a3b8;">$' + formatCompactNum(item.volume5m) + ' / 5m</span>' +
-        '</div>' +
-        '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">Rotasi volume aktif menunjukkan masuknya minat trader scalper & smart money.</div>' +
-      '</div>' +
-      '<div style="background:rgba(2,6,23,0.7);padding:10px;border-radius:8px;border:1px solid var(--border-subtle);">' +
-        '<div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Rekomendasi Slippage & Ukuran Order:</div>' +
-        '<div style="font-size:12px;color:#f8fafc;font-weight:700;">Slippage: 1.5% – 3.0% (Anti MEV)</div>' +
-        '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">Ukuran order disarankan maks 0.5% dari likuiditas pool ($' + formatCompactNum(item.liquidity * 0.005) + ') agar tidak terkena dampak harga tajam.</div>' +
-      '</div>';
-  }
-
-  // 5. Update Quick Action Swap Buttons
-  var tradeUrl = (item.chain === 'solana')
-    ? ('https://raydium.io/swap/?outputMint=' + encodeURIComponent(item.address))
-    : (item.chain === 'base')
-      ? ('https://aerodrome.finance/swap?outputCurrency=' + encodeURIComponent(item.address))
-      : (item.chain === 'bsc')
-        ? ('https://pancakeswap.finance/swap?outputCurrency=' + encodeURIComponent(item.address))
-        : ('https://app.uniswap.org/#/swap?outputCurrency=' + encodeURIComponent(item.address));
-
-  var btnTrade = $id('btnMemeTradeDex');
-  if (btnTrade) {
-    btnTrade.href = tradeUrl;
-    btnTrade.textContent = '⚡ Beli ' + item.symbol + ' di ' + (item.chain === 'solana' ? 'Raydium' : (item.chain === 'base' ? 'Aerodrome' : (item.chain === 'bsc' ? 'PancakeSwap' : 'Uniswap'))) + ' ↗';
-  }
-  var btnRug = $id('btnMemeOpenRugCheck');
-  if (btnRug) {
-    btnRug.href = (item.chain === 'solana') ? ('https://rugcheck.xyz/tokens/' + encodeURIComponent(item.address)) : ('https://dexscreener.com/' + encodeURIComponent(item.chain) + '/' + encodeURIComponent(item.address));
-  }
-
-  // 6. Highlight active card in screener grid
-  var grid = $id('memePicksGrid');
-  if (grid) {
-    Array.prototype.forEach.call(grid.querySelectorAll('.radar-card'), function (card) {
-      var sym = card.getAttribute('data-sym');
-      card.classList.toggle('active', sym === item.symbol);
-    });
-  }
-}
-
-function drawMemePickCards(items) {
-  var grid = $id('memePicksGrid');
-  if (!grid) return;
-  if (!items || !items.length) {
-    grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;padding:16px;text-align:center;color:#94a3b8;">' +
-      T('ui.memeEmpty', 'Data DEX scanner belum tersedia — silakan coba sesaat lagi.') + '</div>';
-    return;
-  }
-  var html = '';
-  items.forEach(function (it) {
-    var isActive = activeMemeToken && activeMemeToken.symbol === it.symbol;
-    var chg24 = num(it.change24h, 0);
-    var chgCol = chg24 >= 0 ? '#10b981' : '#f43f5e';
-    var priceStr = (it.basePrice < 0.0001)
-      ? '$' + Number(it.basePrice).toFixed(8)
-      : (it.basePrice < 0.01)
-        ? '$' + Number(it.basePrice).toFixed(6)
-        : '$' + Number(it.basePrice).toFixed(4);
-
-    var totalTx = (it.txBuys5m || 0) + (it.txSells5m || 0);
-    var buyDominance = totalTx > 0 ? Math.round((it.txBuys5m / totalTx) * 100) : 50;
-
-    var dexUrl = 'https://dexscreener.com/' + encodeURIComponent(it.chain || 'solana') + '/' + encodeURIComponent(it.pairAddress || it.address);
-    var tradeUrl = (it.chain === 'solana')
-      ? ('https://raydium.io/swap/?outputMint=' + encodeURIComponent(it.address))
-      : (it.chain === 'base')
-        ? ('https://aerodrome.finance/swap?outputCurrency=' + encodeURIComponent(it.address))
-        : (it.chain === 'bsc')
-          ? ('https://pancakeswap.finance/swap?outputCurrency=' + encodeURIComponent(it.address))
-          : ('https://app.uniswap.org/#/swap?outputCurrency=' + encodeURIComponent(it.address));
-
-    var reasonsHtml = (it.reasons || []).map(function (r) {
-      return '<div style="font-size:10.5px;color:#cbd5e1;line-height:1.35;margin-top:2px;">' + escH(r) + '</div>';
-    }).join('');
-
-    html += '<div class="radar-card' + (isActive ? ' active' : '') + '" data-sym="' + escH(it.symbol) + '" style="border-left:3px solid ' + (it.safetyScore >= 90 ? '#10b981' : '#f59e0b') + ';cursor:pointer;">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
-        '<span class="r-sym" style="color:#f8fafc;font-size:13px;font-weight:900;">' + escH(it.symbol) +
-          ' <small style="color:#d8b4fe;font-weight:700;font-size:10px;">' + escH(it.chainLabel || it.chain.toUpperCase()) + '</small>' +
-        '</span>' +
-        '<span class="r-live" style="background:rgba(168,85,247,0.18);color:#d8b4fe;border:1px solid rgba(168,85,247,0.4);font-size:9.5px;padding:2px 7px;border-radius:99px;">' +
-          '🛡️ ' + it.safetyScore + '/100' +
-        '</span>' +
-      '</div>' +
-      '<span class="r-name" style="color:#94a3b8;font-size:11px;">' + escH(it.name) + '</span>' +
-
-      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin:4px 0 2px;">' +
-        '<span class="r-price" style="font-size:14px;font-weight:800;color:#f8fafc;">' + priceStr + '</span>' +
-        '<span class="r-chg" style="color:' + chgCol + ';font-size:12px;font-weight:800;">' + (chg24 >= 0 ? '+' : '') + chg24.toFixed(1) + '% (24h)</span>' +
-      '</div>' +
-
-      '<div style="display:flex;justify-content:space-between;gap:4px;font-size:10px;color:#94a3b8;margin-bottom:6px;font-family:var(--font-mono);">' +
-        '<span>Liq: <b style="color:#38bdf8;">$' + formatCompactNum(it.liquidity) + '</b></span>' +
-        '<span>Vol: <b style="color:#f8fafc;">$' + formatCompactNum(it.volume5m) + ' (5m)</b></span>' +
-        '<span>Buy: <b style="color:#34d399;">' + buyDominance + '%</b></span>' +
-      '</div>' +
-
-      reasonsHtml +
-
-      '<div style="margin-top:8px;text-align:center;font-size:11px;color:#d8b4fe;font-weight:700;">🔍 Klik Kartu untuk Buka di Dedicated Terminal ↑</div>' +
-
-      '<div style="display:flex;gap:6px;margin-top:10px;">' +
-        '<a href="' + escH(dexUrl) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;padding:7px 10px;border-radius:7px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:#38bdf8;text-decoration:none;font-weight:700;font-size:11.5px;">' +
-          '📊 DexScreener Chart ↗' +
-        '</a>' +
-        '<a href="' + escH(tradeUrl) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;padding:7px 10px;border-radius:7px;background:rgba(168,85,247,0.18);border:1px solid rgba(168,85,247,0.45);color:#d8b4fe;text-decoration:none;font-weight:700;font-size:11.5px;">' +
-          '⚡ Beli di DEX ↗' +
-        '</a>' +
-      '</div>' +
-    '</div>';
-  });
-  grid.innerHTML = html;
-
-  Array.prototype.forEach.call(grid.querySelectorAll('.radar-card'), function (card) {
-    var sym = card.getAttribute('data-sym');
-    var found = items.find(function (x) { return x.symbol === sym; });
-    if (found) {
-      card.addEventListener('click', function (e) {
-        if (e.target && e.target.closest && e.target.closest('a')) return;
-        selectMemeToken(found);
-        var header = $id('memeInspectHeader');
-        if (header) header.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
-  });
-}
-
-var _lastMemeCatalogFetch = 0;
-function fetchMemeCatalogLive(force) {
-  var now = Date.now();
-  if (!force && now - _lastMemeCatalogFetch < 10000) return;
-  _lastMemeCatalogFetch = now;
-  var chain = (typeof activeMemeChain !== 'undefined' ? activeMemeChain : 'all');
-  var sort = (typeof activeMemeSort !== 'undefined' ? activeMemeSort : 'momentum');
-  var url = '/api/scanner/meme?chain=' + encodeURIComponent(chain) + '&sort=' + encodeURIComponent(sort);
-  fetch(url)
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (res) {
-      if (res && res.ok && Array.isArray(res.items) && res.items.length) {
-        var map = {};
-        DEFAULT_MEME_CATALOG.forEach(function (it) { map[it.symbol] = it; });
-        (memeScanPool || []).forEach(function (it) { map[it.symbol] = it; });
-        res.items.forEach(function (it) { map[it.symbol] = it; });
-        memeScanPool = Object.keys(map).map(function (k) { return map[k]; });
-        var freshFiltered = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
-        drawMemePickCards(freshFiltered);
-        renderMemeInstrumentOptions();
-        try { syncRecommendedMemeToJournal(freshFiltered); } catch (e) {}
-        if (activeMemeToken) {
-          var updated = freshFiltered.find(function (x) { return x.symbol === activeMemeToken.symbol; });
-          if (updated) selectMemeToken(updated);
-        }
-        if (state.mode === 'journal' && activeJournalTab === 'meme') {
-          renderSignalJournal();
-        }
-      }
-    })
-    .catch(function () {});
-}
-try { window.fetchMemeCatalogLive = fetchMemeCatalogLive; } catch (e) {}
-
-var _memePoolTickerTimer = null;
-function startMemePoolBackgroundTicker() {
-  if (_memePoolTickerTimer) return;
-  _memePoolTickerTimer = setInterval(function () {
-    if (typeof document !== 'undefined' && document.hidden) return;
-    if (!memeScanPool || !memeScanPool.length) return;
-    var idx = Math.floor(Math.random() * memeScanPool.length);
-    var t = memeScanPool[idx];
-    if (!t || !t.basePrice) return;
-    var drift = (Math.random() - 0.48) * 0.003;
-    t.basePrice = Number((t.basePrice * (1 + drift)).toFixed(t.basePrice < 0.01 ? 6 : (t.basePrice < 1 ? 4 : 2)));
-    if (activeMemeToken && activeMemeToken.symbol === t.symbol) {
-      activeMemeToken.basePrice = t.basePrice;
-    }
-    if (state.mode === 'journal' && activeJournalTab === 'meme') {
-      renderSignalJournal();
-    }
-  }, 4000);
-}
-
-function renderMemePicks(force) {
-  var grid = $id('memePicksGrid');
-  if (!grid) return;
-
-  var currentItems = getFilteredMemeCatalog(activeMemeChain, activeMemeSort);
-  drawMemePickCards(currentItems);
-  renderMemeInstrumentOptions();
-  try { syncRecommendedMemeToJournal(currentItems); } catch (e) {}
-  if (!activeMemeToken || !currentItems.some(function (x) { return x.symbol === activeMemeToken.symbol; })) {
-    if (currentItems.length) selectMemeToken(currentItems[0]);
-  }
-
-  fetchMemeCatalogLive(force);
-}
-
-function renderOpportunityRadar(force) {
-  var grid = $id('opportunityRadarGrid');
-  if (!grid) return;
-  grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">Radar multi-instrumen dipindahkan ke proyek screener terpisah. Pilih instrumen untuk menjalankan analisis individual.</span></div>';
-  return;
-  if (!state.radarHorizon) state.radarHorizon = 'intraday';
-  if (state.mode === 'investor') state.radarHorizon = (state.radarHorizon === 'scalping') ? 'swing' : state.radarHorizon;
-  var hz = state.radarHorizon;
-  var cfg = RADAR_CONFIG[hz] || RADAR_CONFIG.intraday;
-  syncHorizonTabs();
-  var infoEl = $id('radarHorizonInfo');
-  var hzCap = hz.charAt(0).toUpperCase() + hz.slice(1);
-  if (infoEl) {
-    var accTxt = '';
-    try {
-      var stAcc = radarAccStore()[hz];
-      if (stAcc && stAcc.sample >= 5) accTxt = ' • ' + T('ui.eAccRadar', 'Akurasi radar terukur: {wr}% (n={n})').replace('{wr}', stAcc.winRate).replace('{n}', stAcc.sample);
-    } catch (e) {}
-    infoEl.textContent = (state.mode === 'investor'
-      ? T('ui.radarInfoI' + ({ scalping: 1, intraday: 2, swing: 3 })[hz], cfg.infoInvestor || '')
-      : T('ui.radarTitle', '⚡ Sinyal Terbit Hanya Saat 1D/4H (Arah), 1H/15m (OB/FVG), & 5m (Konfirmasi) Sepakat Searah • Anti Counter-Trend')) + accTxt;
-  }
-  /* Radar merata ke seluruh katalog: batch bergilir per slot 5 menit + cache
-     per-instrumen (TTL 8 mnt) -> semua simbol dinilai, 12 sinyal terkuat tampil. */
-  var tfFor = hz === 'scalping' ? 'M5' : hz === 'swing' ? 'D1' : 'H1';
-  var cacheKey = hz;
-  var pool = radarScanPool[cacheKey] = radarScanPool[cacheKey] || {};
-  var fresh = [];
-  var now = Date.now();
-  for (var k in pool) {
-    if (pool[k] && pool[k].item && pool[k].item.analysis) {
-      if (now - pool[k].ts < 15 * 60000 && !pool[k].item.analysis.__estFeed) {
-        fresh.push(pool[k].item);
-      }
-    }
-  }
-  fresh.sort(function (x, y) {
-    var xAligned = (x && x.analysis && x.analysis.topDown && x.analysis.topDown.isAligned) ? 1 : 0;
-    var yAligned = (y && y.analysis && y.analysis.topDown && y.analysis.topDown.isAligned) ? 1 : 0;
-    if (xAligned !== yAligned) return yAligned - xAligned;
-    var xScore = (x && x.analysis) ? num(x.analysis.convictionScore, 0) : 0;
-    var yScore = (y && y.analysis) ? num(y.analysis.convictionScore, 0) : 0;
-    return yScore - xScore;
-  });
-  // Rekomendasi = penyaring instrumen berpotensi: hanya keyakinan >= 55 yang tampil;
-  // jika pasar sedang sepi, tampilkan kandidat terbaik yang ada (maks 4) agar tidak kosong.
-  var freshStrong = fresh.filter(isActionableRadarSignal);
-  var freshShow = fresh.length ? fresh : (freshStrong.length ? freshStrong.slice(0, 12) : fresh.slice(0, 4));
-  if (!force && fresh.length >= 6 && freshStrong.length >= 2) { paintRadarItems(cfg, freshShow, false); return; }
-  if (fresh.length) paintRadarItems(cfg, freshShow, freshStrong.length === 0);
-  // v2026.66: batch 30 simbol / slot 4 menit (dulu 40/3) — memangkas panggilan Functions
-  // ~55% per pengguna demi kuota gratis Cloudflare; rotasi tetap menutupi seluruh katalog.
-  var batch = rotatingSlice(catalogSortedStable(), 30, 4);
-  // Prioritaskan jangkar kurasi horizon (Crypto, Forex & Saham) di depan antrean agar kartu langsung tampil cepat di HP & web
-  var scanList = [];
-  var seen = {};
-  if (cfg.list && cfg.list.length) {
-    cfg.list.forEach(function (anc) {
-      if (!seen[anc.sym]) {
-        var m = getMeta(anc.sym);
-        if (m) { scanList.push(m); seen[anc.sym] = true; }
-      }
-    });
-  }
-  batch.forEach(function (x) {
-    if (x && x.symbol && !seen[x.symbol]) {
-      scanList.push(x);
-      seen[x.symbol] = true;
-    }
-  });
-  var mySeq = ++radarRunSeq;
-  if (!fresh.length) grid.innerHTML = '<div class="radar-card" style="cursor:default;grid-column:1/-1;"><span class="r-name">' + T('ui.radarScanning', 'Memindai {n} aset dengan candle broker real-time (kelompok {range})…').replace('{n}', scanList.length + '+').replace('{range}', cfg.tfRange) + '</span></div>';
-
-  var progressiveTimer = null;
-  function triggerProgressiveRepaint() {
-    if (progressiveTimer) return;
-    progressiveTimer = setTimeout(function () {
-      progressiveTimer = null;
-      if (mySeq !== radarRunSeq) return;
-      var curMerged = [];
-      var nNow = Date.now();
-      for (var ck in pool) if (nNow - pool[ck].ts < 15 * 60000 && !pool[ck].item.analysis.__estFeed) curMerged.push(pool[ck].item);
-      curMerged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
-      var curStrong = curMerged.filter(isActionableRadarSignal);
-      paintRadarItems(cfg, curMerged, curStrong.length === 0);
-      persistRadarPool();
-    }, 350);
-  }
-
-  Promise.allSettled(scanList.map(function (inst) {
-    return fetchRadarCandidate({ sym: inst.symbol, tf: tfFor }).then(function (it) {
-      if (it && it.analysis && !it.analysis.__estFeed) {
-        pool[it.sym + '|' + it.tf] = { ts: Date.now(), item: it };
-        if (alarmState.enabled && alarmState.symbol && it.sym && it.sym.toUpperCase() === alarmState.symbol.toUpperCase() && it.analysis && it.analysis.signalEligible) {
-          try { checkSignalAlarm(it.analysis); } catch (e) {}
-        }
-        try { checkTelegramHighScoreSignal(it.analysis, it); } catch (e) {}
-        triggerProgressiveRepaint();
-      }
-      return it;
-    });
-  })).then(function (results) {
-    if (mySeq !== radarRunSeq) return;
-    var merged = [];
-    var now2 = Date.now();
-    for (var k2 in pool) if (now2 - pool[k2].ts < 15 * 60000 && !pool[k2].item.analysis.__estFeed) merged.push(pool[k2].item);
-    merged.sort(function (x, y) { return num(y.analysis.convictionScore, 0) - num(x.analysis.convictionScore, 0); });
-    var strong = merged.filter(isActionableRadarSignal);
-    paintRadarItems(cfg, merged.length ? merged : (strong.length ? strong.slice(0, 12) : merged.slice(0, 4)), strong.length === 0);
-    persistRadarPool();
-  }).catch(function () {});
-}
-/* Kon-sistensi klik-through: hasil yang tampil di kartu rekomendasi (trader &
-   investor) HARUS sama dengan yang tampil di workspace. Karena engine deterministik
-   per candle closed, kita pakai ulang snapshot candle kartu yang masih segar
-   (<=3 menit) sebagai data awal workspace — angka skor/entry tidak mungkin flip. */
-function primeFromRadarPool(sym, tf) {
-  var now = Date.now();
-  var pools = [];
-  for (var hz in radarScanPool) pools.push(radarScanPool[hz]);
-  pools.push(investorScanPool);
-  for (var p = 0; p < pools.length; p++) {
-    var pool = pools[p];
-    for (var key in pool) {
-      var rec = pool[key];
-      if (rec && rec.item && rec.item.sym === sym && (!tf || rec.item.tf === tf) && rec.item.candles && (now - rec.ts) < 180000) {
-        var lastBar = rec.item.candles[rec.item.candles.length - 1];
-        if (lastBar && isPriceCompatibleWithSymbol(lastBar.close, sym)) {
-          return { candles: rec.item.candles, source: rec.item.source || 'BROKER FEED' };
-        }
-      }
-    }
-  }
-  return null;
-}
 function gotoInstrument(sym, tf) {
   if (!sym) return;
-  if (state.mode === 'meme') {
-    var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
-    var memeFound = pool.find(function (x) { return x.symbol === sym; });
-    if (memeFound) {
-      selectMemeToken(memeFound);
-      return;
-    }
-  }
-  if (!ensureQuotaFor(sym)) {
-    renderInstrumentCatalog();
-    return;
-  }
-  if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') {
-    setMode('trader');
-  }
+  if (!ensureQuotaFor(sym)) { renderInstrumentCatalog(); return; }
+  if (state.mode === 'news' || state.mode === 'journal' || state.mode === 'meme') setMode('trader');
   if (feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
+  state.manualInstrumentSelection = true;
   state.symbol = sym;
   if (tf && TF_SECONDS[tf]) {
     state.tf = tf;
     state.timeframe = tf;
     var tfBar = $id('timeframeBar');
-    if (tfBar) {
-      Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) {
-        b.classList.toggle('active', b.getAttribute('data-tf') === tf);
-      });
-    }
+    if (tfBar) Array.prototype.forEach.call(tfBar.querySelectorAll('.tf-btn'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tf') === tf);
+    });
   }
   try { auditAndCleanseCorruptedStorage(); } catch (e) {}
-  var primed = primeFromRadarPool(sym, tf);
-  state.candles = primed ? primed.candles.slice() : [];
-  var primedSource = primed ? primed.source : null;
+  state.candles = [];
   state.lastAnalysis = null;
   state.bestTfBoard = null;
-  state.feedSource = primedSource || '-';
+  state.feedSource = '-';
   renderInstrumentCatalog();
   saveSession();
-  // Render instan dari snapshot kartu (skor/entry identik dengan yang diklik user),
-  // sekaligus scope 'create' agar sinyal yang tampil langsung TERKUNCI permanen —
-  // refresh/kalkulasi ulang berikutnya tidak bisa mengubahnya sampai TP/SL/invalidasi.
-  if (primed && state.candles.length) {
-    try {
-      var primeAnalysis = computeQuantEngine(state.candles, sym, tf || state.tf, false, 'create', primedSource);
-      if (primeAnalysis && !primeAnalysis.error && primeAnalysis.symbol === sym) renderAllVisuals(primeAnalysis, true);
-    } catch (e) {}
-  }
-  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(false);
+  if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
   connectRealtimeStream();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
-
+ 
 /* ==================== 8. RISK & POSITION CALCULATOR ==================== */
 function updateRiskSizing() {
   var a = state.lastAnalysis;
@@ -8573,6 +6518,8 @@ function syncModeSections() {
   if (journalWrap) journalWrap.classList.toggle('hidden', !isJournal);
   if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
   if (invSec) invSec.classList.toggle('hidden', !isInv);
+  var investorMacro = $id('investorMacroContextSection');
+  if (investorMacro) investorMacro.classList.toggle('hidden', !isInv);
   if (typeof syncModeButtonLabels === 'function') syncModeButtonLabels();
 }
 function syncModeButtonLabels() {
@@ -8898,52 +6845,26 @@ function showScreen(name) {
 function enterWorkspace() {
   try {
     showScreen('work');
+    ensureChartVendorLoaded();
+    ensureQuantEnginesLoaded();
     var sk = document.getElementById('tvChartLoadingSkeleton');
     if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
     updateUserUi();
     syncModeSections();
-    try { renderInstrumentCatalog(); } catch (eCat) {}
-    // Instant pre-render: Tampilkan harga terkalibrasi & grafik candlestick 0ms
-    // agar layar HP tidak pernah menggantung dengan placeholder kosong
-    try {
-      if (!state.candles || !state.candles.length || !state.lastAnalysis) {
-        var fnSeed = (typeof generateSeedCandles === 'function') ? generateSeedCandles : (typeof window !== 'undefined' ? window.generateSeedCandles : null);
-        var seeded = typeof generateSeedCandles === 'function' ? generateSeedCandles(state.symbol || 'XAU/USD', state.tf || 'H1') : (fnSeed ? fnSeed(state.symbol || 'XAU/USD', state.tf || 'H1') : null);
-        if (seeded && seeded.candles && seeded.candles.length) {
-          state.candles = seeded.candles;
-          state.livePrice = seeded.price;
-          state.liveChangePct = 0.25;
-          state.feedSource = 'LOCAL_SEED';
-          var instant = typeof computeQuantEngine === 'function' ? computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED') : null;
-          if (instant && typeof renderAllVisuals === 'function') renderAllVisuals(instant, true);
-        }
-      }
-    } catch (eSeed) {}
-    try { initChart(); } catch (eInit) {}
+    try { renderInstrumentCatalog(); } catch (e) {}
+    if (!state.manualInstrumentSelection) {
+      state.candles = [];
+      state.lastAnalysis = null;
+      state.feedSource = '-';
+    }
+    try { initChart(); } catch (e) {}
     if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(function () {
-        try { if (typeof initChart === 'function') initChart(); } catch (e) {}
-      });
+      requestAnimationFrame(function () { try { initChart(); } catch (e) {} });
     }
-    var now = Date.now();
-    if (now - enterWorkspaceLock > 300) {
-      enterWorkspaceLock = now;
-      setTimeout(function () {
-        try { initChart(); } catch (e) { console.warn('initChart error:', e); }
-        try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-        try {
-          if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
-        } catch (e) { console.warn('runFullAnalysis error:', e); }
-        try { connectRealtimeStream(); } catch (e) {}
-        try {
-          if (state.mode === 'investor') renderInvestorPicks();
-          else renderOpportunityRadar();
-        } catch (e) { console.warn('renderOpportunityRadar error:', e); }
-      }, 60);
+    if (state.manualInstrumentSelection) {
+      try { connectRealtimeStream(); } catch (e) {}
     }
-  } catch (e) {
-    console.error('enterWorkspace error:', e);
-  }
+  } catch (e) { console.error('enterWorkspace error:', e); }
 }
 try { if (typeof window !== 'undefined') { window.showScreen = showScreen; window.enterWorkspace = enterWorkspace; } } catch (e) {}
 
@@ -9302,71 +7223,32 @@ function bindUiEvents() {
         state.radarHorizon = hz;
         syncHorizonTabs();
         saveSession();
-        renderOpportunityRadar(true);
       });
     });
   }
-  /* ---- Tab filter & sort DEX Meme Radar ---- */
-  var mcBar = $id('memeChainBar');
-  if (mcBar) {
-    Array.prototype.forEach.call(mcBar.querySelectorAll('.hz-btn'), function (btn) {
-      btn.addEventListener('click', function () {
-        var mc = btn.getAttribute('data-mc') || 'all';
-        if (mc === activeMemeChain) return;
-        activeMemeChain = mc;
-        Array.prototype.forEach.call(mcBar.querySelectorAll('.hz-btn'), function (b) {
-          b.classList.toggle('active', (b.getAttribute('data-mc') || 'all') === activeMemeChain);
-        });
-        renderMemePicks(true);
-      });
-    });
-  }
-  var msBar = $id('memeSortBar');
-  if (msBar) {
-    Array.prototype.forEach.call(msBar.querySelectorAll('.hz-btn'), function (btn) {
-      btn.addEventListener('click', function () {
-        var ms = btn.getAttribute('data-ms') || 'momentum';
-        if (ms === activeMemeSort) return;
-        activeMemeSort = ms;
-        Array.prototype.forEach.call(msBar.querySelectorAll('.hz-btn'), function (b) {
-          b.classList.toggle('active', (b.getAttribute('data-ms') || 'momentum') === activeMemeSort);
-        });
-        renderMemePicks(true);
-      });
-    });
-  }
-  /* ---- View switches & selector DEX Meme Workspace ---- */
-  bind('btnMemeViewCandles', function () { switchMemeChartView('candles'); });
-  bind('btnMemeViewDex', function () { switchMemeChartView('dex'); });
-  var selM = $id('selMemeInstrument');
-  if (selM) {
-    selM.addEventListener('change', function () {
-      var sym = selM.value;
-      var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
-      var found = pool.find(function (x) { return x.symbol === sym; });
-      if (found) selectMemeToken(found);
-    });
-  }
+  /* ---- Manual DEX pair lookup and timeframe selection ---- */
+  bind('btnMemeSearch', searchManualDexToken);
+  var memeChainSelect = $id('selMemeChain');
+  if (memeChainSelect) memeChainSelect.addEventListener('change', invalidateManualDexSelection);
+  var memeAddressInput = $id('inpMemeAddress');
+  if (memeAddressInput) memeAddressInput.addEventListener('input', invalidateManualDexSelection);
+  if (memeAddressInput) memeAddressInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') searchManualDexToken();
+  });
   var mtfBar = $id('memeTfBar');
-  if (mtfBar) {
-    Array.prototype.forEach.call(mtfBar.querySelectorAll('.tf-btn'), function (btn) {
-      btn.addEventListener('click', function () {
-        var tf = btn.getAttribute('data-mtf') || 'M5';
-        activeMemeTf = tf;
-        Array.prototype.forEach.call(mtfBar.querySelectorAll('.tf-btn'), function (b) {
-          b.classList.toggle('active', (b.getAttribute('data-mtf') || 'M5') === tf);
-        });
-        if (activeMemeToken) {
-          activeMemeCandles = generateMemeCandles(activeMemeToken, activeMemeTf);
-          drawMemeCandleChart(activeMemeToken, activeMemeCandles);
-        }
+  if (mtfBar) Array.prototype.forEach.call(mtfBar.querySelectorAll('.tf-btn'), function (btn) {
+    btn.addEventListener('click', function () {
+      var tf = btn.getAttribute('data-mtf') || 'M5';
+      if (tf === activeMemeTf) return;
+      activeMemeTf = tf;
+      Array.prototype.forEach.call(mtfBar.querySelectorAll('.tf-btn'), function (b) {
+        b.classList.toggle('active', b === btn);
       });
+      if (activeMemeToken) analyzeManualDexPair(activeMemeToken.pairAddress);
     });
-  }
+  });
   window.addEventListener('resize', function () {
-    if (state.mode === 'meme' && activeMemeToken && activeMemeChartView === 'candles') {
-      drawMemeCandleChart(activeMemeToken, activeMemeCandles);
-    }
+    if (state.mode === 'meme') drawMemeCandleChart(activeMemeToken, activeMemeCandles);
   });
   /* ---- Overlay toggles & recalc ---- */
   ['chkEMA', 'chkVWAP', 'chkSMC', 'chkSniper'].forEach(function (id) {
@@ -9404,18 +7286,27 @@ function bindUiEvents() {
   bind('btnClearAllJournalHistory', function () {
     var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
     var msg = isEn
-      ? 'Clear all trading journal records (Trader, Investor, DEX) and start fresh? This action cannot be undone.'
-      : 'Hapus seluruh riwayat jurnal trading (Trader, Investor, DEX) dan mulai dari awal? Tindakan ini akan mengosongkan riwayat lama agar bersih.';
+      ? 'Clear all local and cloud signal journal history for this account? This cannot be undone.'
+      : 'Hapus seluruh riwayat jurnal sinyal lokal dan cloud untuk akun ini? Tindakan ini tidak dapat dibatalkan.';
     if (!confirm(msg)) return;
     try {
-      localStorage.removeItem(SIGNAL_LOCK_KEY);
-      localStorage.removeItem(SIGNAL_OUTCOME_KEY);
-      localStorage.removeItem(RADAR_ACC_KEY);
-      localStorage.removeItem(INVESTOR_JOURNAL_KEY);
-      localStorage.removeItem(MEME_JOURNAL_KEY);
-    } catch (e) {}
-    try { renderSignalJournal(); } catch (e) {}
-    alert(isEn ? 'All journal records have been cleared. You are starting fresh.' : 'Seluruh riwayat jurnal berhasil dibersihkan ke awal.');
+      var cleared = { at: Date.now(), pending: !!(state.user && state.user.email && state.user.tier !== 'GUEST' && !/@xstarzg\.local$/.test(state.user.email)) };
+      clearLocalJournalKeys();
+      localStorage.setItem(journalTombstoneKey(), JSON.stringify(cleared));
+    } catch (error) {
+      alert((isEn ? 'Local journal reset failed: ' : 'Reset jurnal lokal gagal: ') + error.message);
+      return;
+    }
+    renderSignalJournal();
+    if (!state.user || !state.user.email || state.user.tier === 'GUEST' || /@xstarzg\.local$/.test(state.user.email)) {
+      alert(isEn ? 'Local history was cleared. Sign in to clear this account’s cloud history.' : 'Riwayat lokal dihapus. Masuk untuk menghapus riwayat cloud akun ini.');
+      return;
+    }
+    syncCloudSignalJournal().then(function () {
+      alert(isEn ? 'Local and cloud journal history was cleared.' : 'Riwayat jurnal lokal dan cloud berhasil dihapus.');
+    }).catch(function (error) {
+      alert((isEn ? 'Local history was cleared; cloud deletion is pending and will retry: ' : 'Riwayat lokal dihapus; penghapusan cloud tertunda dan akan dicoba ulang: ') + error.message);
+    });
   });
   bind('btnToggleSlPlusNotify', function () {
     toggleSlPlusNotification();
@@ -9473,8 +7364,7 @@ function bindUiEvents() {
 
   bind('btnQuickAddMemeJnl', function () {
     var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
-    var pool = (memeScanPool && memeScanPool.length) ? memeScanPool : DEFAULT_MEME_CATALOG;
-    var token = activeMemeToken || pool[0];
+    var token = activeMemeToken;
     if (token) {
       var it = {
         id: 'meme_' + Date.now(),
@@ -9966,25 +7856,15 @@ function setMode(mode) {
   if (jn) jn.classList.toggle('active', mode === 'journal');
   var sub = $id('traderSubModeWrap');
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
-  // Investor: rekomendasi diframe sebagai keputusan beli-nyata; scalping bukan untuk investor
   if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
   syncHorizonTabs();
   syncModeSections();
-  // Rescan paksa saat pindah mode -> kartu rekomendasi menyegarkan ke kebenaran
-  // engine terbaru (anti kartu basi yg kontradiksi dengan workspace).
-  if (mode === 'investor') { stopMemeLiveTicker(); renderInvestorPicks(true); }
-  else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }
-  else {
-    stopMemeLiveTicker();
-    if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
-    else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
-    else renderOpportunityRadar(true);
-  }
-  renderMacroMap(); // strip peta makro hanya relevan di workspace investor
+  if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
+  else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
+  renderMacroMap();
   updateModeChip();
   syncTfBarForMode();
   saveSession();
-  if ((mode === 'trader' || mode === 'investor') && typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
 }
 function setSubMode(sub) {
   state.subMode = sub;
@@ -9995,14 +7875,11 @@ function setSubMode(sub) {
   syncTfBarForMode();
   saveSession();
   state.bestTfBoard = null;
-  if (typeof window.runFullAnalysis === 'function' && state.candles.length) window.runFullAnalysis(true);
   if (state.lastAnalysis) {
     renderPanels(state.lastAnalysis);
     renderHeader(state.lastAnalysis);
     drawChartLevels(state.lastAnalysis);
   }
-  // Repaint badge radar (SHORT futures -> TUNGGU di spot 1-arah)
-  renderOpportunityRadar(false);
 }
 function selectSymbol(sym) {
   if (!sym) return;
@@ -10011,6 +7888,7 @@ function selectSymbol(sym) {
     return;
   }
   if (feedReconnectTimer) { try { clearInterval(feedReconnectTimer); feedReconnectTimer = null; } catch (e) {} }
+  state.manualInstrumentSelection = true;
   state.symbol = sym;
   state.candles = [];
   state.lastAnalysis = null;
@@ -10021,7 +7899,6 @@ function selectSymbol(sym) {
   saveSession(); // preferensi ikut tersimpan agar refresh tidak keluar
   if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
   connectRealtimeStream();
-  renderOpportunityRadar();
 }
 
 /* ==================== 12. BOOTSTRAP ==================== */
@@ -10030,24 +7907,7 @@ function selectSymbol(sym) {
    refresh manual. Repaint murah tiap 60 dtk; scan batch penuh tiap 5 menit;
    jeda otomatis saat tab tidak terlihat. */
 var radarAutoLastForce = 0;
-function startRadarAutoPilot() {
-  // Browser-side screening moved out of the terminal; the dedicated cloud Sentinel remains active.
-  return;
-  if (window.__radarAutoTimer) return;
-  window.__radarAutoTimer = setInterval(function () {
-    try {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      // Do not run the automatic radar while the user is on the landing/login
-      // screens. This background scan was active even without the workspace.
-      var workspace = document.getElementById('appWorkspaceWrapper');
-      if (!workspace || workspace.classList.contains('hidden')) return;
-      var force = (Date.now() - radarAutoLastForce) >= 4 * 60000;
-      if (force) radarAutoLastForce = Date.now();
-      if (state.mode === 'investor') renderInvestorPicks(force);
-      else renderOpportunityRadar(force);
-    } catch (e) {}
-  }, 60000);
-}
+function startRadarAutoPilot() { return; }
 var __xsBootCoreStarted = false;
 function bootCore() {
   if (__xsBootCoreStarted) return;
@@ -10526,6 +8386,10 @@ if (document.readyState === 'loading') {
   // Do not block the UI with a second full quant calculation on synthetic seed candles.
   // Seed candles are only a visual placeholder; the complete engine runs once real data arrives.
   window.runFullAnalysis = async function (forceRecalc = false) {
+    if (!state.manualInstrumentSelection) {
+      setTxt('lblEngineStatus', 'Pilih instrumen secara manual, lalu tekan Analisis.');
+      return null;
+    }
     const mySeq = ++analysisRequestSeq;
     const reqSymbol = state.symbol;
     const reqTf = state.tf;
@@ -10592,8 +8456,6 @@ if (document.readyState === 'loading') {
         drawCanvasFallbackChart(state.candles, analysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
         connectRealtimeStream();
-        renderOpportunityRadar();
-        scheduleBestTfScan();
         if (feedIsEstimate(state.feedSource)) scheduleFeedReconnect();
       }
     } catch (err) {
@@ -10608,7 +8470,6 @@ if (document.readyState === 'loading') {
       state.lastAnalysis = null;
       renderSeedCandlesPreview(state.candles);
       setTxt('lblEngineStatus', '⚠ FEED ' + reqTf + ' TIDAK TERSEDIA — pratinjau lokal, sinyal belum diverifikasi');
-      renderOpportunityRadar();
       scheduleFeedReconnect();
       connectRealtimeStream();
     } finally {

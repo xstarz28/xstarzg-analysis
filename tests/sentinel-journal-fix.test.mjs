@@ -284,83 +284,50 @@ await asyncChk('Sentinel tidak boleh mengirim SL+ pada cycle penerbitan sinyal (
   chk('Jika harga menyentuh TP1 sebelum order terisi, status adalah MISSED', vUp.status === 'MISSED');
 })();
 
-// 4. Sinkronisasi Cloud Journal API Endpoint (functions/api/market/journal-sync.js)
-await asyncChk('Cloud Journal Sync Endpoint: GET, POST save_lock, and record_outcome', async () => {
+// 4. Sentinel only monitors existing manual owner journal entries
+await asyncChk('Cloud Journal API menolak posisi baru dari Sentinel', async () => {
   const optRes = await onRequestOptions();
   chk('CORS OPTIONS mengembalikan status 204', optRes.status === 204);
 
-  const getRes1 = await onRequestGet({ env: {} });
+  const getRes1 = await onRequestGet({ request: new Request('http://localhost/api/market/journal-sync'), env: {} });
   const data1 = await getRes1.json();
   chk('GET mengembalikan respons ok: true', data1.ok === true);
   chk('GET memiliki daftar activeLocks bertipe array', Array.isArray(data1.activeLocks));
 
-  const testLock = {
-    symbol: 'SOL/USDT',
-    tf: 'M15',
-    direction: 'LONG',
-    entry: 185.50,
-    sl: 180.00,
-    tp1: 195.00,
-    tp2: 205.00,
-    tp3: 215.00,
-    slPlus: 186.00,
-    filled: false,
-    score: 85,
-    issuedAt: Date.now()
-  };
-
-  const reqSave = new Request('http://localhost/api/market/journal-sync', {
+  const sentinelSecret = 'sentinel-test-secret';
+  const sentinelHeaders = { 'Content-Type': 'application/json', 'X-Sentinel-Key': sentinelSecret };
+  const unauthorized = await onRequestPost({ request: new Request('http://localhost/api/market/journal-sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'save_lock', lock: testLock })
-  });
-  const postRes1 = await onRequestPost({ request: reqSave, env: {} });
-  const postData1 = await postRes1.json();
-  chk('POST save_lock berhasil disimpan', postData1.ok === true && postData1.saved === true);
+    body: JSON.stringify({ action: 'save_lock', lock: { symbol: 'UNAUTH/USDT', tf: 'H1' } })
+  }), env: { SENTINEL_SECRET: sentinelSecret } });
+  chk('POST tanpa autentikasi ditolak', unauthorized.status === 401);
 
-  const getRes2 = await onRequestGet({ env: {} });
-  const data2 = await getRes2.json();
-  const solLock = data2.activeLocks.find(l => l.symbol === 'SOL/USDT' && l.tf === 'M15');
-  chk('Lock SOL/USDT terdata di activeLocks cloud', !!solLock && solLock.entry === 185.50);
-
-  const reqOutcome = new Request('http://localhost/api/market/journal-sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'record_outcome',
-      outcome: {
-        symbol: 'SOL/USDT',
-        tf: 'M15',
-        status: 'TP_HIT',
-        reason: 'Target Take Profit 1 tercapai',
-        at: Date.now()
-      }
-    })
-  });
-  const postRes2 = await onRequestPost({ request: reqOutcome, env: {} });
-  const postData2 = await postRes2.json();
-  chk('POST record_outcome berhasil dicatat', postData2.ok === true);
-
-  const getRes3 = await onRequestGet({ env: {} });
-  const data3 = await getRes3.json();
-  const solLockActive = data3.activeLocks.find(l => l.symbol === 'SOL/USDT' && l.tf === 'M15');
-  const solOutcome = data3.recentOutcomes.find(o => o.symbol === 'SOL/USDT' && o.tf === 'M15');
-  chk('Lock aktif dihapus setelah outcome tercapai', !solLockActive);
-  chk('Outcome tercatat di recentOutcomes', !!solOutcome && solOutcome.status === 'TP_HIT');
+  const postRes = await onRequestPost({ request: new Request('http://localhost/api/market/journal-sync', {
+    method: 'POST', headers: sentinelHeaders,
+    body: JSON.stringify({ action: 'save_lock', lock: { symbol: 'SENTINEL-NEW/USDT', tf: 'H1' } })
+  }), env: { SENTINEL_SECRET: sentinelSecret } });
+  chk('Sentinel tidak dapat membuat entry tanpa ID jurnal manual owner', postRes.status === 400);
 });
 
 // 5. Integrasi Sinkronisasi Cloud Sentinel ke Jurnal
 await asyncChk('Sentinel menyinkronkan active locks dari cloud secara otomatis', async () => {
   const mockCache = { notified: {}, slPlusLocks: {} };
   const origFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  const previousSentinelSecret = process.env.SENTINEL_SECRET;
+  process.env.SENTINEL_SECRET = 'sentinel-test-secret';
+  let sentinelHeaderPresent = false;
+  globalThis.fetch = async (url, options) => {
     if (String(url).includes('/api/market/journal-sync')) {
+      sentinelHeaderPresent = !!(options && options.headers && options.headers['X-Sentinel-Key']);
       return {
         ok: true,
         json: async () => ({
           ok: true,
           activeLocks: [
-            { symbol: 'ETH/USDT', tf: 'H1', direction: 'LONG', entry: 3200, sl: 3100, tp1: 3400, filled: false }
+            { id: 'user:owner-a:ETH/USDT|H1', ownerEmail: 'owner-a@example.test', symbol: 'ETH/USDT', tf: 'H1', direction: 'LONG', entry: 3200, sl: 3100, tp1: 3400, filled: false },
+            { id: 'user:owner-b:ETH/USDT|H1', ownerEmail: 'owner-b@example.test', symbol: 'ETH/USDT', tf: 'H1', direction: 'SHORT', entry: 3300, sl: 3400, tp1: 3100, filled: true },
+            { symbol: 'BTC/USDT', tf: 'H1', direction: 'LONG', entry: 60000, sl: 58000, tp1: 65000, filled: false }
           ]
         })
       };
@@ -370,10 +337,15 @@ await asyncChk('Sentinel menyinkronkan active locks dari cloud secara otomatis',
 
   try {
     await syncActiveLocksFromCloud(mockCache);
-    chk('Sentinel cache memuat lock ETH/USDT dari cloud', !!mockCache.slPlusLocks['ETH/USDT']);
-    chk('Lock ETH/USDT mempertahankan level entry & filled: false', mockCache.slPlusLocks['ETH/USDT'].entry === 3200 && mockCache.slPlusLocks['ETH/USDT'].filled === false);
+    chk('Sentinel mengirim kredensial saat membaca jurnal owner', sentinelHeaderPresent);
+    chk('Sentinel mempertahankan dua akun untuk pair ETH/USDT yang sama', Object.keys(mockCache.slPlusLocks).length === 3);
+    chk('Lock owner A mempertahankan level entry', mockCache.slPlusLocks['user:owner-a:ETH/USDT|H1'].entry === 3200);
+    chk('Lock owner B tidak tertimpa oleh owner A', mockCache.slPlusLocks['user:owner-b:ETH/USDT|H1'].direction === 'SHORT');
+    chk('Lock lama tanpa id tetap menggunakan key simbol', mockCache.slPlusLocks['BTC/USDT'].entry === 60000);
   } finally {
     globalThis.fetch = origFetch;
+    if (previousSentinelSecret === undefined) delete process.env.SENTINEL_SECRET;
+    else process.env.SENTINEL_SECRET = previousSentinelSecret;
   }
 });
 

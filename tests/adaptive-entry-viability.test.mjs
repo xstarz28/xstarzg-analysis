@@ -7,13 +7,13 @@ test('ADAPTIVE ENTRY VIABILITY & TIME-AWARE RECOMMENDATION ENGINE', async (t) =>
   const html = fs.readFileSync(path.join(process.cwd(), 'public/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(process.cwd(), 'public/app.js'), 'utf8');
 
-  await t.test('1. UI index.html memuat radarViabilityBar dengan 4 filter kelayakan entry', () => {
-    assert.ok(html.includes('id="radarViabilityBar"'), 'Harus ada bar filter kelayakan entry radarViabilityBar');
-    assert.ok(html.includes('data-viab="actionable"'), 'Harus ada tombol filter Layak Ikut Saja (Actionable)');
-    assert.ok(html.includes('data-viab="fresh"'), 'Harus ada tombol filter Sinyal Baru Saja (Fresh)');
-    assert.ok(html.includes('data-viab="running"'), 'Harus ada tombol filter Sedang Berjalan (Running)');
-    assert.ok(html.includes('data-viab="all"'), 'Harus ada tombol filter Tampilkan Semua (All)');
-    assert.ok(html.includes('id="lblViabTitle"'), 'Harus ada judul filter kelayakan');
+  await t.test('1. DEX UI mengharuskan pencarian manual dan tidak menampilkan scanner rekomendasi', () => {
+    assert.ok(html.includes('id="memeWorkspaceWrap"'));
+    assert.ok(html.includes('id="selMemeChain"'));
+    assert.ok(html.includes('id="inpMemeAddress"'));
+    assert.ok(html.includes('id="btnMemeSearch"'));
+    assert.ok(html.includes('Tidak ada pemindaian atau rekomendasi otomatis.'));
+    assert.ok(!html.includes('id="radarViabilityBar"'));
   });
 
   await t.test('2. app.js menginisialisasi radarViability default ke "actionable" (Layak Ikut Saja)', () => {

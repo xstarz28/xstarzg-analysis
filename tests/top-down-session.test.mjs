@@ -188,16 +188,18 @@ test('TOP-DOWN MULTI-TIMEFRAME & INSTITUTIONAL SESSION ARCHITECTURE', async (t) 
     assert.ok(alert.includes('Sesi Optimal:</b> <code>London + New York</code>'));
   });
 
-  await t.test('7. UI index.html dan app.js menampilkan pipeline Top-Down dan menyaring sinyal searah', () => {
+  await t.test('7. Analisis Top-Down dan syarat alignment tetap aktif pada jalur manual', () => {
     const html = fs.readFileSync(path.join(process.cwd(), 'public/index.html'), 'utf8');
     const app = fs.readFileSync(path.join(process.cwd(), 'public/app.js'), 'utf8');
+    const engine = fs.readFileSync(path.join(process.cwd(), 'public/js/shared/signal-engine.js'), 'utf8');
+    const journal = fs.readFileSync(path.join(process.cwd(), 'functions/api/market/journal-sync.js'), 'utf8');
 
-    assert.ok(html.includes('Daftar Sinyal Terkonfirmasi (Top-Down Market Alignment)'));
-    assert.ok(html.includes('id="radarHorizonBar"'));
-    assert.ok(html.includes('1D–4H') && html.includes('1H–15m') && html.includes('5m–1m'));
-    assert.ok(app.includes('ALIGNED: 1D/4H'));
-    assert.ok(app.includes('Sesi Optimal:'));
+    assert.ok(html.includes('id="selInstrument"'), 'Analisis tetap menggunakan pemilihan instrumen manual');
+    assert.ok(engine.includes('export function detectTopDownAlignment'));
+    assert.ok(engine.includes("alignmentStatus === 'ALIGNED_BULLISH'"));
+    assert.ok(engine.includes("alignmentStatus === 'ALIGNED_BEARISH'"));
     assert.ok(app.includes('COUNTER_HTF_ALIGNMENT'));
+    assert.ok(journal.includes('analysis.htfLtfAligned === true'));
   });
 
   await t.test('8. Setup unaligned (misal NEUTRAL vs BEARISH) di-veto tegas & ambang skor app.js seragam 78%', () => {

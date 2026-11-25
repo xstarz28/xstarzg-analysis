@@ -908,7 +908,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const meta = getInstrumentMeta(symbol);
   // Instrumen non-crypto TIDAK diperlakukan seperti crypto: saham = pasar spot
   // 1-arah (tidak ada SHORT leverage/funding ala perp). Crypto ikut pilihan user.
-  const spotOnlyEffect = spotOnly === true || (spotOnly == null && meta.assetClass === 'stocks');
+  const spotOnlyEffect = spotOnly === true || mode === 'investor' || (spotOnly == null && meta.assetClass === 'stocks');
   const tfSec = TF_SECS[timeframe] || 3600;
   const closed = trimClosedCandles(candles, tfSec);
   if (!closed || closed.length < 30) {
@@ -1511,6 +1511,15 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     confluenceScore = Math.min(confluenceScore, 59);
     convictionScore = confluenceScore;
   }
+  const htfLtfAligned = !!(
+    topDown &&
+    topDown.isAligned === true &&
+    ((direction === 'LONG' && topDown.alignmentStatus === 'ALIGNED_BULLISH') ||
+     (direction === 'SHORT' && topDown.alignmentStatus === 'ALIGNED_BEARISH'))
+  );
+  const action = direction === 'LONG'
+    ? 'BUY'
+    : (direction === 'SHORT' ? 'SELL' : 'WAIT');
   const lv = eligible && projected ? projected : null;
   /* ============ ZONA DCA INVESTOR ELITE (v2026.54b) ============
      Tangga DCA WAJIB turun berurutan & berlabuh pada NILAI WAJAR (fair value),
@@ -1587,8 +1596,10 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     tfSeconds: tfSec,
     changePct,
     direction,
+    action,
     softBias,
     spotOnly: spotOnlyEffect,
+    htfLtfAligned,
     convictionScore,
     signalEligible: eligible,
     signalTier,
@@ -1685,6 +1696,17 @@ export function createSignalLock(a, symbol, mode, subMode) {
   const symTarget = String(symbol || a.symbol || '').toUpperCase();
   const aSym = String(a.symbol || '').toUpperCase();
   if (symTarget && aSym && symTarget !== aSym) return null; // Mismatch simbol antara analisis dan target lock!
+  const effectiveMode = mode || a.mode || 'trader';
+  const effectiveSubMode = effectiveMode === 'investor' ? 'spot' : (subMode ?? a.subMode ?? null);
+  const isSpotOnly = effectiveMode === 'investor' || effectiveSubMode === 'spot' || a.spotOnly === true;
+  if (isSpotOnly && a.direction !== 'LONG') return null;
+  const rawAction = String(a.action || a.label || '').trim().toUpperCase();
+  if (rawAction && (
+    ['WAIT', 'WAIT_ZONE', 'WAIT ZONE', 'TUNGGU', 'NEUTRAL', 'UNALIGNED', 'HOLD'].includes(rawAction) ||
+    /\b(WAIT|TUNGGU|NO-TRADE|NEUTRAL|UNALIGNED|HOLD)\b/.test(rawAction)
+  )) {
+    return null;
+  }
   const entry = Number(a.levels.entry), sl = Number(a.levels.sl), tp1 = Number(a.levels.tp1);
   const tfSec = a.tfSeconds || TF_SECS[a.timeframe] || 3600;
   const brain = tfSec <= 900 ? 'SCALP' : 'SNIPER';
@@ -1696,10 +1718,48 @@ export function createSignalLock(a, symbol, mode, subMode) {
   const isExplicitLimit = a.entryType === 'LIMIT' || (a.atr ? Math.abs(entry - lastP) > 0.05 * a.atr : Math.abs(entry - lastP) > 1e-6);
   const isMarket = !isExplicitLimit && (a.entryType === 'MARKET' || Math.abs(entry - lastP) <= 1e-6);
 
+  const td = a.topDown && typeof a.topDown === 'object' ? a.topDown : null;
+  const tdStatus = td && td.alignmentStatus ? td.alignmentStatus : null;
+  const directionMatchesAlignment =
+    (a.direction === 'LONG' && tdStatus === 'ALIGNED_BULLISH') ||
+    (a.direction === 'SHORT' && tdStatus === 'ALIGNED_BEARISH');
+  const htfLtfAligned = td
+    ? !!(td.isAligned !== false && directionMatchesAlignment)
+    : (a.htfLtfAligned === true && !tdStatus);
+  const normalizedAction = rawAction || (a.direction === 'LONG' ? 'BUY' : 'SELL');
+  const scoreVal = Number(a.confluenceScore ?? a.convictionScore ?? 0);
+  const feedSrc = a.feedSource || a.source || null;
+  const analysisSnapshot = {
+    symbol: String(symbol || a.symbol).toUpperCase(),
+    timeframe: a.timeframe || null,
+    mode: effectiveMode,
+    subMode: effectiveSubMode,
+    spotOnly: isSpotOnly,
+    direction: a.direction,
+    action: normalizedAction,
+    signalEligible: a.signalEligible === true,
+    signalTier: a.signalTier || null,
+    confluenceScore: scoreVal,
+    convictionScore: Number(a.convictionScore ?? scoreVal),
+    htfLtfAligned,
+    topDown: td ? {
+      isAligned: td.isAligned === true,
+      alignmentStatus: tdStatus,
+      macroBias: td.macroBias || null,
+      structBias: td.structBias || null,
+      execBias: td.execBias || null
+    } : null,
+    manualSelection: a.manualSelection === true,
+    feedSource: feedSrc,
+    source: feedSrc,
+    feedUnverified: a.feedUnverified === true,
+    __estFeed: a.__estFeed === true
+  };
+
   return {
     v: 3,
     symbol: String(symbol || a.symbol).toUpperCase(),
-    mode: mode || 'trader', subMode: subMode || null,
+    mode: effectiveMode, subMode: effectiveSubMode,
     tf: a.timeframe, tfSeconds: tfSec, brain,
     direction: a.direction,
     entry: a.levels.entry, sl: a.levels.sl,
@@ -1707,12 +1767,13 @@ export function createSignalLock(a, symbol, mode, subMode) {
     slPlus: slPlus,
     bePlusActive: false,
     filled: isMarket, // Order Limit SELALU pending fill (false) sampai pasar masa depan menjemput titik entry!
-    source: a.source || a.feedSource || null,
+    source: feedSrc,
     issuedBarTime: Number(a.anchorClosedTime || 0),
     rrRatio: a.levels.rrRatio,
     score: a.confluenceScore,
     winRate: a.gating ? a.gating.winRate : (a.backtest ? a.backtest.winRate : 0),
     anchorClosedTime: a.anchorClosedTime, anchorPrice: a.anchorClosedClose,
+    analysis: analysisSnapshot,
     issuedAt: Date.now(), status: 'ACTIVE'
   };
 }

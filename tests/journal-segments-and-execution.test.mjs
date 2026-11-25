@@ -51,9 +51,9 @@ test('3 SEGMEN TAB JURNAL SINYAL (TRADER • INVESTOR • DEX MICIN)', async (t)
     assert.ok(html.includes('id="memeStatSafeCount"'), 'Harus ada counter koin 2x safe');
   });
 
-  await t.test('HTML memiliki tombol Quick-Add pada Workspace Investor dan Meme DEX', () => {
-    assert.ok(html.includes('id="btnQuickAddInvestorJnl"'), 'Harus ada tombol catat cepat di panel Investor');
-    assert.ok(html.includes('id="btnQuickAddMemeJnl"'), 'Harus ada tombol catat cepat di panel DEX Meme');
+  await t.test('HTML memiliki tombol catat manual pada Workspace Investor dan Meme DEX', () => {
+    assert.ok(html.includes('id="btnOpenAddInvestorModal"'), 'Harus ada tombol catat manual di panel Investor');
+    assert.ok(html.includes('id="btnOpenAddMemeModal"'), 'Harus ada tombol catat manual di panel DEX Meme');
   });
 
   await t.test('HTML memiliki modal pencatatan manual untuk Investor dan DEX Micin', () => {
@@ -115,14 +115,19 @@ test('AUDIT VERIFIKASI HASIL PREDIKSI BERITA EKONOMI (ANTI-OMONG KOSONG)', async
   });
 });
 
-test('SINKRONISASI OTOMATIS DEX MEME & ISOLASI INVESTOR DARI FLUKTUASI M5 SCALPING', async (t) => {
-  await t.test('DEX Meme Workspace menyinkronkan token rekomendasi teratas secara otomatis ke Jurnal Micin', () => {
-    assert.ok(appJs.includes('syncRecommendedMemeToJournal'), 'Harus ada fungsi syncRecommendedMemeToJournal');
-    assert.ok(appJs.includes('syncCuratedInvestorToJournal'), 'Harus ada fungsi syncCuratedInvestorToJournal');
+test('JURNAL INVESTOR & DEX TIDAK LAGI DIISI OLEH ENGINE REKOMENDASI', async (t) => {
+  await t.test('fungsi sinkronisasi rekomendasi Investor/DEX hanya mengembalikan daftar kosong', () => {
+    const memeSyncAt = appJs.indexOf('function syncRecommendedMemeToJournal() {');
+
+    const investorSyncAt = appJs.indexOf('function syncCuratedInvestorToJournal() {');
+
+    assert.ok(memeSyncAt >= 0 && appJs.slice(memeSyncAt, memeSyncAt + 260).includes('return [];'), 'DEX recommendation sync harus no-op');
+    assert.ok(investorSyncAt >= 0 && appJs.slice(investorSyncAt, investorSyncAt + 260).includes('return [];'), 'Investor recommendation sync harus no-op');
   });
 
-  await t.test('investorScanPool terlindungi dari kontaminasi time frame M5/scalping', () => {
-    assert.ok(appJs.includes("if (state.mode === 'investor' || tf === 'D1' || tf === 'W1')"), 'investorScanPool hanya menerima TF D1/W1 atau mode investor');
+  await t.test('jurnal Investor/DEX hanya membaca entri yang disimpan secara manual', () => {
+    assert.ok(appJs.includes('function investorJournalStore() {') && appJs.includes('localStorage.getItem(journalStorageKey(INVESTOR_JOURNAL_KEY))'), 'Investor journal membaca storage lokal per akun');
+    assert.ok(appJs.includes('function memeJournalStore() {') && appJs.includes('localStorage.getItem(journalStorageKey(MEME_JOURNAL_KEY))'), 'DEX journal membaca storage lokal per akun');
   });
 
   await t.test('checkSignalAlarm memblokir feed estimasi, seed lokal, dan pasar tutup', () => {
@@ -136,17 +141,56 @@ test('SINKRONISASI OTOMATIS DEX MEME & ISOLASI INVESTOR DARI FLUKTUASI M5 SCALPI
   });
 });
 
-test('RESET RIWAYAT JURNAL BERSIH KE AWAL (CLEAR ALL HISTORY)', async (t) => {
+test('RESET RIWAYAT JURNAL TERBATAS PADA AKUN AKTIF', async (t) => {
   await t.test('HTML memiliki tombol btnClearAllJournalHistory di toolbar jurnal', () => {
     assert.ok(html.includes('id="btnClearAllJournalHistory"'), 'Harus ada tombol id="btnClearAllJournalHistory"');
   });
 
-  await t.test('app.js mengikat event listener btnClearAllJournalHistory dan membersihkan semua key storage', () => {
+  await t.test('app.js mengikat reset lokal dan cloud per akun tanpa menghapus key legacy global', () => {
     assert.ok(appJs.includes("bind('btnClearAllJournalHistory'"), 'Harus ada binding btnClearAllJournalHistory');
-    assert.ok(appJs.includes("localStorage.removeItem(SIGNAL_LOCK_KEY)"), 'Harus membersihkan SIGNAL_LOCK_KEY');
-    assert.ok(appJs.includes("localStorage.removeItem(SIGNAL_OUTCOME_KEY)"), 'Harus membersihkan SIGNAL_OUTCOME_KEY');
-    assert.ok(appJs.includes("localStorage.removeItem(INVESTOR_JOURNAL_KEY)"), 'Harus membersihkan INVESTOR_JOURNAL_KEY');
-    assert.ok(appJs.includes("localStorage.removeItem(MEME_JOURNAL_KEY)"), 'Harus membersihkan MEME_JOURNAL_KEY');
+    const handlerStart = appJs.indexOf("bind('btnClearAllJournalHistory'");
+    const handlerEnd = appJs.indexOf("bind('btnToggleSlPlusNotify'", handlerStart);
+    const handler = appJs.slice(handlerStart, handlerEnd);
+    assert.equal((appJs.match(/bind\('btnClearAllJournalHistory'/g) || []).length, 1, 'Tombol reset hanya punya satu handler');
+    assert.equal((handler.match(/confirm\(/g) || []).length, 1, 'Konfirmasi reset hanya dipanggil satu kali');
+    assert.ok(appJs.includes("JSON.stringify({ action: 'clear_user_journal' })"), 'Reset cloud harus meminta penghapusan akun aktif');
+    assert.ok(appJs.includes('journalStorageKey(key)'), 'Storage jurnal harus memiliki namespace akun');
+    assert.ok(appJs.includes("return key === base + accountSuffix;"), 'Reset lokal hanya boleh menghapus key akun yang sedang login');
+    assert.ok(appJs.includes('journalTombstoneKey()'), 'Reset harus menyimpan tombstone lokal per akun');
+    assert.ok(appJs.includes("'Authorization': 'Bearer ' + token"), 'Reset harus mengirim sesi autentikasi akun');
+    assert.ok(!appJs.includes("JSON.stringify({ action: 'clear_all' })"), 'Endpoint global clear_all tidak boleh digunakan');
+  });
+
+  await t.test('reset satu akun tidak menghapus journal key akun lain atau key legacy tak bertuan', () => {
+    const start = appJs.indexOf('function clearLocalJournalKeys()');
+    const end = appJs.indexOf('\nfunction signalLockStore()', start);
+    const clearSource = appJs.slice(start, end);
+    const storage = new Map([
+      ['xstarzg_siglock_v3:owner%40example.test', '{}'],
+      ['xstarzg_siglock_v3:other%40example.test', '{}'],
+      ['xstarzg_meme_journal_v1:owner%40example.test', '[]'],
+      ['xstarzg_meme_journal_v1:other%40example.test', '[]'],
+      ['xstarzg_siglock_v2', '{}']
+    ]);
+    const localStorage = {
+      get length() { return storage.size; },
+      key(index) { return Array.from(storage.keys())[index] || null; },
+      removeItem(key) { storage.delete(key); }
+    };
+    const clear = new Function(
+      'localStorage',
+      'state',
+      'LEGACY_JOURNAL_KEYS',
+      `${clearSource}; return clearLocalJournalKeys();`
+    );
+    clear(localStorage, { user: { email: 'owner@example.test' } }, [
+      'xstarzg_siglock_v3', 'xstarzg_meme_journal_v1'
+    ]);
+    assert.deepEqual(Array.from(storage.keys()), [
+      'xstarzg_siglock_v3:other%40example.test',
+      'xstarzg_meme_journal_v1:other%40example.test',
+      'xstarzg_siglock_v2'
+    ]);
   });
 });
 
