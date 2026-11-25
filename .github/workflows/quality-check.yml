@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - fix/manual-analysis-only-clean-journal
 
 permissions:
   contents: read
@@ -31,6 +32,7 @@ jobs:
           node --check tests/journal-segments-and-execution.test.mjs
           node --check tests/journal-sync-account-scope.test.mjs
           node --check tests/manual-dex-analysis.test.mjs
+          node --check tests/manual-signal-lock-journal-integration.test.mjs
           node --check tests/sentinel-journal-fix.test.mjs
           node --check public/js/engine-boot.js
           node --check public/js/shared/signal-engine.js
@@ -44,6 +46,6 @@ jobs:
       - name: Verify cloud journal and Sentinel safeguards
         run: node tests/sentinel-journal-fix.test.mjs
       - name: Verify manual DEX and account-scoped cloud journal
-        run: node --test tests/manual-dex-analysis.test.mjs tests/journal-sync-account-scope.test.mjs
+        run: node --test tests/manual-dex-analysis.test.mjs tests/journal-sync-account-scope.test.mjs tests/manual-signal-lock-journal-integration.test.mjs
       - name: Verify timeframe signal engine regressions
         run: node --test tests/engine-v2.test.mjs
