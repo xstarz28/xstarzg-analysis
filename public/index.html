@@ -667,139 +667,69 @@
     </div><!-- /#traderInvestorWorkspaceWrap -->
 
     <!-- ================= WORKSPACE 2: DEDICATED MEME COIN & DEX GEMS SUITE ================= -->
-    <div id="memeWorkspaceWrap" class="hidden">
-      <!-- Top Token Inspection Header Bar -->
-      <div class="meme-inspect-header-bar" id="memeInspectHeader">
-        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <div id="memeWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
+      <div class="section-card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <select id="selMemeInstrument" class="ctrl-select" style="font-weight:800;font-size:13px;background:#090d16;color:#f8fafc;border:1px solid rgba(168,85,247,0.5);border-radius:8px;padding:5px 9px;cursor:pointer;max-width:270px;" title="Pilih Instrumen Koin Micin DEX"></select>
-              <h2 id="memeInspectSymbol" style="margin:0;font-size:22px;font-weight:900;color:#f8fafc;letter-spacing:0.5px;">—</h2>
-              <span id="memeInspectName" style="font-size:13px;color:#94a3b8;font-weight:600;">Pilih token DEX secara manual</span>
-              <span id="memeInspectChainBadge" class="brand-tag" style="background:#334155;color:#cbd5e1;border-color:rgba(148,163,184,0.25);">CHAIN —</span>
-              <span id="memeInspectSafetyBadge" class="mode-chip meme">Belum diaudit</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11.5px;color:#94a3b8;">
-              <span>CA: <code id="memeInspectCaShort" style="color:#7dd3fc;background:rgba(2,6,23,0.7);padding:2px 7px;border-radius:4px;border:1px solid #1e293b;">—</code></span>
-              <button type="button" id="memeBtnCopyCa" style="background:none;border:none;color:#38bdf8;cursor:pointer;font-size:11.5px;padding:0;font-weight:700;">📋 Salin CA</button>
-            </div>
+            <h2 style="margin:0 0 5px;color:#f8fafc;">Analisis DEX Manual</h2>
+            <div style="font-size:12px;color:#94a3b8;">Masukkan chain dan contract address atau pair address. Tidak ada pemindaian atau rekomendasi otomatis.</div>
           </div>
+          <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;">← Kembali ke Analisis</button>
         </div>
-
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:11px;color:#94a3b8;">Harga referensi:</div>
-            <div style="display:flex;align-items:baseline;gap:8px;">
-              <span id="memeInspectPrice" class="live-price-big" style="color:#f8fafc;font-size:22px;">—</span>
-              <span id="memeInspectChg5m" style="font-size:12px;font-weight:800;color:#10b981;">5m: —</span>
-              <span id="memeInspectChg1h" style="font-size:12px;font-weight:800;color:#10b981;">1h: —</span>
-              <span id="memeInspectChg24h" style="font-size:12px;font-weight:800;color:#10b981;">24h: —</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:12px;font-size:11.5px;background:rgba(2,6,23,0.6);padding:8px 12px;border-radius:10px;border:1px solid rgba(168,85,247,0.2);align-items:center;">
-            <div><span style="color:#94a3b8;display:block;">Market Cap:</span> <strong id="memeInspectMcap" style="color:#f8fafc;">—</strong></div>
-            <div><span style="color:#94a3b8;display:block;">Likuiditas:</span> <strong id="memeInspectLiq" style="color:#38bdf8;">—</strong></div>
-            <div><span style="color:#94a3b8;display:block;">Vol 5m:</span> <strong id="memeInspectVol5m" style="color:#f8fafc;">—</strong></div>
-            <div><span style="color:#94a3b8;display:block;">Tekanan Beli:</span> <strong id="memeInspectBuyPressure" style="color:#34d399;">—</strong></div>
-            <button type="button" id="btnQuickAddMemeJnl" class="hz-btn" style="margin-left:6px;padding:6px 12px;font-size:11px;font-weight:700;border-radius:8px;background:rgba(168,85,247,0.25);color:#d8b4fe;border:1px solid rgba(168,85,247,0.5);cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Catat koin ini ke Jurnal DEX Micin">
-              <span>📥</span> <span>Catat ke Jurnal DEX</span>
-            </button>
-          </div>
+        <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:14px;">
+          <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:#94a3b8;">Blockchain
+            <select id="selMemeChain" class="ctrl-select" style="min-width:150px;padding:9px;background:#090d16;color:#f8fafc;border:1px solid #334155;border-radius:8px;">
+              <option value="solana">Solana</option><option value="base">Base</option><option value="bsc">BNB Chain</option><option value="ethereum">Ethereum</option>
+            </select>
+          </label>
+          <label style="display:flex;flex:1;min-width:240px;flex-direction:column;gap:5px;font-size:11px;color:#94a3b8;">Contract address / pair address
+            <input id="inpMemeAddress" class="ctrl-input" type="text" autocomplete="off" spellcheck="false" placeholder="Paste contract or pair address" style="padding:9px 11px;font-family:monospace;" />
+          </label>
+          <button type="button" id="btnMemeSearch" class="btn-primary-glow" style="padding:10px 16px;">Cari Pair</button>
         </div>
+        <div id="memeSearchStatus" role="status" style="margin-top:10px;font-size:12px;color:#94a3b8;">Data pasar dan audit akan ditampilkan hanya jika sumber mengembalikan data.</div>
+        <div id="memeSearchResults" style="display:grid;gap:8px;margin-top:10px;"></div>
       </div>
-
-      <!-- Main Inspection Grid (Live Chart + 6 Meme Fundamental Pillars + DEX Technical) -->
       <div class="meme-workspace-grid">
         <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
-          <!-- Live Interactive DEX Chart Card -->
-          <div class="chart-card" id="memeDexChartCard">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:16px;">📈</span>
-                <strong style="font-size:14px;color:#f8fafc;" id="memeChartTitle">Candlestick simulasi / referensi — pilih token untuk inspeksi</strong>
-                <span class="mode-chip meme" id="memeChartDexBadge">DATA REFERENSI</span>
-              </div>
-              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                <div class="tf-bar" id="memeTfBar" style="margin:0;padding:0;">
-                  <button type="button" class="tf-btn" data-mtf="M1">M1</button>
-                  <button type="button" class="tf-btn active" data-mtf="M5">M5</button>
-                  <button type="button" class="tf-btn" data-mtf="M15">M15</button>
-                  <button type="button" class="tf-btn" data-mtf="H1">H1</button>
-                </div>
-                <button type="button" id="btnMemeViewCandles" class="hz-btn active" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(168,85,247,0.25);color:#d8b4fe;border:1px solid rgba(168,85,247,0.45);font-weight:700;cursor:pointer;">
-                  🕯️ Candlestick Analisis
-                </button>
-                <button type="button" id="btnMemeViewDex" class="hz-btn" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(15,23,42,0.8);color:#94a3b8;border:1px solid rgba(148,163,184,0.3);font-weight:700;cursor:pointer;">
-                  🌐 DexScreener Embed
-                </button>
-                <a id="memeDexOpenExternal" href="https://dexscreener.com" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#38bdf8;text-decoration:none;font-weight:700;padding:4px 8px;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);">
-                  Buka Penuh di DexScreener ↗
-                </a>
+          <div class="section-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <strong id="memeChartTitle" style="color:#f8fafc;">OHLCV — pair belum dipilih</strong>
+              <div class="tf-bar" id="memeTfBar" style="margin:0;padding:0;">
+                <button type="button" class="tf-btn active" data-mtf="M5">5m</button>
+                <button type="button" class="tf-btn" data-mtf="H1">1h</button>
+                <button type="button" class="tf-btn" data-mtf="H4">4h</button>
+                <button type="button" class="tf-btn" data-mtf="D1">1d</button>
               </div>
             </div>
-            <div id="memeChartContainer" style="width:100%;height:520px;border-radius:10px;overflow:hidden;background:#090d16;position:relative;">
-              <canvas id="memeCandleCanvas" style="width:100%;height:100%;display:block;"></canvas>
-              <iframe id="memeDexChartIframe" src="https://dexscreener.com" style="width:100%;height:100%;border:none;border-radius:10px;display:none;" loading="lazy"></iframe>
-            </div>
+            <div style="height:420px;position:relative;background:#090d16;border-radius:10px;overflow:hidden;"><canvas id="memeCandleCanvas" style="width:100%;height:100%;display:block;"></canvas></div>
+            <div id="memeMarketSource" style="font-size:10px;color:#94a3b8;margin-top:8px;">Sumber: unavailable</div>
           </div>
-
-          <!-- 🔬 6 Pilar Analisis Fundamental Khusus Memecoin -->
-          <div class="section-card" id="memeFundamentalCard">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-              <div>
-                <h3 style="margin:0;font-size:15px;color:#d8b4fe;">🔬 6 Pilar Fundamental Khusus Koin Micin / DEX</h3>
-                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Analisis On-Chain: Narasi Viral, Dev Tracking, Tokenomics &amp; Distribusi Suplai (Bukan PE Ratio / Lapkeu Saham!)</div>
-              </div>
-              <span style="font-size:10.5px;padding:3px 9px;border-radius:99px;background:rgba(168,85,247,0.18);color:#d8b4fe;border:1px solid rgba(168,85,247,0.4);font-weight:700;">ON-CHAIN FUNDAMENTALS</span>
-            </div>
-            <div id="memeFundGrid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:10px;">
-              <!-- 6 pillars rendered dynamically -->
-            </div>
+          <div class="section-card">
+            <h3 style="margin-top:0;color:#f8fafc;">Indikator Teknikal DEX</h3>
+            <div id="memeTechBody" style="font-size:12px;color:#cbd5e1;">Menunggu OHLCV aktual yang valid.</div>
           </div>
         </div>
-
-        <!-- Right Column: Technical DEX + Golden Rules + Swap Actions -->
-        <aside style="display:flex;flex-direction:column;gap:14px;">
-          <!-- ⚡ Analisis Teknikal & Likuiditas Khusus DEX -->
-          <div class="side-panel-card" id="memeTechnicalCard">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <span style="padding:6px 12px;border-radius:8px;font-weight:800;font-size:12.5px;background:rgba(168,85,247,0.2);color:#d8b4fe;">
-                ⚡ TEKNIKAL &amp; LIKUIDITAS DEX
-              </span>
-              <span id="memeTechSafetyBadge" style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.4);">
-                🛡️ 95/100 AMAN
-              </span>
-            </div>
-            <div id="memeTechBody" style="display:flex;flex-direction:column;gap:10px;font-size:12px;color:#e2e8f0;">
-              <!-- Technical metrics rendered dynamically -->
-            </div>
+        <aside class="section-card" style="align-self:start;">
+          <h3 style="margin-top:0;color:#f8fafc;">Pasar & On-chain</h3>
+          <div id="memeInspectSymbol" style="font-size:18px;font-weight:800;">—</div>
+          <div id="memeInspectName" style="font-size:12px;color:#94a3b8;margin:4px 0 12px;">Pair belum dipilih</div>
+          <div style="display:grid;gap:8px;font-size:12px;">
+            <div>Harga: <strong id="memeInspectPrice">Unavailable</strong></div>
+            <div>Likuiditas: <strong id="memeInspectLiq">Unavailable</strong></div>
+            <div>Volume 24h: <strong id="memeInspectVol5m">Unavailable</strong></div>
+            <div>FDV / market cap: <strong id="memeInspectMcap">Unavailable</strong></div>
+            <div>Data pasar: <strong id="memeInspectChg24h">Unavailable</strong></div>
+            <div>Audit keamanan: <strong id="memeInspectSafetyBadge">Unverified</strong></div>
+            <div>Holder distribution: <strong id="memeInspectBuyPressure">Unavailable</strong></div>
           </div>
-
-          <!-- 🎯 Golden Rules & Panduan Risiko Micin -->
-          <div class="side-panel-card" id="memeRiskCard" style="border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.04);">
-            <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:800;color:#fbbf24;margin-bottom:8px;">
-              <span>⚠️</span> <span>GOLDEN RULES TRADING MICIN</span>
-            </div>
-            <div style="font-size:11.5px;line-height:1.55;color:#fef3c7;display:flex;flex-direction:column;gap:8px;">
-              <div><strong>1. Amankan Modal Awal:</strong> Selalu tarik modal (Take Profit 100%) saat koin naik 2x–3x. Jangan serakah menunggu 1000x tanpa amankan modal pokok!</div>
-              <div><strong>2. Skor 90+ ≠ Jaminan Naik:</strong> Skor 90+ hanya mengonfirmasi <em>kontrak aman dari scam/rug pull dev</em>, bukan kepastian harga akan dipompa!</div>
-              <div><strong>3. Pantau Likuiditas:</strong> Jika volume 5m mati dan likuiditas pool mulai tergerus, segera amankan sisa saldo / cut loss.</div>
-              <div><strong>4. Gunakan Modal Hiburan (1–5%):</strong> Jangan pernah memakai uang beras atau tabungan pokok untuk koin micin!</div>
-            </div>
-          </div>
-
-          <!-- Tombol Eksekusi Cepat -->
-          <div class="side-panel-card" style="display:flex;flex-direction:column;gap:8px;">
-            <a id="btnMemeTradeDex" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary-glow" style="text-align:center;text-decoration:none;padding:10px;font-size:13px;font-weight:800;">
-              ⚡ Beli di Raydium / DEX ↗
-            </a>
-            <a id="btnMemeOpenRugCheck" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary-outline" style="text-align:center;text-decoration:none;padding:8px;font-size:12px;color:#38bdf8;border-color:rgba(56,189,248,0.4);">
-              🛡️ Verifikasi Audit di RugCheck.xyz ↗
-            </a>
+          <div id="memeSecurityStatus" role="status" style="font-size:11px;color:#fbbf24;margin-top:12px;">Keamanan on-chain belum diverifikasi.</div>
+          <div id="memeFundGrid" style="display:grid;gap:8px;margin-top:12px;font-size:11px;color:#94a3b8;">
+            <div>Tokenomics: unavailable until a verified source provides it.</div>
+            <div>Market sentiment: unavailable until a source is available.</div>
           </div>
         </aside>
       </div>
-
     </div>
 
     <!-- ================= WORKSPACE 3: DEDICATED ECONOMIC CALENDAR & MARKET NEWS ================= -->
@@ -1258,7 +1188,7 @@
 
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script defer src="/app.js?v=2026.89"></script>
+  <script defer src="/app.js?v=2026.90"></script>
   <script type="module" src="/i18n/boot.js?v=2026.70"></script>
 </body>
 </html>

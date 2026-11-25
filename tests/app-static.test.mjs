@@ -24,13 +24,14 @@ const sw = R('../public/sw.js');
 const tgRelay = R('../functions/api/notify/telegram.js');
 const sentinelScript = R('../scripts/market-sentinel.mjs');
 const sentinelWorkflow = R('../.github/workflows/market-sentinel.yml');
+const journalApi = R('../functions/api/market/journal-sync.js');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
 chk('index.html memakai v=2026.70 (styles)', /styles\.css\?v=2026\.70/.test(html));
-chk('index.html memuat app.js v=2026.89 secara defer', /<script defer src="\/app\.js\?v=2026\.89">/.test(html));
+chk('index.html memuat app.js v=2026.90 secara defer', /<script defer src="\/app\.js\?v=2026\.90">/.test(html));
 chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
 chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
@@ -48,7 +49,7 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
 
 
-chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.89') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.90') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
@@ -59,7 +60,7 @@ chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\
 
 chk('timeframe switch retains last valid chart and cancels prior analysis fetch', (() => { const a = app.indexOf('/* ---- Timeframe bar ---- */'); const b = app.indexOf('/* ---- Tab filter & sort DEX Meme Radar */', a); const block = a >= 0 ? app.slice(a, b > a ? b : a + 2500) : ''; return block.includes('state.tf = tf') && !block.includes('state.candles = []') && app.includes('activeAnalysisController.abort()'); })());
 chk('seed preview tidak menjalankan quant engine penuh', app.includes('function renderSeedCandlesPreview(candles)') && app.includes('Exactly one full quant pass per successful timeframe response.'));
-chk('DEX workspace tetap manual tanpa scanner rekomendasi', html.includes('id="memeWorkspaceWrap"') && html.includes('id="selMemeInstrument"') && !html.includes('id="memeRadarSection"') && !html.includes('id="memePicksGrid"') && app.includes('— Pilih token DEX secara manual —'));
+chk('DEX workspace tetap manual tanpa scanner rekomendasi', html.includes('id="memeWorkspaceWrap"') && html.includes('id="selMemeChain"') && html.includes('id="inpMemeAddress"') && !html.includes('id="memeRadarSection"') && !html.includes('id="memePicksGrid"') && app.includes('searchManualDexToken'));
 
 chk('feed sintetis hanya preview dan tidak menjalankan quant engine penuh', app.includes('feedIsEstimate(data.source)') && app.includes('FEED ESTIMASI — preview saja'));
 
@@ -278,10 +279,10 @@ chk('index.html memuat Schema.org JSON-LD WebApplication terstruktur untuk Googl
 
 /* MANUAL DEX WORKSPACE lint */
 const memeApi = R('../functions/api/scanner/meme.js');
-chk('DEX radar scanner UI dihapus tetapi workspace manual tetap ada', html.includes('id="memeWorkspaceWrap"') && html.includes('id="selMemeInstrument"') && !html.includes('id="memeRadarSection"') && !html.includes('id="memePicksGrid"'));
+chk('DEX radar scanner UI dihapus tetapi workspace manual tetap ada', html.includes('id="memeWorkspaceWrap"') && html.includes('id="selMemeChain"') && html.includes('id="inpMemeAddress"') && !html.includes('id="memeRadarSection"') && !html.includes('id="memePicksGrid"'));
 chk('DEX discovery endpoint sudah dinonaktifkan', memeApi.includes('status: 410') && memeApi.includes('disabled: true'));
-chk('chart, teknikal, dan fundamental DEX tetap tersedia', html.includes('id="memeDexChartIframe"') && html.includes('id="memeTechnicalCard"') && html.includes('id="memeFundGrid"'));
-chk('DEX selector meminta pilihan manual dan tidak auto-pick token pertama', app.includes('— Pilih token DEX secara manual —') && app.includes('var token = activeMemeToken;'));
+chk('chart, teknikal, dan data keamanan DEX tetap tersedia', html.includes('id="memeCandleCanvas"') && html.includes('id="memeTechBody"') && html.includes('id="memeFundGrid"'));
+chk('DEX mencari pair berdasarkan alamat manual dan tidak auto-pick token', html.includes('id="btnMemeSearch"') && app.includes('function searchManualDexToken()') && app.includes('var token = activeMemeToken;'));
 chk('dashboard tidak lagi mengiklankan anti-rug scanner', !html.includes('ANTI-RUG SCANNER') && html.includes('ANALISIS MANUAL'));
 /* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
 chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
@@ -296,7 +297,7 @@ chk('sinyal workspace trader terdaftar ke siklus kunci jurnal walau feed cadanga
   app.includes('saveSignalLock(symbol, tfA, nl);'));
 
 chk('saveSignalLock dan renderAllVisuals memicu pembaruan jurnal seketika',
-  app.includes('localStorage.setItem(SIGNAL_LOCK_KEY, JSON.stringify(all));\n  } catch (e) {}\n  try { renderSignalJournal(); } catch (e) {}') &&
+  app.includes('localStorage.setItem(journalStorageKey(SIGNAL_LOCK_KEY), JSON.stringify(all));') &&
   app.includes('try { renderSignalJournal(); } catch (e) {}\n}'));
 
 chk('ticker komoditas kapas COTTON terpetakan lengkap di TradingView dan Yahoo',
@@ -392,15 +393,22 @@ chk('proteksi kontaminasi silang harga antar-pair (anti-terjebak harga pair sebe
 
 chk('Cloud Sentinel hanya memantau posisi manual aktif dan tidak melakukan discovery',
   sentinelScript.includes('monitorOnly = false') &&
-  sentinelScript.includes('scanInstrument(inst, cache, { monitorOnly = false } = {})') &&
+  sentinelScript.includes('scanInstrument(inst, cache, { monitorOnly = false, journalLockKey } = {})') &&
+  sentinelScript.includes('scanInstrument(target.inst, cache, { monitorOnly: true, journalLockKey: target.journalLockKey })') &&
   sentinelScript.includes('if (!monitorOnly && a.signalEligible') &&
-  sentinelScript.includes('const activeLocks = Object.values(cache.slPlusLocks || {})') &&
+  sentinelScript.includes('const activeLocks = Object.entries(cache.slPlusLocks || {})') &&
   sentinelScript.includes('if (!activeLocks.length)') &&
   sentinelScript.includes('WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf)') &&
   sentinelWorkflow.includes('XStarZG 24/7 Manual Position Monitor') &&
   sentinelWorkflow.includes("cron: '*/15 * * * *'") &&
   sentinelWorkflow.includes('TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}') &&
   sentinelWorkflow.includes('TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}'));
+chk('kredensial Sentinel tidak di-hardcode dan hanya dibaca dari environment secret',
+  sentinelWorkflow.includes('SENTINEL_SECRET: ${{ secrets.SENTINEL_SECRET }}') &&
+  !sentinelWorkflow.includes("SENTINEL_SECRET: '") &&
+  sentinelScript.includes('function getSentinelSecret()') &&
+  !sentinelScript.includes("process.env.SENTINEL_SECRET || 'xstarzg-2026-quant-secret'") &&
+  journalApi.includes('env.SENTINEL_SECRET && sentinelKey === env.SENTINEL_SECRET'));
 
 chk('pembersihan fitur konek tele browser dari web ui (sepenuhnya otonom di cloud)',
   !html.includes('id="btnOpenTelegramModal"') &&

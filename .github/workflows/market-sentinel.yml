@@ -45,7 +45,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID || secrets.CHAT_ID }}
           XSTARZG_API_HOST: 'https://xstarzganalysis.pages.dev'
-          SENTINEL_SECRET: 'xstarzg-2026-quant-secret'
+          SENTINEL_SECRET: ${{ secrets.SENTINEL_SECRET }}
         run: |
           if [ "${{ inputs.test_mode }}" = "true" ]; then
             node scripts/market-sentinel.mjs --test

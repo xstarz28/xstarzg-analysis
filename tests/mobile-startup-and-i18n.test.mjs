@@ -20,13 +20,14 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(appJs.includes('window.drawCanvasFallbackChart = drawCanvasFallbackChart'), 'drawCanvasFallbackChart harus diekspos ke window');
   });
 
-  await t.test('3. enterWorkspace menampilkan seed chart tanpa menghitung quant engine dua kali', () => {
-    const start = appJs.indexOf('function enterWorkspace()');
-    const end = appJs.indexOf("if (typeof window !== 'undefined') window.enterWorkspace", start);
+  await t.test('3. enterWorkspace memuat chart dan engine secara lazy tanpa rekomendasi', () => {
+    const start = appJs.lastIndexOf('function enterWorkspace()');
+    const end = appJs.indexOf('/* ==================== 10.', start);
     const body = appJs.slice(start, end);
-    assert.ok(body.includes('fnSeed(state.symbol'), 'enterWorkspace menyiapkan seed candles sebagai preview');
-    assert.ok(body.includes('renderSeedCandlesPreview(state.candles)'), 'seed hanya dirender sebagai preview ringan');
-    assert.ok(!body.includes('computeQuantEngine('), 'seed tidak menjalankan quant engine sinkron saat masuk workspace');
+    assert.ok(body.includes('ensureChartVendorLoaded()'), 'chart vendor baru dimuat setelah workspace dibuka');
+    assert.ok(body.includes('ensureQuantEnginesLoaded()'), 'engine baru dimuat setelah workspace dibuka');
+    assert.ok(body.includes('try { initChart(); } catch (e) {}'), 'chart diinisialisasi saat workspace dibuka');
+    assert.ok(!body.includes('renderOpportunityRadar'), 'workspace tidak memulai rekomendasi otomatis');
   });
 
   await t.test('4. initChart menyembunyikan tvChartLoadingSkeleton pada semua kondisi mobile / fallback', () => {
@@ -38,7 +39,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.88'), 'sw.js memiliki versi cache segar v2026.88');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.90'), 'sw.js memiliki versi cache segar v2026.90');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
@@ -92,9 +93,12 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(indexHtml.includes('id="valEntry" class="val" style="color:#38bdf8;font-size:16px;">2,680.00</span>'), 'valEntry memuat level terkalibrasi');
   });
 
-  await t.test('15. enterWorkspace memanggil renderInstrumentCatalog dan initChart secara sinkron', () => {
-    assert.ok(appJs.includes('renderInstrumentCatalog()'), 'enterWorkspace memanggil renderInstrumentCatalog');
-    assert.ok(appJs.includes('try { initChart(); } catch (eInit) {}'), 'enterWorkspace memanggil initChart seketika');
+  await t.test('15. enterWorkspace memuat katalog dan menginisialisasi chart dengan aman', () => {
+    const start = appJs.lastIndexOf('function enterWorkspace()');
+    const end = appJs.indexOf('/* ==================== 10.', start);
+    const body = appJs.slice(start, end);
+    assert.ok(body.includes('renderInstrumentCatalog()'), 'enterWorkspace memanggil renderInstrumentCatalog');
+    assert.ok(body.includes('try { initChart(); } catch (e) {}'), 'enterWorkspace memanggil initChart seketika');
   });
 
   await t.test('16. controllerchange memproteksi Android WebAPK / Standalone dari reload paksa berulang', () => {
@@ -118,17 +122,14 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!controllerHandler.includes('window.location.reload()'), 'controllerchange tidak berisi location.reload');
   });
 
-  await t.test('20. radar auto-pilot berhenti saat workspace tersembunyi', () => {
-    const pilotStart = appJs.indexOf('function startRadarAutoPilot()');
-    const pilotEnd = appJs.indexOf('var __xsBootCoreStarted', pilotStart);
-    const pilot = appJs.slice(pilotStart, pilotEnd);
-    assert.ok(pilot.includes("workspace.classList.contains('hidden')"), 'auto-pilot memeriksa visibilitas workspace');
+  await t.test('20. radar auto-pilot dinonaktifkan', () => {
+    assert.match(appJs, /function startRadarAutoPilot\(\) \{\s*return;\s*\}/);
   });
 
   await t.test('21. quant/signal engine baru dimuat setelah workspace dibuka', () => {
     assert.ok(appJs.includes('function ensureQuantEnginesLoaded()'), 'lazy loader tersedia');
     assert.ok(appJs.includes('ensureQuantEnginesLoaded();'), 'workspace meminta engine');
-    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.88'"), 'modul engine tidak di-load dari landing');
+    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.89'"), 'modul engine tidak di-load dari landing');
   });
   await t.test('22. bootPostDom tidak menghitung seed saat landing/login', () => {
     const bootStart = appJs.indexOf('function bootPostDom()');
@@ -136,22 +137,17 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     const bootBody = appJs.slice(bootStart, bootEnd);
     assert.ok(bootBody.includes('if (isInWork && (!state.candles || !state.candles.length))'), 'seed analysis hanya saat workspace aktif');
   });
-  await t.test('23. auto-screening dan Best TF tidak berjalan di terminal utama', () => {
-    const radarStart = appJs.indexOf('function renderOpportunityRadar(force)');
-    const investorStart = appJs.indexOf('function renderInvestorPicks(force)');
-    const tfStart = appJs.indexOf('function scheduleBestTfScan()');
-    assert.ok(appJs.indexOf('return;', radarStart) < appJs.indexOf('rotatingSlice(catalogSortedStable()', radarStart), 'radar berhenti sebelum batch fetch');
-    assert.ok(appJs.indexOf('return;', investorStart) < appJs.indexOf('rotatingSlice(investableUniverse()', investorStart), 'investor scan berhenti sebelum batch fetch');
-    assert.ok(appJs.indexOf('return;', tfStart) < appJs.indexOf('var ALL_TFS =', tfStart), 'Best TF berhenti sebelum fetch delapan timeframe');
+  await t.test('23. rekomendasi dan permintaan DEX otomatis sudah dihapus', () => {
+    assert.doesNotMatch(appJs, /renderMemePicks|\/api\/scanner\/meme|fetchMemeCatalogLive/);
   });
 
   await t.test('24. vendor chart tidak dimuat sebelum workspace', () => {
     assert.ok(!appJs.includes('<script src="/vendor/lightweight-charts.js'), 'vendor chart tidak ada di app bootstrap HTML');
-    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.88'"), 'chart vendor dimuat saat entry workspace');
+    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.89'"), 'chart vendor dimuat saat entry workspace');
   });
 
   await t.test('25. pergantian timeframe tidak mengosongkan candle aktif', () => {
-    const tfStart = appJs.indexOf("var tfBar = $id('timeframeBar')");
+    const tfStart = appJs.indexOf('/* ---- Timeframe bar ---- */');
     const tfEnd = appJs.indexOf("/* ---- Pemilih tipe chart", tfStart);
     const handler = appJs.slice(tfStart, tfEnd);
     assert.ok(!handler.includes('state.candles = []'), 'candle sebelumnya dipertahankan selama fetch timeframe baru');
@@ -170,10 +166,11 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!body.includes("computeQuantEngine(state.candles, state.symbol, state.tf, false, 'apply', 'LOCAL_SEED')"), 'seed tidak dihitung penuh');
     assert.ok(appJs.includes("if (ctrl.signal && ctrl.signal.aborted) throw"), 'abort tidak memicu fallback compute');
   });
-  await t.test('28. DEX scanner tetap tersedia dan dipanggil saat Meme mode dibuka', () => {
-    assert.ok(appJs.includes("else if (mode === 'meme') { renderMemePicks(true); startMemeLiveTicker(); }"), 'Meme mode tetap merender scanner');
-    assert.ok(appJs.includes("var url = '/api/scanner/meme?chain='"), 'endpoint DEX scanner tetap dipakai');
-    assert.ok(appJs.includes('function fetchMemeCatalogLive(force)'), 'fungsi fetch DEX tetap ada');
+  await t.test('28. DEX tetap manual dan tidak memanggil scanner otomatis', () => {
+    const indexHtml = fs.readFileSync(path.join(rootDir, 'public/index.html'), 'utf8');
+    assert.ok(indexHtml.includes('id="selMemeChain"') && indexHtml.includes('id="inpMemeAddress"'));
+    assert.ok(appJs.includes('function searchManualDexToken()'));
+    assert.doesNotMatch(appJs, /renderMemePicks|startMemeLiveTicker|fetchMemeCatalogLive/);
   });
 
   await t.test('29. feed sintetis tidak menjalankan full quant engine', () => {

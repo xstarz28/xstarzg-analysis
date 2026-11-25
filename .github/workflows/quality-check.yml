@@ -26,12 +26,16 @@ jobs:
       - name: Check core JavaScript and test syntax
         run: |
           node --check public/app.js
+          node --check public/js/app.js
           node --check tests/app-static.test.mjs
           node --check tests/journal-segments-and-execution.test.mjs
+          node --check tests/journal-sync-account-scope.test.mjs
+          node --check tests/manual-dex-analysis.test.mjs
           node --check tests/sentinel-journal-fix.test.mjs
           node --check public/js/engine-boot.js
           node --check public/js/shared/signal-engine.js
           node --check scripts/market-sentinel.mjs
+          node --check functions/api/dex/analysis.js
           node --check functions/api/market/journal-sync.js
       - name: Verify workspace UI and manual-only analysis
         run: node tests/app-static.test.mjs
@@ -39,3 +43,7 @@ jobs:
         run: node tests/journal-segments-and-execution.test.mjs
       - name: Verify cloud journal and Sentinel safeguards
         run: node tests/sentinel-journal-fix.test.mjs
+      - name: Verify manual DEX and account-scoped cloud journal
+        run: node --test tests/manual-dex-analysis.test.mjs tests/journal-sync-account-scope.test.mjs
+      - name: Verify timeframe signal engine regressions
+        run: node --test tests/engine-v2.test.mjs

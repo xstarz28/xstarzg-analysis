@@ -35,6 +35,7 @@ Di project baru → **Settings → Variables and Secrets** (untuk production & p
 |---|---|
 | `OWNER_ACCESS_CODE` | kode rahasia owner |
 | `JWT_SECRET` | secret penandatangan token sesi |
+| `SENTINEL_SECRET` | kredensial akses Sentinel; gunakan nilai yang sama dengan GitHub Actions secret `SENTINEL_SECRET` |
 | `GOOGLE_CLIENT_ID` | login Google |
 | `VIP_PRICE_USDT` | harga lisensi VIP (opsional, ada default) |
 

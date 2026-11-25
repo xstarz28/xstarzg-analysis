@@ -26,7 +26,6 @@ const state = {
   rsiSeries: null,
   priceLines: [],
   ws: null,
-  liveTickInterval: null,
   countdownInterval: null
 };
 const QUICK_RIBBON_SYMBOLS = [
@@ -435,10 +434,6 @@ function stopRealtimeStream() {
     try { state.ws.close(); } catch (_) {}
     state.ws = null;
   }
-  if (state.liveTickInterval) {
-    clearInterval(state.liveTickInterval);
-    state.liveTickInterval = null;
-  }
   if (state.countdownInterval) {
     clearInterval(state.countdownInterval);
     state.countdownInterval = null;
@@ -452,7 +447,6 @@ function applyLivePriceTick(newPrice) {
   cur.close = Number(newPrice.toPrecision(7));
   if (cur.close > cur.high) cur.high = cur.close;
   if (cur.close < cur.low) cur.low = cur.close;
-  cur.volume = (cur.volume || 1000) + Math.round(Math.random() * 12);
   state.candles[lastIdx] = cur;
   state.candleSeries.update(cur);
   // Flash Price Telemetry Like TradingView
@@ -499,16 +493,6 @@ function startRealtimeCandleStream() {
       state.ws = ws;
     } catch (_) {}
   }
-  // 3. Universal Real-Time Micro-Tick Engine (Ensures smooth live candlestick movement on ALL assets & ISP networks)
-  state.liveTickInterval = setInterval(() => {
-    if (!state.candles.length) return;
-    const last = state.candles[state.candles.length - 1];
-    const atr = state.lastAnalysis?.indicators?.atr || (last.close * 0.002);
-    const microStep = atr * 0.035;
-    const delta = (Math.random() - 0.496) * microStep;
-    const nextP = Math.max(last.close * 0.2, last.close + delta);
-    applyLivePriceTick(nextP);
-  }, 1400);
 }
 // ==================== CORE ANALYSIS EXECUTION & UI RENDERING ====================
 async function refreshActiveAnalysis() {
