@@ -205,15 +205,28 @@ export async function onRequestPost(context) {
       const aligned = analysis && analysis.htfLtfAligned === true &&
         ((analysis.direction === 'LONG' && alignment === 'ALIGNED_BULLISH') ||
          (analysis.direction === 'SHORT' && alignment === 'ALIGNED_BEARISH'));
-      const action = String((analysis && (analysis.action || analysis.label)) || '').toUpperCase();
-      const source = String((analysis && (analysis.feedSource || analysis.source)) || '').toUpperCase();
+      const actionLabel = String((analysis && (analysis.action || analysis.label)) || '').trim().toUpperCase();
+      const isBlockedAction = ['WAIT', 'WAIT_ZONE', 'WAIT ZONE', 'TUNGGU', 'NEUTRAL', 'UNALIGNED', 'HOLD'].includes(actionLabel) ||
+        /\b(WAIT|TUNGGU|NO-TRADE|NEUTRAL|UNALIGNED|HOLD)\b/.test(actionLabel);
+      const source = String((analysis && (analysis.feedSource || analysis.source)) || '').trim().toUpperCase();
+      const spotOnlyMode = !!(analysis && (
+        analysis.mode === 'investor' || (lock && lock.mode === 'investor') ||
+        analysis.spotOnly === true || analysis.subMode === 'spot' || (lock && lock.subMode === 'spot')
+      ));
+      const symbolMatches = !analysis || !analysis.symbol ||
+        String(analysis.symbol).toUpperCase() === String((lock && lock.symbol) || '').toUpperCase();
+      const tfMatches = !analysis || !analysis.timeframe ||
+        String(analysis.timeframe) === String((lock && lock.tf) || '');
+      const directionMatches = !lock || !lock.direction || lock.direction === (analysis && analysis.direction);
       if (!lock || !lock.symbol || !lock.tf || !analysis || score < 78 ||
           !aligned || analysis.signalEligible !== true ||
           !['LONG', 'SHORT'].includes(analysis.direction) ||
-          ['WAIT', 'TUNGGU', 'NEUTRAL', 'UNALIGNED'].includes(action) ||
+          !symbolMatches || !tfMatches || !directionMatches ||
+          isBlockedAction ||
           analysis.feedUnverified === true || analysis.__estFeed === true ||
-          analysis.manualSelection !== true || !source || /LOCAL|SEED|ESTIMATE|SYNTHETIC|FALLBACK/.test(source) ||
-          (analysis.mode === 'investor' && analysis.direction !== 'LONG')) {
+          analysis.manualSelection !== true || !source || source === '-' ||
+          /LOCAL|SEED|ESTIMATE|SYNTHETIC|FALLBACK|CALIBRATED|DEFAULT|ANCHOR/.test(source) ||
+          (spotOnlyMode && analysis.direction !== 'LONG')) {
         return response({ ok: false, error: 'Signal does not meet journal admission requirements' }, 422);
       }
     }

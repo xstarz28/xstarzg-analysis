@@ -1060,15 +1060,17 @@ function getSignalLock(symbol, tf) {
   return l;
 }
 function saveSignalLock(symbol, tf, lock) {
+  var savedLocal = false;
   try {
     var all = signalLockStore();
     var id = signalLockId(symbol, tf);
     if (lock) {
-      if (!lock.analysis || !journalAdmission(lock.analysis, symbol, tf)) return;
+      if (!lock.analysis || !journalAdmission(lock.analysis, symbol, tf)) return null;
       if (!isPriceCompatibleWithSymbol(lock.entry, symbol)) {
-        return;
+        return null;
       }
       all[id] = lock;
+      savedLocal = true;
       try {
         var outs = signalOutcomeStore();
         if (outs[id]) {
@@ -1084,10 +1086,10 @@ function saveSignalLock(symbol, tf, lock) {
     localStorage.setItem(journalStorageKey(SIGNAL_LOCK_KEY), JSON.stringify(all));
   } catch (e) {}
   try { renderSignalJournal(); } catch (e) {}
-  if (lock) {
+  if (lock && savedLocal) {
     try {
       if (lock.analysis && journalAdmission(lock.analysis, lock.symbol, lock.tf)) {
-        ensureAuthToken().then(function (token) {
+        return ensureAuthToken().then(function (token) {
           if (!token) throw new Error('Authenticated journal sync requires a session token');
           return fetch('/api/market/journal-sync', {
             method: 'POST',
@@ -1097,10 +1099,11 @@ function saveSignalLock(symbol, tf, lock) {
             if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
             return r.json();
           });
-        }).catch(function (err) { console.warn('Cloud journal save failed:', err.message); });
+        }).catch(function (err) { console.warn('Cloud journal save failed:', err.message); return null; });
       }
     } catch (e) {}
   }
+  return null;
 }
 
 function syncCloudSignalJournal() {
@@ -1159,25 +1162,80 @@ function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(jou
 function hzOfTf(tf) { var t = String(tf || ''); if (t === 'M1' || t === 'M5' || t === 'M15') return 'scalping'; if (t === 'M30' || t === 'H1') return 'intraday'; return 'swing'; }
 function outcomeCooldownMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 30 * 60000 : hz === 'intraday' ? 90 * 60000 : 6 * 3600000; }
 function outcomeBadgeWindowMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 45 * 60000 : hz === 'intraday' ? 3 * 3600000 : 12 * 3600000; }
+function buildManualJournalAnalysisSnapshot(a, symbol, tf, feedSource) {
+  if (!a || a.error) return null;
+  var sym = String(symbol || a.symbol || '').toUpperCase();
+  var tfVal = String(tf || a.timeframe || state.tf || '');
+  var dir = a.direction;
+  var td = a.topDown && typeof a.topDown === 'object' ? a.topDown : null;
+  var alignStatus = td && td.alignmentStatus ? td.alignmentStatus : null;
+  var htfLtfAligned = !!(
+    td && td.isAligned !== false &&
+    ((dir === 'LONG' && alignStatus === 'ALIGNED_BULLISH') ||
+     (dir === 'SHORT' && alignStatus === 'ALIGNED_BEARISH'))
+  );
+  var modeVal = a.mode || state.mode || 'trader';
+  var subModeVal = modeVal === 'investor' ? 'spot' : (state.subMode || a.subMode || 'futures');
+  var spotOnlyVal = !!(a.spotOnly || modeVal === 'investor' || subModeVal === 'spot');
+  var src = a.feedSource || a.source || feedSource || null;
+  var rawAct = String(a.action || a.label || '').trim().toUpperCase();
+  var act = rawAct || (dir === 'LONG' ? 'BUY' : (dir === 'SHORT' ? 'SELL' : 'WAIT'));
+  var sc = num(a.confluenceScore, num(a.convictionScore, 0));
+  return {
+    symbol: sym,
+    timeframe: tfVal,
+    mode: modeVal,
+    subMode: subModeVal,
+    spotOnly: spotOnlyVal,
+    direction: dir,
+    action: act,
+    signalEligible: a.signalEligible === true,
+    signalTier: a.signalTier || null,
+    confluenceScore: sc,
+    convictionScore: num(a.convictionScore, sc),
+    htfLtfAligned: htfLtfAligned,
+    topDown: td ? {
+      isAligned: td.isAligned === true,
+      alignmentStatus: alignStatus,
+      macroBias: td.macroBias || null,
+      structBias: td.structBias || null,
+      execBias: td.execBias || null
+    } : null,
+    manualSelection: a.manualSelection === true,
+    feedSource: src,
+    source: src,
+    feedUnverified: a.feedUnverified === true,
+    __estFeed: a.__estFeed === true
+  };
+}
 function journalAdmission(analysis, symbol, tf) {
   if (!analysis || analysis.error || analysis.manualSelection !== true) return false;
   var sym = String(symbol || '').toUpperCase();
   var direction = analysis.direction;
   var alignment = analysis.topDown && analysis.topDown.alignmentStatus;
-  var aligned = direction === 'LONG'
+  var aligned = analysis.htfLtfAligned === true && (direction === 'LONG'
     ? alignment === 'ALIGNED_BULLISH'
-    : direction === 'SHORT' && alignment === 'ALIGNED_BEARISH';
+    : direction === 'SHORT' && alignment === 'ALIGNED_BEARISH');
   var score = Number(analysis.confluenceScore || analysis.convictionScore || 0);
-  var source = analysis.feedSource || analysis.source || state.feedSource;
+  var source = analysis.feedSource || analysis.source;
+  var actionUpper = String(analysis.action || analysis.label || '').trim().toUpperCase();
+  var isWaitAction = !actionUpper ? false : (
+    actionUpper === 'WAIT' || actionUpper === 'WAIT_ZONE' || actionUpper === 'WAIT ZONE' ||
+    actionUpper === 'TUNGGU' || actionUpper === 'NEUTRAL' || actionUpper === 'UNALIGNED' ||
+    /\b(WAIT|TUNGGU|NO-TRADE|NEUTRAL|UNALIGNED|HOLD)\b/.test(actionUpper)
+  );
+  var spotLongOnlyOk = (analysis.mode !== 'investor' || direction === 'LONG') &&
+    ((!analysis.spotOnly && analysis.subMode !== 'spot') || direction === 'LONG');
   return analysis.signalEligible === true &&
     (direction === 'LONG' || direction === 'SHORT') &&
-    analysis.action !== 'TUNGGU' && analysis.action !== 'WAIT' &&
+    !isWaitAction &&
     score >= 78 && aligned &&
     !analysis.feedUnverified && !analysis.__estFeed &&
     typeof feedIsReal === 'function' && feedIsReal(source) &&
     !!analysis.symbol && String(analysis.symbol).toUpperCase() === sym &&
-    (analysis.mode !== 'investor' || direction === 'LONG') &&
-    String(tf || analysis.timeframe || state.tf) === String(analysis.timeframe || tf || state.tf);
+    spotLongOnlyOk &&
+    !!analysis.timeframe &&
+    String(tf || analysis.timeframe || state.tf) === String(analysis.timeframe);
 }
 
 function notifySignalOutcomeTelegram(symbol, tf, finalStatus, verdict, lock) {
@@ -1343,10 +1401,12 @@ function recordSignalOutcome(symbol, tf, verdict, lock) {
       // (jika badge lahir dari feed fabrikasi, lock dipulihkan & badge dicabut).
       lock: lock ? {
         v: lock.v, symbol: lock.symbol, tf: lock.tf, direction: lock.direction,
+        mode: lock.mode || null, subMode: lock.subMode || null, source: lock.source || null,
         entry: lock.entry, sl: lock.sl, tp1: lock.tp1, tp2: lock.tp2, tp3: lock.tp3,
         slPlus: lock.slPlus, bePlusActive: beSaved, filled: !!lock.filled,
         rrRatio: lock.rrRatio, score: lock.score, winRate: lock.winRate,
-        anchorClosedTime: lock.anchorClosedTime, anchorPrice: lock.anchorPrice, issuedAt: lock.issuedAt
+        anchorClosedTime: lock.anchorClosedTime, anchorPrice: lock.anchorPrice,
+        analysis: lock.analysis || null, issuedAt: lock.issuedAt
       } : null
     };
     var ks = Object.keys(out);
@@ -1530,7 +1590,7 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
       var a = SE.runFullAnalysis({
         symbol: symbol, timeframe: tf || 'H1',
         mode: state.mode || 'trader', horizon: 'all',
-        spotOnly: state.subMode === 'spot', candles: candles
+        spotOnly: state.mode === 'investor' || state.subMode === 'spot', candles: candles
       });
       if (a && !a.error) {
         a.candles = candles;
@@ -1553,6 +1613,8 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
         if (!feedReal || isFeedEstimate || feedSource === 'LOCAL_SEED') {
           a.feedUnverified = true;
           a.signalEligible = false;
+          a.htfLtfAligned = false;
+          a.manualSelection = false;
           // Seed sintetis hanya untuk visual candlestick awal chart, cegah skor palsu & alarm sesaat
           a.convictionScore = 50;
           a.confluenceScore = 50;
@@ -1564,14 +1626,24 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
         // lock aktif yang sedang dipantau trader (mis. komoditas Kapas/COTTON M5 scalping)
         // WAJIB diikutkan ke siklus pemantauan jurnal sinyal menuju TP/SL HANYA bila feed bukan estimasi.
         var tfA = a.timeframe || tf;
+        a.manualSelection = !!(
+          state.manualInstrumentSelection === true &&
+          scope === 'create' &&
+          String(symbol || '').toUpperCase() === String(state.symbol || '').toUpperCase() &&
+          String(tfA || '') === String(state.tf || '')
+        );
         if ((scope === 'create' || getSignalLock(symbol, tfA)) && !isFeedEstimate) feedReal = true;
         if (!feedIsReal(feedSource) || isFeedEstimate || feedSource === 'LOCAL_SEED') {
           feedReal = false;
           a.feedUnverified = true;
           a.signalEligible = false;
+          a.htfLtfAligned = false;
+          a.manualSelection = false;
           a.convictionScore = 50;
           a.confluenceScore = 50;
           a.direction = 'NEUTRAL';
+          a.label = 'NEUTRAL';
+          a.action = 'TUNGGU';
         }
         try {
           if (feedReal && typeof SE.validateSignalLock === 'function') {
@@ -1623,18 +1695,31 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
             var alignmentStatus = a.topDown && a.topDown.alignmentStatus;
             var directionAligned = (a.direction === 'LONG' && alignmentStatus === 'ALIGNED_BULLISH') ||
               (a.direction === 'SHORT' && alignmentStatus === 'ALIGNED_BEARISH');
+            a.htfLtfAligned = !!(directionAligned && a.topDown && a.topDown.isAligned !== false);
+            var actUpper = String(a.action || a.label || '').trim().toUpperCase();
+            var isWaitZoneAction = !actUpper ? false : (
+              actUpper === 'WAIT' || actUpper === 'WAIT_ZONE' || actUpper === 'WAIT ZONE' ||
+              actUpper === 'TUNGGU' || actUpper === 'NEUTRAL' || actUpper === 'UNALIGNED' ||
+              /\b(WAIT|TUNGGU|NO-TRADE|NEUTRAL|UNALIGNED|HOLD)\b/.test(actUpper)
+            );
+            var spotLongOnlyOk = (state.mode !== 'investor' || a.direction === 'LONG') &&
+              ((state.subMode !== 'spot' && !a.spotOnly) || a.direction === 'LONG');
             var manualJournalEligible = state.manualInstrumentSelection === true &&
+              a.manualSelection === true &&
               state.mode === 'trader' && scope === 'create' &&
               String(symbol).toUpperCase() === String(state.symbol).toUpperCase() &&
-              tfA === state.tf && directionAligned &&
+              tfA === state.tf && directionAligned && a.htfLtfAligned === true &&
+              spotLongOnlyOk && !isWaitZoneAction &&
               (a.signalTier === 'PRO' || a.signalTier === 'ELITE') &&
               num(a.confluenceScore, 0) >= Math.max(80, adaptiveMinScore(tfA)) &&
               a.signalEligible && !a.__estFeed && !a.feedUnverified && feedReal &&
               !signalCooldownActive(symbol, tfA);
             if (!a.lockedSignal && manualJournalEligible) {
-              var nl = SE.createSignalLock(a, symbol, state.mode, state.subMode);
+              var lockSnapshot = buildManualJournalAnalysisSnapshot(a, symbol, tfA, feedSource);
+              var nl = (lockSnapshot && journalAdmission(lockSnapshot, symbol, tfA)) ? SE.createSignalLock(a, symbol, state.mode, state.subMode) : null;
               if (nl && isAssetMarketOpen(symbol) && isPriceCompatibleWithSymbol(nl.entry, symbol)) {
                 if (a.feedUnverified) nl.feedUnverified = true;
+                nl.analysis = lockSnapshot;
                 saveSignalLock(symbol, tfA, nl);
                 SE.applyLockedSignal(a, nl, { status: 'ACTIVE', bePlusActive: false });
                 try { checkTelegramHighScoreSignal(a, { sym: symbol, tf: tfA }); } catch (e) {}
