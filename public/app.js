@@ -6533,7 +6533,11 @@ function saveSession() {
       user: state.user,
       // Preferensi workspace ikut tersimpan: refresh halaman tidak menendang user keluar
       symbol: state.symbol, tf: state.tf, mode: state.mode, subMode: state.subMode,
-      radarHorizon: state.radarHorizon, at: Date.now()
+      radarHorizon: state.radarHorizon,
+      // Instrumen yang SUDAH dipilih manual juga dipulihkan; tanpa flag ini engine
+      // menolak menghitung setelah refresh dan chart tertahan di candle seed sintetis.
+      manualSelection: state.manualInstrumentSelection === true,
+      at: Date.now()
     }));
     var tok = (state.user && (state.user.ownerToken || state.user.authToken)) || '';
     if (tok) localStorage.setItem('xstarzg_jwt', tok);
@@ -6561,6 +6565,14 @@ function loadSession() {
 function applyWorkspacePrefs(saved) {
   if (!saved) return;
   if (typeof saved.symbol === 'string' && saved.symbol.length > 1) state.symbol = saved.symbol;
+  /* Pulihkan pilihan manual sebelumnya (bukan auto-scan). Sesi lama belum punya
+     flag manualSelection: bila sesi itu menyimpan simbol+TF workspace, anggap
+     instrumen itu memang pilihan user — engine boleh mengambil candle nyata,
+     supaya chart tidak tertahan di preview seed setelah refresh. */
+  if (saved.manualSelection === true ||
+      (typeof saved.symbol === 'string' && saved.symbol.length > 1 && !!saved.tf)) {
+    state.manualInstrumentSelection = true;
+  }
   var btns, i, on;
   var tfBar = $id('timeframeBar');
   if (tfBar && saved.tf) {
@@ -8619,6 +8631,12 @@ if (document.readyState === 'loading') {
           state.lastAnalysis = null;
           renderSeedCandlesPreview(state.candles);
         } catch (eInitAn) {}
+      }
+      // Setelah refresh, instrumen yang sudah dipilih manual harus langsung dianalisis
+      // (candle nyata), bukan tertahan di preview seed sintetis.
+      if (isInWork && state.manualInstrumentSelection && !state.lastAnalysis &&
+          SE && typeof window.runFullAnalysis === 'function') {
+        try { window.runFullAnalysis(true); } catch (e) {}
       }
       // Initial background feeds run only after an actual workspace entry.
       if (isInWork) {

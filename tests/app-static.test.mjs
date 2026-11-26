@@ -31,8 +31,8 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.93 (styles)', /styles\.css\?v=2026\.93/.test(html));
-chk('index.html memuat app.js v=2026.93 secara defer', /<script defer src="\/app\.js\?v=2026.93">/.test(html));
+chk('index.html memakai v=2026.94 (styles)', /styles\.css\?v=2026\.94/.test(html));
+chk('index.html memuat app.js v=2026.94 secara defer', /<script defer src="\/app\.js\?v=2026.94">/.test(html));
 chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
 chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
@@ -50,7 +50,7 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
 
 
-chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.93') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.94') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
@@ -298,8 +298,13 @@ chk('skor sniper hanya menjumlahkan konfluensi searah (tanpa menumpuk semua indi
 chk('pindah mode langsung menampilkan panel workspace aktif tanpa menunggu analisis baru',
   app.includes("if (traderPanel) traderPanel.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);") &&
   app.includes("if (invPanel) invPanel.classList.toggle('hidden', !isInv);"));
+chk('sesi menyimpan & memulihkan pilihan instrumen manual agar chart tidak tertahan seed setelah refresh',
+  app.includes('manualSelection: state.manualInstrumentSelection === true') &&
+  app.includes('if (saved.manualSelection === true ||') &&
+  app.includes('state.manualInstrumentSelection = true;') &&
+  app.includes('if (isInWork && state.manualInstrumentSelection && !state.lastAnalysis &&'));
 chk('modul analisis kelompok dimuat lewat engine-boot berversi baru',
-  engineBoot.includes('/js/shared/group-analysis.js?v=2026.93') && engineBoot.includes('window.XSGroup'));
+  engineBoot.includes('/js/shared/group-analysis.js?v=2026.94') && engineBoot.includes('window.XSGroup'));
 /* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
 chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
   app.includes('function monitorLiveSignalProgress(') &&
