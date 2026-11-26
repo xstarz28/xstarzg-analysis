@@ -48,9 +48,13 @@ export async function onRequestPost(context) {
   const email = String(body.email || '').trim().toLowerCase();
   const code = String(body.code || '');
   const name = String(body.name || '').trim().slice(0, 40) || 'Owner';
-  // Kode rahasia hanya owner yang tahu — default sesuai permintaan user, bisa dioverride
-  // lewat env OWNER_ACCESS_CODE di dashboard Cloudflare (tanpa commit ulang).
-  const expectedCode = (context.env && context.env.OWNER_ACCESS_CODE) || 'Unbound28a7x';
+  // Kode rahasia HANYA dari environment Cloudflare. Tidak ada kode default di kode
+  // sumber: jika OWNER_ACCESS_CODE belum dipasang, login owner ditutup total
+  // (fail-closed) — bukan diam-diam memakai kode yang bisa dibaca siapa pun.
+  const expectedCode = String((context.env && context.env.OWNER_ACCESS_CODE) || '').trim();
+  if (!expectedCode) {
+    return new Response(JSON.stringify({ ok: false, error: 'Login owner belum dikonfigurasi di server (OWNER_ACCESS_CODE kosong).' }), { status: 503, headers });
+  }
   const secret = (context.env && context.env.JWT_SECRET) || 'xstarzg-2026-quant-secret';
 
   const emailOk = OWNER_EMAILS.includes(email);

@@ -42,6 +42,8 @@ jobs:
           node --check functions/api/market/price-alarms.js
           node --check tests/telegram-bot-alerts.test.mjs
           node --check tests/telegram-vip.test.mjs
+          node --check tests/owner-access.test.mjs
+          node --check functions/api/auth/owner.js
           node --check functions/api/billing/verify-bsc.js
           node --check functions/api/notify/telegram.js
           node --check functions/api/notify/telegram-link.js
@@ -64,3 +66,5 @@ jobs:
         run: node --test tests/telegram-bot-alerts.test.mjs
       - name: Verify Telegram VIP gating, payment relay and anti-spoof hardening
         run: node tests/telegram-vip.test.mjs
+      - name: Verify owner login is fail-closed without a committed access code
+        run: node tests/owner-access.test.mjs
