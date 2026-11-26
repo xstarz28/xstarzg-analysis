@@ -573,3 +573,15 @@ body { padding-bottom: 34px; }
   .ga-ladder { grid-template-columns:1fr; }
   .ga-score-num { font-size:26px; }
 }
+
+/* ---- Tata letak dashboard: kolom chart mengisi tinggi panel kanan ----
+   Sebelumnya .workspace-main-grid memakai align-items:start sehingga kolom kiri
+   (chart + narasi) berhenti lebih pendek dari panel kanan dan menyisakan pita
+   kosong sebelum blok teknikal/fundamental. Di layar lebar kolom kiri sekarang
+   ikut meregang: chart yang membesar mengisi ruang, bukan ruang kosong. */
+@media (min-width: 1181px) {
+  .workspace-main-grid { align-items: stretch; }
+  .workspace-main-grid > div:first-child { min-height: 0; }
+  .workspace-main-grid .chart-card { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 470px; }
+  .workspace-main-grid .chart-card .tv-chart-box { flex: 1 1 0%; height: auto; min-height: 320px; max-height: 820px; }
+}
