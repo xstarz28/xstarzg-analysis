@@ -28,7 +28,7 @@ test('PWA & SERVICE WORKER: Solusi tuntas bug startup layar menggantung pasca up
     assert.ok(!swJs.includes("'/js/shared/quant-core.js'"), 'quant-core dimuat setelah workspace dibuka');
     assert.ok(!swJs.includes("'/js/shared/signal-engine.js'"), 'signal-engine dimuat setelah workspace dibuka');
     assert.ok(!swJs.includes("'/js/calculator.js'"), 'calculator dimuat setelah workspace dibuka');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.90'), 'versi cache PWA dinaikkan');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.91'), 'versi cache PWA dinaikkan');
   });
 
   await t.test('4. _headers mencegah Cloudflare/browser meng-cache sw.js dan index.html', () => {

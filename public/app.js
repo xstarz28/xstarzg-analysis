@@ -4911,7 +4911,6 @@ function paintRadarItems(cfg, items, noneQualified) {
       var rg = btn.getAttribute('data-focus-rg') || 'all';
       state.radarGroup = rg;
       syncRadarGroupTabs();
-      renderOpportunityRadar(false);
     });
   });
 }
@@ -7997,7 +7996,6 @@ function bootCore() {
       try { syncModeButtonLabels(); } catch (e) {}
       // force=false: gunakan cache radar/kurasi bila ada (tidak memicu fetch ulang)
       if (state.mode === 'investor') renderInvestorPicks(false);
-      else renderOpportunityRadar(false);
       try { renderSignalJournal(); } catch (e) {}
       try { updateSlPlusNotifyUi(); } catch (e) {}
       try { updateTelegramUi(); } catch (e) {}
@@ -8497,7 +8495,6 @@ if (document.readyState === 'loading') {
       }
       // Initial background feeds run only after an actual workspace entry.
       if (isInWork) {
-        try { renderOpportunityRadar(); } catch (e) {}
         try { fetchNewsCalendar(false); } catch (e) {}
         try { fetchMacroRegime(false); } catch (e) {}
         try { renderMacroMap(); } catch (e) {}
@@ -8544,7 +8541,6 @@ if (document.readyState === 'loading') {
         if (!b) return;
         state.radarGroup = b.getAttribute('data-rg') || 'all';
         rgBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
-        renderOpportunityRadar(false);
       });
 
       var viabBar = $id('radarViabilityBar');
@@ -8553,7 +8549,6 @@ if (document.readyState === 'loading') {
         if (!b) return;
         state.radarViability = b.getAttribute('data-viab') || 'actionable';
         viabBar.querySelectorAll('.hz-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
-        renderOpportunityRadar(false);
       });
 
       // ==================== PWA INSTALL & SERVICE WORKER ====================

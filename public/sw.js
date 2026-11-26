@@ -1,5 +1,14 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-const CACHE_NAME = 'xstarzg-pwa-v2026.90';
+// v2026.91 — PERBAIKAN KRITIS: cache lama tidak pernah dilepas.
+// Penyebab web "di-deploy tapi masih hang": handler fetch lama mencocokkan aset
+// dengan { ignoreSearch: true }, sehingga entri lama '/app.js' (tanpa query)
+// SELALU menang atas '/app.js?v=...' yang baru. Akibatnya perangkat yang sudah
+// pernah membuka situs terus menjalankan bundle lama (mesin rekomendasi radar
+// yang berat) walaupun Cloudflare sudah men-deploy versi baru.
+// Sekarang: aset dicocokkan PERSIS (termasuk ?v=), HTML selalu diambil dari
+// jaringan lebih dulu (cache hanya fallback offline), dan versi cache dinaikkan
+// agar seluruh perangkat lama dibersihkan sekali pada aktivasi berikutnya.
+const CACHE_NAME = 'xstarzg-pwa-v2026.91';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -15,6 +24,8 @@ const STATIC_ASSETS = [
   '/assets/logo.svg',
   '/manifest.webmanifest'
 ];
+
+const NAV_TIMEOUT_MS = 1200;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -35,9 +46,8 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('message', (event) => {
@@ -46,15 +56,21 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Cache strategy:
-// 1) /api/ -> Network-only (realtime market quotes & auth)
-// 2) Navigation (HTML) -> Cache-first instan 0ms (anti-freeze logo WebAPK) + background revalidate
-// 3) Static assets (.js, .css, vendor, images, fonts) -> Stale-while-revalidate murni (0ms delay instan + background update)
+// Strategi cache:
+// 1) /api/ + origin lain  -> network-only (kuotasi realtime & auth)
+// 2) Navigasi (HTML)      -> network-first (maks 1200ms) + fallback cache offline
+//    Deploy baru langsung terpakai; splash logo Android tetap tidak menggantung.
+// 3) Aset statis          -> cache-first PERSIS (termasuk query ?v=) + revalidate
+//    karena setiap rilis menaikkan ?v=, kunci cache ikut berubah -> tidak pernah
+//    menyajikan bundle lama.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Hanya tangani same-origin request! Request ke origin lain (Binance, DexScreener, dll.) langsung ke jaringan
   if (url.origin !== location.origin) {
+    return;
+  }
+  if (event.request.method !== 'GET') {
     return;
   }
 
@@ -63,55 +79,50 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Permintaan navigasi (HTML halaman): Sajikan dari cache seketika 0ms agar APK/PWA tidak menggantung di splash logo,
-  // sambil memperbarui cache di latar belakang untuk kunjungan berikutnya
-  if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+  const isNavigation = event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html';
+
+  if (isNavigation) {
     event.respondWith(
       (async () => {
-        // Cek cache lokal terlebih dahulu (0ms instant startup - anti-freeze logo WebAPK)
-        const cached = (await caches.match(event.request, { ignoreSearch: true })) || (await caches.match('/', { ignoreSearch: true })) || (await caches.match('/index.html', { ignoreSearch: true }));
+        const cache = await caches.open(CACHE_NAME).catch(() => null);
+        const cached =
+          (await caches.match('/', { ignoreSearch: true }).catch(() => null)) ||
+          (await caches.match('/index.html', { ignoreSearch: true }).catch(() => null));
 
-        // Background fetch untuk sinkronisasi versi HTML terbaru dari Cloudflare
-        const networkFetch = fetch(event.request).then(async (res) => {
-          if (res && res.status === 200) {
-            try {
-              const cache = await caches.open(CACHE_NAME);
-              cache.put('/', res.clone()).catch(() => {});
-              cache.put('/index.html', res.clone()).catch(() => {});
-            } catch (ePut) {}
+        const networkFetch = fetch(event.request).then((res) => {
+          if (res && res.status === 200 && cache) {
+            cache.put('/', res.clone()).catch(() => {});
+            cache.put('/index.html', res.clone()).catch(() => {});
           }
           return res;
-        }).catch(() => null);
+        });
 
-        if (cached) {
-          // Ada di cache: kembalikan langsung 0ms agar splash screen logo Android APK langsung tertutup!
-          return cached;
+        // Jaringan lebih dulu: HTML versi deploy terbaru selalu dipakai.
+        try {
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), NAV_TIMEOUT_MS));
+          const networkResponse = await Promise.race([networkFetch, timeoutPromise]);
+          if (networkResponse && networkResponse.status === 200) return networkResponse;
+        } catch (e) {
+          // Jaringan lambat/offline -> sajikan cache agar splash tidak menggantung.
         }
 
-        // Belum pernah di-cache (kunjungan pertama kali tanpa cache): tunggu jaringan maks 1200ms
-        try {
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200));
-          const networkResponse = await Promise.race([networkFetch, timeoutPromise]);
-          if (networkResponse && networkResponse.status === 200) {
-            return networkResponse;
-          }
-        } catch (e) {}
+        if (cached) return cached;
 
-        const fallbackNet = await networkFetch;
-        if (fallbackNet && fallbackNet.status === 200) return fallbackNet;
+        try {
+          const fallbackNet = await networkFetch;
+          if (fallbackNet && fallbackNet.status === 200) return fallbackNet;
+        } catch (e) {}
         return new Response('Network unavailable and no cached version found.', { status: 503, headers: { 'Content-Type': 'text/plain' } });
       })()
     );
     return;
   }
 
-  // Aset statis lokal (.js, .css, vendor, gambar, font): Stale-While-Revalidate murni (0ms delay instan!)
-  // Selalu sajikan dari cache lokal seketika (0ms!) agar seluruh script & layout langsung dieksekusi tanpa jeda jaringan,
-  // lalu sinkronkan versi baru dari jaringan di latar belakang
+  // Aset statis lokal: cocok PERSIS (tanpa ignoreSearch) lalu revalidate di latar belakang.
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then((cached) => {
+    caches.match(event.request, { ignoreSearch: false }).then((cached) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET' && url.origin === location.origin) {
+        if (networkResponse && networkResponse.status === 200) {
           const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
         }
@@ -119,11 +130,11 @@ self.addEventListener('fetch', (event) => {
       });
 
       if (cached) {
-        // Ada di cache lokal: sajikan seketika 0ms, perbarui cache di latar belakang
+        // Aset versi ini sudah tersimpan: sajikan instan, perbarui di latar belakang.
         fetchPromise.catch(() => {});
         return cached;
       }
-      // Belum ada di cache: tunggu respon dari jaringan secara aman
+      // Belum ada di cache (URL/versi baru): ambil dari jaringan.
       return fetchPromise.catch(() => new Response('/* asset offline */', { status: 503 }));
     })
   );
