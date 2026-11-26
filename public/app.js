@@ -5800,11 +5800,38 @@ function updateAlarmUi() {
   }
 }
 
+/* Alarm lonceng juga dicatat ke cloud agar bot GitHub tetap memantaunya 24/7
+   walau dashboard/browser sudah ditutup. */
+function syncCloudPriceAlarm(action) {
+  if (!state.user || !state.user.email) return Promise.resolve(null);
+  var alarm = {
+    symbol: (alarmState.symbol || state.symbol || '').toUpperCase(),
+    tf: state.tf || 'H1',
+    kind: 'signal',
+    entry: (state.lastAnalysis && state.lastAnalysis.levels && state.lastAnalysis.levels.entry) || state.livePrice || null
+  };
+  if (!alarm.symbol) return Promise.resolve(null);
+  return ensureAuthToken().then(function (token) {
+    if (!token) throw new Error('Cloud alarm sync requires an authenticated session');
+    return fetch('/api/market/price-alarms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ action: action, alarm: alarm })
+    });
+  }).then(function (r) {
+    return r && r.json ? r.json() : null;
+  }).catch(function (err) {
+    console.warn('Cloud alarm sync failed:', err.message);
+    return null;
+  });
+}
+
 function toggleSignalAlarm() {
   alarmState.enabled = !alarmState.enabled;
   if (alarmState.enabled) {
     alarmState.symbol = (state.symbol || 'GRAM/USDT').toUpperCase();
     alarmState.lastAlertKey = null;
+    try { syncCloudPriceAlarm('save'); } catch (e) {}
 
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       try { Notification.requestPermission(); } catch (e) {}
@@ -5821,9 +5848,12 @@ function toggleSignalAlarm() {
     ) : (
       '🔔 <b>[ALARM PANTAUAN PRIORITAS AKTIF: ' + alarmState.symbol + ']</b>\n\n' +
       'Aset: <b>' + alarmState.symbol + '</b> kini dipantau secara prioritas!\n' +
-      'Begitu sinyal baru (ELITE/PRO) terdeteksi atau harga pasar menyentuh titik Entry, bot Telegram akan langsung mengirimkan peringatan darurat ke sini.'
+      'Begitu sinyal baru (ELITE/PRO) terdeteksi atau harga pasar menyentuh titik Entry, bot Telegram akan langsung mengirimkan peringatan darurat ke sini.\n' +
+      '☁️ <i>Alarm ini juga dipantau bot cloud 24/7 — tetap berbunyi walau dashboard sudah ditutup.</i>'
     );
     try { sendTelegramAlert(tgConfirm); } catch (e) {}
+  } else {
+    try { syncCloudPriceAlarm('remove'); } catch (e) {}
   }
   try {
     localStorage.setItem('xstarzg_signal_alarm_v1', JSON.stringify({

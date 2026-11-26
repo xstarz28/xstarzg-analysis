@@ -25,14 +25,15 @@ const tgRelay = R('../functions/api/notify/telegram.js');
 const sentinelScript = R('../scripts/market-sentinel.mjs');
 const sentinelWorkflow = R('../.github/workflows/market-sentinel.yml');
 const journalApi = R('../functions/api/market/journal-sync.js');
+const alarmApi = R('../functions/api/market/price-alarms.js');
 const groupModule = R('../public/js/shared/group-analysis.js');
 
 let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.97 (styles)', /styles\.css\?v=2026\.97/.test(html));
-chk('index.html memuat app.js v=2026.97 secara defer', /<script defer src="\/app\.js\?v=2026.97">/.test(html));
+chk('index.html memakai v=2026.98 (styles)', /styles\.css\?v=2026\.98/.test(html));
+chk('index.html memuat app.js v=2026.98 secara defer', /<script defer src="\/app\.js\?v=2026.98">/.test(html));
 chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
 chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
@@ -50,7 +51,7 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
 
 
-chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.97') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.98') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
@@ -309,7 +310,7 @@ chk('pindah workspace tidak mengecilkan kanvas chart menjadi 0x0 (chart kosong)'
   app.includes('chartInstance.applyOptions({ width: w, height: h || 470 });') &&
   app.includes("height: chartBox.clientHeight || 470"));
 chk('modul analisis kelompok dimuat lewat engine-boot berversi baru',
-  engineBoot.includes('/js/shared/group-analysis.js?v=2026.97') && engineBoot.includes('window.XSGroup'));
+  engineBoot.includes('/js/shared/group-analysis.js?v=2026.98') && engineBoot.includes('window.XSGroup'));
 /* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
 chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
   app.includes('function monitorLiveSignalProgress(') &&
@@ -423,7 +424,7 @@ chk('Cloud Sentinel hanya memantau posisi manual aktif dan tidak melakukan disco
   sentinelScript.includes('scanInstrument(target.inst, cache, { monitorOnly: true, journalLockKey: target.journalLockKey })') &&
   sentinelScript.includes('if (!monitorOnly && a.signalEligible') &&
   sentinelScript.includes('const activeLocks = Object.entries(cache.slPlusLocks || {})') &&
-  sentinelScript.includes('if (!activeLocks.length)') &&
+  sentinelScript.includes('const monitorTargets = activeLocks.map') &&
   sentinelScript.includes('WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf)') &&
   sentinelWorkflow.includes('XStarZG 24/7 Manual Position Monitor') &&
   sentinelWorkflow.includes("cron: '*/15 * * * *'") &&
@@ -436,6 +437,20 @@ chk('kredensial Sentinel tidak di-hardcode dan hanya dibaca dari environment sec
   !sentinelScript.includes("process.env.SENTINEL_SECRET || 'xstarzg-2026-quant-secret'") &&
   journalApi.includes('env.SENTINEL_SECRET && sentinelKey === env.SENTINEL_SECRET'));
 
+chk('bot Telegram mengabari peluang skor besar, TP bertahap, dan alarm lonceng dari cloud',
+  sentinelScript.includes('export async function announceJournalEntry') &&
+  sentinelScript.includes('announcedHighScoreAt') &&
+  sentinelScript.includes('// 2d. Take Profit bertahap') &&
+  sentinelScript.includes('TAKE PROFIT 2 TERCAPAI') &&
+  sentinelScript.includes('TARGET TP3 TERCAPAI') &&
+  sentinelScript.includes('notifiedTp2') &&
+  sentinelScript.includes('syncActiveAlarmsFromCloud') &&
+  sentinelScript.includes('/api/market/price-alarms') &&
+  sentinelScript.includes('inferInstrument(lock.symbol, lock.tf)') &&
+  alarmApi.includes('cloud_price_alarms') &&
+  app.includes("syncCloudPriceAlarm('save')") &&
+  app.includes("syncCloudPriceAlarm('remove')") &&
+  app.includes("'/api/market/price-alarms'"));
 chk('pembersihan fitur konek tele browser dari web ui (sepenuhnya otonom di cloud)',
   !html.includes('id="btnOpenTelegramModal"') &&
   !html.includes('id="btnOpenTelegramModalJnl"') &&

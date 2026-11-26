@@ -604,6 +604,171 @@ export const WATCHLIST = [
   ])
 ];
 
+
+/* ==================== NOTIFIKASI JURNAL MANUAL & ALARM LONCENG ==================== */
+
+export function hzOfTf(tf) {
+  const t = String(tf || '');
+  if (t === 'M1' || t === 'M5' || t === 'M15') return 'scalping';
+  if (t === 'M30' || t === 'H1') return 'intraday';
+  return 'swing';
+}
+
+// Instrumen jurnal manual bisa berupa simbol apa pun (bukan hanya WATCHLIST).
+// Tebak kelas aset agar feed candle yang tepat dipakai saat pemantauan.
+export function inferInstrument(symbol, tf = 'H1') {
+  const sym = String(symbol || '').toUpperCase().trim();
+  if (!sym) return null;
+  const quote = sym.includes('/') ? sym.split('/')[1] : '';
+  let type = 'forex';
+  if (['USDT', 'USDC', 'BUSD', 'FDUSD', 'TUSD'].includes(quote)) type = 'crypto';
+  else if (sym === 'XAU/USD' || sym === 'XAG/USD' || sym === 'GOLD' || sym === 'SILVER' ||
+    sym.includes('OIL') || sym.includes('BRENT') || sym.includes('NATGAS') || sym.includes('COPPER')) type = 'commodity';
+  else if (sym.endsWith('.JK') || sym === 'IHSG') type = 'stock_id';
+  else if (['NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMD', 'AMZN', 'META', 'GOOGL', 'SPY', 'QQQ', 'COIN', 'MSTR'].includes(sym)) type = 'stock_us';
+  return { sym, tf: tf || 'H1', type, hz: hzOfTf(tf) };
+}
+
+// Pesan "peluang skor besar" untuk entri jurnal manual yang sedang di-entry.
+// Dikirim sekali per entri oleh bot GitHub (bukan menunggu dashboard dibuka).
+export async function announceJournalEntry(lock, sendFn = sendTelegramMessage) {
+  if (!lock || !lock.symbol || !lock.tf) return false;
+  const sym = String(lock.symbol).toUpperCase();
+  const tf = String(lock.tf);
+  const dir = String(lock.direction || '').toUpperCase();
+  if (dir !== 'LONG' && dir !== 'SHORT') return false;
+  const score = Number(lock.score) || 0;
+  const isLong = dir === 'LONG';
+  const analysis = (lock.analysis && typeof lock.analysis === 'object') ? lock.analysis : {};
+  const tierTxt = /ELITE/i.test(String(lock.tier || analysis.signalTier || '')) ? 'ELITE ★' : 'PRO';
+  const hz = hzOfTf(tf);
+  const hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
+  const orderType = lock.orderType || (isLong ? 'BUY LIMIT' : 'SELL LIMIT');
+  const entry = Number(lock.entry);
+  const sl = Number(lock.sl);
+  const tp1 = Number(lock.tp1);
+  const tp2 = Number(lock.tp2);
+  const tp3 = Number(lock.tp3);
+  const regime = analysis.regime || lock.regime || 'Institutional Flow';
+  const td = analysis.topDown || lock.topDown || null;
+  const sess = analysis.sessionInfo || lock.sessionInfo || null;
+  const dirEmoji = isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
+  const isCrypto = (sym || '').includes('/USDT') || (sym || '').includes('BTC') || (sym || '').includes('ETH') || (sym || '').includes('SOL');
+  const isStock = (sym || '').includes('.JK') || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'SPY', 'QQQ'].includes(sym);
+  const platformName = isCrypto ? 'exchange kripto pilihan Anda (Binance/Bybit/Tokocrypto/OKX)' : isStock ? 'aplikasi sekuritas/broker saham Anda' : 'broker/aplikasi trading Anda';
+  const platformNameEn = isCrypto ? 'your preferred crypto exchange' : isStock ? 'your stock brokerage app' : 'your trading platform / broker';
+
+  let topDownBlock = '';
+  let topDownBlockEn = '';
+  if (td) {
+    topDownBlock =
+      '📊 <b>KESELARASAN PASAR (TOP-DOWN ALIGNED):</b>\n' +
+      `• 1D–4H Makro: <b>${td.macroBias || '-'}</b> (Arah & Likuiditas)\n` +
+      `• 1H–15m Struktur: <b>${td.structBias || '-'}</b> (Order Block & FVG)\n` +
+      `• 5m–1m Eksekusi: <b>${dir}</b> (Konfirmasi Entry)\n` +
+      (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
+    topDownBlockEn =
+      '📊 <b>MARKET ALIGNMENT (TOP-DOWN ALIGNED):</b>\n' +
+      `• 1D–4H Macro: <b>${td.macroBias || '-'}</b> (Direction & Liquidity)\n` +
+      `• 1H–15m Structure: <b>${td.structBias || '-'}</b> (OB & FVG)\n` +
+      `• 5m–1m Execution: <b>${dir}</b> (Entry Confirmation)\n` +
+      (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
+  }
+
+  let sessionBlock = '';
+  let sessionBlockEn = '';
+  if (sess) {
+    sessionBlock = `🏛️ <b>Sesi Optimal:</b> <code>${sess.bestSession || '-'}</code> (${sess.isOptimal ? 'Puncak Likuiditas 🔥' : 'Sesi Reguler'})\n`;
+    sessionBlockEn = `🏛️ <b>Optimal Session:</b> <code>${sess.bestSession || '-'}</code> (${sess.isOptimal ? 'Peak Liquidity 🔥' : 'Regular Hours'})\n`;
+  }
+
+  const msgId =
+    `🚀 <b>[XSTARZG 24/7 CLOUD — PELUANG BARU SKOR BESAR (${tierTxt})]</b>\n\n` +
+    `Aset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
+    `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
+    `Confidence Score: <b>${score}%</b>\n` +
+    `Regime Pasar: <i>${regime}</i>\n` +
+    (sessionBlock ? sessionBlock : '') +
+    (topDownBlock ? `\n${topDownBlock}\n` : '\n') +
+    `📌 <b>Tipe Order:</b> <code>${orderType}</code>\n` +
+    `🎯 <b>Titik Entry:</b> <code>${formatP(entry, sym)}</code>\n` +
+    `🛡️ <b>Stop Loss:</b> <code>${formatP(sl, sym)}</code>\n` +
+    `✅ <b>Take Profit 1:</b> <code>${formatP(tp1, sym)}</code>\n` +
+    (Number.isFinite(tp2) && tp2 ? `✅ <b>Take Profit 2:</b> <code>${formatP(tp2, sym)}</code>\n` : '') +
+    (Number.isFinite(tp3) && tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(tp3, sym)}</code>\n` : '') +
+    `\n📱 <i>Pasang ${orderType} di ${formatP(entry, sym)} pada zona Order Block / FVG mitigasi (jangan kejar harga pasar!). Buka ${platformName}. Bot memantau posisi 24/7 dan akan mengirim SL+ (0-Risk) begitu terisi dan bergerak profit.</i>`;
+
+  const msgEn =
+    `🚀 <b>[XSTARZG 24/7 CLOUD — NEW HIGH-SCORE OPPORTUNITY (${tierTxt})]</b>\n\n` +
+    `Asset: <b>${sym}</b> (${tf} • ${hzLabel})\n` +
+    `Setup: <b>${dirEmoji} (${tierTxt} SETUP)</b>\n` +
+    `Confidence Score: <b>${score}%</b>\n` +
+    `Market Regime: <i>${regime}</i>\n` +
+    (sessionBlockEn ? sessionBlockEn : '') +
+    (topDownBlockEn ? `\n${topDownBlockEn}\n` : '\n') +
+    `📌 <b>Order Type:</b> <code>${orderType}</code>\n` +
+    `🎯 <b>Entry Level:</b> <code>${formatP(entry, sym)}</code>\n` +
+    `🛡️ <b>Stop Loss:</b> <code>${formatP(sl, sym)}</code>\n` +
+    `✅ <b>Take Profit 1:</b> <code>${formatP(tp1, sym)}</code>\n` +
+    (Number.isFinite(tp2) && tp2 ? `✅ <b>Take Profit 2:</b> <code>${formatP(tp2, sym)}</code>\n` : '') +
+    (Number.isFinite(tp3) && tp3 ? `🚀 <b>Target TP3:</b> <code>${formatP(tp3, sym)}</code>\n` : '') +
+    `\n📱 <i>Place a ${orderType} at ${formatP(entry, sym)} in the premium Order Block / FVG mitigation zone (never chase market price!). Open ${platformNameEn}. Cloud bot monitors this position 24/7 and will send an SL+ (0-Risk) alert once filled and moving into profit!</i>`;
+
+  return await sendFn(msgId, { id: msgId, en: msgEn });
+}
+
+async function apiHostsList() {
+  return [
+    process.env.XSTARZG_API_HOST,
+    'https://xstarzganalysis.pages.dev',
+    'https://xstarzg-analysis.pages.dev'
+  ].filter(Boolean);
+}
+
+// Ambil alarm lonceng aktif dari cloud (dipasang user dari dashboard).
+export async function syncActiveAlarmsFromCloud(cache) {
+  if (!cache || typeof cache !== 'object') return false;
+  const secret = getSentinelSecret();
+  if (!secret) return false;
+  const now = Date.now();
+  for (const host of await apiHostsList()) {
+    try {
+      const res = await fetch(`${host}/api/market/price-alarms?key=${encodeURIComponent(secret)}`, {
+        headers: { 'X-Sentinel-Key': secret, 'User-Agent': 'XStarZG-Sentinel/1.0' }
+      });
+      if (!res || !res.ok) continue;
+      const data = await res.json();
+      if (!data || !Array.isArray(data.alarms)) continue;
+      const next = {};
+      for (const alarm of data.alarms) {
+        if (!alarm || !alarm.id || !alarm.symbol || !alarm.tf) continue;
+        if (alarm.created && (now - Number(alarm.created)) > 7 * 24 * 3600 * 1000) continue;
+        next[alarm.id] = alarm;
+      }
+      cache.alarms = next;
+      return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
+async function markAlarmFired(alarmId, cache) {
+  if (cache && cache.alarms) delete cache.alarms[alarmId];
+  const secret = getSentinelSecret();
+  if (!secret) return false;
+  for (const host of await apiHostsList()) {
+    try {
+      const res = await fetch(`${host}/api/market/price-alarms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Sentinel-Key': secret, 'User-Agent': 'XStarZG-Sentinel/1.0' },
+        body: JSON.stringify({ action: 'fire', alarm: { id: alarmId } })
+      });
+      if (res && res.ok) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
 export async function processInstrumentAnalysis({ inst, candles, a, cache, sendFn = sendTelegramMessage, minScore = MIN_SCORE, monitorOnly = false, journalLockKey }) {
   const { sym, tf, hz } = inst;
   const lockKey = journalLockKey || sym;
@@ -1086,35 +1251,111 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     }
   }
 
-  // 2d. Cek eksekusi Take Profit 1
-  const tpHit = isLong ? (lastBar.high >= tp1 || livePrice >= tp1) : (lastBar.low <= tp1 || livePrice <= tp1);
-  if (tpHit && !activeLock.notifiedTp1) {
-    activeLock.notifiedTp1 = true;
-    const tpMsg =
-      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 TERCAPAI!]</b>\n\n` +
-      `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
-      `Target TP1: <b>${formatP(tp1, sym)} TERPENUHI!</b>\n\n` +
-      `💰 <i>Tutup 50% lot untuk mengunci profit! Geser Stop Loss ke BE+ untuk sisa posisi yang mengincar TP2/TP3.</i>`;
-    const tpMsgEn =
-      `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 REACHED!]</b>\n\n` +
-      `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
-      `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
-      `Entry Level: <b>${formatP(entry, sym)}</b>\n` +
-      `Target TP1: <b>${formatP(tp1, sym)} HIT!</b>\n\n` +
-      `💰 <i>Close 50% position to lock in profit! Move Stop Loss to BE+ for the remainder targeting TP2/TP3.</i>`;
+  // 2d. Take Profit bertahap: TP1 -> TP2 -> TP3
+  // Setiap target yang tersentuh dikabari; posisi tetap dipantau sampai target akhir.
+  const tpPlan = [
+    { n: 1, level: Number(activeLock.tp1), flag: 'notifiedTp1' },
+    { n: 2, level: Number(activeLock.tp2), flag: 'notifiedTp2' },
+    { n: 3, level: Number(activeLock.tp3), flag: 'notifiedTp3' }
+  ].filter(tp => Number.isFinite(tp.level) && tp.level > 0);
+
+  for (const tp of tpPlan) {
+    if (activeLock[tp.flag]) continue;
+    const reached = isLong
+      ? (livePrice >= tp.level || (lastBar && lastBar.high >= tp.level))
+      : (livePrice <= tp.level || (lastBar && lastBar.low <= tp.level));
+    if (!reached) continue;
+
+    activeLock[tp.flag] = true;
+    activeLock[`tp${tp.n}HitAt`] = Date.now();
+    console.log(`  [${sym} ${tf}] Take Profit ${tp.n} tersentuh di ${formatP(tp.level, sym)}.`);
+
+    const closePct = tp.n === 1 ? 50 : tp.n === 2 ? 30 : 100;
+    const dirTxt = isLong ? 'BUY / LONG' : 'SELL / SHORT';
+
+    let tpMsg;
+    let tpMsgEn;
+    if (tp.n === 1) {
+      tpMsg =
+        `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 TERCAPAI!]</b>\n\n` +
+        `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Arah: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
+        `Target TP1: <b>${formatP(tp.level, sym)} TERPENUHI!</b>\n\n` +
+        `💰 <i>Tutup ${closePct}% lot untuk mengunci profit! Geser Stop Loss ke BE+ untuk sisa posisi yang mengincar TP2/TP3.</i>`;
+      tpMsgEn =
+        `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 1 REACHED!]</b>\n\n` +
+        `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Direction: <b>${isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'}</b>\n` +
+        `Entry Level: <b>${formatP(entry, sym)}</b>\n` +
+        `Target TP1: <b>${formatP(tp.level, sym)} HIT!</b>\n\n` +
+        `💰 <i>Close ${closePct}% position to lock in profit! Move Stop Loss to BE+ for the remainder targeting TP2/TP3.</i>`;
+    } else if (tp.n === 2) {
+      tpMsg =
+        `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 2 TERCAPAI!]</b>\n\n` +
+        `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Arah: <b>${dirTxt}</b>\n` +
+        `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
+        `Target TP2: <b>${formatP(tp.level, sym)} TERPENUHI!</b>\n` +
+        `Harga Saat Ini: <b>${formatP(livePrice, sym)}</b>\n\n` +
+        `💰 <i>Tutup ${closePct}% lot lagi! Geser Stop Loss ke TP1 (${formatP(Number(activeLock.tp1), sym)}) agar profit terkunci, biarkan sisa posisi mengejar TP3.</i>`;
+      tpMsgEn =
+        `🎉 <b>[XSTARZG 24/7 CLOUD — TAKE PROFIT 2 REACHED!]</b>\n\n` +
+        `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Direction: <b>${dirTxt}</b>\n` +
+        `Entry Level: <b>${formatP(entry, sym)}</b>\n` +
+        `Target TP2: <b>${formatP(tp.level, sym)} HIT!</b>\n` +
+        `Current Price: <b>${formatP(livePrice, sym)}</b>\n\n` +
+        `💰 <i>Close another ${closePct}%! Move Stop Loss to TP1 (${formatP(Number(activeLock.tp1), sym)}) to lock profit, let the remainder run to TP3.</i>`;
+    } else {
+      tpMsg =
+        `🏆 <b>[XSTARZG 24/7 CLOUD — TARGET TP3 TERCAPAI!]</b>\n\n` +
+        `Aset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Arah: <b>${dirTxt}</b>\n` +
+        `Titik Entry: <b>${formatP(entry, sym)}</b>\n` +
+        `Target TP3: <b>${formatP(tp.level, sym)} TERPENUHI!</b>\n\n` +
+        `💰 <i>Tutup seluruh posisi. Siklus trading selesai — modal dan profit aman. Siap menunggu setup berikutnya!</i>`;
+      tpMsgEn =
+        `🏆 <b>[XSTARZG 24/7 CLOUD — TARGET TP3 REACHED!]</b>\n\n` +
+        `Asset: <b>${sym}</b> (${activeLock.tf})\n` +
+        `Direction: <b>${dirTxt}</b>\n` +
+        `Entry Level: <b>${formatP(entry, sym)}</b>\n` +
+        `Target TP3: <b>${formatP(tp.level, sym)} HIT!</b>\n\n` +
+        `💰 <i>Close the full position. Trade cycle complete — capital and profit secured. Waiting for the next setup!</i>`;
+    }
+
     await sendFn(tpMsg, { id: tpMsg, en: tpMsgEn });
+
+    if (tp.n === 1) {
+      // Kunci break-even untuk sisa posisi (jangan pernah melonggarkan SL+ yang sudah aman).
+      const currentPlus = Number(activeLock.slPlus);
+      activeLock.slPlus = Number.isFinite(currentPlus)
+        ? (isLong ? Math.max(entry, currentPlus) : Math.min(entry, currentPlus))
+        : entry;
+      activeLock.bePlusActive = true;
+      if (!tpPlan.some(next => next.n > 1)) {
+        await syncJournalToCloud({
+          action: 'record_outcome',
+          outcome: { id: activeLock.id, symbol: sym, tf: activeLock.tf, status: 'TP_HIT', reason: 'Target Take Profit 1 tercapai', at: Date.now() }
+        });
+        delete cache.slPlusLocks[lockKey];
+        return;
+      }
+      await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
+      return;
+    }
+
+    if (tp.n === 2) {
+      activeLock.slPlus = Number(activeLock.tp1) || activeLock.slPlus;
+      activeLock.bePlusActive = true;
+      await syncJournalToCloud({ action: 'save_lock', lock: activeLock });
+      return;
+    }
+
+    activeLock.status = 'CLOSED';
     await syncJournalToCloud({
       action: 'record_outcome',
-      outcome: {
-        id: activeLock.id,
-        symbol: sym,
-        tf: activeLock.tf,
-        status: 'TP_HIT',
-        reason: 'Target Take Profit 1 tercapai',
-        at: Date.now()
-      }
+      outcome: { id: activeLock.id, symbol: sym, tf: activeLock.tf, status: 'TP_HIT', reason: 'Target Take Profit 3 tercapai', at: Date.now() }
     });
     delete cache.slPlusLocks[lockKey];
     return;
@@ -1207,43 +1448,121 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   }
 }
 
-async function scanInstrument(inst, cache, { monitorOnly = false, journalLockKey } = {}) {
+async function loadCandles(inst) {
   const { sym, tf, type } = inst;
+  let candles = [];
+  if (type === 'crypto') {
+    const interval = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
+    candles = await fetchBinanceCandles(sym, interval);
+  } else {
+    try {
+      candles = await fetchYahooCandles(sym, tf);
+    } catch (yErr) {
+      candles = [];
+    }
+    if (!candles || candles.length < 35) {
+      candles = await fetchFromXstarzgApi(sym, tf);
+    }
+    // Backup 1:1 Spot London Gold PAXGUSDT langsung dari Binance (24/7 nonstop, 0 rate limit)
+    if ((!candles || candles.length < 35) && (sym === 'XAU/USD' || sym === 'GOLD')) {
+      const binTf = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
+      candles = await fetchBinanceCandles('PAXG/USDT', binTf);
+    }
+  }
+  return candles || [];
+}
+
+async function scanInstrument(inst, cache, { monitorOnly = false, journalLockKey } = {}) {
+  const { sym, tf } = inst;
   if (!isAssetMarketOpen(sym)) {
     console.log(`  [${sym} ${tf}] Sesi bursa tutup (akhir pekan). Pemindaian dilewati.`);
     return;
   }
   try {
-    let candles = [];
-    if (type === 'crypto') {
-      const interval = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
-      candles = await fetchBinanceCandles(sym, interval);
-    } else {
-      try {
-        candles = await fetchYahooCandles(sym, tf);
-      } catch (yErr) {
-        candles = [];
-      }
-      if (!candles || candles.length < 35) {
-        candles = await fetchFromXstarzgApi(sym, tf);
-      }
-      // Backup 1:1 Spot London Gold PAXGUSDT langsung dari Binance (24/7 nonstop, 0 rate limit)
-      if ((!candles || candles.length < 35) && (sym === 'XAU/USD' || sym === 'GOLD')) {
-        const binTf = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
-        candles = await fetchBinanceCandles('PAXG/USDT', binTf);
-      }
-    }
-
+    const candles = await loadCandles(inst);
     if (!candles || candles.length < 35) {
       console.log(`  [${sym} ${tf}] Data candle tidak cukup (${candles ? candles.length : 0} bar).`);
       return;
     }
-
     const a = runFullAnalysis({ symbol: sym, timeframe: tf, candles });
     await processInstrumentAnalysis({ inst, candles, a, cache, monitorOnly, journalLockKey });
   } catch (err) {
     console.log(`  [${sym} ${tf}] Fetch/analisis dilewati: ${err.message}`);
   }
+}
+
+// Alarm lonceng yang dipasang dari dashboard: kirim notifikasi saat setup baru
+// terbuka (kind 'signal') atau saat harga menyentuh zona entry (kind 'touch').
+async function processAlarm(inst, candles, a, cache, alarmId, alarm, sendFn = sendTelegramMessage) {
+  const { sym, tf } = inst;
+  if (!a || a.error || !candles || !candles.length) return;
+  const lastBar = candles[candles.length - 1];
+  const livePrice = Number(lastBar && lastBar.close);
+  if (!Number.isFinite(livePrice) || livePrice <= 0) return;
+
+  cache.alarmNotified = cache.alarmNotified || {};
+  const kind = alarm.kind === 'touch' ? 'touch' : 'signal';
+  const hasActiveLock = Object.values(cache.slPlusLocks || {}).some(lock => lock && lock.symbol === sym && lock.tf === tf);
+
+  if (kind === 'signal') {
+    if (hasActiveLock) return;
+    if (a.signalEligible !== true || (a.direction !== 'LONG' && a.direction !== 'SHORT')) return;
+    if (a.topDown && a.topDown.isAligned === false) return;
+    const score = Number(a.confluenceScore || a.confidence || 0);
+    if (score < MIN_SCORE) return;
+
+    const key = `${alarmId}|${a.direction}|${a.anchorClosedTime || lastBar.time}`;
+    if (cache.alarmNotified[key]) return;
+    cache.alarmNotified[key] = Date.now();
+
+    const L = a.levels || {};
+    const isLong = a.direction === 'LONG';
+    const dirEmoji = isLong ? '🟢 BUY / LONG' : '🔴 SELL / SHORT';
+    const msgId =
+      `🚨 <b>[ALARM PANTAUAN KHUSUS BERBUNYI — ${sym}]</b>\n\n` +
+      `Aset Pantauan: <b>${sym}</b> (${tf})\n` +
+      `Setup: <b>${dirEmoji} (${a.signalTier || 'PRO'})</b>\n` +
+      `Skor Konfluensi: <b>${score}%</b>\n\n` +
+      `🎯 <b>Entry:</b> ${formatP(L.entry, sym)}\n` +
+      `🛡️ <b>Stop Loss:</b> ${formatP(L.sl, sym)}\n` +
+      `✅ <b>Target TP1:</b> ${formatP(L.tp1, sym)}\n\n` +
+      `⚡ <i>Pair yang Anda pasang alarm khusus baru saja memicu sinyal! Buka aplikasi trading Anda sekarang!</i>`;
+    const msgEn =
+      `🚨 <b>[SPECIAL WATCHLIST ALARM — ${sym}]</b>\n\n` +
+      `Monitored Asset: <b>${sym}</b> (${tf})\n` +
+      `Setup: <b>${dirEmoji} (${a.signalTier || 'PRO'})</b>\n` +
+      `Confidence Score: <b>${score}%</b>\n\n` +
+      `🎯 <b>Entry:</b> ${formatP(L.entry, sym)}\n` +
+      `🛡️ <b>Stop Loss:</b> ${formatP(L.sl, sym)}\n` +
+      `✅ <b>Target TP1:</b> ${formatP(L.tp1, sym)}\n\n` +
+      `⚡ <i>Your monitored pair has just triggered a signal! Check your trading app now!</i>`;
+    await sendFn(msgId, { id: msgId, en: msgEn });
+    await markAlarmFired(alarmId, cache);
+    return;
+  }
+
+  const entry = Number(alarm.entry) || Number(a.levels && a.levels.entry) || 0;
+  if (!entry) return;
+  if (Math.abs(livePrice - entry) / entry > 0.002) return;
+
+  const key = `${alarmId}|touch|${Math.round(entry * 1000)}`;
+  if (cache.alarmNotified[key]) return;
+  cache.alarmNotified[key] = Date.now();
+
+  const msgId =
+    `🎯 <b>[ALARM ENTRY TERSENTUH — ${sym}]</b>\n\n` +
+    `Aset Pantauan: <b>${sym}</b>\n` +
+    `Harga Terkini: <b>${formatP(livePrice, sym)}</b>\n` +
+    `Titik Entry: <b>${formatP(entry, sym)}</b> (${tf})\n\n` +
+    `⚡ <i>Harga pasar baru saja menyentuh zona Entry! Segera eksekusi order Anda di aplikasi broker/exchange!</i>`;
+  const msgEn =
+    `🎯 <b>[ENTRY TOUCH ALARM — ${sym}]</b>\n\n` +
+    `Monitored Asset: <b>${sym}</b>\n` +
+    `Live Price: <b>${formatP(livePrice, sym)}</b>\n` +
+    `Entry Zone: <b>${formatP(entry, sym)}</b> (${tf})\n\n` +
+    `⚡ <i>Price has just hit your entry zone! Place or check your order now!</i>`;
+  await sendFn(msgId, { id: msgId, en: msgEn });
+  await markAlarmFired(alarmId, cache);
 }
 
 async function runSentinel() {
@@ -1253,7 +1572,7 @@ async function runSentinel() {
     const testMsg =
       `✈️ <b>[XSTARZG 24/7 CLOUD SENTINEL — TERHUBUNG!]</b>\n\n` +
       `Halo Trader! Mesin pemantau 24/7 di cloud (GitHub Actions) telah aktif.\n` +
-      `Peluang Skor Besar (≥ ${MIN_SCORE}%) dan peringatan darurat <b>Live SL+ (0-Risk)</b> akan otomatis dikirimkan ke HP Anda tanpa perlu membuka web atau laptop lagi!\n\n` +
+      `Peluang Skor Besar (≥ ${MIN_SCORE}%), peringatan <b>SL+ (0-Risk)</b>, notifikasi <b>TP1/TP2/TP3</b>, dan <b>alarm lonceng</b> akan otomatis dikirim ke HP Anda tanpa perlu membuka web atau laptop lagi!\n\n` +
       `<i>Waktu Server: ${new Date().toUTCString()}</i>`;
     await sendTelegramMessage(testMsg);
     return;
@@ -1261,31 +1580,43 @@ async function runSentinel() {
 
   const cache = loadCache();
   const cloudSynced = await syncActiveLocksFromCloud(cache);
-  if (!cloudSynced) {
-    console.log('⚠️ [XSTARZG SENTINEL] Cloud journal tidak terjangkau; pemantauan dilewati agar cache lama tidak dipakai.');
+  const alarmsSynced = await syncActiveAlarmsFromCloud(cache);
+  if (!cloudSynced && !alarmsSynced) {
+    console.log('⚠️ [XSTARZG SENTINEL] Cloud journal/alarm tidak terjangkau; pemantauan dilewati agar cache lama tidak dipakai.');
     return;
   }
   cache.newAlertsThisRun = 0;
   cache.slHitsThisRun = 0;
 
   const activeLocks = Object.entries(cache.slPlusLocks || {});
-  if (!activeLocks.length) {
-    saveCache(cache);
-    console.log('🧹 [XSTARZG SENTINEL] Tidak ada posisi manual aktif di jurnal; discovery/scan rekomendasi dinonaktifkan.');
-    return;
-  }
 
-  // Sentinel hanya mengambil candle untuk posisi yang lebih dulu tercatat dari analisis manual.
-  // Ia tidak lagi memindai WATCHLIST untuk mencari atau menerbitkan instrumen baru.
-  const monitorTargets = activeLocks.map(([journalLockKey, lock]) => ({
-    journalLockKey,
-    inst: WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf)
-  })).filter(target => target.inst);
-  if (!monitorTargets.length) {
-    saveCache(cache);
-    console.log('ℹ️ [XSTARZG SENTINEL] Posisi aktif tidak ada di cakupan feed pemantauan.');
-    return;
+  // 1. Umumkan entri jurnal manual skor tinggi yang belum pernah dikirim.
+  let announced = 0;
+  const announceWindowMs = 2 * 3600 * 1000;
+  for (const [, lock] of activeLocks) {
+    if (!lock || lock.announcedHighScoreAt) continue;
+    if (Number(lock.score) < MIN_SCORE) continue;
+    // Hanya entri yang benar-benar baru yang diumumkan; entri lama pada
+    // deployment pertama ditandai agar tidak membanjiri Telegram sekaligus.
+    const issuedAt = Number(lock.issuedAt || lock.created || 0);
+    if (!issuedAt || (Date.now() - issuedAt) > announceWindowMs) {
+      lock.announcedHighScoreAt = issuedAt || Date.now();
+      continue;
+    }
+    const sent = await announceJournalEntry(lock);
+    if (sent) {
+      lock.announcedHighScoreAt = Date.now();
+      announced++;
+      await syncJournalToCloud({ action: 'save_lock', lock });
+    }
   }
+  if (announced) console.log(`📣 [XSTARZG SENTINEL] ${announced} peluang skor besar dari jurnal manual telah diumumkan.`);
+
+  // 2. Pantau SEMUA posisi jurnal manual (bukan hanya simbol di WATCHLIST).
+  const monitorTargets = activeLocks.map(([journalLockKey, lock]) => {
+    const watch = WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf);
+    return { journalLockKey, inst: watch || inferInstrument(lock.symbol, lock.tf) };
+  }).filter(target => target.inst);
 
   const concurrency = 6;
   for (let i = 0; i < monitorTargets.length; i += concurrency) {
@@ -1294,8 +1625,27 @@ async function runSentinel() {
       scanInstrument(target.inst, cache, { monitorOnly: true, journalLockKey: target.journalLockKey })
     ));
   }
+
+  // 3. Pantau alarm lonceng walau dashboard sudah ditutup.
+  const alarmEntries = Object.entries(cache.alarms || {});
+  for (let i = 0; i < alarmEntries.length; i += concurrency) {
+    const chunk = alarmEntries.slice(i, i + concurrency);
+    await Promise.all(chunk.map(async ([alarmId, alarm]) => {
+      const inst = inferInstrument(alarm.symbol, alarm.tf);
+      if (!inst || !isAssetMarketOpen(inst.sym)) return;
+      try {
+        const candles = await loadCandles(inst);
+        if (!candles || candles.length < 35) return;
+        const a = runFullAnalysis({ symbol: inst.sym, timeframe: inst.tf, candles });
+        await processAlarm(inst, candles, a, cache, alarmId, alarm);
+      } catch (err) {
+        console.log(`  [${alarm.symbol} ${alarm.tf}] Alarm dilewati: ${err.message}`);
+      }
+    }));
+  }
+
   saveCache(cache);
-  console.log(`🏁 [XSTARZG SENTINEL] Pemantauan posisi manual selesai (${monitorTargets.length} instrumen; tanpa discovery).`);
+  console.log(`🏁 [XSTARZG SENTINEL] Selesai: ${monitorTargets.length} posisi jurnal, ${alarmEntries.length} alarm lonceng.`);
 }
 
 const isDirectExecution = Boolean(process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]));

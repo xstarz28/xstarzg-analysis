@@ -145,7 +145,42 @@ await asyncChk('Sentinel tidak boleh mengirim SL+ pada cycle penerbitan sinyal (
   });
 
   chk('Pesan TP1 Tercapai terkirim', sentMessages.length === 3 && sentMessages[2].includes('TAKE PROFIT 1 TERCAPAI!'));
-  chk('Lock dihapus dari cache setelah TP1 terpenuhi', cache.slPlusLocks['XAU/USD'] === undefined);
+  chk('Lock TETAP dipantau setelah TP1 untuk mengejar TP2/TP3',
+    !!cache.slPlusLocks['XAU/USD'] && cache.slPlusLocks['XAU/USD'].notifiedTp1 === true);
+  chk('Setelah TP1, Stop Loss dikunci minimal di harga entry (break-even)',
+    Number(cache.slPlusLocks['XAU/USD'].slPlus) >= 2650);
+
+  // Run cycle 6: harga mencapai TP2 (2685)
+  const candlesTp2 = [...candles];
+  candlesTp2[candlesTp2.length - 1] = { time: 7000, open: 2675, high: 2687.0, low: 2674, close: 2686.0, volume: 500 };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles: candlesTp2,
+    a: mockAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 75
+  });
+
+  chk('Pesan TP2 Tercapai terkirim', sentMessages.length === 4 && sentMessages[3].includes('TAKE PROFIT 2 TERCAPAI!'));
+  chk('Stop Loss digeser ke TP1 setelah TP2', Number(cache.slPlusLocks['XAU/USD'].slPlus) === 2670);
+
+  // Run cycle 7: harga mencapai target akhir TP3 (2700)
+  const candlesTp3 = [...candles];
+  candlesTp3[candlesTp3.length - 1] = { time: 8000, open: 2690, high: 2702.0, low: 2689, close: 2701.0, volume: 600 };
+
+  await processInstrumentAnalysis({
+    inst,
+    candles: candlesTp3,
+    a: mockAnalysis,
+    cache,
+    sendFn: mockSend,
+    minScore: 75
+  });
+
+  chk('Pesan TP3 Tercapai terkirim', sentMessages.length === 5 && sentMessages[4].includes('TARGET TP3 TERCAPAI!'));
+  chk('Lock ditutup setelah target akhir TP3 terpenuhi', cache.slPlusLocks['XAU/USD'] === undefined);
 });
 
 // 2. Journal & Storage Preservation Checks
