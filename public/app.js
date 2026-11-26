@@ -108,6 +108,21 @@ function ensureChartVendorLoaded() {
     __xsChartVendorRequested = false;
   }
 }
+/* Jaring pengaman: kanvas chart pernah bisa berukuran 0x0 (chart tampak kosong)
+   setelah pindah workspace. Ukur ulang container dan paksa ukuran bila kanvas nol. */
+function ensureChartSized() {
+  try {
+    var el = $id('tvChartContainer');
+    if (!chartInstance || !el) return;
+    var w = el.clientWidth || 0;
+    var h = el.clientHeight || 0;
+    if (w < 40) return;
+    var cv = el.querySelector('canvas');
+    if (!cv || cv.width === 0 || cv.height === 0) {
+      chartInstance.applyOptions({ width: w, height: h || 470 });
+    }
+  } catch (e) {}
+}
 function renderSeedCandlesPreview(candles) {
   if (!Array.isArray(candles) || !candles.length) return;
   try {
@@ -2973,6 +2988,7 @@ function renderAllVisuals(analysis) {
     try { checkSignalAlarm(analysis); } catch (e) {}
     try { checkTelegramHighScoreSignal(analysis, { sym: analysis.symbol, tf: analysis.timeframe }); } catch (e) {}
   }
+  try { ensureChartSized(); } catch (e) {}
   try { renderSignalJournal(); } catch (e) {}
 }
 /* Analisis workspace terbaru menimpa entri pool trader & investor milik instrumen+
@@ -7992,7 +8008,18 @@ function setMode(mode) {
   try {
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function () {
       try { if (typeof initChart === 'function') initChart(); } catch (e) {}
-      try { if (chartInstance && chartInstance.resize) chartInstance.resize(); } catch (e) {}
+      /* JANGAN pakai chartInstance.resize() tanpa argumen: di lightweight-charts
+         versi ini itu mengeset lebar/tinggi menjadi 0 sehingga kanvas chart
+         hilang (chart kosong) setelah pindah workspace. Ukur ulang eksplisit. */
+      try {
+        var chartBox = $id('tvChartContainer');
+        if (chartInstance && chartBox && (chartBox.clientWidth || 0) > 40) {
+          chartInstance.applyOptions({
+            width: chartBox.clientWidth,
+            height: chartBox.clientHeight || 470
+          });
+        }
+      } catch (e) {}
     });
   } catch (e) {}
   if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }

@@ -583,5 +583,7 @@ body { padding-bottom: 34px; }
   .workspace-main-grid { align-items: stretch; }
   .workspace-main-grid > div:first-child { min-height: 0; }
   .workspace-main-grid .chart-card { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 470px; }
-  .workspace-main-grid .chart-card .tv-chart-box { flex: 1 1 0%; height: auto; min-height: 320px; max-height: 820px; }
+  /* Basis 470px: chart TIDAK boleh menyusut saat panel kanan lebih pendek
+     (mis. mode Investor) — ia hanya boleh MEMBESAR mengisi sisa tinggi. */
+  .workspace-main-grid .chart-card .tv-chart-box { flex: 1 1 470px; height: auto; min-height: 470px; max-height: 820px; }
 }
