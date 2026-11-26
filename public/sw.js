@@ -1,5 +1,5 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-// v2026.91 — PERBAIKAN KRITIS: cache lama tidak pernah dilepas.
+// v2026.92 — PERBAIKAN KRITIS: cache lama tidak pernah dilepas.
 // Penyebab web "di-deploy tapi masih hang": handler fetch lama mencocokkan aset
 // dengan { ignoreSearch: true }, sehingga entri lama '/app.js' (tanpa query)
 // SELALU menang atas '/app.js?v=...' yang baru. Akibatnya perangkat yang sudah
@@ -8,7 +8,7 @@
 // Sekarang: aset dicocokkan PERSIS (termasuk ?v=), HTML selalu diambil dari
 // jaringan lebih dulu (cache hanya fallback offline), dan versi cache dinaikkan
 // agar seluruh perangkat lama dibersihkan sekali pada aktivasi berikutnya.
-const CACHE_NAME = 'xstarzg-pwa-v2026.91';
+const CACHE_NAME = 'xstarzg-pwa-v2026.92';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

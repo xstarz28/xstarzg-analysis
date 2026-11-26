@@ -39,7 +39,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.91'), 'sw.js memiliki versi cache segar v2026.91');
+    assert.ok(swJs.includes('xstarzg-pwa-v2026.92'), 'sw.js memiliki versi cache segar v2026.92');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
@@ -171,6 +171,20 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(indexHtml.includes('id="selMemeChain"') && indexHtml.includes('id="inpMemeAddress"'));
     assert.ok(appJs.includes('function searchManualDexToken()'));
     assert.doesNotMatch(appJs, /renderMemePicks|startMemeLiveTicker|fetchMemeCatalogLive/);
+  });
+
+  await t.test('29b. tombol Jalur Owner hanya di-toggle satu handler (tidak dobel-toggle)', () => {
+    assert.ok(appJs.includes("id === 'btnToggleOwnerLogin'"), 'delegated guard menangani tombol owner');
+    const toggles = appJs.match(/blk\.classList\.toggle\('hidden'\)/g) || [];
+    assert.equal(toggles.length, 1, 'ownerLoginBlock hanya di-toggle sekali agar satu tap benar-benar membukanya');
+  });
+
+  await t.test('29c. baris aksi beranda membungkus dan pemilih bahasa selebar layar di HP', () => {
+    const indexHtml = fs.readFileSync(path.join(rootDir, 'public/index.html'), 'utf8');
+    const css = fs.readFileSync(path.join(rootDir, 'public/styles.css'), 'utf8');
+    assert.ok(indexHtml.includes('<div class="nav-actions">'), 'baris aksi beranda memakai kelas nav-actions');
+    assert.match(css, /\.nav-actions \{[^}]*flex-wrap: wrap/, 'nav-actions boleh membungkus tombol');
+    assert.match(css, /\.nav-actions \.lang-select \{[^}]*max-width: 100%/, 'pemilih bahasa tidak terpotong di HP');
   });
 
   await t.test('29. feed sintetis tidak menjalankan full quant engine', () => {

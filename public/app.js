@@ -7093,11 +7093,10 @@ function bindUiEvents() {
     // akan dicoba ulang otomatis saat user menekan tombol verifikasi.
     try { ensureAuthToken().then(function () { updateUserUi(); }).catch(function () {}); } catch (e) {}
   });
-  /* ---- Jalur khusus OWNER: email + kode rahasia, divalidasi penuh di server ---- */
-  bind('btnToggleOwnerLogin', function () {
-    var blk = $id('ownerLoginBlock');
-    if (blk) blk.classList.toggle('hidden');
-  });
+  /* ---- Jalur khusus OWNER: email + kode rahasia, divalidasi penuh di server ----
+     Toggle blok owner sengaja HANYA ditangani delegated click guard di bagian atas
+     berkas. Dulu id yang sama juga di-bind di sini, sehingga satu tap men-toggle
+     dua kali (buka lalu tutup lagi) dan tombol tampak tidak bisa diklik. */
   bind('btnSubmitOwnerLogin', function () {
     var emailEl = $id('ownerEmailInput'), codeEl = $id('ownerCodeInput'), btn = $id('btnSubmitOwnerLogin');
     var email = (emailEl && emailEl.value || '').trim().toLowerCase();
