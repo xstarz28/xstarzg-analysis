@@ -34,12 +34,16 @@ async function d1VipUntil(env, email) {
     return row && row.vip_until ? Number(row.vip_until) : 0;
   } catch (e) { return 0; }
 }
+// true = tersimpan permanen, false = D1 gagal menulis, null = tidak ada binding DB.
+// Lisensi hanya boleh dilaporkan sukses bila benar-benar tersimpan, agar pembeli
+// tidak kehilangan akses saat isolate berikutnya membaca D1 kosong.
 async function d1SetVip(env, email, until) {
+  if (!env || !env.DB) return null;
   try {
-    if (!env || !env.DB) return;
     await env.DB.prepare('INSERT INTO vip_entitlements (email, vip_until, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(email) DO UPDATE SET vip_until = excluded.vip_until, updated_at = excluded.updated_at')
       .bind(email, until, new Date().toISOString()).run();
-  } catch (e) {}
+    return true;
+  } catch (e) { return false; }
 }
 const usedTx = new Set();
 export async function onRequestPost(context) {
@@ -50,6 +54,7 @@ export async function onRequestPost(context) {
     if (!user || !user.email) {
       return Response.json({ ok: false, error: 'Sesi tidak valid. Silakan login ulang lalu verifikasi lagi.' }, { status: 401 });
     }
+    const email = String(user.email).trim().toLowerCase();
     const { txHash } = await context.request.json();
     if (!txHash || !/^0x[a-fA-F0-9]{64}$/.test(txHash.trim())) {
       return Response.json({ ok: false, error: 'Format TxHash BSC tidak valid.' }, { status: 400 });
@@ -83,16 +88,20 @@ export async function onRequestPost(context) {
     if (await isTxUsed(txHash, context.env)) {
       return Response.json({ ok: false, error: 'TxHash ini sudah pernah dipakai untuk aktivasi VIP.' }, { status: 409 });
     }
-    await markTxUsed(txHash, context.env, user.email);
     // Perpanjangan MENUMPUK: basis = max(sekarang, sisa VIP di D1, sisa VIP di token) +30 hari.
     const now = Date.now();
-    const dbUntil = await d1VipUntil(context.env, user.email);
+    const dbUntil = await d1VipUntil(context.env, email);
     const jwtUntil = Number(user.vipUntil) || 0;
     const vipUntil = Math.max(now, dbUntil, jwtUntil) + 30 * 86400000;
-    await d1SetVip(context.env, user.email, vipUntil);
+    const persisted = await d1SetVip(context.env, email, vipUntil);
+    if (persisted === false) {
+      // Jangan tandai txHash terpakai: pembeli boleh mencoba lagi txhash yang sama.
+      return Response.json({ ok: false, error: 'Pembayaran terverifikasi tetapi penyimpanan lisensi gagal. Coba verifikasi ulang beberapa saat lagi.' }, { status: 503 });
+    }
+    await markTxUsed(txHash, context.env, email);
     // AUTO-APPROVE: entitlement ditandatangani server menjadi JWT baru — klien tidak
     // lagi menentukan tiernya sendiri di localStorage.
-    const payload = { email: user.email, name: user.name || user.email.split('@')[0], tier: 'VIP', vipUntil };
+    const payload = { email, name: user.name || email.split('@')[0], tier: 'VIP', vipUntil };
     const token = await signJwt(payload, context.env?.JWT_SECRET || 'xstarzg-2026-quant-secret');
     return Response.json({ ok: true, tier: 'VIP', vipUntil, daysAdded: 30, token });
   } catch (e) {

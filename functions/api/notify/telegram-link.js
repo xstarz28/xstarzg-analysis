@@ -67,8 +67,12 @@ async function ensureWebhookRegistered(request, env, botToken) {
       }
     }
 
-    // Setel webhook otomatis ke domain website aktif saat ini
-    await fetch(`https://api.telegram.org/bot${cleanToken}/setWebhook?url=${encodeURIComponent(expectedWebhookUrl)}`);
+    // Setel webhook otomatis ke domain website aktif saat ini. Jika
+    // TELEGRAM_WEBHOOK_SECRET dipasang, Telegram akan menyertakan secret_token pada
+    // setiap panggilan sehingga request karangan orang luar ditolak webhook.
+    const hookSecret = String((env && env.TELEGRAM_WEBHOOK_SECRET) || '').trim();
+    const secretQuery = hookSecret ? `&secret_token=${encodeURIComponent(hookSecret)}` : '';
+    await fetch(`https://api.telegram.org/bot${cleanToken}/setWebhook?url=${encodeURIComponent(expectedWebhookUrl)}${secretQuery}`);
   } catch (e) {}
 }
 
@@ -78,7 +82,9 @@ export async function onRequest(context) {
 
   const url = new URL(request.url);
   const sentinelKey = request.headers.get('X-Sentinel-Key') || url.searchParams.get('key');
-  const isSentinel = sentinelKey && (sentinelKey === (env && env.SENTINEL_SECRET ? env.SENTINEL_SECRET : 'xstarzg-2026-quant-secret'));
+  // Tanpa SENTINEL_SECRET yang benar-benar dipasang, tidak ada jalur sentinel sama
+  // sekali — kunci default repo tidak boleh bisa mengirim pesan sebagai bot resmi.
+  const isSentinel = !!(sentinelKey && env && env.SENTINEL_SECRET && sentinelKey === env.SENTINEL_SECRET);
 
   // Jika dipanggil oleh 24/7 Cloud Sentinel via background automation
   if (isSentinel && request.method === 'POST') {
@@ -239,12 +245,14 @@ export async function onRequest(context) {
       } catch (e) {}
     }
 
+    // vipUntil WAJIB ikut ditandatangani: tanpa itu webhook memberi masa aktif
+    // default 35 hari sehingga VIP yang sudah habis tetap bisa mengaktifkan bot.
     const activationToken = await signJwt({
       email: user.email,
       tier,
       isOwner: isOwner ? 1 : 0,
       isAffiliate: isAffiliate ? 1 : 0,
-      expDays: isOwner ? 3650 : 35
+      vipUntil: isOwner ? 9999999999999 : vipUntil
     }, env.JWT_SECRET || 'xstarzg-2026-quant-secret');
 
     // Deep link hanya jika botUsername sah (bukan dummy agar tidak error "Username not found")

@@ -41,6 +41,12 @@ jobs:
           node --check functions/api/market/journal-sync.js
           node --check functions/api/market/price-alarms.js
           node --check tests/telegram-bot-alerts.test.mjs
+          node --check tests/telegram-vip.test.mjs
+          node --check functions/api/billing/verify-bsc.js
+          node --check functions/api/notify/telegram.js
+          node --check functions/api/notify/telegram-link.js
+          node --check functions/api/notify/telegram-subscribers.js
+          node --check functions/api/notify/telegram-webhook.js
           node --check public/js/shared/group-analysis.js
       - name: Verify workspace UI and manual-only analysis
         run: node tests/app-static.test.mjs
@@ -56,3 +62,5 @@ jobs:
         run: node --test tests/group-analysis.test.mjs
       - name: Verify Telegram bot journal and bell alerts
         run: node --test tests/telegram-bot-alerts.test.mjs
+      - name: Verify Telegram VIP gating, payment relay and anti-spoof hardening
+        run: node tests/telegram-vip.test.mjs

@@ -639,12 +639,13 @@ await test('telegram relay dispatches using server env.TELEGRAM_BOT_TOKEN when c
   };
 
   try {
+    const env = { TELEGRAM_BOT_TOKEN: '123456:ABC_OFFICIAL_VIP_TOKEN', JWT_SECRET: 'relay_jwt_secret' };
+    const vipToken = await signJwt({ email: 'vip_relay@pro.com', tier: 'VIP', vipUntil: Date.now() + 86400000 }, env.JWT_SECRET);
     const req = new Request('https://xstarzg.com/api/notify/telegram', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + vipToken },
       body: JSON.stringify({ chatId: '1287273759', text: 'High Score Alert SOL/USDT' })
     });
-    const env = { TELEGRAM_BOT_TOKEN: '123456:ABC_OFFICIAL_VIP_TOKEN' };
     const res = await handleTelegramRelay({ request: req, env });
     assert.strictEqual(res.status, 200);
     const data = await res.json();
@@ -656,6 +657,34 @@ await test('telegram relay dispatches using server env.TELEGRAM_BOT_TOKEN when c
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+await test('telegram relay menolak pengguna anonim dan member non-VIP (anti spoof bot resmi)', async () => {
+  const { onRequestPost: handleTelegramRelay } = await import('../functions/api/notify/telegram.js');
+  const env = { TELEGRAM_BOT_TOKEN: '123456:ABC_OFFICIAL_VIP_TOKEN', JWT_SECRET: 'relay_jwt_secret' };
+
+  const anonReq = new Request('https://xstarzg.com/api/notify/telegram', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId: '1287273759', text: 'Pesan palsu' })
+  });
+  assert.strictEqual((await handleTelegramRelay({ request: anonReq, env })).status, 401);
+
+  const freeToken = await signJwt({ email: 'free_relay@pro.com', tier: 'FREE' }, env.JWT_SECRET);
+  const freeReq = new Request('https://xstarzg.com/api/notify/telegram', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + freeToken },
+    body: JSON.stringify({ chatId: '1287273759', text: 'Pesan palsu' })
+  });
+  assert.strictEqual((await handleTelegramRelay({ request: freeReq, env })).status, 403);
+
+  const expiredToken = await signJwt({ email: 'expired_relay@pro.com', tier: 'VIP', vipUntil: Date.now() - 5000 }, env.JWT_SECRET);
+  const expiredReq = new Request('https://xstarzg.com/api/notify/telegram', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + expiredToken },
+    body: JSON.stringify({ chatId: '1287273759', text: 'Pesan palsu' })
+  });
+  assert.strictEqual((await handleTelegramRelay({ request: expiredReq, env })).status, 403);
 });
 
 await test('app.js and index.html support cloud-bot VIP notifications without local botToken', async () => {
@@ -907,6 +936,79 @@ await test('telegram-subscribers maps language preference and sentinel dispatche
   assert.ok(sentinelJs.includes('NEW HIGH-SCORE OPPORTUNITY'));
   assert.ok(sentinelJs.includes('ORDER MISSED / CANCEL PENDING'));
   assert.ok(sentinelJs.includes('SL+ TRIGGERED (0-RISK)'));
+});
+
+await asyncTest('telegram-webhook menolak deep-link VIP yang masa aktifnya sudah habis', async () => {
+  const mockDb = new MockD1();
+  const env = { DB: mockDb, TELEGRAM_BOT_TOKEN: '12345678:TEST_TOKEN', JWT_SECRET: 'test_jwt_secret_123' };
+  let sent = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url.includes('api.telegram.org')) {
+      sent.push(JSON.parse(options.body));
+      return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+    }
+    return originalFetch(url, options);
+  };
+  try {
+    const expiredToken = await signJwt({
+      email: 'lapsed_vip@gmail.com',
+      tier: 'VIP',
+      vipUntil: Date.now() - 86400000
+    }, env.JWT_SECRET);
+    const req = new Request('https://xstarzg.com/api/notify/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { chat: { id: 121212121 }, text: `/start ${expiredToken}` } })
+    });
+    const res = await handleWebhook({ request: req, env });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(mockDb.tables.telegram_subscribers.size, 0);
+    assert.ok(sent.length === 1 && sent[0].text.includes('AKSES DITOLAK'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await asyncTest('telegram-webhook menolak pembajakan email premium milik akun Telegram lain', async () => {
+  const mockDb = new MockD1();
+  const env = { DB: mockDb, TELEGRAM_BOT_TOKEN: '12345678:TEST_TOKEN', JWT_SECRET: 'test_jwt_secret_123' };
+  mockDb.tables.vip_entitlements.set('real_owner@gmail.com', { vip_until: Date.now() + 86400000 * 20 });
+  await mockDb.prepare('INSERT INTO telegram_subscribers VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind('111000111', 'real_owner@gmail.com', 'VIP', Date.now() + 86400000 * 20, 0, 0, new Date().toISOString())
+    .run();
+  let sent = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url.includes('api.telegram.org')) {
+      sent.push(JSON.parse(options.body));
+      return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+    }
+    return originalFetch(url, options);
+  };
+  try {
+    const req = new Request('https://xstarzg.com/api/notify/telegram-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { chat: { id: 222000222 }, text: 'email saya real_owner@gmail.com' } })
+    });
+    const res = await handleWebhook({ request: req, env });
+    assert.strictEqual(res.status, 200);
+    assert.ok(sent.length === 1 && sent[0].text.includes('SUDAH TERHUBUNG'));
+    assert.strictEqual(mockDb.tables.telegram_subscribers.has('222000222'), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await asyncTest('telegram-subscribers menolak kunci default lama saat SENTINEL_SECRET tidak dipasang', async () => {
+  const res = await handleSubscribers({
+    request: new Request('https://xstarzg.com/api/notify/telegram-subscribers', {
+      headers: { 'X-Sentinel-Key': 'xstarzg-2026-quant-secret' }
+    }),
+    env: { DB: new MockD1() }
+  });
+  assert.strictEqual(res.status, 401);
 });
 
 console.log(`\nTELEGRAM VIP SUITE: ${passed} passed, ${failed} failed`);

@@ -1,43 +1,65 @@
-import { authenticateRequest } from '../../lib/auth.js';
+import { authenticateRequest, isPrivilegedVip } from '../../lib/auth.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sentinel-Key',
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'no-store'
 };
+
+async function d1VipUntil(env, email) {
+  try {
+    if (!env || !env.DB || !email) return 0;
+    const row = await env.DB.prepare('SELECT vip_until FROM vip_entitlements WHERE email = ?1').bind(email).first();
+    return row && row.vip_until ? Number(row.vip_until) : 0;
+  } catch (e) { return 0; }
+}
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
-// Fallback relay pengiriman notifikasi Telegram
-// Digunakan oleh browser trader (VIP / Owner) untuk mengirim alert instan tanpa perlu mengekspos Bot Token ke client-side.
-export async function onRequestPost({ request }) {
-  const env = (arguments[0] && arguments[0].env) || {};
+// Fallback relay pengiriman notifikasi Telegram.
+// Eksklusif: hanya Member VIP/Owner/Affiliate yang login, atau Sentinel 24/7 dengan
+// SENTINEL_SECRET, yang boleh memakai relay ini. Tanpa gerbang ini siapa pun bisa
+// memakai bot resmi untuk mengirim pesan palsu ke chat ID mana pun.
+export async function onRequestPost({ request, env }) {
+  const e = env || {};
   try {
+    const sentinelKey = request.headers.get('X-Sentinel-Key') || '';
+    const isSentinel = !!(e.SENTINEL_SECRET && sentinelKey === e.SENTINEL_SECRET);
+    if (!isSentinel) {
+      const user = await authenticateRequest(request, e);
+      if (!user || !user.email) {
+        return Response.json({ ok: false, error: 'Silakan login terlebih dahulu.' }, { status: 401, headers: CORS });
+      }
+      const until = await d1VipUntil(e, user.email);
+      if (!isPrivilegedVip(user, until)) {
+        return Response.json({ ok: false, error: 'VIP_REQUIRED', message: 'Notifikasi Telegram eksklusif Member VIP yang aktif.' }, { status: 403, headers: CORS });
+      }
+    }
     const body = await request.json();
     let { token, chatId, text } = body || {};
 
     if (!token) {
-      token = (env && env.TELEGRAM_BOT_TOKEN) || '';
-      if (!token && env && env.DB) {
+      token = (e && e.TELEGRAM_BOT_TOKEN) || '';
+      if (!token && e && e.DB) {
         try {
-          const row = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'telegram_bot_token'").first();
+          const row = await e.DB.prepare("SELECT value FROM system_settings WHERE key = 'telegram_bot_token'").first();
           if (row && row.value) token = String(row.value).trim();
-        } catch (e) {}
+        } catch (err) {}
       }
     }
 
-    if (!chatId) {
+    if (!chatId && !isSentinel) {
       try {
-        const user = await authenticateRequest(request, env);
-        if (user && user.email && env && env.DB) {
-          const row = await env.DB.prepare('SELECT chat_id FROM telegram_subscribers WHERE email = ?1').bind(user.email).first();
+        const user = await authenticateRequest(request, e);
+        if (user && user.email && e && e.DB) {
+          const row = await e.DB.prepare('SELECT chat_id FROM telegram_subscribers WHERE email = ?1').bind(user.email).first();
           if (row && row.chat_id) chatId = row.chat_id;
         }
-      } catch (e) {}
+      } catch (err) {}
     }
 
     if (!token || !chatId || !text) {

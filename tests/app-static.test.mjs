@@ -427,7 +427,7 @@ chk('Cloud Sentinel hanya memantau posisi manual aktif dan tidak melakukan disco
   sentinelScript.includes('const monitorTargets = activeLocks.map') &&
   sentinelScript.includes('WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf)') &&
   sentinelWorkflow.includes('XStarZG 24/7 Manual Position Monitor') &&
-  sentinelWorkflow.includes("cron: '*/15 * * * *'") &&
+  sentinelWorkflow.includes("cron: '*/5 * * * *'") &&
   sentinelWorkflow.includes('TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}') &&
   sentinelWorkflow.includes('TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}'));
 chk('kredensial Sentinel tidak di-hardcode dan hanya dibaca dari environment secret',
@@ -465,7 +465,7 @@ chk('pengiriman notifikasi bot telegram live SL+ & sinyal institusional skor bes
   app.includes('SL+ TERPICU — 0-RISK ALERT') &&
   app.includes('PELUANG BARU SKOR BESAR') &&
   app.includes('api.telegram.org/bot') &&
-  tgRelay.includes('export async function onRequestPost({ request })') &&
+  tgRelay.includes('export async function onRequestPost({ request, env })') &&
   tgRelay.includes('api.telegram.org'));
 
 chk('validasi input token/chatId & penanganan error spesifik telegram (anti-encodeURIComponent colon)',
@@ -506,7 +506,8 @@ chk('endpoint otentikasi & deep-link telegram vip serta webhook proteksi orang l
 
 chk('market sentinel hanya berjalan via cron/manual, bukan setiap push kode',
   !sentinelWorkflow.includes('  push:') &&
-  sentinelWorkflow.includes("cron: '*/15 * * * *'") &&
+  sentinelWorkflow.includes("cron: '*/5 * * * *'") &&
+  !sentinelWorkflow.includes("cron: '*/15 * * * *'") &&
   !sentinelWorkflow.includes("cron: '*/30 * * * *'") &&
   !sentinelWorkflow.includes("cron: '15,45 * * * *'") &&
   sentinelWorkflow.includes('workflow_dispatch:') &&

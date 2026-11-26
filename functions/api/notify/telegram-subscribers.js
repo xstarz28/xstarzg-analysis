@@ -1,10 +1,11 @@
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const secret = url.searchParams.get('key') || request.headers.get('X-Sentinel-Key') || '';
-  const expectedSecret = env.SENTINEL_SECRET || env.JWT_SECRET || 'xstarzg-2026-quant-secret';
-
-  // Proteksi: hanya sentinel berizin yang berhak meminta daftar subscriber VIP
-  if (secret !== expectedSecret && secret !== 'xstarzg-2026-quant-secret') {
+  // Proteksi: hanya sentinel berizin yang berhak meminta daftar subscriber VIP.
+  // Tidak ada kunci fallback hardcoded — tanpa secret di environment, endpoint
+  // ini tertutup total (sebelumnya default repo bisa membocorkan chat ID & token bot).
+  const expectedSecret = String((env && (env.SENTINEL_SECRET || env.JWT_SECRET)) || '').trim();
+  if (!expectedSecret || secret !== expectedSecret) {
     return Response.json({ ok: false, error: 'Unauthorized sentinel request.' }, { status: 401 });
   }
 

@@ -1,7 +1,21 @@
 import { verifyJwt, isOwnerEmail } from '../../lib/auth.js';
 
+async function d1VipUntil(env, email) {
+  try {
+    if (!env || !env.DB || !email) return 0;
+    const row = await env.DB.prepare('SELECT vip_until FROM vip_entitlements WHERE email = ?1').bind(String(email).toLowerCase()).first();
+    return row && row.vip_until ? Number(row.vip_until) : 0;
+  } catch (e) { return 0; }
+}
+
 export async function onRequestPost({ request, env }) {
   try {
+    // Jika TELEGRAM_WEBHOOK_SECRET dipasang, hanya panggilan Telegram yang membawa
+    // secret_token tersebut yang diproses — request karangan orang luar ditolak.
+    const hookSecret = String((env && env.TELEGRAM_WEBHOOK_SECRET) || '').trim();
+    if (hookSecret && request.headers.get('X-Telegram-Bot-Api-Secret-Token') !== hookSecret) {
+      return Response.json({ ok: false, error: 'Unauthorized webhook call.' }, { status: 401 });
+    }
     const update = await request.json();
     const msg = update && (update.message || update.edited_message);
     if (!msg || !msg.chat || !msg.text) return Response.json({ ok: true });
@@ -78,20 +92,27 @@ export async function onRequestPost({ request, env }) {
         } catch (e) {}
       }
 
-      // Jalur B (Fallback): Cek jika argumen berupa token JWT bertanda tangan HMAC
+      // Jalur B (Fallback): Cek jika argumen berupa token JWT bertanda tangan HMAC.
+      // Lisensi berbayar harus MASIH BERLAKU (vipUntil di token + konfirmasi D1),
+      // bukan sekadar "pernah VIP" — agar bot mati otomatis saat masa aktif habis.
       if (!verifiedUser) {
         try {
           const payload = await verifyJwt(arg, env.JWT_SECRET || 'xstarzg-2026-quant-secret');
           if (payload && payload.email) {
-            const isOwner = payload.isOwner === 1 || payload.tier === 'OWNER';
+            const isOwner = payload.isOwner === 1 || payload.tier === 'OWNER' || payload.tier === 'OWNER_VIP' || isOwnerEmail(payload.email);
             const isAffiliate = payload.isAffiliate === 1 || payload.tier === 'AFFILIATE';
-            verifiedUser = {
-              email: payload.email,
-              tier: isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : (payload.tier || 'VIP')),
-              vip_until: isOwner ? 9999999999999 : (payload.vipUntil || (Date.now() + 35 * 86400000)),
-              is_owner: isOwner ? 1 : 0,
-              is_affiliate: isAffiliate ? 1 : 0
-            };
+            const tokenUntil = Number(payload.vipUntil) || 0;
+            const dbUntil = await d1VipUntil(env, payload.email);
+            const effectiveUntil = Math.max(tokenUntil, dbUntil);
+            if (isOwner || isAffiliate || effectiveUntil > Date.now()) {
+              verifiedUser = {
+                email: payload.email,
+                tier: isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP'),
+                vip_until: isOwner ? 9999999999999 : effectiveUntil,
+                is_owner: isOwner ? 1 : 0,
+                is_affiliate: isAffiliate ? 1 : 0
+              };
+            }
           }
         } catch (e) {}
       }
@@ -139,6 +160,23 @@ export async function onRequestPost({ request, env }) {
       let tier = 'VIP';
       let vipUntil = 0;
       let isOwner = false;
+
+      // Anti-pembajakan: email premium yang SUDAH terikat ke akun Telegram lain tidak
+      // boleh diambil alih hanya dengan mengetikkan alamat emailnya. Pemilik sah harus
+      // memakai deep-link 1-klik dari web (login Google) untuk memindahkan koneksi.
+      if (env && env.DB) {
+        try {
+          const existing = await env.DB.prepare('SELECT chat_id FROM telegram_subscribers WHERE LOWER(email) = ?1 LIMIT 1').bind(email).first();
+          if (existing && existing.chat_id && String(existing.chat_id) !== chatId) {
+            await sendReply(
+              `⛔ <b>EMAIL INI SUDAH TERHUBUNG KE AKUN TELEGRAM LAIN</b>\n\n` +
+              `Demi keamanan, email <code>${email}</code> tidak bisa dipindahkan hanya dengan mengetik alamatnya.\n\n` +
+              `👉 Login ke website XStarZG dengan Google, buka menu Telegram VIP, lalu tekan tombol buka bot sekali lagi untuk memindahkan koneksi ke akun Telegram Anda.`
+            );
+            return Response.json({ ok: true, rejected: true });
+          }
+        } catch (e) {}
+      }
 
       if (isOwnerEmail(email)) {
         isVip = true;
