@@ -2342,6 +2342,99 @@ function renderPillars(a) {
   }
 }
 
+/* ==================== 6B. ANALISIS INSTRUMEN PER KELOMPOK (SNIPER MTF) ====================
+   Menampilkan daftar psikologi, teknikal, dan fundamental untuk kelompok aktif.
+   Hanya konfluensi yang SEARAH yang dihitung ke skor sniper; indikator konteks
+   tetap tampil tetapi tidak menambah skor (anti skor-inflasi). */
+function gaItemHtml(item) {
+  var tone = item.tone || 'neutral';
+  var stCls = item.counted ? ' on' : (item.criterion ? ' miss' : '');
+  var stTxt = item.counted ? '✓ ' + T('ui.gaCounted', 'dihitung') : item.criterion ? '✗ ' + T('ui.gaMiss', 'belum') : T('ui.gaContext', 'konteks');
+  return '<div class="ga-item ' + tone + '">' +
+    '<div class="ga-item-top"><span class="ga-label">' + item.label + '</span>' +
+    '<span class="ga-count' + stCls + '">' + stTxt + '</span></div>' +
+    '<div class="ga-value">' + item.value + '</div>' +
+    (item.note ? '<div class="ga-note">' + item.note + '</div>' : '') +
+    '</div>';
+}
+function gaCardHtml(icon, title, items) {
+  var body = '';
+  for (var i = 0; i < items.length; i++) body += gaItemHtml(items[i]);
+  return '<div class="ga-card"><div class="ga-card-head"><span>' + icon + '</span> <span>' + title + '</span></div>' +
+    '<div class="ga-card-body">' + body + '</div></div>';
+}
+function renderGroupAnalysisInto(containerId, group, dex) {
+  var el = $id(containerId);
+  if (!el) return;
+  var isId = (typeof currentLang !== 'undefined' ? currentLang : 'id') === 'id';
+  var model = null;
+  try {
+    if (window.XSGroup && typeof window.XSGroup.buildGroupAnalysis === 'function') {
+      model = window.XSGroup.buildGroupAnalysis({
+        group: group, analysis: state.lastAnalysis, candles: state.candles, dex: dex || null, lang: isId ? 'id' : 'en'
+      });
+    }
+  } catch (e) { model = null; }
+  if (!model) {
+    // Modul dimuat asinkron lewat engine-boot; applyEngines() akan menggambar ulang
+    // begitu modul siap, jadi tampilkan status netral (bukan seolah rusak).
+    el.innerHTML = '<div class="ga-empty">' + (isId
+      ? 'Menyiapkan mesin analisis kelompok…'
+      : 'Preparing the group analysis engine…') + '</div>';
+    return;
+  }
+  if (model.empty) {
+    el.innerHTML = '<div class="ga-empty">' + (group === 'dex'
+      ? (isId ? 'Cari lalu pilih pair DEX dulu — daftar psikologi, teknikal, dan fundamental akan terisi otomatis.' : 'Search and pick a DEX pair first — psychology, technical and fundamental lists fill automatically.')
+      : (isId ? 'Pilih instrumen secara manual lalu tekan Analisis — daftar psikologi, teknikal, dan fundamental kelompok ini akan terisi otomatis.' : 'Select an instrument manually then press Analyze — this group psychology, technical and fundamental list fills automatically.')) + '</div>';
+    return;
+  }
+  if (containerId === 'groupAnalysisBody') {
+    setTxt('groupAnalysisTitle', model.title);
+    var badge = $id('groupAnalysisBadge');
+    if (badge) {
+      badge.textContent = group === 'investor' ? (isId ? 'INVESTOR • SPOT DCA' : 'INVESTOR • SPOT DCA') : (isId ? 'TRADER • SNIPER MTF' : 'TRADER • SNIPER MTF');
+      badge.className = 'ga-badge' + (group === 'investor' ? ' ga-badge-investor' : '');
+    }
+  }
+  var dirUp = model.direction === 'LONG' || model.direction === 'BULLISH';
+  var dirDown = model.direction === 'SHORT' || model.direction === 'BEARISH';
+  var dirTxt = dirUp ? '▲ ' + (isId ? 'BIAS NAIK' : 'BULLISH BIAS') : dirDown ? '▼ ' + (isId ? 'BIAS TURUN' : 'BEARISH BIAS') : '◆ ' + (isId ? 'NETRAL / TUNGGU' : 'NEUTRAL / WAIT');
+  var dirCol = dirUp ? '#10b981' : dirDown ? '#f43f5e' : '#f59e0b';
+  var bandCol = (model.band === 'ELITE' || model.band === 'PRO') ? '#10b981' : model.band === 'WATCH' ? '#f59e0b' : '#94a3b8';
+  var ladder = '';
+  for (var li = 0; li < model.ladder.rows.length; li++) {
+    var row = model.ladder.rows[li];
+    var rowTone = row.bias === 'BULLISH' ? 'bull' : row.bias === 'BEARISH' ? 'bear' : 'neutral';
+    ladder += '<div class="ga-step ' + rowTone + '">' +
+      '<span class="ga-step-tier">' + row.tier + '</span>' +
+      '<span class="ga-step-tf">' + row.tfs + '</span>' +
+      '<span class="ga-step-role">' + row.role + '</span>' +
+      '<strong class="ga-step-bias">' + row.detail + '</strong></div>';
+  }
+  el.innerHTML =
+    '<div class="ga-scorebar">' +
+      '<div class="ga-score-main"><span class="ga-score-num" style="color:' + bandCol + ';">' + model.score + '</span>' +
+      '<span class="ga-score-max">/100</span>' +
+      '<span class="ga-band" style="color:' + bandCol + ';border-color:' + bandCol + ';">' + model.band + '</span></div>' +
+      '<div class="ga-score-dir" style="color:' + dirCol + ';">' + dirTxt + '</div>' +
+    '</div>' +
+    '<div class="ga-score-note">' + model.scoreNote + '</div>' +
+    '<div class="ga-ladder">' + ladder + '</div>' +
+    '<div class="ga-grid">' +
+      gaCardHtml('🧠', isId ? 'Psikologi Pasar' : 'Market Psychology', model.psychology) +
+      gaCardHtml('📐', isId ? 'Teknikal — Sniper MTF' : 'Technical — Sniper MTF', model.technical) +
+      gaCardHtml('📊', isId ? 'Fundamental' : 'Fundamental', model.fundamental) +
+    '</div>';
+}
+function renderGroupAnalysis() {
+  renderGroupAnalysisInto('groupAnalysisBody', state.mode === 'investor' ? 'investor' : 'trader');
+}
+function renderMemeGroupAnalysis() {
+  renderGroupAnalysisInto('memeGroupAnalysis', 'dex', {
+    pair: activeMemeToken, candles: activeMemeCandles, security: activeMemeSecurity
+  });
+}
 function renderNarrative(a) {
   var box = $id('narrativeHumanBox');
   if (!box) return;
@@ -2874,6 +2967,7 @@ function renderAllVisuals(analysis) {
   try { renderPanels(analysis); } catch (e) {}
   try { renderNarrative(analysis); } catch (e) {}
   try { renderPillars(analysis); } catch (e) {}
+  try { renderGroupAnalysis(); } catch (e) {}
   var isFeedEst = !analysis || analysis.__estFeed || analysis.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(state.feedSource));
   if (!isFeedEst) {
     try { checkSignalAlarm(analysis); } catch (e) {}
@@ -5012,6 +5106,7 @@ function drawInvestorPickCards(items) {
 function renderInvestorPicks() { return; }
 /* ==================== MEME & DEX GEM RADAR (ANTI-RUG SCANNER) ==================== */
 var activeMemeToken = null;
+var activeMemeSecurity = {};
 var activeMemeChartView = 'candles';
 var activeMemeTf = 'M5';
 var activeMemeCandles = [];
@@ -5063,6 +5158,7 @@ function renderDexMarket(result) {
   setDexText('memeInspectMcap', Number(pair.fdv) > 0 ? '$' + formatCompactNum(pair.fdv) : 'Unavailable');
   setDexText('memeInspectChg24h', pair.marketStatus || 'Unavailable');
   var security = result.security || {};
+  activeMemeSecurity = security;
   setDexText('memeInspectSafetyBadge', security.status === 'verified' ? 'Verified' : 'Unverified');
   setDexText('memeInspectBuyPressure', security.holderDistribution || 'Unavailable');
   setDexText('memeSecurityStatus', security.message || 'On-chain security data unavailable/unverified.');
@@ -5080,6 +5176,7 @@ function renderDexMarket(result) {
   setDexText('memeMarketSource', 'Market source: ' + (result.marketSource || 'Unavailable') + ' · OHLCV source: ' + (result.ohlcvSource || 'Unavailable') + ' · as of ' + (result.asOf || 'Unavailable') + ' · freshness: ' + (result.freshness || 'Unavailable') + ' · validity: ' + (result.validity || 'unverified'));
   renderDexTechnical(activeMemeCandles);
   drawMemeCandleChart(pair, activeMemeCandles);
+  try { renderMemeGroupAnalysis(); } catch (e) {}
 }
 async function analyzeManualDexPair(pairAddress) {
   if (!pairAddress || !activeMemeChainValue()) return;
@@ -5155,6 +5252,7 @@ function invalidateManualDexSelection() {
   memePairAnalysisSeq++;
   memePairResults = [];
   activeMemeToken = null;
+  activeMemeSecurity = {};
   activeMemeCandles = [];
   var results = $id('memeSearchResults');
   if (results) results.textContent = '';
@@ -5171,6 +5269,7 @@ function invalidateManualDexSelection() {
   if (fund) fund.textContent = 'Tokenomics, holder distribution, and sentiment are unavailable until verified data is loaded.';
   renderDexTechnical([]);
   drawMemeCandleChart(null, []);
+  try { renderMemeGroupAnalysis(); } catch (e) {}
 }
 
 function formatCompactNum(n) {
@@ -6513,6 +6612,12 @@ function syncModeSections() {
 
   if (tiWrap) tiWrap.classList.toggle('hidden', isMeme || isNews || isJournal);
   if (memeWrap) memeWrap.classList.toggle('hidden', !isMeme);
+  if (isMeme) { try { renderMemeGroupAnalysis(); } catch (e) {} }
+  // Panel setup mengikuti mode aktif tanpa menunggu analisis baru — inilah yang
+  // membuat workspace Investor (valuasi & DCA) hilang saat mode ditukar.
+  var traderPanel = $id('traderSetupPanel'), invPanel = $id('investorSetupPanel');
+  if (traderPanel) traderPanel.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
+  if (invPanel) invPanel.classList.toggle('hidden', !isInv);
   if (newsWrap) newsWrap.classList.toggle('hidden', !isNews);
   if (journalWrap) journalWrap.classList.toggle('hidden', !isJournal);
   if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
@@ -6850,6 +6955,7 @@ function enterWorkspace() {
     if (sk) { try { sk.style.display = 'none'; } catch (e) {} }
     updateUserUi();
     syncModeSections();
+    try { renderGroupAnalysis(); } catch (e) {}
     try { renderInstrumentCatalog(); } catch (e) {}
     if (!state.manualInstrumentSelection) {
       state.candles = [];
@@ -7857,6 +7963,26 @@ function setMode(mode) {
   if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
   syncHorizonTabs();
   syncModeSections();
+  /* Ruang kerja aktif harus langsung terisi: panel setup sudah ditukar di
+     syncModeSections, lalu analisis dihitung ulang untuk mode ini (TF investor
+     D1/W1/MN/1Y berbeda dari TF trader) agar daftar teknikal/fundamental dan
+     skor sniper tidak tampak kosong setelah pindah mode. */
+  try {
+    if ((mode === 'trader' || mode === 'investor') && state.manualInstrumentSelection &&
+        state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') {
+      window.runFullAnalysis(true);
+    } else if (state.lastAnalysis) {
+      try { renderPanels(state.lastAnalysis); } catch (e) {}
+      try { renderPillars(state.lastAnalysis); } catch (e) {}
+      try { renderGroupAnalysis(); } catch (e) {}
+    }
+  } catch (e) {}
+  try {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function () {
+      try { if (typeof initChart === 'function') initChart(); } catch (e) {}
+      try { if (chartInstance && chartInstance.resize) chartInstance.resize(); } catch (e) {}
+    });
+  } catch (e) {}
   if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
   else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
   renderMacroMap();
@@ -7962,6 +8088,8 @@ function bootCore() {
     if (qc) QC = qc;
     if (se) SE = se;
     renderInstrumentCatalog();
+    try { renderGroupAnalysis(); } catch (e) {}
+    try { renderMemeGroupAnalysis(); } catch (e) {}
     // Expanded crypto catalog is opt-in: load it only when the user selects CRYPTO.
     // Setelah restore-refresh engine mungkin belum siap saat analisa awal jalan
     // (fallback ringan) -> jalankan ulang satu kali agar 22 pilar penuh tampil.

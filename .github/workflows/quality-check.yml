@@ -39,6 +39,7 @@ jobs:
           node --check scripts/market-sentinel.mjs
           node --check functions/api/dex/analysis.js
           node --check functions/api/market/journal-sync.js
+          node --check public/js/shared/group-analysis.js
       - name: Verify workspace UI and manual-only analysis
         run: node tests/app-static.test.mjs
       - name: Verify manual journal and reset invariants
@@ -49,3 +50,5 @@ jobs:
         run: node --test tests/manual-dex-analysis.test.mjs tests/journal-sync-account-scope.test.mjs tests/manual-signal-lock-journal-integration.test.mjs
       - name: Verify timeframe signal engine regressions
         run: node --test tests/engine-v2.test.mjs
+      - name: Verify per-group sniper multi-timeframe analysis
+        run: node --test tests/group-analysis.test.mjs
