@@ -13,12 +13,14 @@ const CORS = {
   'Cache-Control': 'public, max-age=300'
 };
 
-// R multiple per hasil akhir. TP memakai target 1:2 yang memang dipublikasikan.
+/* R multiple per hasil akhir. TP memakai target 1:2 yang memang dipublikasikan.
+   STRUCTURE_INVALID = setup ditolak/diinvalidasi SEBELUM terisi (proteksi data),
+   jadi BUKAN loss trading: 0R dan tidak dihitung sebagai kekalahan. */
 const R_BY_STATUS = {
   TP_HIT: 2,
   BE_SAVED: 0,
   SL_HIT: -1,
-  STRUCTURE_INVALID: -0.5,
+  STRUCTURE_INVALID: 0,
   EXPIRED: 0,
   CANCELLED: 0,
   MISSED: 0
@@ -29,17 +31,20 @@ export async function onRequestOptions() {
 }
 
 export function aggregatePerformance(rows = []) {
-  let wins = 0, losses = 0, be = 0;
+  let wins = 0, losses = 0, be = 0, invalid = 0;
   let totalR = 0, grossWin = 0, grossLoss = 0, equity = 0, peak = 0, maxDD = 0;
+  const byStatus = {};
   const curve = [{ i: 0, r: 0 }];
   const chronological = [...rows].sort((a, b) =>
     Number(a.at || a.issued_at || 0) - Number(b.at || b.issued_at || 0));
   chronological.forEach((row, index) => {
     const status = String(row.status || row.outcome_status || '').toUpperCase();
     const r = Object.prototype.hasOwnProperty.call(R_BY_STATUS, status) ? R_BY_STATUS[status] : 0;
+    byStatus[status] = (byStatus[status] || 0) + 1;
     if (status === 'TP_HIT') wins++;
-    else if (status === 'SL_HIT' || status === 'STRUCTURE_INVALID') losses++;
+    else if (status === 'SL_HIT') losses++;
     else if (status === 'BE_SAVED') be++;
+    else if (status === 'STRUCTURE_INVALID') invalid++;
     totalR += r;
     equity += r;
     if (r > 0) grossWin += r;
@@ -55,6 +60,8 @@ export function aggregatePerformance(rows = []) {
     wins,
     losses,
     be,
+    invalid,
+    byStatus,
     decided,
     winRate: decided ? Math.round((wins / decided) * 100) : 0,
     totalR: Number(totalR.toFixed(2)),
