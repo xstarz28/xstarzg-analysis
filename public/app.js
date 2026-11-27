@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.04';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.05';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.04';
+    bootScript.src = '/js/engine-boot.js?v=2027.05';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -898,7 +898,15 @@ function renderInstrumentCatalog(query) {
   if (!sel) return;
   var cat = ($id('selCategory') || {}).value || 'ALL';
   var q = (query !== undefined ? query : (($id('inpSearchAsset') || {}).value || '')).trim().toUpperCase();
+  syncInvestorCatalogFilters();
   var catalog = currentCatalog();
+  // Investor hanya melihat aset yang bisa dibeli nyata (crypto spot & saham).
+  var investSet = null;
+  if (state.mode === 'investor') {
+    investSet = {};
+    var invRows = investableUniverse();
+    for (var invI = 0; invI < invRows.length; invI++) investSet[invRows[invI].symbol] = true;
+  }
   var groups = [
     { key: 'crypto', label: '₿ CRYPTO SPOT GLOBAL', items: [] },
     { key: 'metals', label: '🥇 LOGAM MULIA', items: [] },
@@ -910,6 +918,7 @@ function renderInstrumentCatalog(query) {
   var i, inst;
   for (i = 0; i < catalog.length; i++) {
     inst = catalog[i];
+    if (investSet && !investSet[inst.symbol]) continue;
     if (!matchesCategory(inst, cat)) continue;
     if (q && inst.symbol.toUpperCase().indexOf(q) === -1 && (inst.name || '').toUpperCase().indexOf(q) === -1) continue;
     if (inst.assetClass === 'crypto') groups[0].items.push(inst);
@@ -925,8 +934,12 @@ function renderInstrumentCatalog(query) {
   for (var g = 0; g < groups.length; g++) {
     var grp = groups[g];
     if (!grp.items.length) continue;
+    // Tandai aset yang sesinya sedang tutup (akhir pekan / di luar jam bursa) supaya
+    // pengguna tahu kenapa tidak ada sinyal baru — bukan karena mesin rusak.
+    var grpClosed = grp.key !== 'crypto' && !isAssetMarketOpen(grp.items[0].symbol);
+    var closedTag = grpClosed ? ' ' + T('ui.eMktClosedSuffix', '⏸ SESI TUTUP') : '';
     var og = document.createElement('optgroup');
-    og.label = grp.label + ' (' + grp.items.length + (grp.key === 'crypto' && cryptoPairsLoaded ? '+' : '') + ')';
+    og.label = grp.label + ' (' + grp.items.length + (grp.key === 'crypto' && cryptoPairsLoaded ? '+' : '') + ')' + closedTag;
     var limit = Math.min(grp.items.length, MAX_PER_GROUP);
     // Pastikan simbol aktif selalu ada di daftar walaupun melewati batas render
     var active = null;
@@ -936,7 +949,7 @@ function renderInstrumentCatalog(query) {
     var rendered = {};
     if (active) {
       var optA = document.createElement('option');
-      optA.value = active.symbol; optA.textContent = active.symbol + ' — ' + (active.name || '');
+      optA.value = active.symbol; optA.textContent = active.symbol + ' — ' + (active.name || '') + closedTag;
       optA.selected = true;
       og.appendChild(optA); rendered[active.symbol] = true;
       symbolPresent = true;
@@ -946,7 +959,7 @@ function renderInstrumentCatalog(query) {
       if (rendered[inst.symbol]) continue;
       var opt = document.createElement('option');
       opt.value = inst.symbol;
-      opt.textContent = inst.symbol + ' — ' + (inst.name || '');
+      opt.textContent = inst.symbol + ' — ' + (inst.name || '') + closedTag;
       if (inst.symbol === state.symbol) { opt.selected = true; symbolPresent = true; }
       og.appendChild(opt);
     }
@@ -5110,12 +5123,26 @@ function syncHorizonTabs() {
    dinilai merata, bukan cuma aset besar. Kurasi menampilkan hanya kandidat yang
    bias makro D1/W1 akumulatif (layak diinvestasikan sesuai horizon waktunya). */
 function investableUniverse() {
-  // Ruang kerja investor fokus pada aset yang punya siklus akumulasi & psikologi
-  // pasar jelas: saham (IDX/global) dan crypto spot. Logam/forex tetap tersedia
-  // di workspace Trader, bukan sebagai rekomendasi akumulasi jangka panjang.
-  return catalogSortedStable().filter(function (inst) {
+  // Ruang kerja investor fokus pada aset yang benar-benar bisa dibeli/diakumulasi:
+  // saham (IDX/global) dan crypto spot (termasuk pair Binance real-time).
+  // Logam/forex/komoditas tetap ada di workspace Trader, bukan rekomendasi investasi.
+  return currentCatalog().filter(function (inst) {
     return inst.assetClass === 'stocks' || inst.assetClass === 'crypto';
   });
+}
+/* Sembunyikan kategori yang tidak bisa diinvestasikan saat workspace Investor aktif,
+   supaya pemilih instrumen tidak menawarkan emas/forex/komoditas kontrak. */
+function syncInvestorCatalogFilters() {
+  var selCat = $id('selCategory');
+  if (!selCat) return;
+  var investorOnly = state.mode === 'investor';
+  var allowed = { ALL: 1, IDX: 1, US_STOCKS: 1, CRYPTO: 1 };
+  Array.prototype.forEach.call(selCat.options, function (o) {
+    var keep = !investorOnly || allowed[o.value] === 1;
+    o.hidden = !keep;
+    o.disabled = !keep;
+  });
+  if (investorOnly && allowed[selCat.value] !== 1) selCat.value = 'ALL';
 }
 var investorPickRunSeq = 0;
 var investorPickCache = { ts: 0, items: [] };
@@ -5717,8 +5744,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.04',
-        badge: '/assets/favicon.svg?v=2027.04',
+        icon: '/assets/favicon.svg?v=2027.05',
+        badge: '/assets/favicon.svg?v=2027.05',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -8317,6 +8344,24 @@ function setMode(mode) {
   var sub = $id('traderSubModeWrap');
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
   if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
+  /* Investor tidak boleh mendarat di emas/forex/komoditas: pindahkan otomatis ke
+     aset investasi nyata pertama (crypto/saham), lalu muat feed-nya. */
+  if (mode === 'investor') {
+    try {
+      var invUniverse = investableUniverse();
+      var curInvestable = false;
+      for (var iu = 0; iu < invUniverse.length; iu++) {
+        if (invUniverse[iu].symbol === state.symbol) { curInvestable = true; break; }
+      }
+      if (!curInvestable && invUniverse.length) {
+        var targetSym = invUniverse[0].symbol;
+        try { syncInvestorCatalogFilters(); } catch (e) {}
+        if (typeof gotoInstrument === 'function') gotoInstrument(targetSym, state.timeframe);
+        else state.symbol = targetSym;
+      }
+    } catch (e) {}
+  }
+  try { syncInvestorCatalogFilters(); renderInstrumentCatalog(); } catch (e) {}
   syncHorizonTabs();
   syncModeSections();
   /* Ruang kerja aktif harus langsung terisi: panel setup sudah ditukar di

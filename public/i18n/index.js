@@ -1,3 +1,5 @@
+import englishDictionary from './locales/en.js';
+
 export const SUPPORTED_LANGUAGES = [
   { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', flag: '🇮🇩', dir: 'ltr' },
   { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸', dir: 'ltr' },
@@ -84,7 +86,7 @@ export async function setLanguage(langCode) {
     return activeDictionary;
   }
   try {
-    const mod = await import(`./locales/${currentLang}.js?v=2027.04`);
+    const mod = await import(`./locales/${currentLang}.js?v=2027.05`);
     activeDictionary = mod.default || {};
     dictionaryCache.set(currentLang, activeDictionary);
   } catch (_) {
@@ -96,17 +98,26 @@ export async function setLanguage(langCode) {
 export function getLanguage() {
   return currentLang;
 }
+function readKey(dict, parts) {
+  let cur = dict;
+  for (const p of parts) {
+    if (cur && typeof cur === 'object' && p in cur) cur = cur[p];
+    else return null;
+  }
+  return typeof cur === 'string' ? cur : null;
+}
+/* Rantai fallback: kamus bahasa aktif -> kamus English -> teks cadangan kode.
+   Artinya kunci yang baru ditambahkan (atau belum diterjemahkan penuh) TIDAK
+   pernah bocor sebagai bahasa Indonesia di UI berbahasa lain. */
 export function t(keyPath, fallback = '') {
   const parts = String(keyPath).split('.');
-  let cur = activeDictionary;
-  for (const p of parts) {
-    if (cur && typeof cur === 'object' && p in cur) {
-      cur = cur[p];
-    } else {
-      return fallback || keyPath;
-    }
+  const direct = readKey(activeDictionary, parts);
+  if (direct != null) return direct;
+  if (currentLang !== FALLBACK_LANGUAGE) {
+    const english = readKey(englishDictionary, parts);
+    if (english != null) return english;
   }
-  return typeof cur === 'string' ? cur : fallback || keyPath;
+  return fallback || keyPath;
 }
 export function applyTranslationsToDOM() {
   document.querySelectorAll('[data-i18n]').forEach((el) => {

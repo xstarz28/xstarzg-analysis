@@ -8,14 +8,14 @@
     html, body { background-color: #020617; color: #f8fafc; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .hidden { display: none !important; }
   </style>
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2027.04" />
-  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2027.04" />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2027.05" />
+  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2027.05" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="stylesheet" href="/styles.css?v=2027.04" />
+  <link rel="stylesheet" href="/styles.css?v=2027.05" />
   <!-- SEO & Search Engine Discovery -->
   <meta name="description" content="XStarZG Analysis — Terminal Analisis Kuantitatif, Smart Money Concepts (SMC) & Valuasi Multi-Aset Real-Time (Crypto, Forex, Emas XAU/USD, Komoditas & Saham IDX). Presisi institusional dengan manajemen risiko otomatis." />
   <meta name="keywords" content="XStarZG, XStarZG Analysis, Trading Terminal, Quantitative Analysis, Smart Money Concepts, SMC, ICT Order Block, Fair Value Gap, FVG, Crypto Screener, Forex Signals, XAUUSD, Emas IDR, Saham IDX, Risk Management, Trading Decision Support" />
@@ -64,7 +64,7 @@
         "operatingSystem": "All (Web Browser, Windows, macOS, Linux, Android, iOS)",
         "inLanguage": ["id", "en"],
         "browserRequirements": "Requires JavaScript. Requires HTML5.",
-        "softwareVersion": "2027.04",
+        "softwareVersion": "2027.05",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -392,8 +392,8 @@
         <button type="button" id="btnTelegramVipAccess" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(14,165,233,0.4);color:#38bdf8;" title="Notifikasi otomatis Sinyal Skor Besar & Live SL+ 24/7 langsung ke HP (Khusus Member VIP, Owner & Affiliate)" data-i18n-title="ui.tgBtnTitle">
           <span id="lblTelegramVipIcon">✈️</span> <span id="lblTelegramVipText" data-i18n="ui.tgBtn">Notif Telegram 24/7 (VIP)</span>
         </button>
-        <button type="button" id="btnOpenInstagramModal" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(225,48,108,0.45);color:#fb7185;" title="Kunjungi &amp; Follow Instagram @xstarzganalysis — DM Chat untuk Masukan &amp; Kritik">
-          <span>💬</span> <span id="lblIgBtnText">Masukan &amp; Kritik (Instagram)</span>
+        <button type="button" id="btnOpenInstagramModal" class="btn-secondary-outline" style="padding:6px 12px;font-size:12px;border-color:rgba(225,48,108,0.45);color:#fb7185;" title="Kunjungi &amp; Follow Instagram @xstarzganalysis — DM Chat untuk Masukan &amp; Kritik" data-i18n-title="ui.igBtnTitle">
+          <span>💬</span> <span id="lblIgBtnText" data-i18n="ui.igBtnLabel">Masukan &amp; Kritik (Instagram)</span>
         </button>
       </div>
     </section>
@@ -883,7 +883,7 @@
             <button type="button" id="btnTelegramVipAccessJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(14,165,233,0.18);color:#38bdf8;border:1px solid rgba(14,165,233,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Notifikasi otomatis SL+ ke Telegram HP 24/7 (Khusus VIP & Owner)" data-i18n-title="ui.tgBtnTitle">
               <span>✈️</span> <span id="lblTelegramVipJnlText" data-i18n="ui.tgBtn">Notif Telegram 24/7 (VIP)</span>
             </button>
-            <button type="button" id="btnOpenInstagramModalJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(225,48,108,0.15);color:#fb7185;border:1px solid rgba(225,48,108,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Kirim masukan &amp; kritik langsung ke Instagram @xstarzganalysis">
+            <button type="button" id="btnOpenInstagramModalJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(225,48,108,0.15);color:#fb7185;border:1px solid rgba(225,48,108,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Kirim masukan &amp; kritik langsung ke Instagram @xstarzganalysis" data-i18n-title="ui.igBtnTitle">
               <span>📸</span> <span>DM Instagram (@xstarzganalysis)</span>
             </button>
             <button type="button" id="btnClearAllJournalHistory" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(244,63,94,0.15);color:#fda4af;border:1px solid rgba(244,63,94,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Hapus semua riwayat catatan trade dan mulai dari awal">
@@ -1101,12 +1101,12 @@
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
         <div>
           <label id="lblAddInvSym" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Simbol / Aset (mis. BBCA.JK, NVDA, BTC/USDT, XAU/USD)</label>
-          <input type="text" id="inpAddInvSymbol" class="ctrl-input" placeholder="misal: BTC/USDT atau BBCA.JK" style="width:100%;padding:8px 10px;" />
+          <input type="text" id="inpAddInvSymbol" class="ctrl-input" placeholder="misal: BTC/USDT atau BBCA.JK" data-i18n-ph="ui.invSymPh" style="width:100%;padding:8px 10px;" />
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div>
             <label id="lblAddInvEntry" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Harga Beli / Entry</label>
-            <input type="number" step="any" id="inpAddInvEntry" class="ctrl-input" placeholder="Harga beli..." style="width:100%;padding:8px 10px;" />
+            <input type="number" step="any" id="inpAddInvEntry" class="ctrl-input" placeholder="Harga beli..." data-i18n-ph="ui.invEntryPh" style="width:100%;padding:8px 10px;" />
           </div>
           <div>
             <label id="lblAddInvTarget1" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Target Jual 1 (Opsional)</label>
@@ -1238,7 +1238,7 @@
 
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script defer src="/app.js?v=2027.04"></script>
-  <script type="module" src="/i18n/boot.js?v=2027.04"></script>
+  <script defer src="/app.js?v=2027.05"></script>
+  <script type="module" src="/i18n/boot.js?v=2027.05"></script>
 </body>
 </html>
