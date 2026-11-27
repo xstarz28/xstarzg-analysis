@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.16';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.17';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.16';
+    bootScript.src = '/js/engine-boot.js?v=2027.17';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3509,7 +3509,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.16) ====================
+/* ==================== MORNING DESK NOTE (v2027.17) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -6110,8 +6110,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.16',
-        badge: '/assets/favicon.svg?v=2027.16',
+        icon: '/assets/favicon.svg?v=2027.17',
+        badge: '/assets/favicon.svg?v=2027.17',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -6172,13 +6172,15 @@ function checkSignalAlarm(analysis) {
     var tpTxt = L.tp1 ? formatPrice(L.tp1, sym) : '-';
     var slTxt = L.sl ? formatPrice(L.sl, sym) : '-';
 
-    var title = '🔔 SETUP ' + analysis.direction + ' TERBUKA: [' + sym + '] (' + tf + ')';
-    var body = (analysis.signalTier || 'ELITE') + ' Setup • Skor ' + (analysis.convictionScore || analysis.confluenceScore || 50) + '% • Entry: ' + entryTxt + ' • TP1: ' + tpTxt + ' • SL: ' + slTxt;
-    triggerAlarmAlert(title, body, sym, tf);
-
     var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
-    var isEn = curLang !== 'id' && curLang !== 'ms';
+    // Fallback non-Indonesia memakai English: Melayu tidak boleh menerima teks Indonesia.
+    var isEn = curLang !== 'id';
     var score = analysis.convictionScore || analysis.confluenceScore || 50;
+    var title = isEn
+      ? ('🔔 ' + analysis.direction + ' SETUP OPEN: [' + sym + '] (' + tf + ')')
+      : ('🔔 SETUP ' + analysis.direction + ' TERBUKA: [' + sym + '] (' + tf + ')');
+    var body = (analysis.signalTier || 'ELITE') + ' Setup • ' + (isEn ? 'Score ' : 'Skor ') + score + '% • Entry: ' + entryTxt + ' • TP1: ' + tpTxt + ' • SL: ' + slTxt;
+    triggerAlarmAlert(title, body, sym, tf);
 
     var tgAlarmMsg = isEn ? (
       '🚨 <b>[SPECIAL WATCHLIST ALARM — ' + sym + ']</b>\n\n' +
@@ -6212,12 +6214,15 @@ function checkSignalAlarm(analysis) {
       if (alarmState.lastAlertKey === touchKey) return;
       alarmState.lastAlertKey = touchKey;
 
-      var titleTouch = '🎯 HARGA MENYENTUH ENTRY: [' + sym + ']';
-      var bodyTouch = 'Harga terkini ' + formatPrice(p, sym) + ' menyentuh titik Entry ' + formatPrice(en, sym) + ' (' + (analysis.timeframe || state.tf) + ')';
-      triggerAlarmAlert(titleTouch, bodyTouch, sym, analysis.timeframe);
-
       var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
-      var isEn = curLang !== 'id' && curLang !== 'ms';
+      var isEn = curLang !== 'id';
+      var titleTouch = isEn
+        ? ('🎯 ENTRY TOUCHED: [' + sym + ']')
+        : ('🎯 HARGA MENYENTUH ENTRY: [' + sym + ']');
+      var bodyTouch = isEn
+        ? ('Live price ' + formatPrice(p, sym) + ' reached the Entry level ' + formatPrice(en, sym) + ' (' + (analysis.timeframe || state.tf) + ')')
+        : ('Harga terkini ' + formatPrice(p, sym) + ' menyentuh titik Entry ' + formatPrice(en, sym) + ' (' + (analysis.timeframe || state.tf) + ')');
+      triggerAlarmAlert(titleTouch, bodyTouch, sym, analysis.timeframe);
       var tgTouchMsg = isEn ? (
         '🎯 <b>[ENTRY TOUCH ALARM — ' + sym + ']</b>\n\n' +
         'Monitored Asset: <b>' + sym + '</b>\n' +
@@ -6307,7 +6312,7 @@ function toggleSignalAlarm() {
     showAlarmToast('🔔 ALARM AKTIF', 'XStarZG memantau setup sinyal & entry untuk [' + alarmState.symbol + ']. Lonceng & notifikasi browser akan berbunyi saat peluang terbuka.');
 
     var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
-    var isEn = curLang !== 'id' && curLang !== 'ms';
+    var isEn = curLang !== 'id';
     var tgConfirm = isEn ? (
       '🔔 <b>[PRIORITY ALARM ACTIVATED: ' + alarmState.symbol + ']</b>\n\n' +
       'Asset: <b>' + alarmState.symbol + '</b> is now being monitored with high priority!\n' +
@@ -6602,7 +6607,7 @@ function updateTelegramUi() {
   var btnJnl = $id('btnTelegramVipAccessJnl') || $id('btnOpenTelegramModalJnl');
 
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
-  var isEn = curLang !== 'id' && curLang !== 'ms';
+  var isEn = curLang !== 'id';
 
   var iconMain = btnMain ? btnMain.querySelector('span:first-child') : null;
   var iconJnl = btnJnl ? btnJnl.querySelector('span:first-child') : null;
@@ -6687,7 +6692,7 @@ function updateTelegramUi() {
 function formatTelegramError(rawErr) {
   var err = String(rawErr || '');
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
-  var isEn = curLang !== 'id' && curLang !== 'ms';
+  var isEn = curLang !== 'id';
 
   if (/chat not found/i.test(err)) {
     return isEn ?
@@ -6712,7 +6717,7 @@ function formatTelegramError(rawErr) {
 
 function validateTelegramInputs(token, chatId) {
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
-  var isEn = curLang !== 'id' && curLang !== 'ms';
+  var isEn = curLang !== 'id';
 
   var cleanToken = String(token || '').trim().replace(/^bot/i, '');
   var cleanChatId = String(chatId || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
@@ -6934,7 +6939,7 @@ function checkTelegramHighScoreSignal(a, item) {
   }
 
   var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
-  var isEn = curLang !== 'id' && curLang !== 'ms';
+  var isEn = curLang !== 'id';
 
   var hzLabel = hz === 'scalping' ? '⚡ SCALPING' : (hz === 'swing' ? '🌊 SWING' : '🎯 INTRADAY');
   var dirEmoji = a.direction === 'LONG' ?
