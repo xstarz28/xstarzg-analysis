@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.10';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.11';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.10';
+    bootScript.src = '/js/engine-boot.js?v=2027.11';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3506,7 +3506,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.10) ====================
+/* ==================== MORNING DESK NOTE (v2027.11) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -3784,6 +3784,7 @@ function renderDeskNote() {
   if (realized) {
     var rc2 = realized.rc;
     auditBody += '<div style="margin-top:5px;font-size:10.8px;color:' + (rc2.hit ? '#34d399' : '#fb7185') + ';">' +
+      '<b>' + escH(realized.ev.title) + '</b> (' + newsWibTime(realized.ev.ts) + ' WIB) — ' +
       fillTpl(T('ui.newsRealizedHead', 'AFTER NEWS — realized on {sym}'), { sym: escH(state.symbol) }) + ': ' +
       (rc2.hit ? T('ui.deskAuditHit', '✅ matched the bias') : T('ui.deskAuditMiss', '❌ went against the bias')) +
       ' (' + (rc2.movePct > 0 ? '+' : '') + rc2.movePct.toFixed(2) + '% / ' + rc2.bars + ' bar)</div>';
@@ -6106,8 +6107,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.10',
-        badge: '/assets/favicon.svg?v=2027.10',
+        icon: '/assets/favicon.svg?v=2027.11',
+        badge: '/assets/favicon.svg?v=2027.11',
         requireInteraction: true
       });
       n.onclick = function () {
