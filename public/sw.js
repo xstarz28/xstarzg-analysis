@@ -1,5 +1,5 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-// v2027.09 — analisis per kelompok (Sniper MTF) + cache baru.
+// v2027.10 — analisis per kelompok (Sniper MTF) + cache baru.
 // v2026.92 — PERBAIKAN KRITIS: cache lama tidak pernah dilepas.
 // Penyebab web "di-deploy tapi masih hang": handler fetch lama mencocokkan aset
 // dengan { ignoreSearch: true }, sehingga entri lama '/app.js' (tanpa query)
@@ -9,7 +9,7 @@
 // Sekarang: aset dicocokkan PERSIS (termasuk ?v=), HTML selalu diambil dari
 // jaringan lebih dulu (cache hanya fallback offline), dan versi cache dinaikkan
 // agar seluruh perangkat lama dibersihkan sekali pada aktivasi berikutnya.
-const CACHE_NAME = 'xstarzg-pwa-v2027.09';
+const CACHE_NAME = 'xstarzg-pwa-v2027.10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
