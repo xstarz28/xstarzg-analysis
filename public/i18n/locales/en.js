@@ -836,6 +836,7 @@ export default {
     "filterCatTitle": "Filter Asset Category",
     "invNotesPh": "e.g. monthly DCA installment in an undervalued area",
     "memeAnalysisTitle": "🚀 DEX Meme Analysis — Psychology • Technical • Fundamental (MTF Sniper)",
-    "memeSafeCount": "0 Coins 2x (0-Risk)"
+    "memeSafeCount": "0 Coins 2x (0-Risk)",
+    "macroCardTitle": "Fundamental &amp; macro regime"
   }
 };

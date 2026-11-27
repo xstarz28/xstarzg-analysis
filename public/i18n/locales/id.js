@@ -835,6 +835,7 @@ export default {
     "filterCatTitle": "Filter Kategori Aset",
     "invNotesPh": "misal: Cicil DCA bulanan di area undervalue",
     "memeAnalysisTitle": "🚀 Analisis DEX Meme — Psikologi • Teknikal • Fundamental (Sniper MTF)",
-    "memeSafeCount": "0 Koin 2x (0-Risk)"
+    "memeSafeCount": "0 Koin 2x (0-Risk)",
+    "macroCardTitle": "Fundamental &amp; regime makro"
   }
 };

@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.14';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.15';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.14';
+    bootScript.src = '/js/engine-boot.js?v=2027.15';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -460,6 +460,9 @@ function localizeEngineString(s) {
     return fillTpl(T('ui.eRsOrb', s), { orb: localizeEngineString(m[1]), range: m[2] || '', ti: m[3], theta: localizeEngineString(m[4]), ve: localizeEngineString(m[5]), er: m[6] });
   }
   if ((m = s.match(/^\[CFTC COT & Fundamental\] Spekulan Institusi (\d+)% Long \((.*)\) \| (.*)\.$/))) {
+    return fillTpl(T('ui.eRsCot', s), { pct: m[1], bias: localizeEngineString(m[2]), vm: localizeEngineString(m[3]) });
+  }
+  if ((m = s.match(/^\[CFTC COT & Fundamentals\] Institutional Speculators (\d+)% Long \((.*)\) \| (.*)\.$/))) {
     return fillTpl(T('ui.eRsCot', s), { pct: m[1], bias: localizeEngineString(m[2]), vm: localizeEngineString(m[3]) });
   }
   if ((m = s.match(/^\[MA Stack\] Harga (.+) vs EMA20 (.+) \/ EMA50 (.+) \| RSI\(14\): (.+)\.$/))) {
@@ -3506,7 +3509,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.14) ====================
+/* ==================== MORNING DESK NOTE (v2027.15) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -6107,8 +6110,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.14',
-        badge: '/assets/favicon.svg?v=2027.14',
+        icon: '/assets/favicon.svg?v=2027.15',
+        badge: '/assets/favicon.svg?v=2027.15',
         requireInteraction: true
       });
       n.onclick = function () {
