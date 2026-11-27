@@ -90,34 +90,69 @@ function scoreBand(score, direction) {
   return 'NO-TRADE';
 }
 
-function buildLadder(lang, htf, mtf, ltf) {
+function tierRows(tfRows, ids) {
+  if (!Array.isArray(tfRows)) return [];
+  return tfRows.filter(r => ids.indexOf(r.id) > -1);
+}
+
+function tfMark(bias) {
+  return bias === 'BULLISH' ? '▲' : bias === 'BEARISH' ? '▼' : '◆';
+}
+
+/* Konsensus TF per tier dari tangga nyata (D1/H4, H1/M15, M5/M1). */
+function tierBias(rows, fallback) {
+  const live = (rows || []).filter(r => r.available && r.bias !== 'NEUTRAL');
+  if (!live.length) return fallback || 'NEUTRAL';
+  const bull = live.filter(r => r.bias === 'BULLISH').length;
+  const bear = live.filter(r => r.bias === 'BEARISH').length;
+  if (bull && bear) return 'NEUTRAL';
+  return bull ? 'BULLISH' : 'BEARISH';
+}
+
+function tfStrip(rows) {
+  if (!Array.isArray(rows) || !rows.length) return '';
+  return rows.map(r => r.id + ' ' + (r.available ? tfMark(r.bias) : '—')).join(' • ');
+}
+
+function buildLadder(lang, htf, mtf, ltf, tfRows) {
   const state = ladderState(htf, mtf, ltf);
   const dirTxt = (bias) => bias === 'BULLISH'
     ? txt(lang, '▲ Bullish', '▲ Bullish')
     : bias === 'BEARISH' ? txt(lang, '▼ Bearish', '▼ Bearish') : txt(lang, '◆ Netral', '◆ Neutral');
+  const htfReads = tierRows(tfRows, ['D1', 'H4']);
+  const mtfReads = tierRows(tfRows, ['H1', 'M15']);
+  const ltfReads = tierRows(tfRows, ['M5', 'M1']);
+  /* Bukti per TF ditampilkan apa adanya: TF yang datanya tidak tersedia diberi
+     tanda — (bukan ditebak) supaya pembaca tahu mana yang benar-benar dibaca. */
+  const detailOf = (reads, bias) => {
+    const live = reads.filter(r => r.available);
+    if (!live.length) return dirTxt(bias);
+    return live.map(r => r.id + ' ' + tfMark(r.bias)).join(' • ') +
+      (reads.some(r => !r.available) ? ' • ' + txt(lang, 'sebagian TF belum tersedia', 'some TFs unavailable') : '');
+  };
   return {
     state,
     rows: [
       {
         tier: 'HTF',
-        tfs: 'D1 – H4',
+        tfs: htfReads.length ? tfStrip(htfReads) : 'D1 – H4',
         role: txt(lang, 'Arah tren & likuiditas makro', 'Macro trend direction & liquidity'),
         bias: htf,
-        detail: dirTxt(htf)
+        detail: detailOf(htfReads, htf)
       },
       {
         tier: 'MTF',
-        tfs: 'H1 – M15',
+        tfs: mtfReads.length ? tfStrip(mtfReads) : 'H1 – M15',
         role: txt(lang, 'Struktur Order Block / FVG', 'Order Block / FVG structure'),
         bias: mtf,
-        detail: dirTxt(mtf)
+        detail: detailOf(mtfReads, mtf)
       },
       {
         tier: 'LTF',
-        tfs: 'M5 – M1',
+        tfs: ltfReads.length ? tfStrip(ltfReads) : 'M5 – M1',
         role: txt(lang, 'Konfirmasi pemicu entry', 'Entry trigger confirmation'),
         bias: ltf,
-        detail: dirTxt(ltf)
+        detail: detailOf(ltfReads, ltf)
       }
     ]
   };
@@ -140,10 +175,11 @@ function buildTrader(lang, a) {
   const official = engineDir !== 'NEUTRAL';
   const want = direction === 'LONG' ? 'BULLISH' : direction === 'SHORT' ? 'BEARISH' : 'NEUTRAL';
 
-  const htf = td.macroBias || 'NEUTRAL';
-  const mtf = td.structBias || (num(ind.smcStatus && ind.smcStatus.indexOf('BULL') > -1 ? 1 : 0) ? 'BULLISH' : 'NEUTRAL');
-  const ltf = td.execBias || (num(ind.macdHist) >= 0 ? 'BULLISH' : 'BEARISH');
-  const ladder = buildLadder(lang, htf, mtf, ltf);
+  const tfRows = (a && a.timeframes && Array.isArray(a.timeframes.rows)) ? a.timeframes.rows : null;
+  const htf = tierBias(tierRows(tfRows, ['D1', 'H4']), td.macroBias || 'NEUTRAL');
+  const mtf = tierBias(tierRows(tfRows, ['H1', 'M15']), td.structBias || (num(ind.smcStatus && ind.smcStatus.indexOf('BULL') > -1 ? 1 : 0) ? 'BULLISH' : 'NEUTRAL'));
+  const ltf = tierBias(tierRows(tfRows, ['M5', 'M1']), td.execBias || (num(ind.macdHist) >= 0 ? 'BULLISH' : 'BEARISH'));
+  const ladder = buildLadder(lang, htf, mtf, ltf, tfRows);
 
   const sweepText = String(ind.liquiditySweep || 'NONE');
   const fvgText = String(ind.fvgNote || '-');
@@ -214,10 +250,11 @@ function buildInvestor(lang, a) {
   const price = num(a && a.lastPrice);
   const fair = num(lv.poc, price) * 0.55 + num(lv.vwap, price) * 0.45;
   const mosPct = fair > 0 ? ((price - fair) / fair) * 100 : 0;
-  const htf = td.macroBias || 'NEUTRAL';
-  const mtf = td.structBias || 'NEUTRAL';
-  const ltf = td.execBias || 'NEUTRAL';
-  const ladder = buildLadder(lang, htf, mtf, ltf);
+  const tfRows = (a && a.timeframes && Array.isArray(a.timeframes.rows)) ? a.timeframes.rows : null;
+  const htf = tierBias(tierRows(tfRows, ['D1', 'H4']), td.macroBias || 'NEUTRAL');
+  const mtf = tierBias(tierRows(tfRows, ['H1', 'M15']), td.structBias || 'NEUTRAL');
+  const ltf = tierBias(tierRows(tfRows, ['M5', 'M1']), td.execBias || 'NEUTRAL');
+  const ladder = buildLadder(lang, htf, mtf, ltf, tfRows);
   const dca1 = num(lv.dcaZone1, price);
   const nearDca = dca1 > 0 && price > 0 ? Math.abs(price - dca1) / price <= 0.02 : false;
   const cyclePct = num(mq.posCyclePct, 50);
@@ -356,7 +393,9 @@ export function buildGroupAnalysis({ group = 'trader', analysis = null, candles 
   const officialScore = officialSignal ? Math.round(Number(analysis.confluenceScore)) : null;
   const score = officialScore == null ? criteriaScore : officialScore;
   const execBias = td.execBias || 'NEUTRAL';
-  const execConfirmed = direction !== 'NEUTRAL' && execBias === direction;
+  /* Konfirmasi eksekusi memakai bukti M5/M1 (persistensi 2 candle) bila engine
+     menyediakannya; bila belum terverifikasi di TF ini, jangan diklaim konfirmasi. */
+  const execConfirmed = direction !== 'NEUTRAL' && execBias === direction && td.execConfirmed !== false;
   const rawBand = scoreBand(score, direction === 'BULLISH' ? 'LONG' : direction === 'BEARISH' ? 'SHORT' : direction);
   const awaitingOfficial = safeGroup === 'trader' && built.official === false && direction !== 'NEUTRAL';
   const band = awaitingOfficial && (rawBand === 'ELITE' || rawBand === 'PRO') ? 'WATCH' : rawBand;
@@ -373,13 +412,18 @@ export function buildGroupAnalysis({ group = 'trader', analysis = null, candles 
       : 'Score only sums aligned confluences (' + countedTotal + '/' + built.scored.length + ' criteria). Context indicators add no score.');
   }
   if (safeGroup === 'trader') {
+    const execUnknown = td.execConfirmed == null;
     noteParts.push(execConfirmed
       ? (language === 'id'
-        ? 'Eksekusi sniper dikonfirmasi di M5/M1 (' + execBias + ') — entry boleh dijalankan sesuai level.'
-        : 'Sniper execution confirmed on M5/M1 (' + execBias + ') — the entry may be executed at the stated levels.')
+        ? 'Eksekusi sniper dikonfirmasi di M5/M1 (' + execBias + ', 2 candle searah) — entry boleh dijalankan sesuai level.'
+        : 'Sniper execution confirmed on M5/M1 (' + execBias + ', two aligned candles) — the entry may be executed at the stated levels.')
+      : execUnknown
+      ? (language === 'id'
+        ? 'Eksekusi M5/M1 belum terverifikasi dari feed TF ini — bot cloud memeriksa M5/M1 sebelum mengirim sinyal; M15 tetap acuan struktur.'
+        : 'M5/M1 execution is not verifiable from this TF feed — the cloud bot checks M5/M1 before sending a signal; M15 remains the structure reference.')
       : (language === 'id'
-        ? 'Eksekusi M5/M1 belum searah (' + execBias + ') — sniper menunggu pemicu, jangan kejar harga; M15 tetap acuan struktur.'
-        : 'M5/M1 execution is not aligned yet (' + execBias + ') — the sniper waits for the trigger, do not chase; M15 remains the structure reference.'));
+        ? 'Eksekusi M5/M1 BERBALIK arah (' + execBias + ') — sniper menahan entry; limit order sekarang akan menangkap pisau jatuh.'
+        : 'M5/M1 execution has turned AGAINST the setup (' + execBias + ') — the sniper holds fire; a limit order now would catch a falling knife.'));
   }
   if (awaitingOfficial) {
     noteParts.push(language === 'id'
@@ -399,6 +443,7 @@ export function buildGroupAnalysis({ group = 'trader', analysis = null, candles 
     totalCriteria: built.scored.length,
     execution: { timeframe: 'M5/M1', bias: execBias, confirmed: execConfirmed },
     scoreNote: noteParts.join(' '),
+    timeframes: (analysis && analysis.timeframes) ? analysis.timeframes : null,
     ladder: built.ladder,
     psychology: built.psychology,
     technical: built.technical,

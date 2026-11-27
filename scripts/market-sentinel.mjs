@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runFullAnalysis } from '../public/js/shared/signal-engine.js';
+import { runFullAnalysis, confirmExecutionTimeframes } from '../public/js/shared/signal-engine.js';
 import { calcEMA, calcSMA } from '../public/js/shared/quant-core.js';
 import { evaluateDoctrine } from '../public/js/shared/trading-doctrine.js';
 
@@ -667,13 +667,15 @@ export async function announceJournalEntry(lock, sendFn = sendTelegramMessage) {
       '📊 <b>KESELARASAN PASAR (TOP-DOWN ALIGNED):</b>\n' +
       `• 1D–4H Makro: <b>${td.macroBias || '-'}</b> (Arah & Likuiditas)\n` +
       `• 1H–15m Struktur: <b>${td.structBias || '-'}</b> (Order Block & FVG)\n` +
-      `• 5m–1m Eksekusi: <b>${dir}</b> (Konfirmasi Entry)\n` +
+      `• 5m–1m Eksekusi: <b>${dir}</b> (${td.execConfirmed === true ? '✓ terkonfirmasi 2 candle' : '⏳ menunggu pemicu M5/M1'})\n` +
+      (td.timeframes ? `🧭 Bukti Multi-TF: <code>${tfEvidenceLine(td)}</code> (keselarasan ${td.agreementPct || 0}%)\n` : '') +
       (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
     topDownBlockEn =
       '📊 <b>MARKET ALIGNMENT (TOP-DOWN ALIGNED):</b>\n' +
       `• 1D–4H Macro: <b>${td.macroBias || '-'}</b> (Direction & Liquidity)\n` +
       `• 1H–15m Structure: <b>${td.structBias || '-'}</b> (OB & FVG)\n` +
-      `• 5m–1m Execution: <b>${dir}</b> (Entry Confirmation)\n` +
+      `• 5m–1m Execution: <b>${dir}</b> (${td.execConfirmed === true ? '✓ confirmed on 2 candles' : '⏳ waiting for the M5/M1 trigger'})\n` +
+      (td.timeframes ? `🧭 Multi-TF evidence: <code>${tfEvidenceLine(td)}</code> (${td.agreementPct || 0}% agreement)\n` : '') +
       (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
   }
 
@@ -789,6 +791,25 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     console.log(`  [${sym} ${tf}] 🟡 Menunggu keselarasan pasar Top-Down (1D/4H vs 1H/15m) — anti counter-trend noise.`);
   }
 
+  /* GERBANG EKSEKUSI M5/M1 (lintas TF). TF besar hanya memberi arah; pemicu entry
+     wajib datang dari M5/M1. Bila pemicu sudah berbalik arah, sinyal dibatalkan. */
+  if (!monitorOnly && inst.type && a.topDown && a.signalEligible
+      && (dir === 'LONG' || dir === 'SHORT') && a.topDown.execConfirmed !== true) {
+    const lower = await confirmLowerTimeframes(inst, dir);
+    if (lower.available) {
+      a.topDown.lowerTimeframe = lower;
+      a.topDown.execBias = lower.bias;
+      a.topDown.execConfirmed = lower.confirmed;
+      if (!lower.confirmed) {
+        console.log(`  [${sym} ${tf}] ⏳ [${lower.timeframe || 'M5/M1'}] Eksekusi BELUM searah (${lower.bias}) — sinyal ditahan sampai pemicu M5/M1 searah ${dir}.`);
+        return;
+      }
+      console.log(`  [${sym} ${tf}] ✅ [${lower.timeframe || 'M5/M1'}] Eksekusi terkonfirmasi ${lower.bias} — setup boleh dieksekusi.`);
+    } else {
+      console.log(`  [${sym} ${tf}] ℹ️ [M5/M1] Feed eksekusi belum tersedia — sinyal diteruskan tanpa klaim konfirmasi.`);
+    }
+  }
+
   /* DOKTRIN INTERNAL (tidak pernah dirender di dashboard).
      Sebelum sinyal skor tinggi dikirim, bukti harus lengkap menurut 4 pilar:
      Market Analysis (struktur + key levels + price action M5/M1), Risk Management
@@ -884,7 +905,8 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `📊 <b>KESELARASAN PASAR (TOP-DOWN ALIGNED):</b>\n` +
           `• 1D–4H Makro: <b>${td.macroBias}</b> (Arah & Likuiditas)\n` +
           `• 1H–15m Struktur: <b>${td.structBias}</b> (Order Block & FVG)\n` +
-          `• 5m–1m Eksekusi: <b>${dir}</b> (Konfirmasi Entry)\n` +
+          `• 5m–1m Eksekusi: <b>${dir}</b> (${td.execConfirmed === true ? '✓ terkonfirmasi 2 candle' : '⏳ menunggu pemicu M5/M1'})\n` +
+          (td.timeframes ? `🧭 Bukti Multi-TF: <code>${tfEvidenceLine(td)}</code> (keselarasan ${td.agreementPct || 0}%)\n` : '') +
           (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
       }
 
@@ -919,7 +941,8 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
           `📊 <b>MARKET ALIGNMENT (TOP-DOWN ALIGNED):</b>\n` +
           `• 1D–4H Macro: <b>${td.macroBias}</b> (Direction & Liquidity)\n` +
           `• 1H–15m Structure: <b>${td.structBias}</b> (OB & FVG)\n` +
-          `• 5m–1m Execution: <b>${dir}</b> (Entry Confirmation)\n` +
+          `• 5m–1m Execution: <b>${dir}</b> (${td.execConfirmed === true ? '✓ confirmed on 2 candles' : '⏳ waiting for the M5/M1 trigger'})\n` +
+          (td.timeframes ? `🧭 Multi-TF evidence: <code>${tfEvidenceLine(td)}</code> (${td.agreementPct || 0}% agreement)\n` : '') +
           (td.sessionFlow && td.sessionFlow.story ? `⚡ Order Flow: <i>${td.sessionFlow.story}</i>\n` : '');
       }
 
@@ -1462,11 +1485,21 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
   }
 }
 
+// Strip bukti semua timeframe untuk notifikasi Telegram (D1 → M1).
+function tfEvidenceLine(td) {
+  const rows = td && td.timeframes && Array.isArray(td.timeframes.rows) ? td.timeframes.rows : [];
+  if (!rows.length) return '';
+  return rows.map(r => {
+    const mark = !r.available ? '—' : r.bias === 'BULLISH' ? '▲' : r.bias === 'BEARISH' ? '▼' : '◆';
+    return r.id + ' ' + mark;
+  }).join(' • ');
+}
+
 async function loadCandles(inst) {
   const { sym, tf, type } = inst;
   let candles = [];
   if (type === 'crypto') {
-    const interval = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
+    const interval = tf === 'M1' ? '1m' : (tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h'))));
     candles = await fetchBinanceCandles(sym, interval);
   } else {
     try {
@@ -1479,11 +1512,34 @@ async function loadCandles(inst) {
     }
     // Backup 1:1 Spot London Gold PAXGUSDT langsung dari Binance (24/7 nonstop, 0 rate limit)
     if ((!candles || candles.length < 35) && (sym === 'XAU/USD' || sym === 'GOLD')) {
-      const binTf = tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h')));
+      const binTf = tf === 'M1' ? '1m' : (tf === 'M5' ? '5m' : (tf === 'M15' ? '15m' : (tf === 'M30' ? '30m' : (tf === 'H4' ? '4h' : '1h'))));
       candles = await fetchBinanceCandles('PAXG/USDT', binTf);
     }
   }
   return candles || [];
+}
+
+/* ==================== KONFIRMASI EKSEKUSI M5/M1 LINTAS TIMEFRAME ====================
+   Sinyal dari H1/H4/M15 tidak boleh dieksekusi sebelum feed M5 (dan M1 untuk kripto
+   24/7) searah. Ini gerbang yang mencegah limit order di zona diskon terisi saat
+   harga masih jatuh ("menangkap pisau jatuh") — penyebab loss terbesar rekam jejak.
+   Data yang tidak tersedia BUKAN kegagalan: gerbang dilewati dan dicatat apa adanya. */
+async function confirmLowerTimeframes(inst, direction) {
+  const { sym, type } = inst;
+  try {
+    const wantsM1 = type === 'crypto';
+    const [m5, m1] = await Promise.all([
+      loadCandles({ sym, tf: 'M5', type }),
+      wantsM1 ? loadCandles({ sym, tf: 'M1', type }) : Promise.resolve(null)
+    ]);
+    const exec = confirmExecutionTimeframes({ M5: m5, M1: m1 }, direction || null);
+    if (!exec.available) return { available: false };
+    exec.timeframe = (Array.isArray(m1) && m1.length >= 20) ? 'M5/M1' : 'M5';
+    delete exec.rows;
+    return exec;
+  } catch (e) {
+    return { available: false };
+  }
 }
 
 async function scanInstrument(inst, cache, { monitorOnly = false, journalLockKey } = {}) {

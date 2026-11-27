@@ -798,80 +798,260 @@ export function detectAsiaLondonOrderFlow(candles) {
   };
 }
 
+/* ==================== TIMEFRAME STACK (ANALISIS SEMUA TIMEFRAME) ====================
+   Sniper MTF wajib membaca SETIAP timeframe dengan bukti yang sama, bukan menebak
+   dari satu candle. Tiap TF dinilai dari empat bukti: posisi harga vs EMA20,
+   susunan EMA20/EMA50, struktur swing (HH/HL vs LH/LL), dan momentum 3-bar.
+   TF di atas data dasar dibentuk lewat resample deterministik. TF di bawah data
+   dasar ditandai TIDAK TERSEDIA (bukan ditebak) supaya tidak lahir skor palsu. */
+export const TF_STACK_ORDER = [
+  { id: 'D1', sec: 86400, tier: 'HTF', weight: 3 },
+  { id: 'H4', sec: 14400, tier: 'HTF', weight: 2 },
+  { id: 'H1', sec: 3600, tier: 'MTF', weight: 2 },
+  { id: 'M15', sec: 900, tier: 'MTF', weight: 1 },
+  { id: 'M5', sec: 300, tier: 'LTF', weight: 2 },
+  { id: 'M1', sec: 60, tier: 'LTF', weight: 1 }
+];
+
+function readTimeframeBias(candles) {
+  if (!Array.isArray(candles) || candles.length < 20) return null;
+  const closes = candles.map(c => Number(c.close)).filter(v => Number.isFinite(v));
+  if (closes.length < 20) return null;
+  const ema20Arr = calcEMA(closes, 20);
+  const ema50Arr = calcEMA(closes, Math.min(50, closes.length));
+  const rsiArr = calcRSI(closes, 14);
+  const atrArr = calcATR(candles, 14);
+  const last = closes[closes.length - 1];
+  const e20 = ema20Arr[ema20Arr.length - 1];
+  const e50 = ema50Arr[ema50Arr.length - 1];
+  const prevE50 = ema50Arr[Math.max(0, ema50Arr.length - 6)];
+  const rsi = rsiArr[rsiArr.length - 1];
+  const atr = atrArr[atrArr.length - 1] || last * 0.005;
+  const recent = closes.slice(-12);
+  const prior = closes.slice(-24, -12);
+  let structure = 'MIXED';
+  if (prior.length >= 6) {
+    const hiR = Math.max(...recent), hiP = Math.max(...prior);
+    const loR = Math.min(...recent), loP = Math.min(...prior);
+    if (hiR > hiP && loR > loP) structure = 'HH_HL';
+    else if (hiR < hiP && loR < loP) structure = 'LH_LL';
+  }
+  const ref = closes[Math.max(0, closes.length - 4)];
+  const momentumPct = ref > 0 ? ((last - ref) / ref) * 100 : 0;
+  const slopePct = e50 > 0 ? ((e50 - prevE50) / e50) * 100 : 0;
+  let score = 0;
+  score += last > e20 ? 1 : -1;
+  score += e20 > e50 ? 1 : -1;
+  score += structure === 'HH_HL' ? 1 : structure === 'LH_LL' ? -1 : 0;
+  score += momentumPct > 0.02 ? 1 : momentumPct < -0.02 ? -1 : 0;
+  const bias = score >= 2 ? 'BULLISH' : score <= -2 ? 'BEARISH' : 'NEUTRAL';
+  const c1 = candles[candles.length - 1], c0 = candles[candles.length - 2];
+  const persistUp = !!(c1 && c0 && Number(c1.close) > Number(c1.open) && Number(c0.close) > Number(c0.open) && Number(c1.close) > Number(c0.close));
+  const persistDown = !!(c1 && c0 && Number(c1.close) < Number(c1.open) && Number(c0.close) < Number(c0.open) && Number(c1.close) < Number(c0.close));
+  return {
+    bias, score, structure,
+    close: last, ema20: e20, ema50: e50, rsi,
+    atrPct: last > 0 ? (atr / last) * 100 : 0,
+    momentumPct, slopePct, persistUp, persistDown
+  };
+}
+
+/* Bangun tangga TF lengkap. TF yang datanya tidak ada tetap muncul di laporan
+   (transparan) tetapi TIDAK dihitung ke konsensus. */
+export function buildTimeframeStack(candles, timeframe = 'H1') {
+  const baseSec = TF_SECS[timeframe] || 3600;
+  const rows = [];
+  for (const tf of TF_STACK_ORDER) {
+    const belowBase = tf.sec < baseSec;
+    const native = tf.sec === baseSec;
+    const series = belowBase ? [] : (native ? candles : resampleCandles(candles, tf.sec));
+    const read = belowBase ? null : readTimeframeBias(series);
+    rows.push({
+      id: tf.id, tier: tf.tier, weight: tf.weight,
+      available: !!read,
+      source: belowBase ? 'below-base' : (native ? 'native' : 'resampled'),
+      bars: series.length,
+      bias: read ? read.bias : 'NEUTRAL',
+      structure: read ? read.structure : '-',
+      rsi: read ? Number(read.rsi.toFixed(1)) : null,
+      momentumPct: read ? Number(read.momentumPct.toFixed(3)) : null,
+      persistUp: read ? read.persistUp : false,
+      persistDown: read ? read.persistDown : false,
+      reasonCode: read ? '' : (belowBase ? 'BELOW_BASE' : 'NEED_BARS')
+    });
+  }
+  return { baseTf: timeframe, rows, readableCount: rows.filter(r => r.available).length };
+}
+
+function tfRowsByIds(stack, ids) {
+  if (!stack || !Array.isArray(stack.rows)) return [];
+  return stack.rows.filter(r => ids.indexOf(r.id) > -1);
+}
+
+/* Konsensus terbobot. Dua TF yang saling berlawanan = NETRAL (tidak menebak). */
+function tfConsensus(rows) {
+  const live = rows.filter(r => r.available);
+  const readable = live.filter(r => r.bias !== 'NEUTRAL');
+  if (!readable.length) return { bias: 'NEUTRAL', conflict: false, available: live.length > 0, reads: live };
+  const bull = readable.some(r => r.bias === 'BULLISH');
+  const bear = readable.some(r => r.bias === 'BEARISH');
+  if (bull && bear) return { bias: 'NEUTRAL', conflict: true, available: true, reads: live };
+  const score = readable.reduce((sum, r) => sum + (r.bias === 'BULLISH' ? r.weight : -r.weight), 0);
+  return { bias: score > 0 ? 'BULLISH' : score < 0 ? 'BEARISH' : 'NEUTRAL', conflict: false, available: true, reads: live };
+}
+
+/* Konfirmasi eksekusi lintas TF dari feed terpisah (M5 + M1). Dipakai bot cloud:
+   sinyal H1/H4/M15 hanya boleh dieksekusi bila pemicu M5 (dan M1 bila tersedia)
+   searah. Inilah gerbang yang mencegah limit order "menangkap pisau jatuh". */
+export function confirmExecutionTimeframes(candlesMap = {}, direction = null) {
+  const reads = {};
+  for (const id of ['M5', 'M1']) {
+    const series = candlesMap[id];
+    reads[id] = Array.isArray(series) && series.length >= 20 ? readTimeframeBias(series) : null;
+  }
+  const live = Object.keys(reads).filter(k => reads[k]);
+  if (!live.length) return { available: false, bias: 'NEUTRAL', confirmed: false, source: 'NONE', rows: [], direction };
+  const bull = live.filter(k => reads[k].bias === 'BULLISH').length;
+  const bear = live.filter(k => reads[k].bias === 'BEARISH').length;
+  const bias = bull && !bear ? 'BULLISH' : (bear && !bull ? 'BEARISH' : 'NEUTRAL');
+  const m5 = reads.M5;
+  const persist = m5 ? (bias === 'BULLISH' ? m5.persistUp : bias === 'BEARISH' ? m5.persistDown : false) : false;
+  // Arah setup boleh dikirim sebagai LONG/SHORT atau BULLISH/BEARISH.
+  const want = direction === 'LONG' ? 'BULLISH' : direction === 'SHORT' ? 'BEARISH' : direction;
+  const confirmed = bias !== 'NEUTRAL' && persist && (want == null || want === bias);
+  return {
+    available: true, bias, confirmed, source: live.join('+'), direction,
+    rows: live.map(k => ({
+      id: k, bias: reads[k].bias, structure: reads[k].structure,
+      persist: reads[k].bias === 'BULLISH' ? reads[k].persistUp : reads[k].persistDown
+    }))
+  };
+}
+
 /* ==================== MULTI-TIMEFRAME TOP-DOWN MARKET ALIGNMENT ====================
    "Discover the Power of Timeframes:
     1D - 4H: Direction, Liquidity, Supply & Demand
     1H - 15m: Trend, Breakout, Reversals, Order Blocks (OB), FVG, Liquidity
     5m - 1m: Confirmations, Entry"
-   Menjamin sinyal hanya terbit jika SEARAH dari makro hingga eksekusi (anti-loss counter-trend). */
-export function detectTopDownAlignment(candles, symbol, currentTf = 'H1') {
+   Setiap tier memakai konsensus TF nyata (bukan satu candle): makro D1+H4, struktur
+   H1+M15, eksekusi M5+M1. TF yang berlawanan menahan bias di NETRAL (anti tebak).
+   Sinyal tetap hanya terbit bila SEARAH dari makro hingga eksekusi. */
+export function detectTopDownAlignment(candles, symbol, currentTf = 'H1', stackOverride = null) {
   if (!candles || candles.length < 35) return null;
+  const stack = (stackOverride && Array.isArray(stackOverride.rows))
+    ? stackOverride
+    : buildTimeframeStack(candles, currentTf);
 
-  // 1. Tier 1 (1D - 4H): Direction & Supply/Demand
-  const htf4h = resampleCandles(candles, 14400); // 4-hour bars
-  let macroBias = 'NEUTRAL';
-  let macroDemand = null;
-  let macroSupply = null;
-
-  if (htf4h.length >= 12) {
-    const closes4h = htf4h.map(c => c.close);
-    const emaPeriod = Math.min(20, closes4h.length);
-    const ema4h = calcEMA(closes4h, emaPeriod);
-    const last4h = htf4h[htf4h.length - 1];
-    const prev4h = htf4h[Math.max(0, htf4h.length - 4)];
-    const emaVal = ema4h[ema4h.length - 1];
-
-    const highs4h = htf4h.slice(-12).map(c => c.high);
-    const lows4h = htf4h.slice(-12).map(c => c.low);
-    macroSupply = Math.max(...highs4h);
-    macroDemand = Math.min(...lows4h);
-
-    if (last4h.close > emaVal && last4h.close >= prev4h.close) {
-      macroBias = 'BULLISH';
-    } else if (last4h.close < emaVal && last4h.close <= prev4h.close) {
-      macroBias = 'BEARISH';
-    }
-  } else {
-    const b = computeHtfBias(candles, currentTf);
-    macroBias = b === 1 ? 'BULLISH' : (b === -1 ? 'BEARISH' : 'NEUTRAL');
-  }
-
-  // 2. Tier 2 (1H - 15m): Struktur, Order Blocks, FVG, & Sesi
   const atr = calcATR(candles, 14).pop() || (candles[candles.length - 1].close * 0.01);
   const swings = detectSwingsNoLookahead(candles, 3, 3);
   const obs = detectOrderBlocks(candles, swings, atr);
   const sessionFlow = detectAsiaLondonOrderFlow(candles);
+  const lastPrice = candles[candles.length - 1].close;
 
-  let structBias = 'NEUTRAL';
-  if (obs.bullOb && !obs.bearOb) structBias = 'BULLISH';
-  else if (obs.bearOb && !obs.bullOb) structBias = 'BEARISH';
-  else if (obs.bullOb && obs.bearOb) {
-    const lastP = candles[candles.length - 1].close;
-    structBias = (lastP >= (obs.bullOb.top + obs.bearOb.bottom) / 2) ? 'BULLISH' : 'BEARISH';
+  // 1. Tier 1 (H4 + filter D1): arah, likuiditas, supply & demand.
+  //    Bacaan H4 tetap memakai rumus institusional yang sudah terbukti (harga vs
+  //    EMA20 H4 DAN momentum 4 bar), lalu D1 — bila datanya ada — menjadi filter
+  //    arah harian: makro yang melawan D1 ditahan NETRAL (anti tebak).
+  const htf4h = resampleCandles(candles, 14400);
+  let macroBias = 'NEUTRAL';
+  let macroSupply = null;
+  let macroDemand = null;
+  if (htf4h.length >= 12) {
+    const closes4h = htf4h.map(c => c.close);
+    const ema4h = calcEMA(closes4h, Math.min(20, closes4h.length));
+    const last4h = htf4h[htf4h.length - 1];
+    const prev4h = htf4h[Math.max(0, htf4h.length - 4)];
+    const emaVal = ema4h[ema4h.length - 1];
+    macroSupply = Math.max(...htf4h.slice(-12).map(c => c.high));
+    macroDemand = Math.min(...htf4h.slice(-12).map(c => c.low));
+    if (last4h.close > emaVal && last4h.close >= prev4h.close) macroBias = 'BULLISH';
+    else if (last4h.close < emaVal && last4h.close <= prev4h.close) macroBias = 'BEARISH';
+  } else {
+    const b = computeHtfBias(candles, currentTf);
+    macroBias = b === 1 ? 'BULLISH' : (b === -1 ? 'BEARISH' : 'NEUTRAL');
+  }
+  const d1Row = stack.rows.find(r => r.id === 'D1');
+  if (macroBias !== 'NEUTRAL' && d1Row && d1Row.available && d1Row.bias !== 'NEUTRAL' && d1Row.bias !== macroBias) {
+    macroBias = 'NEUTRAL';
   }
 
+  // 2. Tier 2 (H1 + M15): struktur OB/FVG. Order block pada TF entry adalah bukti
+  //    utama (perilaku terbukti); konsensus H1/M15 menjadi konfirmasi yang boleh
+  //    MEMBATALKAN bila berlawanan, tetapi tidak boleh menciptakan arah sendiri.
+  const structC = tfConsensus(tfRowsByIds(stack, ['H1', 'M15']));
+  const obBias = (obs.bullOb && obs.bearOb)
+    ? (lastPrice >= (obs.bullOb.top + obs.bearOb.bottom) / 2 ? 'BULLISH' : 'BEARISH')
+    : obs.bullOb ? 'BULLISH' : obs.bearOb ? 'BEARISH' : 'NEUTRAL';
+  let structBias = obBias;
+  let structureEvidence = 'ORDER_BLOCK';
+  const mtfClear = structC.available && !structC.conflict && structC.bias !== 'NEUTRAL';
+  if (structBias !== 'NEUTRAL' && mtfClear && structC.bias !== structBias) {
+    structBias = 'NEUTRAL';
+    structureEvidence = 'MTF_CONFLICT';
+  } else if (structBias === 'NEUTRAL' && mtfClear) {
+    structBias = structC.bias;
+    structureEvidence = 'MTF_CONSENSUS';
+  } else if (structBias !== 'NEUTRAL' && mtfClear) {
+    structureEvidence = 'ORDER_BLOCK+MTF_CONFIRMED';
+  }
+
+  // Order flow sesi (Asia -> London -> NY) hanya MENGUATKAN bila ada bukti lain yang
+  // searah. Satu narasi sesi tidak boleh membalik struktur sendirian.
+  let sessionBias = 'NEUTRAL';
   if (sessionFlow && sessionFlow.orderFlowBias !== 'NEUTRAL') {
-    structBias = sessionFlow.orderFlowBias;
+    sessionBias = sessionFlow.orderFlowBias;
+    const supportedByOb = obBias === sessionBias;
+    const supportedByMtf = mtfClear && structC.bias === sessionBias;
+    if (structBias === 'NEUTRAL' && (supportedByOb || supportedByMtf)) {
+      structBias = sessionBias;
+      structureEvidence = 'SESSION_ORDER_FLOW';
+    } else if (structBias !== 'NEUTRAL' && structBias !== sessionBias) {
+      structBias = 'NEUTRAL';
+      structureEvidence = 'SESSION_CONFLICT';
+    }
   }
 
-  // 3. Tier 3 (5m - 1m): Konfirmasi Eksekusi Terkini
-  const lastBar = candles[candles.length - 1];
-  const prevBar = candles[Math.max(0, candles.length - 2)];
-  let execBias = lastBar.close >= prevBar.close ? 'BULLISH' : 'BEARISH';
+  // 3. Tier 3 (M5 + M1): konsensus eksekusi + persistensi 2 candle pada M5.
+  const ltfRows = tfRowsByIds(stack, ['M5', 'M1']).filter(r => r.available);
+  const execC = tfConsensus(ltfRows);
+  const m5Row = ltfRows.find(r => r.id === 'M5') || ltfRows[0] || null;
+  let execBias = execC.bias;
+  let execConfirmed = null;
+  let execSource = 'UNAVAILABLE';
+  if (m5Row) {
+    execSource = ltfRows.map(r => r.id).join('+') + (execC.conflict ? '_CONFLICT' : '');
+    const persistOk = execBias === 'BULLISH' ? m5Row.persistUp : execBias === 'BEARISH' ? m5Row.persistDown : false;
+    execConfirmed = execBias !== 'NEUTRAL' && persistOk === true;
+  } else {
+    // Data dasar >= M15: M5/M1 tidak bisa diturunkan. Jangan menebak — tandai
+    // BELUM TERVERIFIKASI (null); bot cloud memeriksa feed M5/M1 terpisah.
+    const c1 = candles[candles.length - 1], c0 = candles[candles.length - 2];
+    const up = !!(c1 && c0 && Number(c1.close) >= Number(c1.open) && Number(c1.close) >= Number(c0.close));
+    const down = !!(c1 && c0 && Number(c1.close) <= Number(c1.open) && Number(c1.close) <= Number(c0.close));
+    execBias = up && !down ? 'BULLISH' : (down && !up ? 'BEARISH' : 'NEUTRAL');
+    execSource = 'FALLBACK_' + currentTf;
+  }
 
-  // 4. Sintesis Keselarasan (Top-Down Alignment)
-  const isAlignedBullish = (macroBias === 'BULLISH') && (structBias === 'BULLISH');
-  const isAlignedBearish = (macroBias === 'BEARISH') && (structBias === 'BEARISH');
+  // 4. Sintesis keselarasan: makro + struktur searah, dan eksekusi TIDAK melawan.
+  const execOpposes = (dir) => execConfirmed === false && execBias !== 'NEUTRAL' && execBias !== dir;
+  const isAlignedBullish = macroBias === 'BULLISH' && structBias === 'BULLISH' && !execOpposes('BULLISH');
+  const isAlignedBearish = macroBias === 'BEARISH' && structBias === 'BEARISH' && !execOpposes('BEARISH');
   const isAligned = isAlignedBullish || isAlignedBearish;
+  const isFullyAligned = isAligned && execConfirmed === true;
+  const alignedDir = isAlignedBullish ? 'BULLISH' : (isAlignedBearish ? 'BEARISH' : 'NEUTRAL');
+  const readable = stack.rows.filter(r => r.available && r.bias !== 'NEUTRAL');
+  const alignedCount = alignedDir === 'NEUTRAL' ? 0 : readable.filter(r => r.bias === alignedDir).length;
+  const agreementPct = readable.length ? Math.round((alignedCount / readable.length) * 100) : 0;
+  const conflicts = alignedDir === 'NEUTRAL' ? [] : readable.filter(r => r.bias !== alignedDir).map(r => r.id);
 
   const alignmentStatus = isAlignedBullish
     ? 'ALIGNED_BULLISH'
     : (isAlignedBearish ? 'ALIGNED_BEARISH' : 'WAITING_ALIGNMENT');
-
+  const execWord = execConfirmed === true ? 'konfirmasi ✓' : (execConfirmed === false ? 'BELUM searah' : 'belum terverifikasi');
   const alignmentLabel = isAlignedBullish
-    ? '🟢 SEARAH MARKET (1D/4H Bullish ➔ 1H/15m OB/FVG ➔ 5m Entry)'
+    ? '🟢 SEARAH MARKET (1D/4H Bullish ➔ 1H/15m OB/FVG ➔ M5/M1 ' + execWord + ')'
     : (isAlignedBearish
-      ? '🔴 SEARAH MARKET (1D/4H Bearish ➔ 1H/15m OB/FVG ➔ 5m Entry)'
+      ? '🔴 SEARAH MARKET (1D/4H Bearish ➔ 1H/15m OB/FVG ➔ M5/M1 ' + execWord + ')'
       : '🟡 MENUNGGU KESELARASAN TREN (Anti Counter-Trend)');
 
   return {
@@ -879,11 +1059,31 @@ export function detectTopDownAlignment(candles, symbol, currentTf = 'H1') {
     macroSupply,
     macroDemand,
     structBias,
+    structureEvidence,
     sessionFlow,
+    sessionBias,
     execBias,
+    execConfirmed,
+    execSource,
     isAligned,
+    isFullyAligned,
     alignmentStatus,
-    alignmentLabel
+    alignmentLabel,
+    agreementPct,
+    alignedCount,
+    readableCount: readable.length,
+    conflicts,
+    timeframes: {
+      baseTf: stack.baseTf || currentTf,
+      agreementPct,
+      alignedCount,
+      conflicts,
+      rows: stack.rows.map(r => ({
+        id: r.id, tier: r.tier, bias: r.bias, available: r.available,
+        source: r.source, structure: r.structure, rsi: r.rsi,
+        momentumPct: r.momentumPct, reasonCode: r.reasonCode
+      }))
+    }
   };
 }
 
@@ -901,7 +1101,8 @@ export const VETO_LABELS = {
   CHOPPY: 'Struktur choppy (Efficiency Ratio rendah)',
   SPOT_ONLY: 'Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)',
   SQUEEZE_UNCONFIRMED: 'Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antri sebelum resolusi',
-  PERSIST_WAIT: 'Momentum baru 1 candle — menunggu candle ke-2 searah (anti fakeout tajam)'
+  PERSIST_WAIT: 'Momentum baru 1 candle — menunggu candle ke-2 searah (anti fakeout tajam)',
+  EXEC_UNCONFIRMED: 'Eksekusi M5/M1 sudah berbalik arah — limit di zona diskon/premium akan menangkap pisau jatuh'
 };
 
 export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', horizon = 'intraday', spotOnly = null, candles = [] }) {
@@ -955,7 +1156,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // Atlas ICT lengkap (v2026.52): level sesi, CISD, FVG/IFVG/BPR, OTE, breaker, AMD, draw on liquidity
   const ict = detectIctAtlas(closed, swings, atr, timeframe, obs);
   const sessionInfo = getInstrumentSessionInfo(symbol, lastCandle ? lastCandle.time : null);
-  const topDown = detectTopDownAlignment(closed, symbol, timeframe);
+  // Satu kali hitung tangga semua TF, dipakai ulang oleh top-down & laporan.
+  const timeframes = buildTimeframeStack(closed, timeframe);
+  const topDown = detectTopDownAlignment(closed, symbol, timeframe, timeframes);
   // Upgrade sweep: wick menembus kolam likuiditas (SSL/BSL/session lama) lalu reclaim
   for (let i = lastIdx; i > Math.max(0, lastIdx - 8); i--) {
     const b = closed[i];
@@ -1346,6 +1549,14 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
       if (!vetoes.short.includes('COUNTER_HTF_ALIGNMENT')) vetoes.short.push('COUNTER_HTF_ALIGNMENT');
       if (!vetoes.long.includes('COUNTER_HTF_ALIGNMENT')) vetoes.long.push('COUNTER_HTF_ALIGNMENT');
     }
+    /* Gerbang eksekusi LTF (M5/M1). Sinyal TF besar TIDAK boleh terbit saat pemicu
+       M5/M1 sudah berbalik: inilah penyebab limit order di zona diskon terisi lalu
+       langsung kena SL ("menangkap pisau jatuh"). Konfirmasi null = data M5/M1 belum
+       tersedia di TF ini (dicek terpisah oleh bot cloud), bukan kegagalan. */
+    if (topDown.execConfirmed === false && softBias !== 'NEUTRAL' && topDown.execBias !== 'NEUTRAL' && topDown.execBias !== (softBias === 'LONG' ? 'BULLISH' : 'BEARISH')) {
+      const execVetoes = softBias === 'LONG' ? vetoes.long : vetoes.short;
+      if (!execVetoes.includes('EXEC_UNCONFIRMED')) execVetoes.push('EXEC_UNCONFIRMED');
+    }
   }
   // Konfirmasi VOLUME institusional (aturan sweep->BOS WAJIB disertai kaki impulsif):
   // volume maksimal 3 candle terakhir harus >= 1.25x rata-rata 20 candle. Feed tanpa
@@ -1620,6 +1831,9 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     structureTag: modern.smcStatus,
     sessionInfo,
     topDown,
+    timeframes: topDown && topDown.timeframes ? topDown.timeframes : {
+      baseTf: timeframe, rows: timeframes.rows, agreementPct: 0, alignedCount: 0, conflicts: []
+    },
     subScores: {
       trend: Math.round(trendScore),
       structure: Math.round(structureScore),

@@ -53,6 +53,7 @@ jobs:
           node --check functions/api/notify/telegram-subscribers.js
           node --check functions/api/notify/telegram-webhook.js
           node --check public/js/shared/group-analysis.js
+          node --check tests/sniper-mtf-stack.test.mjs
       - name: Verify workspace UI and manual-only analysis
         run: node tests/app-static.test.mjs
       - name: Verify manual journal and reset invariants
@@ -65,6 +66,8 @@ jobs:
         run: node --test tests/engine-v2.test.mjs
       - name: Verify per-group sniper multi-timeframe analysis
         run: node --test tests/group-analysis.test.mjs
+      - name: Verify all-timeframe sniper stack and M5/M1 execution gate
+        run: node --test tests/sniper-mtf-stack.test.mjs
       - name: Verify public track-record aggregation
         run: node --test tests/performance-aggregate.test.mjs
       - name: Verify Telegram bot journal and bell alerts
