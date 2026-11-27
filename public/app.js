@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.13';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.14';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.13';
+    bootScript.src = '/js/engine-boot.js?v=2027.14';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -450,7 +450,7 @@ function localizeEngineString(s) {
   if ((m = s.match(/^\[VWAP, VPVR & TPO\] Harga terhadap VWAP \(([^)]+)\), VPVR POC \(([^)]+)\), dan TPO POC \(([^)]+)\)\.$/))) {
     return fillTpl(T('ui.eRsVwap', s), { vwap: m[1], poc: m[2], tpo: m[3] });
   }
-  if ((m = s.match(/^\[FVG & Supply\/Demand\] (.*) \| Zona Demand: (.+) \| Zona Supply: (.+)\.$/))) {
+  if ((m = s.match(/^\[FVG & Supply\/Demand\] (.*) \| (?:Zona Demand|Demand Zone): (.+) \| (?:Zona Supply|Supply Zone): (.+)\.$/))) {
     return fillTpl(T('ui.eRsFvg', s), { fvg: localizeEngineString(m[1]), dl: m[2], sh: m[3] });
   }
   if ((m = s.match(/^\[MA Stack & Bollinger\] EMA20 \(([^)]+)\) \/ EMA50 \(([^)]+)\) \/ MA200 \(([^)]+)\) \| RSI\(14\): (.+)\.$/))) {
@@ -468,8 +468,8 @@ function localizeEngineString(s) {
   // --- Fragmen parametrik tunggal ---
   if ((m = s.match(/^Bullish FVG di (.+)-(.+)$/))) return fillTpl(T('ui.eFvgB', s), { a: m[1], b: m[2] });
   if ((m = s.match(/^Bearish FVG di (.+)-(.+)$/))) return fillTpl(T('ui.eFvgS', s), { a: m[1], b: m[2] });
-  if ((m = s.match(/^SSL SWEEP ▲ \(Stop-Hunt di bawah (.+) lalu Reclaim Bullish\)$/))) return fillTpl(T('ui.eSwSsl', s), { p: m[1] });
-  if ((m = s.match(/^BSL SWEEP ▼ \(Stop-Hunt di atas (.+) lalu Reject Bearish\)$/))) return fillTpl(T('ui.eSwBsl', s), { p: m[1] });
+  if ((m = s.match(/^SSL SWEEP ▲ \(Stop-Hunt di bawah (.+) lalu Reclaim Bullish\)(?: • (.*))?$/))) return fillTpl(T('ui.eSwSsl', s), { p: m[1] }) + (m[2] ? ' • ' + localizeEngineString(m[2]) : '');
+  if ((m = s.match(/^BSL SWEEP ▼ \(Stop-Hunt di atas (.+) lalu Reject Bearish\)(?: • (.*))?$/))) return fillTpl(T('ui.eSwBsl', s), { p: m[1] }) + (m[2] ? ' • ' + localizeEngineString(m[2]) : '');
   if ((m = s.match(/^Uptrend sehat — pantau pullback VWAP \(deviasi (.+) ATR\)$/))) return fillTpl(T('ui.eVwOk', s), { d: m[1] });
   if ((m = s.match(/^Range ekspansif dari VWAP \((.+) ATR\) — konfirmasi arah dulu$/))) return fillTpl(T('ui.eVwRange', s), { d: m[1] });
   if ((m = s.match(/^MVRV Z-Score: (.+) \((.+)\) \| Dominasi Likuiditas Spot Tinggi$/))) return fillTpl(T('ui.eVmCrypto', s), { z: m[1], zone: localizeEngineString(m[2]) });
@@ -2413,8 +2413,8 @@ function gaItemHtml(item) {
   return '<div class="ga-item ' + tone + '">' +
     '<div class="ga-item-top"><span class="ga-label">' + item.label + '</span>' +
     '<span class="ga-count' + stCls + '">' + stTxt + '</span></div>' +
-    '<div class="ga-value">' + item.value + '</div>' +
-    (item.note ? '<div class="ga-note">' + item.note + '</div>' : '') +
+    '<div class="ga-value">' + localizeEngineString(item.value) + '</div>' +
+    (item.note ? '<div class="ga-note">' + localizeEngineString(item.note) + '</div>' : '') +
     '</div>';
 }
 function gaCardHtml(icon, title, items) {
@@ -3506,7 +3506,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.13) ====================
+/* ==================== MORNING DESK NOTE (v2027.14) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -6107,8 +6107,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.13',
-        badge: '/assets/favicon.svg?v=2027.13',
+        icon: '/assets/favicon.svg?v=2027.14',
+        badge: '/assets/favicon.svg?v=2027.14',
         requireInteraction: true
       });
       n.onclick = function () {
