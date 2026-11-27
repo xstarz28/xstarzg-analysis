@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.08';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.09';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.08';
+    bootScript.src = '/js/engine-boot.js?v=2027.09';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -2393,7 +2393,7 @@ function renderPillars(a) {
       pillarHtml(T('ui.ePmDxy', '3. Korelasi Dolar AS (DXY)'), localizeEngineString(fc.dxyCorrelation || '-'), null, 'neutral') +
       pillarHtml(T('ui.ePmVal', '4. Valuasi Intrinsik'), localizeEngineString(fc.valuationMetrics || '-'), null, 'neutral') +
       pillarHtml(T('ui.ePmOf', '5. Orderflow & Commercial Hedger'), localizeEngineString(fc.orderflowMetric || '-'), fc.commHedgerBias ? localizeEngineString(fc.commHedgerBias) : null, 'neutral') +
-      pillarHtml(T('ui.ePmCat', '6. Katalis Terdekat'), localizeEngineString(fc.upcomingCatalyst || '-'), fc.macroDriver ? localizeEngineString(fc.macroDriver) : null, 'neutral') +
+      pillarHtml(T('ui.ePmCat', '6. Katalis Terdekat'), deskCatalystValue(state.symbol, fc.upcomingCatalyst), deskCatalystNote(state.symbol, fc.macroDriver), 'neutral') +
       // Fundamental TERUKUR dari data candle nyata (bukan kutipan statis)
       pillarHtml(T('ui.fmCycle', '7. Posisi Siklus Harga (Terukur)'), (mq.posCyclePct) + '% dari range siklus • DD ' + mq.drawdownPct + '% dari puncak', mq.posCyclePct > 88 ? T('ui.fmCycleHi', 'di puncak — rawan jadi exit liquidity') : mq.posCyclePct < 12 ? T('ui.fmCycleLo', 'di dasar siklus — rawan pantulan') : null, mq.posCyclePct > 88 || mq.posCyclePct < 12 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.fmPersist', '8. Persistensi Momentum (50 candle)'), mq.upClosesPct + '% candle ditutup naik', null, mq.upClosesPct >= 55 ? 'bull' : mq.upClosesPct <= 42 ? 'bear' : 'neutral') +
@@ -3044,6 +3044,7 @@ function renderAllVisuals(analysis) {
   try { renderPanels(analysis); } catch (e) {}
   try { renderNarrative(analysis); } catch (e) {}
   try { renderPillars(analysis); } catch (e) {}
+  try { renderDeskNote(); } catch (e) {}
   try { renderGroupAnalysis(); } catch (e) {}
   var isFeedEst = !analysis || analysis.__estFeed || analysis.feedUnverified || (typeof feedIsEstimate === 'function' && feedIsEstimate(analysis.source || analysis.feedSource)) || (analysis.source === 'LOCAL_SEED') || (analysis.feedSource === 'LOCAL_SEED') || (typeof feedIsEstimate === 'function' && feedIsEstimate(state.feedSource)) || (typeof feedIsReal === 'function' && !feedIsReal(state.feedSource));
   if (!isFeedEst) {
@@ -3480,6 +3481,7 @@ function fetchNewsCalendar(force) {
       setTimeout(function () { try { fetchNewsCalendar(false); } catch (e) {} }, 20000);
     }
     renderNewsPanel();
+    try { renderDeskNote(); } catch (e) {}
     try { if (state.lastAnalysis && !state.lastAnalysis.error) gateBlockHtml(state.lastAnalysis); } catch (e) {}
   }).catch(function () {
     if (!newsState.events || !newsState.events.length) {
@@ -3488,6 +3490,7 @@ function fetchNewsCalendar(force) {
     newsState.loaded = true;
     if (!newsState.loaded) setTimeout(function () { try { fetchNewsCalendar(false); } catch (e) {} }, 20000);
     renderNewsPanel();
+    try { renderDeskNote(); } catch (e) {}
   });
 }
 function newsClassOfSym(sym) {
@@ -3501,6 +3504,322 @@ function newsClassOfSym(sym) {
 function newsFmtTime(ts) {
   try { return new Date(ts).toLocaleString(navigator.language || 'id-ID', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
+}
+
+/* ==================== MORNING DESK NOTE (v2027.09) ====================
+   Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
+   agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
+   instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
+   dan audit prakiraan sebelum vs hasil rilis setelahnya. Ringkasannya dipakai
+   sebagai konteks fundamental di pilar "Katalis Terdekat". */
+var NEWS_VOL_PROFILE = {
+  HIGH: { mult: 2.6, guardMin: 15 },
+  MEDIUM: { mult: 1.5, guardMin: 10 },
+  LOW: { mult: 0.8, guardMin: 5 }
+};
+function newsVolProfile(impact) {
+  var k = String(impact || 'MEDIUM').toUpperCase();
+  return NEWS_VOL_PROFILE[k] || NEWS_VOL_PROFILE.MEDIUM;
+}
+function newsVolRule(impact) {
+  var k = String(impact || 'MEDIUM').toUpperCase();
+  var key = k === 'HIGH' ? 'ui.deskVolHigh' : k === 'LOW' ? 'ui.deskVolLow' : 'ui.deskVolMed';
+  return fillTpl(T(key, '~{x}× ATR'), { x: newsVolProfile(k).mult });
+}
+function deskLang() {
+  try { return (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : 'en'; }
+  catch (e) { return 'en'; }
+}
+function deskLocale() {
+  var l = deskLang();
+  return l === 'id' ? 'id-ID' : l === 'en' ? 'en-GB' : l;
+}
+function newsWibTime(ts) {
+  try { return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ts)); }
+  catch (e) { return '--:--'; }
+}
+function newsWibStamp(ts) {
+  var ref = (typeof ts === 'number' && isFinite(ts)) ? ts : Date.now();
+  try {
+    var day = new Intl.DateTimeFormat(deskLocale(), { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(ref));
+    return day + ' · ' + newsWibTime(ref) + ' WIB';
+  } catch (e) {
+    return new Date(ref).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+  }
+}
+function newsWibDayKey(ts) {
+  try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts)); }
+  catch (e) { return ''; }
+}
+function newsAllEvents() {
+  return (newsState.events && newsState.events.length) ? newsState.events : getClientInstitutionalEvents(Date.now());
+}
+function newsTodayEvents(now) {
+  var key = newsWibDayKey(now || Date.now());
+  return newsAllEvents().filter(function (ev) { return newsWibDayKey(ev.ts) === key; });
+}
+/* Katalis berikutnya untuk satu instrumen (dipakai pilar fundamental & catatan). */
+function newsNextForSymbol(symbol, hours) {
+  var now = Date.now(), until = now + (hours || 72) * 3600e3, best = null;
+  var sym = String(symbol || '').toUpperCase();
+  newsAllEvents().forEach(function (ev) {
+    if (!ev || !ev.ts || ev.ts < now - 30 * 60e3 || ev.ts > until) return;
+    var im = (ev.impacts || []).filter(function (x) { return String(x.sym || '').toUpperCase() === sym; })[0];
+    if (!im) return;
+    if (!best || ev.ts < best.ev.ts) best = { ev: ev, imp: im };
+  });
+  return best;
+}
+/* Konsensus arah instrumen dari agenda yang belum rilis: bobot dampak × keyakinan. */
+function newsBiasBoard(events, hours) {
+  var now = Date.now(), until = now + (hours || 24) * 3600e3, map = {};
+  (events || []).forEach(function (ev) {
+    if (!ev || !ev.ts || ev.ts < now - 60 * 60e3 || ev.ts > until) return;
+    var w = ev.impact === 'HIGH' ? 1 : ev.impact === 'MEDIUM' ? 0.6 : 0.3;
+    (ev.impacts || []).forEach(function (im) {
+      var k = String(im.sym || '').toUpperCase();
+      if (!k) return;
+      if (!map[k]) map[k] = { sym: im.sym, score: 0, pct: 0, n: 0 };
+      map[k].score += (im.dir > 0 ? 1 : -1) * w * (num(im.pct, 55) / 100);
+      map[k].pct = Math.max(map[k].pct, num(im.pct, 0));
+      map[k].n++;
+    });
+  });
+  return Object.keys(map).map(function (k) { return map[k]; })
+    .sort(function (a, b) { return Math.abs(b.score) - Math.abs(a.score); });
+}
+function newsCurrencyBoard(events, hours) {
+  var now = Date.now(), until = now + (hours || 24) * 3600e3, map = {};
+  (events || []).forEach(function (ev) {
+    if (!ev || !ev.ts || ev.ts < now - 60 * 60e3 || ev.ts > until) return;
+    if (!ev.ccy || !ev.dirCcy) return;
+    var w = ev.impact === 'HIGH' ? 1 : ev.impact === 'MEDIUM' ? 0.6 : 0.3;
+    if (!map[ev.ccy]) map[ev.ccy] = { ccy: ev.ccy, score: 0, n: 0 };
+    map[ev.ccy].score += ev.dirCcy * w;
+    map[ev.ccy].n++;
+  });
+  return Object.keys(map).map(function (k) { return map[k]; })
+    .sort(function (a, b) { return Math.abs(b.score) - Math.abs(a.score); });
+}
+/* Audit prakiraan memakai HANYA rilis yang sudah punya angka resmi (actual). */
+function newsAccuracySummary(events) {
+  var out = { ok: 0, surprise: 0, inline: 0, pending: 0, total: 0, pct: null };
+  (events || []).forEach(function (ev) {
+    if (!ev || !ev.actual) { out.pending++; return; }
+    var ver = evalNewsPredictionOutcome(ev);
+    if (ver.status === 'ACCURATE') out.ok++;
+    else if (ver.status === 'SURPRISE') out.surprise++;
+    else out.inline++;
+    out.total++;
+  });
+  if (out.total) out.pct = Math.round((out.ok / out.total) * 100);
+  return out;
+}
+/* Verifikasi hasil NYATA pasca-news untuk instrumen yang feed-nya sedang terbuka. */
+function newsRealizedCheck(ev, symbol) {
+  try {
+    if (!ev || !ev.ts || !symbol) return null;
+    if (String(state.symbol || '').toUpperCase() !== String(symbol).toUpperCase()) return null;
+    var c = state.candles || [];
+    if (c.length < 3) return null;
+    var im = (ev.impacts || []).filter(function (x) { return String(x.sym || '').toUpperCase() === String(symbol).toUpperCase(); })[0];
+    if (!im) return null;
+    var startSec = Math.floor(ev.ts / 1000);
+    var start = -1;
+    for (var i = 0; i < c.length; i++) { if (Number(c[i].time) >= startSec) { start = i; break; } }
+    if (start < 0) return null;
+    var stepSec = TF_SECONDS[state.tf] || 3600;
+    var horizonEnd = startSec + 3600;
+    var end = start;
+    while (end + 1 < c.length && Number(c[end + 1].time) <= horizonEnd) end++;
+    var nowSec = Math.floor(Date.now() / 1000);
+    var closed = end > start || (Number(c[start].time) + stepSec <= nowSec);
+    if (!closed) return null;
+    var base = num(c[start].open, num(c[start].close));
+    var last = num(c[end].close, base);
+    if (!base || !last) return null;
+    var movePct = ((last - base) / base) * 100;
+    return {
+      movePct: movePct,
+      hit: im.dir > 0 ? movePct > 0 : movePct < 0,
+      dir: im.dir,
+      bars: end - start + 1
+    };
+  } catch (e) { return null; }
+}
+/* Sentimen TERUKUR dari candle analisis aktif (rumus sama dengan gauge panel).
+   Tidak ada indeks Fear & Greed eksternal yang dikarang. */
+function deskMeasuredSentiment() {
+  var a = state.lastAnalysis;
+  if (!a || a.error || !a.indicators) return null;
+  var rsiVal = num(a.indicators.rsi, 50);
+  var score = num(a.confluenceScore, 50);
+  var isLong = a.direction === 'LONG';
+  var s = Math.round(Math.max(5, Math.min(95, rsiVal * 0.7 + (isLong ? score * 0.3 : (100 - score) * 0.3))));
+  var label = s <= 22 ? 'EXTREME FEAR' : s <= 42 ? 'FEAR' : s <= 58 ? 'NEUTRAL' : s <= 78 ? 'GREED' : 'EXTREME GREED';
+  var col = s <= 22 ? '#f43f5e' : s <= 42 ? '#fb7185' : s <= 58 ? '#fbbf24' : '#34d399';
+  var specLong = num((a.fundamentalCot || {}).specLongPct, 50);
+  var flow = specLong >= 58 ? 'ACCUMULATION' : specLong <= 42 ? 'DISTRIBUTION' : isLong ? 'NET BUY INFLOW' : a.direction === 'SHORT' ? 'NET SELL OUTFLOW' : 'BALANCED';
+  return {
+    sym: a.symbol || state.symbol, score: s, label: label, col: col, rsi: rsiVal.toFixed(1), flow: flow,
+    dir: a.direction || 'NEUTRAL'
+  };
+}
+function deskChip(sym, dir, pct, color) {
+  return '<span style="display:inline-block;font-size:10px;padding:1px 7px;border-radius:99px;border:1px solid rgba(148,163,184,0.3);color:' +
+    (color || (dir > 0 ? '#34d399' : '#fb7185')) + ';margin:2px 4px 0 0;font-weight:700;">' + escH(sym) + ' ' + (dir > 0 ? '▲' : '▼') + (pct ? ' ~' + pct + '%' : '') + '</span>';
+}
+function deskBlock(title, body, accent) {
+  return '<div style="background:rgba(15,23,42,0.65);border:1px solid ' + (accent || 'rgba(51,65,85,0.6)') + ';border-radius:10px;padding:10px 11px;min-width:0;">' +
+    '<div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">' + title + '</div>' +
+    '<div style="font-size:11.5px;color:#e2e8f0;line-height:1.55;word-break:break-word;">' + body + '</div></div>';
+}
+function deskCatalystValue(symbol, fallbackTxt) {
+  var nx = newsNextForSymbol(symbol, 72);
+  if (!nx) return localizeEngineString(fallbackTxt || '-');
+  var vol = newsVolProfile(nx.ev.impact);
+  return escH(nx.ev.title) + ' • ' + newsWibTime(nx.ev.ts) + ' WIB • ' + escH(nx.ev.impact) +
+    ' • ' + (nx.imp.dir > 0 ? '▲' : '▼') + ' ~' + nx.imp.pct + '% • ~' + vol.mult + '× ATR';
+}
+function deskCatalystNote(symbol, fallbackTxt) {
+  var nx = newsNextForSymbol(symbol, 72);
+  if (nx) return T('ui.deskPillarNote', 'Source: this site\u2019s economic calendar (also used by the Morning Desk Note).');
+  return fallbackTxt ? localizeEngineString(fallbackTxt) : null;
+}
+function renderDeskNote() {
+  var box = $id('deskNoteBox');
+  if (!box) return;
+  var stamp = $id('deskNoteStamp');
+  if (stamp) stamp.textContent = newsWibStamp(Date.now());
+  var now = Date.now();
+  var evs = newsAllEvents();
+  var today = newsTodayEvents(now).filter(function (ev) { return ev.ts >= now - 12 * 3600e3; });
+  var agenda = (today.length ? today : evs.filter(function (ev) { return ev.ts >= now - 60 * 60e3; }).slice(0, 6))
+    .slice().sort(function (a, b) { return a.ts - b.ts; }).slice(0, 8);
+
+  // 1. Agenda hari ini (WIB) — jadwal, prakiraan, dan potensi per instrumen.
+  var agendaBody = '';
+  if (!agenda.length) {
+    agendaBody = '<span style="color:#94a3b8;">' + T('ui.deskAgendaNone', 'No mapped agenda for today — showing the next catalysts.') + '</span>';
+  } else {
+    agenda.forEach(function (ev) {
+      var impCol = ev.impact === 'HIGH' ? '#f43f5e' : ev.impact === 'MEDIUM' ? '#f59e0b' : '#64748b';
+      var chips = '';
+      (ev.impacts || []).slice(0, 3).forEach(function (im) { chips += deskChip(im.sym, im.dir, im.pct); });
+      var ver = evalNewsPredictionOutcome(ev);
+      agendaBody += '<div style="padding:6px 0;border-bottom:1px solid rgba(51,65,85,0.35);">' +
+        '<div style="font-size:11.5px;color:#f8fafc;font-weight:700;">' + newsWibTime(ev.ts) + ' WIB • ' + escH(ev.title) +
+          ' <span style="font-size:9.5px;color:' + impCol + ';">' + escH(ev.impact) + '</span>' +
+          ' <span style="font-size:9.5px;color:#94a3b8;">' + escH(ev.ccy) + '</span></div>' +
+        ((ev.forecast || ev.previous || ev.actual) ? '<div style="font-size:10.3px;color:#94a3b8;">' +
+          T('ui.eNewsFc', 'Forecast') + ': ' + escH(ev.forecast || '—') + ' • ' + T('ui.eNewsPv', 'Previous') + ': ' + escH(ev.previous || '—') +
+          (ev.actual ? ' • ' + T('ui.eNewsActual', 'Actual') + ': <b style="color:#fbbf24;">' + escH(ev.actual) + '</b>' : '') + '</div>' : '') +
+        '<div>' + chips + '</div>' +
+        (ver.status !== 'AWAITING' ? '<div style="font-size:10px;color:' + ver.badgeCol + ';margin-top:2px;">' + ver.badgeTxt + '</div>' : '') +
+        '</div>';
+    });
+  }
+
+  // 2. Konsensus kalender: mata uang dominan + instrumen potensi naik/turun.
+  var curr = newsCurrencyBoard(evs, 24);
+  var board = newsBiasBoard(evs, 24);
+  var up = board.filter(function (b) { return b.score > 0; }).slice(0, 5);
+  var down = board.filter(function (b) { return b.score < 0; }).slice(0, 5);
+  var consBody = '';
+  if (!curr.length && !board.length) {
+    consBody = '<span style="color:#94a3b8;">' + T('ui.deskConsensusNone', 'No directional consensus yet — wait for the release.') + '</span>';
+  } else {
+    if (curr.length) {
+      consBody += '<div style="margin-bottom:5px;">' + curr.slice(0, 4).map(function (c) {
+        return deskChip(c.ccy, c.score, null, c.score > 0 ? '#34d399' : '#fb7185');
+      }).join('') + '</div>';
+    }
+    consBody += '<div style="font-size:10.5px;color:#6ee7b7;font-weight:700;margin-top:4px;">' + T('ui.deskConsensusUp', 'Upside potential') + '</div><div>' +
+      (up.length ? up.map(function (b) { return deskChip(b.sym, 1, b.pct); }).join('') : '<span style="font-size:10.3px;color:#64748b;">—</span>') + '</div>';
+    consBody += '<div style="font-size:10.5px;color:#fda4af;font-weight:700;margin-top:5px;">' + T('ui.deskConsensusDown', 'Downside potential') + '</div><div>' +
+      (down.length ? down.map(function (b) { return deskChip(b.sym, -1, b.pct); }).join('') : '<span style="font-size:10.3px;color:#64748b;">—</span>') + '</div>';
+  }
+
+  // 3. Kelas volatilitas + aturan scalp (beda HIGH / MEDIUM / LOW).
+  var counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+  agenda.forEach(function (ev) { var k = String(ev.impact || 'MEDIUM').toUpperCase(); if (counts[k] != null) counts[k]++; });
+  var atrPct = num(((state.lastAnalysis || {}).indicators || {}).atrPct, 0);
+  var volBody = ['HIGH', 'MEDIUM', 'LOW'].map(function (k) {
+    var p = newsVolProfile(k);
+    var col = k === 'HIGH' ? '#f43f5e' : k === 'MEDIUM' ? '#f59e0b' : '#94a3b8';
+    var extra = atrPct ? ' ≈ ' + (atrPct * p.mult).toFixed(2) + '% move' : '';
+    return '<div style="margin-bottom:4px;"><b style="color:' + col + ';">' + k + ' × ' + counts[k] + '</b> — ' +
+      escH(newsVolRule(k)) + extra + '</div>';
+  }).join('');
+
+  // 4. Sentimen terukur dari candle (bukan indeks karangan).
+  var sent = deskMeasuredSentiment();
+  var sentBody = sent
+    ? fillTpl(T('ui.deskSentimentLine', '{sym}: sentiment {label} ({score}/100) • smart money {flow} • RSI {rsi}'), {
+        sym: escH(sent.sym), label: '<b style="color:' + sent.col + ';">' + sent.label + '</b>', score: sent.score, flow: sent.flow, rsi: sent.rsi
+      })
+    : '<span style="color:#94a3b8;">' + T('ui.deskSentimentNone', 'Run an analysis to fill measured sentiment — no invented index.') + '</span>';
+
+  // 5. Audit prakiraan sebelum vs sesudah rilis (hanya angka resmi).
+  var acc = newsAccuracySummary(evs);
+  var auditBody = acc.total
+    ? '<b style="color:#38bdf8;">' + fillTpl(T('ui.deskAuditLine', '{ok} of {n} official releases matched the pre-news direction ({pct}%) · {surprise} surprises · {inline} in line.'), { ok: acc.ok, n: acc.total, pct: acc.pct, surprise: acc.surprise, inline: acc.inline }) + '</b>'
+    : '<span style="color:#94a3b8;">' + T('ui.deskAuditEmpty', 'No official release number yet — the audit fills in automatically after the data lands.') + '</span>';
+  var realized = null;
+  evs.slice().sort(function (a, b) { return b.ts - a.ts; }).some(function (ev) {
+    if (ev.ts > now || ev.ts < now - 48 * 3600e3) return false;
+    var rc = newsRealizedCheck(ev, state.symbol);
+    if (rc) { realized = { ev: ev, rc: rc }; return true; }
+    return false;
+  });
+  if (realized) {
+    var rc2 = realized.rc;
+    auditBody += '<div style="margin-top:5px;font-size:10.8px;color:' + (rc2.hit ? '#34d399' : '#fb7185') + ';">' +
+      fillTpl(T('ui.newsRealizedHead', 'AFTER NEWS — realized on {sym}'), { sym: escH(state.symbol) }) + ': ' +
+      (rc2.hit ? T('ui.deskAuditHit', '✅ matched the bias') : T('ui.deskAuditMiss', '❌ went against the bias')) +
+      ' (' + (rc2.movePct > 0 ? '+' : '') + rc2.movePct.toFixed(2) + '% / ' + rc2.bars + ' bar)</div>';
+  }
+
+  // 6. Input untuk analisis XStarZG pada instrumen aktif.
+  var nx = newsNextForSymbol(state.symbol, 72);
+  var techBias = (state.lastAnalysis && !state.lastAnalysis.error) ? (state.lastAnalysis.direction || 'NEUTRAL') : 'NEUTRAL';
+  var VERDICT_DEFAULT = {
+    'ui.deskAlign': 'aligned: keep the setup but trim risk before the release',
+    'ui.deskConflict': 'conflicting: stay flat until the release resolves, do not add risk',
+    'ui.deskNeutralVerdict': 'not aligned yet: wait for confirmation'
+  };
+  var verdictKey = 'ui.deskNeutralVerdict', verdictCol = '#94a3b8';
+  if (nx) {
+    if (techBias === 'LONG') {
+      if (nx.imp.dir > 0) { verdictKey = 'ui.deskAlign'; verdictCol = '#34d399'; } else { verdictKey = 'ui.deskConflict'; verdictCol = '#fb7185'; }
+    } else if (techBias === 'SHORT') {
+      if (nx.imp.dir < 0) { verdictKey = 'ui.deskAlign'; verdictCol = '#34d399'; } else { verdictKey = 'ui.deskConflict'; verdictCol = '#fb7185'; }
+    }
+  }
+  var verdictTxt = T(verdictKey, VERDICT_DEFAULT[verdictKey]);
+  var engineBody = nx
+    ? fillTpl(T('ui.deskEngineLine', '{sym}: next catalyst {title} at {time} WIB ({impact}) — fundamental bias {dir} ~{pct}%, technical bias {tech} → {verdict}.'), {
+        sym: escH(state.symbol), title: escH(nx.ev.title), time: newsWibTime(nx.ev.ts), impact: escH(nx.ev.impact),
+        dir: nx.imp.dir > 0 ? '▲' : '▼', pct: nx.imp.pct, tech: techBias,
+        verdict: '<b style="color:' + verdictCol + ';">' + escH(verdictTxt) + '</b>'
+      })
+    : fillTpl(T('ui.deskEngineNone', '{sym}: no mapped catalyst in the next 72 hours — technicals lead, keep standard risk.'), { sym: escH(state.symbol) });
+
+  var totalToday = agenda.length;
+  box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;">' +
+    deskBlock(escH(fillTpl(T('ui.deskAgenda', 'Today\u2019s agenda ({n})'), { n: totalToday })), agendaBody, 'rgba(56,189,248,0.35)') +
+    deskBlock(T('ui.deskConsensus', 'Calendar consensus'), consBody) +
+    deskBlock(T('ui.deskVol', 'Volatility class & scalp rules'), volBody) +
+    deskBlock(T('ui.deskSentiment', 'Measured sentiment & flow'), sentBody) +
+    deskBlock(T('ui.deskAudit', 'Pre-news vs post-news audit'), auditBody) +
+    deskBlock(T('ui.deskEngineTitle', 'Input for XStarZG analysis'), engineBody, 'rgba(167,139,250,0.35)') +
+    '</div>' +
+    '<div style="font-size:10.5px;color:#64748b;margin-top:8px;">' + fillTpl(T('ui.deskUpdated', 'Updated {t} WIB'), { t: newsWibTime(now) }) + '</div>';
+
+  var rf = $id('btnDeskRefresh');
+  if (rf) rf.onclick = function () { try { fetchNewsCalendar(true); } catch (e) {} };
+  var oc = $id('btnDeskOpenCal');
+  if (oc) oc.onclick = function () { try { setMode('news'); } catch (e) {} };
 }
 
 function evalNewsPredictionOutcome(ev) {
@@ -3581,8 +3900,15 @@ function evalNewsPredictionOutcome(ev) {
     }
   } else {
     status = 'AWAITING';
-    badgeTxt = isEn ? '⏳ AWAITING OFFICIAL RELEASE' : '⏳ MENUNGGU RILIS RESMI';
-    badgeCol = '#38bdf8';
+    /* Rilis sudah lewat tetapi angka resmi belum masuk feed: JANGAN diklaim
+       sebagai prediksi tepat maupun kejutan — status jujur "belum terverifikasi". */
+    if (isDone) {
+      badgeTxt = T('ui.newsReleasedNoActual', '🕓 RELEASED — official number not in feed yet');
+      badgeCol = '#94a3b8';
+    } else {
+      badgeTxt = isEn ? '⏳ AWAITING OFFICIAL RELEASE' : '⏳ MENUNGGU RILIS RESMI';
+      badgeCol = '#38bdf8';
+    }
     var pStr = isEn
       ? (predDir > 0 ? 'Potential ' + (ev.ccy || 'Currency') + ' Strength' : predDir < 0 ? 'Potential ' + (ev.ccy || 'Currency') + ' Weakness' : 'Neutral')
       : (predDir > 0 ? 'Potensi Penguatan ' + (ev.ccy || 'Mata Uang') : predDir < 0 ? 'Potensi Pelemahan ' + (ev.ccy || 'Mata Uang') : 'Netral');
@@ -3602,7 +3928,9 @@ function evalNewsPredictionOutcome(ev) {
     badgeCol: badgeCol,
     explanation: explanation,
     goldImpact: goldImpact,
-    isDone: isDone
+    isDone: isDone,
+    releasedNoActual: isDone && act == null,
+    vol: newsVolProfile(ev.impact)
   };
 }
 
@@ -3610,6 +3938,19 @@ function renderNewsPanel() {
   var grid = $id('newsGrid');
   if (!grid) return;
   var now = Date.now();
+  var accBar = $id('newsAccuracyBar');
+  if (accBar) {
+    var accAll = newsAccuracySummary(newsAllEvents());
+    var accTxt = accAll.total
+      ? '<b style="color:#38bdf8;">' + fillTpl(T('ui.newsAccuracyHead', 'Prediction accuracy: {ok}/{n} official releases matched ({pct}%) · {surprise} surprises'), { ok: accAll.ok, n: accAll.total, pct: accAll.pct, surprise: accAll.surprise }) + '</b>'
+      : T('ui.newsAccuracyNone', 'Accuracy audit starts once official release numbers arrive — pre-news bias is a scenario, not a result.');
+    accBar.innerHTML = accTxt + ' <span style="color:#94a3b8;">• ' +
+      ['HIGH', 'MEDIUM', 'LOW'].map(function (k) {
+        var p = newsVolProfile(k);
+        var col = k === 'HIGH' ? '#f43f5e' : k === 'MEDIUM' ? '#f59e0b' : '#94a3b8';
+        return '<span style="color:' + col + ';font-weight:700;">' + k + '</span> ' + fillTpl(T('ui.newsVolTag', '~{x}× ATR • guard ±{m} min'), { x: p.mult, m: p.guardMin });
+      }).join(' • ') + '</span>';
+  }
   if (!newsState.events || !newsState.events.length) {
     newsState.events = getClientInstitutionalEvents(now);
   }
@@ -3665,8 +4006,18 @@ function renderNewsPanel() {
 
     var ver = evalNewsPredictionOutcome(ev);
     var auditTag = ver.status !== 'AWAITING'
-      ? (isEn ? 'Real-World Audit' : 'Audit Hasil Nyata')
-      : (isEn ? 'Pre-Release Scenario' : 'Skenario Pra-Rilis');
+      ? T('ui.newsPostHead', 'AFTER NEWS — verified audit')
+      : T('ui.newsPreHead', 'BEFORE NEWS — consensus scenario');
+    var realized = newsRealizedCheck(ev, state.symbol);
+    var realizedHtml = realized
+      ? '<div style="font-size:9.8px;font-weight:700;color:' + (realized.hit ? '#34d399' : '#fb7185') + ';">' +
+        fillTpl(T('ui.newsRealizedHead', 'AFTER NEWS — realized on {sym}'), { sym: escH(state.symbol) }) + ': ' +
+        (realized.hit ? T('ui.deskAuditHit', '✅ matched the bias') : T('ui.deskAuditMiss', '❌ went against the bias')) +
+        ' (' + (realized.movePct > 0 ? '+' : '') + realized.movePct.toFixed(2) + '% / ' + realized.bars + ' bar)</div>'
+      : ((ev.impacts || []).some(function (x) { return String(x.sym).toUpperCase() === String(state.symbol || '').toUpperCase(); }) && done
+        ? '<div style="font-size:9.5px;color:#64748b;">' + T('ui.newsRealizedNoData', 'Realized move needs this instrument&#39;s live feed open on the matching event.') + '</div>'
+        : '');
+    var volLine = '<div style="font-size:9.8px;color:#94a3b8;margin-top:4px;">⚡ ' + escH(newsVolRule(ev.impact)) + '</div>';
     var goldImpactHeader = isEn ? '🪙 <b>Gold Market Impact:</b> ' : '🪙 <b>Dampak Nyata Emas:</b> ';
     var verBox = '<div style="margin-top:7px;padding:7px 9px;border-radius:6px;background:rgba(15,23,42,0.7);border:1px solid ' + ver.badgeCol + '44;display:flex;flex-direction:column;gap:4px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">' +
@@ -3685,6 +4036,8 @@ function renderNewsPanel() {
       '<div style="font-size:10.8px;color:#94a3b8;margin-top:3px;word-break:break-word;">' + escH(ev.ccy) + ' • ' + newsFmtTime(ev.ts) + (soon ? ' • <b style="color:#f59e0b;">⏰ ' + T('ui.eNewsSoon', 'SEGERA') + '</b>' : done ? ' • <b style="color:#10b981;">✅ ' + T('ui.eNewsDone', 'SELESAI') + '</b>' : '') + '</div>' +
       ((ev.forecast || ev.previous) ? '<div style="font-size:10.5px;color:#cbd5e1;margin-top:3px;word-break:break-word;">' + (ev.actual ? T('ui.eNewsActual', 'Hasil') + ': <b style="color:#fbbf24;">' + escH(ev.actual) + '</b> • ' : '') + T('ui.eNewsFc', 'Prakiraan') + ': <b>' + escH(ev.forecast || '—') + '</b> • ' + T('ui.eNewsPv', 'Sebelumnya') + ': ' + escH(ev.previous || '—') + '</div>' : '') +
       '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + chips + '</div>' +
+      volLine +
+      realizedHtml +
       verBox +
       brokerAlert +
     '</div>';
@@ -5744,8 +6097,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.08',
-        badge: '/assets/favicon.svg?v=2027.08',
+        icon: '/assets/favicon.svg?v=2027.09',
+        badge: '/assets/favicon.svg?v=2027.09',
         requireInteraction: true
       });
       n.onclick = function () {

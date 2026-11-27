@@ -86,7 +86,7 @@ export async function setLanguage(langCode) {
     return activeDictionary;
   }
   try {
-    const mod = await import(`./locales/${currentLang}.js?v=2027.08`);
+    const mod = await import(`./locales/${currentLang}.js?v=2027.09`);
     activeDictionary = mod.default || {};
     dictionaryCache.set(currentLang, activeDictionary);
   } catch (_) {
