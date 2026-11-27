@@ -8,14 +8,14 @@
     html, body { background-color: #020617; color: #f8fafc; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .hidden { display: none !important; }
   </style>
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2027.12" />
-  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2027.12" />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2027.13" />
+  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2027.13" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="stylesheet" href="/styles.css?v=2027.12" />
+  <link rel="stylesheet" href="/styles.css?v=2027.13" />
   <!-- SEO & Search Engine Discovery -->
   <meta name="description" content="XStarZG Analysis — Terminal Analisis Kuantitatif, Smart Money Concepts (SMC) & Valuasi Multi-Aset Real-Time (Crypto, Forex, Emas XAU/USD, Komoditas & Saham IDX). Presisi institusional dengan manajemen risiko otomatis." />
   <meta name="keywords" content="XStarZG, XStarZG Analysis, Trading Terminal, Quantitative Analysis, Smart Money Concepts, SMC, ICT Order Block, Fair Value Gap, FVG, Crypto Screener, Forex Signals, XAUUSD, Emas IDR, Saham IDX, Risk Management, Trading Decision Support" />
@@ -64,7 +64,7 @@
         "operatingSystem": "All (Web Browser, Windows, macOS, Linux, Android, iOS)",
         "inLanguage": ["id", "en"],
         "browserRequirements": "Requires JavaScript. Requires HTML5.",
-        "softwareVersion": "2027.12",
+        "softwareVersion": "2027.13",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -338,7 +338,7 @@
     <div id="traderInvestorWorkspaceWrap">
     <section class="control-bar">
       <div class="control-group">
-        <select id="selCategory" class="ctrl-select" title="Filter Kategori Aset">
+        <select id="selCategory" class="ctrl-select" title="Filter Asset Category" data-i18n-title="ui.filterCatTitle">
           <option value="ALL" data-i18n="ui.catAll">🌐 Semua Kategori (700+ Aset Aktif)</option>
           <option value="METALS" data-i18n="ui.catMetals">🥇 Logam Mulia (10: Gold / Silver / IDR / LME)</option>
           <option value="FOREX" data-i18n="ui.catForex">💱 Forex Mayor & Cross (28 Pair)</option>
@@ -758,7 +758,7 @@
       </div>
       <div class="section-card" id="memeGroupAnalysisSection" style="margin-top:14px;">
         <div class="ga-header">
-          <h3 style="margin:0;font-size:15px;color:#f8fafc;">🚀 Analisis DEX Meme — Psikologi • Teknikal • Fundamental (Sniper MTF)</h3>
+          <h3 style="margin:0;font-size:15px;color:#f8fafc;" data-i18n="ui.memeAnalysisTitle">🚀 DEX Meme Analysis — Psychology • Technical • Fundamental (MTF Sniper)</h3>
           <span class="ga-badge ga-badge-meme">DEX MEME</span>
         </div>
         <div id="memeGroupAnalysis" class="ga-wrap"></div>
@@ -878,7 +878,7 @@
             <span style="color:#cbd5e1;"><span id="lblMemePortTitle">🚀 <strong>Portofolio Koin Micin:</strong></span></span>
             <span style="color:#cbd5e1;"><span id="lblMemeTotalCoins">Total Koin:</span> <b id="memeStatCount" style="color:#f8fafc;">0</b></span>
             <span style="color:#cbd5e1;"><span id="lblMemeBestGain">Best Multiplier:</span> <b id="memeStatBestGain" style="color:#c084fc;">1.0x</b></span>
-            <span style="color:#cbd5e1;"><span id="lblMemeProtectedCap">Modal Terlindungi:</span> <b id="memeStatSafeCount" style="color:#34d399;">0 Koin 2x (0-Risk)</b></span>
+            <span style="color:#cbd5e1;"><span id="lblMemeProtectedCap">Modal Terlindungi:</span> <b id="memeStatSafeCount" style="color:#34d399;" data-i18n="ui.memeSafeCount">0 Coins 2x (0-Risk)</b></span>
           </div>
           <button type="button" id="btnOpenAddMemeModal" class="btn-primary-glow" style="padding:7px 14px;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;border-radius:8px;background:linear-gradient(135deg,#9333ea,#7c3aed);">
             <span>➕</span> <span id="lblBtnAddMeme">Catat Koin Micin Baru</span>
@@ -1130,7 +1130,7 @@
         </div>
         <div>
           <label id="lblAddInvNotes" style="display:block;font-size:11.5px;color:#cbd5e1;margin-bottom:4px;font-weight:600;">Catatan Akumulasi (Opsional)</label>
-          <input type="text" id="inpAddInvNotes" class="ctrl-input" placeholder="misal: Cicil DCA bulanan di area undervalue" style="width:100%;padding:8px 10px;" />
+          <input type="text" id="inpAddInvNotes" class="ctrl-input" placeholder="e.g. monthly DCA installment in an undervalued area" data-i18n-ph="ui.invNotesPh" style="width:100%;padding:8px 10px;" />
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;">
@@ -1253,7 +1253,7 @@
 
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script defer src="/app.js?v=2027.12"></script>
-  <script type="module" src="/i18n/boot.js?v=2027.12"></script>
+  <script defer src="/app.js?v=2027.13"></script>
+  <script type="module" src="/i18n/boot.js?v=2027.13"></script>
 </body>
 </html>

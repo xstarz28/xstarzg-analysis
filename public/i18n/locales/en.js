@@ -832,6 +832,10 @@ export default {
     "fmCycleVal": "{p}% of cycle range • DD {d}% from peak",
     "invCycleDefault": "Accumulation Expansion",
     "invYieldDefault": "Global Hedge Asset",
-    "igSidebar": "Instagram: @xstarzganalysis (DM & Feedback)"
+    "igSidebar": "Instagram: @xstarzganalysis (DM & Feedback)",
+    "filterCatTitle": "Filter Asset Category",
+    "invNotesPh": "e.g. monthly DCA installment in an undervalued area",
+    "memeAnalysisTitle": "🚀 DEX Meme Analysis — Psychology • Technical • Fundamental (MTF Sniper)",
+    "memeSafeCount": "0 Coins 2x (0-Risk)"
   }
 };
