@@ -32,12 +32,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2026.98 (styles)', /styles\.css\?v=2026\.98/.test(html));
-chk('index.html memuat app.js v=2026.98 secara defer', /<script defer src="\/app\.js\?v=2026.98">/.test(html));
-chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
-chk('index.html memakai v=2026.70 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2026\.70">/.test(html));
-chk('engine-boot import shared v=2026.88 (2x)', /quant-core\.js\?v=2026\.88/.test(boot) && /signal-engine\.js\?v=2026\.88/.test(boot));
-chk('i18n index import locale v=2026.70', /locales\/\$\{currentLang\}\.js\?v=2026\.70/.test(i18nIndex));
+chk('index.html memakai v=2027.01 (styles)', /styles\.css\?v=2027\.01/.test(html));
+chk('index.html memuat app.js v=2027.01 secara defer', /<script defer src="\/app\.js\?v=2027.01">/.test(html));
+chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2027.01'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('index.html memakai v=2027.01 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2027\.01">/.test(html));
+chk('engine-boot import shared v=2027.01 (2x)', /quant-core\.js\?v=2027\.01/.test(boot) && /signal-engine\.js\?v=2027\.01/.test(boot));
+chk('i18n index import locale v=2027.01', /locales\/\$\{currentLang\}\.js\?v=2027\.01/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -51,13 +51,13 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
 
 
-chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2026.98') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2026.89'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2027.01') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2027.01'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
 
 
-chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.89'") && app.includes('ensureChartVendorLoaded();'));
+chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2027.01'") && app.includes('ensureChartVendorLoaded();'));
 
 
 chk('timeframe switch retains last valid chart and cancels prior analysis fetch', (() => { const a = app.indexOf('/* ---- Timeframe bar ---- */'); const b = app.indexOf('/* ---- Tab filter & sort DEX Meme Radar */', a); const block = a >= 0 ? app.slice(a, b > a ? b : a + 2500) : ''; return block.includes('state.tf = tf') && !block.includes('state.candles = []') && app.includes('activeAnalysisController.abort()'); })());
@@ -297,8 +297,9 @@ chk('skor sniper hanya menjumlahkan konfluensi searah (tanpa menumpuk semua indi
   groupModule.includes('only sums aligned confluences') && groupModule.includes('const scored = [') &&
   groupModule.includes('counted: false') && groupModule.includes('buildGroupAnalysis'));
 chk('pindah mode langsung menampilkan panel workspace aktif tanpa menunggu analisis baru',
-  app.includes("if (traderPanel) traderPanel.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);") &&
-  app.includes("if (invPanel) invPanel.classList.toggle('hidden', !isInv);"));
+  app.includes("if (traderPanel) traderPanel.classList.toggle('hidden', isInv || isMeme || isNews || isJournal || isPerf);") &&
+  app.includes("if (invPanel) invPanel.classList.toggle('hidden', !isInv);") &&
+  app.includes("if (perfWrap) perfWrap.classList.toggle('hidden', !isPerf);"));
 chk('sesi menyimpan & memulihkan pilihan instrumen manual agar chart tidak tertahan seed setelah refresh',
   app.includes('manualSelection: state.manualInstrumentSelection === true') &&
   app.includes('if (saved.manualSelection === true ||') &&
@@ -310,7 +311,7 @@ chk('pindah workspace tidak mengecilkan kanvas chart menjadi 0x0 (chart kosong)'
   app.includes('chartInstance.applyOptions({ width: w, height: h || 470 });') &&
   app.includes("height: chartBox.clientHeight || 470"));
 chk('modul analisis kelompok dimuat lewat engine-boot berversi baru',
-  engineBoot.includes('/js/shared/group-analysis.js?v=2026.98') && engineBoot.includes('window.XSGroup'));
+  engineBoot.includes('/js/shared/group-analysis.js?v=2027.01') && engineBoot.includes('window.XSGroup'));
 /* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
 chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
   app.includes('function monitorLiveSignalProgress(') &&
@@ -422,7 +423,8 @@ chk('Cloud Sentinel hanya memantau posisi manual aktif dan tidak melakukan disco
   sentinelScript.includes('monitorOnly = false') &&
   sentinelScript.includes('scanInstrument(inst, cache, { monitorOnly = false, journalLockKey } = {})') &&
   sentinelScript.includes('scanInstrument(target.inst, cache, { monitorOnly: true, journalLockKey: target.journalLockKey })') &&
-  sentinelScript.includes('if (!monitorOnly && a.signalEligible') &&
+  sentinelScript.includes('!doctrineBlocked && !monitorOnly && a.signalEligible') &&
+  sentinelScript.includes("import { evaluateDoctrine } from '../public/js/shared/trading-doctrine.js'") &&
   sentinelScript.includes('const activeLocks = Object.entries(cache.slPlusLocks || {})') &&
   sentinelScript.includes('const monitorTargets = activeLocks.map') &&
   sentinelScript.includes('WATCHLIST.find(inst => inst.sym === lock.symbol && inst.tf === lock.tf)') &&
@@ -518,6 +520,62 @@ chk('market sentinel broadcast multi-user ke seluruh subscriber vip dari d1',
   sentinelScript.includes('sendTelegramMessage(') &&
   sentinelScript.includes('/api/notify/telegram-subscribers') &&
   sentinelScript.includes('X-Sentinel-Key'));
+
+/* --- Pembaruan: jurnal berjalan, order konsisten, skor sniper tunggal, bahasa, performance --- */
+const doctrineModule = R('../public/js/shared/trading-doctrine.js');
+chk('jurnal menampilkan posisi berjalan (PENDING_FILL / FILLED), bukan hanya ACTIVE',
+  app.includes('var RUNNING_STATUS = { ACTIVE: 1, PENDING_FILL: 1, FILLED: 1, OPEN: 1 };') &&
+  app.includes("PENDING_FILL: ['#f59e0b'") &&
+  app.includes("FILLED: ['#10b981'") &&
+  app.includes('var isRunning = r.st === \'ACTIVE\' || r.st === \'PENDING_FILL\' || r.st === \'FILLED\';'));
+chk('jurnal memulihkan simbol dari id lock agar baris terhitung tidak tampil tanpa instrumen',
+  app.includes("var symFromKey = function (key) { return String(key || '').split('|')[0].toUpperCase(); };") &&
+  app.includes('var oSym = String(o.lock.symbol || symFromKey(k2) || \'\').toUpperCase();'));
+chk('hasil akhir sinyal dari cloud ikut disinkronkan ke jurnal perangkat',
+  app.includes('var cloudOutcomes = Array.isArray(d.recentOutcomes) ? d.recentOutcomes') &&
+  app.includes('localOuts[lid] = {'));
+chk('satu keputusan order: Tipe Order dan Aksi Order tidak boleh bertentangan',
+  app.includes("var orderVerb = orderType.replace(") &&
+  app.includes('orderInstruction = isEn') &&
+  app.includes("if (isNow) return 'Eksekusi '"));
+chk('skor sniper memakai skor konfluensi resmi saat sinyal resmi terbit (anti skor ganda)',
+  groupModule.includes('const officialSignal = safeGroup === \'trader\' && analysis &&') &&
+  groupModule.includes('const score = officialScore == null ? criteriaScore : officialScore;') &&
+  groupModule.includes("execution: { timeframe: 'M5/M1', bias: execBias, confirmed: execConfirmed }"));
+chk('doktrin internal 4 pilar ada dan dipakai sentinel tanpa dirender di dashboard',
+  doctrineModule.includes('export function evaluateDoctrine') &&
+  doctrineModule.includes('MARKET ANALYSIS') &&
+  doctrineModule.includes('RISK MANAGEMENT') &&
+  sentinelScript.includes('evaluateDoctrine({ analysis: a })') &&
+  !html.includes('evaluateDoctrine'));
+chk('bahasa mengikuti sistem perangkat dan jatuh ke English bila tidak tersedia',
+  i18nIndex.includes("export const FALLBACK_LANGUAGE = 'en';") &&
+  i18nIndex.includes('function browserLanguageTags()') &&
+  i18nIndex.includes('export function resolveLanguage(tag)') &&
+  i18nIndex.includes('return FALLBACK_LANGUAGE;') &&
+  !i18nIndex.includes("  // Default mutlak Bahasa Indonesia"));
+chk('notifikasi sentinel jatuh ke English bila bahasa penerima tidak dikenal',
+  sentinelScript.includes("const lang = typeof rec === 'object' ? (rec.lang || 'en') : 'en';"));
+chk('halaman Performance & Track Record tersedia dan dihitung dari jurnal',
+  html.includes('id="performanceWorkspaceWrap"') &&
+  html.includes('id="perfCurve"') &&
+  html.includes('id="btnModePerformance"') &&
+  html.includes('id="perfBotBlock"') &&
+  app.includes('function computePerformanceStats()') &&
+  app.includes('function renderPerformancePage()') &&
+  app.includes('function fetchBotPerformance()') &&
+  app.includes('PERF_R_BY_STATUS'));
+chk('track record bot publik punya endpoint sendiri dan hanya membaca sinyal sentinel yang sudah ditutup',
+  fs.existsSync(new URL('../functions/api/market/performance.js', import.meta.url)) &&
+  R('../functions/api/market/performance.js').includes("WHERE channel = 'sentinel' AND status != 'ACTIVE'") &&
+  R('../functions/api/market/performance.js').includes('export function aggregatePerformance'));
+chk('lock bot tanpa id tetap tersimpan dengan id deterministik (jurnal cloud tidak lagi kosong)',
+  journalApi.includes('const id = item.id ? String(item.id) : scopeId(scope, item.symbol, item.tf);') &&
+  journalApi.includes("WHERE id = ?5 AND (channel = 'sentinel' OR (channel = 'user' AND owner_email IN"));
+chk('workspace investor dibatasi ke saham dan crypto dengan penjelasan DCA eksplisit',
+  app.includes("return inst.assetClass === 'stocks' || inst.assetClass === 'crypto';") &&
+  html.includes('id="lblInvDcaHowBody"') &&
+  app.includes("var dcaStepLabels = ["));
 
 let syntaxOk = false;
 try {

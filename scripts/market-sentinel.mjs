@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runFullAnalysis } from '../public/js/shared/signal-engine.js';
 import { calcEMA, calcSMA } from '../public/js/shared/quant-core.js';
+import { evaluateDoctrine } from '../public/js/shared/trading-doctrine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_FILE = path.join(__dirname, '../.sentinel-cache.json');
@@ -196,8 +197,9 @@ async function sendTelegramMessage(text, payload = {}) {
 
     for (const rec of recipients) {
       const cid = typeof rec === 'object' ? rec.chatId : rec;
-      const lang = typeof rec === 'object' ? (rec.lang || 'id') : 'id';
-      const msgText = (lang === 'id' || lang === 'ms') ? (payload.id || text) : (payload.en || text);
+      // Tanpa bahasa tersimpan -> English (fallback universal), bukan dipaksa Indonesia.
+      const lang = typeof rec === 'object' ? (rec.lang || 'en') : 'en';
+      const msgText = (lang === 'id') ? (payload.id || text) : (payload.en || text);
 
       try {
         const url = `https://api.telegram.org/bot${activeBotToken}/sendMessage`;
@@ -237,8 +239,8 @@ async function sendTelegramMessage(text, payload = {}) {
   let successCount = 0;
   for (const rec of recipients) {
     const cid = typeof rec === 'object' ? rec.chatId : rec;
-    const lang = typeof rec === 'object' ? (rec.lang || 'id') : 'id';
-    const msgText = (lang === 'id' || lang === 'ms') ? (payload.id || text) : (payload.en || text);
+    const lang = typeof rec === 'object' ? (rec.lang || 'en') : 'en';
+    const msgText = (lang === 'id') ? (payload.id || text) : (payload.en || text);
     let sentThisRec = false;
 
     for (const host of apiHosts) {
@@ -787,6 +789,18 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     console.log(`  [${sym} ${tf}] 🟡 Menunggu keselarasan pasar Top-Down (1D/4H vs 1H/15m) — anti counter-trend noise.`);
   }
 
+  /* DOKTRIN INTERNAL (tidak pernah dirender di dashboard).
+     Sebelum sinyal skor tinggi dikirim, bukti harus lengkap menurut 4 pilar:
+     Market Analysis (struktur + key levels + price action M5/M1), Risk Management
+     (R:R & sizing), Trading Psychology (anti-FOMO) dan Trading Process (rencana
+     terkunci). Skor tinggi tanpa konfirmasi eksekusi = fake signal -> ditahan. */
+  const doctrine = (!monitorOnly && a.signalEligible && (dir === 'LONG' || dir === 'SHORT'))
+    ? evaluateDoctrine({ analysis: a }) : null;
+  const doctrineBlocked = !!(doctrine && doctrine.verdict !== 'PASS');
+  if (doctrineBlocked) {
+    console.log(`  [${sym} ${tf}] 🎯 [DOKTRIN] Sinyal ditahan — bukti belum lengkap (integritas ${doctrine.integrity}/100): ${doctrine.blockers.join(', ')}`);
+  }
+
   // Anti-Countertrend Crypto Beta Guard:
   // DILARANG membuka SHORT pada altcoin jika BTC makro sedang BULLISH kuat
   // DILARANG membuka LONG pada altcoin jika BTC makro sedang BEARISH kuat
@@ -827,7 +841,7 @@ export async function processInstrumentAnalysis({ inst, candles, a, cache, sendF
     }
   }
 
-  if (!monitorOnly && a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
+  if (!doctrineBlocked && !monitorOnly && a.signalEligible && (dir === 'LONG' || dir === 'SHORT') && score >= minScore && isTopDownAligned) {
     const L = a.levels || {};
     const anchorTime = a.anchorClosedTime || lastBar.time;
     const setupKey = `${sym}|${tf}|${dir}|${anchorTime}`;
@@ -1510,6 +1524,8 @@ async function processAlarm(inst, candles, a, cache, alarmId, alarm, sendFn = se
     if (a.topDown && a.topDown.isAligned === false) return;
     const score = Number(a.confluenceScore || a.confidence || 0);
     if (score < MIN_SCORE) return;
+    // Alarm khusus tetap tunduk pada doktrin internal yang sama dengan sinyal biasa.
+    if (evaluateDoctrine({ analysis: a }).verdict !== 'PASS') return;
 
     const key = `${alarmId}|${a.direction}|${a.anchorClosedTime || lastBar.time}`;
     if (cache.alarmNotified[key]) return;
@@ -1522,19 +1538,27 @@ async function processAlarm(inst, candles, a, cache, alarmId, alarm, sendFn = se
       `🚨 <b>[ALARM PANTAUAN KHUSUS BERBUNYI — ${sym}]</b>\n\n` +
       `Aset Pantauan: <b>${sym}</b> (${tf})\n` +
       `Setup: <b>${dirEmoji} (${a.signalTier || 'PRO'})</b>\n` +
-      `Skor Konfluensi: <b>${score}%</b>\n\n` +
-      `🎯 <b>Entry:</b> ${formatP(L.entry, sym)}\n` +
+      `Skor Konfluensi: <b>${score}%</b>\n` +
+      `Harga Live Saat Alarm: <b>${formatP(livePrice, sym)}</b>\n` +
+      (Number(alarm.entry) > 0 ? `Referensi Saat Alarm Dipasang: ${formatP(alarm.entry, sym)}\n` : '') +
+      `\n🎯 <b>Entry (level sinyal terbaru):</b> ${formatP(L.entry, sym)}\n` +
+      `📌 <b>Aksi Order:</b> <code>${isLong ? 'BUY LIMIT' : 'SELL LIMIT'}</code> @ ${formatP(L.entry, sym)}\n` +
       `🛡️ <b>Stop Loss:</b> ${formatP(L.sl, sym)}\n` +
       `✅ <b>Target TP1:</b> ${formatP(L.tp1, sym)}\n\n` +
+      `ℹ️ <i>Level di atas dihitung dari candle terbaru ketika alarm berbunyi — bukan harga sinyal sebelumnya. Pasang order HANYA pada level ini.</i>\n` +
       `⚡ <i>Pair yang Anda pasang alarm khusus baru saja memicu sinyal! Buka aplikasi trading Anda sekarang!</i>`;
     const msgEn =
       `🚨 <b>[SPECIAL WATCHLIST ALARM — ${sym}]</b>\n\n` +
       `Monitored Asset: <b>${sym}</b> (${tf})\n` +
       `Setup: <b>${dirEmoji} (${a.signalTier || 'PRO'})</b>\n` +
-      `Confidence Score: <b>${score}%</b>\n\n` +
-      `🎯 <b>Entry:</b> ${formatP(L.entry, sym)}\n` +
+      `Confidence Score: <b>${score}%</b>\n` +
+      `Live Price At Trigger: <b>${formatP(livePrice, sym)}</b>\n` +
+      (Number(alarm.entry) > 0 ? `Reference When Alarm Was Set: ${formatP(alarm.entry, sym)}\n` : '') +
+      `\n🎯 <b>Entry (latest signal level):</b> ${formatP(L.entry, sym)}\n` +
+      `📌 <b>Order Action:</b> <code>${isLong ? 'BUY LIMIT' : 'SELL LIMIT'}</code> @ ${formatP(L.entry, sym)}\n` +
       `🛡️ <b>Stop Loss:</b> ${formatP(L.sl, sym)}\n` +
       `✅ <b>Target TP1:</b> ${formatP(L.tp1, sym)}\n\n` +
+      `ℹ️ <i>The levels above come from the latest candle when the alarm fired — not from an older signal. Place your order ONLY at these levels.</i>\n` +
       `⚡ <i>Your monitored pair has just triggered a signal! Check your trading app now!</i>`;
     await sendFn(msgId, { id: msgId, en: msgEn });
     await markAlarmFired(alarmId, cache);

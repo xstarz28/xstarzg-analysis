@@ -40,6 +40,9 @@ jobs:
           node --check functions/api/dex/analysis.js
           node --check functions/api/market/journal-sync.js
           node --check functions/api/market/price-alarms.js
+          node --check functions/api/market/performance.js
+          node --check public/js/shared/trading-doctrine.js
+          node --check tests/performance-aggregate.test.mjs
           node --check tests/telegram-bot-alerts.test.mjs
           node --check tests/telegram-vip.test.mjs
           node --check tests/owner-access.test.mjs
@@ -62,6 +65,8 @@ jobs:
         run: node --test tests/engine-v2.test.mjs
       - name: Verify per-group sniper multi-timeframe analysis
         run: node --test tests/group-analysis.test.mjs
+      - name: Verify public track-record aggregation
+        run: node --test tests/performance-aggregate.test.mjs
       - name: Verify Telegram bot journal and bell alerts
         run: node --test tests/telegram-bot-alerts.test.mjs
       - name: Verify Telegram VIP gating, payment relay and anti-spoof hardening

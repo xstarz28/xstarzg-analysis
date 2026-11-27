@@ -4,6 +4,8 @@
 // dinamis (radar, kartu investor, katalog) dalam bahasa yang baru dipilih.
 import {
   SUPPORTED_LANGUAGES,
+  FALLBACK_LANGUAGE,
+  resolveLanguage,
   detectInitialLanguage,
   setLanguage,
   getLanguage,
@@ -14,7 +16,7 @@ import {
 function fillLangSelects() {
   document.querySelectorAll('select[data-lang-select]').forEach(function (sel) {
     if (sel.options.length >= SUPPORTED_LANGUAGES.length) return; // sudah lengkap
-    var currentVal = sel.value || getLanguage() || 'id';
+    var currentVal = getLanguage() || 'en';
     sel.innerHTML = '';
     SUPPORTED_LANGUAGES.forEach(function (l) {
       var opt = document.createElement('option');
@@ -45,6 +47,8 @@ window.XSI18N = {
   getLanguage: getLanguage,
   setLanguage: function (code) { return applyLang(code, false); },
   applyTranslationsToDOM: applyTranslationsToDOM,
+  resolveLanguage: resolveLanguage,
+  FALLBACK_LANGUAGE: FALLBACK_LANGUAGE,
   SUPPORTED_LANGUAGES: SUPPORTED_LANGUAGES
 };
 

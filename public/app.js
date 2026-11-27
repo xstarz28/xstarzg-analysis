@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2026.89';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.01';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2026.89';
+    bootScript.src = '/js/engine-boot.js?v=2027.01';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -1169,6 +1169,38 @@ function syncCloudSignalJournal() {
       if (changed) {
         localStorage.setItem(journalStorageKey(SIGNAL_LOCK_KEY), JSON.stringify(all));
         try { renderSignalJournal(); } catch (e) {}
+      }
+      /* Hasil akhir (TP/SL/invalid/expired) dari cloud wajib ikut turun ke
+         perangkat. Tanpa ini jurnal hanya menampilkan lock aktif sementara rekap
+         dan halaman performance kehilangan riwayat yang sudah diputuskan server. */
+      var cloudOutcomes = Array.isArray(d.recentOutcomes) ? d.recentOutcomes
+        : (Array.isArray(d.outcomes) ? d.outcomes : []);
+      if (cloudOutcomes.length) {
+        var localOuts = signalOutcomeStore();
+        var outsChanged = false;
+        cloudOutcomes.forEach(function (o) {
+          if (!o || !o.symbol || !o.tf || !o.status) return;
+          var lid = signalLockId(o.symbol, o.tf);
+          var at = Number(o.at) || 0;
+          var prev = localOuts[lid];
+          if (prev && Number(prev.at || 0) >= at) return;
+          localOuts[lid] = {
+            id: o.id || lid,
+            lock: {
+              symbol: String(o.symbol).toUpperCase(), tf: o.tf,
+              direction: o.direction || o.dir || null,
+              sl: o.sl, tp1: o.tp1, tp2: o.tp2
+            },
+            dir: o.direction || o.dir || null,
+            status: String(o.status).toUpperCase(),
+            entry: o.entry, score: o.score, at: at, reason: o.reason || ''
+          };
+          outsChanged = true;
+        });
+        if (outsChanged) {
+          try { localStorage.setItem(journalStorageKey(SIGNAL_OUTCOME_KEY), JSON.stringify(localOuts)); } catch (e) {}
+          try { renderSignalJournal(); } catch (e) {}
+        }
       }
     });
 }
@@ -2277,7 +2309,7 @@ function renderPillars(a) {
   var techHint = $id('techPillarsBrainHint');
   var macroHint = $id('macroPillarsBrainHint');
   var assetClass = (a && a.assetClass) || (state.currentInstrument && state.currentInstrument.assetClass) || 'forex';
-  var isId = (typeof currentLang !== 'undefined' ? currentLang : 'id') === 'id';
+  var isId = (typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' ? window.XSI18N.getLanguage() : 'en') === 'id';
   if (techHint) {
     if (assetClass === 'crypto') {
       techHint.innerHTML = isId ? '🪙 Otak Kripto: Prioritas SMC &amp; Orderflow (60%)' : '🪙 Crypto Brain: SMC &amp; Orderflow (60%) Priority';
@@ -2381,7 +2413,7 @@ function gaCardHtml(icon, title, items) {
 function renderGroupAnalysisInto(containerId, group, dex) {
   var el = $id(containerId);
   if (!el) return;
-  var isId = (typeof currentLang !== 'undefined' ? currentLang : 'id') === 'id';
+  var isId = (typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' ? window.XSI18N.getLanguage() : 'en') === 'id';
   var model = null;
   try {
     if (window.XSGroup && typeof window.XSGroup.buildGroupAnalysis === 'function') {
@@ -2454,7 +2486,7 @@ function renderNarrative(a) {
   var box = $id('narrativeHumanBox');
   if (!box) return;
   var assetClass = (a && a.assetClass) || (state.currentInstrument && state.currentInstrument.assetClass) || 'forex';
-  var isId = (typeof currentLang !== 'undefined' ? currentLang : 'id') === 'id';
+  var isId = (typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' ? window.XSI18N.getLanguage() : 'en') === 'id';
   var brainBadgeHtml = '';
   if (assetClass === 'crypto') {
     brainBadgeHtml = '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:8px;">' +
@@ -2892,6 +2924,22 @@ function renderSentimentFlow(a) {
   var flowEl = $id('smartMoneyFlowTxt');
   if (flowEl) flowEl.style.color = flowCol;
 }
+/* Panduan singkat per jenis order — dipakai bersama baris "Aksi Order" agar
+   instruksi tidak pernah bertentangan dengan "Tipe Order" di pesan yang sama. */
+function orderTypeHint(orderType, en) {
+  var type = String(orderType || '');
+  var isBuy = /^BUY/.test(type);
+  var isStop = /STOP/.test(type);
+  var isNow = /NOW/.test(type);
+  if (en) {
+    if (isNow) return 'Execute a ' + (isBuy ? 'BUY' : 'SELL') + ' at market now — price is already inside the Order Block / FVG zone.';
+    if (isStop) return 'Place a ' + (isBuy ? 'Buy Stop above resistance' : 'Sell Stop below support') + ' — wait for the breakout confirmation, do not enter early.';
+    return 'Place a ' + (isBuy ? 'Buy Limit in the discount' : 'Sell Limit in the premium') + ' Order Block / FVG mitigation zone (never chase price!).';
+  }
+  if (isNow) return 'Eksekusi ' + (isBuy ? 'BUY' : 'SELL') + ' market sekarang — harga sudah berada di zona Order Block / FVG.';
+  if (isStop) return 'Pasang ' + (isBuy ? 'Buy Stop di atas resistance' : 'Sell Stop di bawah support') + ' — tunggu konfirmasi breakout, jangan masuk lebih awal.';
+  return 'Pasang antrian ' + (isBuy ? 'Buy Limit di zona diskon' : 'Sell Limit di zona premium') + ' Order Block / FVG mitigasi (jangan kejar harga!).';
+}
 function feedIsEstimate(src) {
   return /ESTIMATE|SYNTHETIC|LOCAL|CALIBRATED|DEFAULT|ANCHOR|SEED|FALLBACK/i.test(String(src || ''));
 }
@@ -2927,6 +2975,7 @@ function updateModeChip() {
   else if (state.mode === 'meme') { cls = 'meme'; txt = T('ui.chipMeme', '🚀 DEX MEME • ANTI-RUG RADAR'); }
   else if (state.mode === 'news') { cls = 'news'; txt = '📰 KALENDER EKONOMI & BERITA'; }
   else if (state.mode === 'journal') { cls = 'journal'; txt = '📒 JURNAL SINYAL TERVERIFIKASI'; }
+  else if (state.mode === 'performance') { cls = 'journal'; txt = '📈 PERFORMANCE & TRACK RECORD'; }
   else if (state.subMode === 'spot' || (getMeta(state.symbol).assetClass === 'stocks')) { cls = 'spot'; txt = T('ui.chipSpot', 'SPOT • 1-ARAH (TANPA LEV)'); }
   chip.className = 'mode-chip ' + cls;
   chip.textContent = txt;
@@ -3658,6 +3707,8 @@ function newsSoonFor(symbol, windowMin) {
 function jnlStatusBadge(st, beActive) {
   var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
   var m = {
+    PENDING_FILL: ['#f59e0b', null, isEn ? '⏳ PENDING LIMIT — not filled yet' : '⏳ MENUNGGU TERISI — limit belum kena'],
+    FILLED: ['#10b981', null, isEn ? '📍 FILLED — position running' : '📍 TERISI — posisi berjalan'],
     ACTIVE: beActive
       ? ['#10b981', 'ui.jnlBeActive', isEn ? '🛡️ SL+ ACTIVE (0-RISK)' : '🛡️ SL+ AKTIF (0-RISK)']
       : ['#38bdf8', 'ui.jnlActive', isEn ? '🔒 ACTIVE - awaiting TP/SL' : '🔒 AKTIF - menunggu TP/SL'],
@@ -3759,15 +3810,30 @@ function renderSignalJournal() {
   var locks = signalLockStore();
   var outs = signalOutcomeStore();
   var traderRows = [];
+  /* Posisi yang SEDANG BERJALAN memakai tiga status nyata mesin cloud:
+     PENDING_FILL (limit dipasang, belum terisi), FILLED (terisi & dipantau), ACTIVE.
+     Dulu hanya ACTIVE yang dirender, sehingga entri berjalan hilang dari daftar
+     walau angkanya sudah ikut terhitung di rekap jurnal. */
+  var RUNNING_STATUS = { ACTIVE: 1, PENDING_FILL: 1, FILLED: 1, OPEN: 1 };
+  var symFromKey = function (key) { return String(key || '').split('|')[0].toUpperCase(); };
   for (var k in locks) {
     if (k === '__migratedV2') continue;
     var lk = locks[k];
-    if (!lk || lk.status !== 'ACTIVE' || !lk.tf) continue;
-    traderRows.push({ sym: lk.symbol, tf: lk.tf, dir: lk.direction, st: 'ACTIVE', bePlusActive: !!lk.bePlusActive, slPlus: lk.slPlus, entry: lk.entry, sl: lk.sl, tp1: lk.tp1, tp2: lk.tp2, score: lk.score, at: lk.issuedAt || 0, brain: lk.brain, feedUnverified: !!lk.feedUnverified });
+    if (!lk || !RUNNING_STATUS[String(lk.status || 'ACTIVE').toUpperCase()]) continue;
+    var lkSym = String(lk.symbol || symFromKey(k) || '').toUpperCase();
+    var lkTf = lk.tf || String(k || '').split('|')[3] || '';
+    if (!lkSym || !lkTf) continue;
+    var lkRawStatus = String(lk.status || '').toUpperCase();
+    var lkSt = (lk.filled || lkRawStatus === 'FILLED') ? 'FILLED'
+      : (lkRawStatus === 'PENDING_FILL' ? 'PENDING_FILL' : 'ACTIVE');
+    traderRows.push({ sym: lkSym, tf: lkTf, dir: lk.direction, st: lkSt, bePlusActive: !!lk.bePlusActive, slPlus: lk.slPlus, entry: lk.entry, sl: lk.sl, tp1: lk.tp1, tp2: lk.tp2, score: lk.score, at: lk.issuedAt || lk.created || 0, brain: lk.brain, feedUnverified: !!lk.feedUnverified });
   }
   for (var k2 in outs) {
     var o = outs[k2]; if (!o || !o.lock) continue;
-    traderRows.push({ sym: o.lock.symbol, tf: o.lock.tf, dir: o.dir, st: o.status, bePlusActive: !!o.bePlusActive, slPlus: o.slPlus || (o.lock && o.lock.slPlus), entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, tp2: o.lock.tp2, score: o.score, at: o.at, reason: o.reason, brain: o.lock.brain });
+    var oSym = String(o.lock.symbol || symFromKey(k2) || '').toUpperCase();
+    var oTf = o.lock.tf || String(k2 || '').split('|')[3] || '';
+    if (!oSym || !oTf) continue;
+    traderRows.push({ sym: oSym, tf: oTf, dir: o.dir, st: o.status, bePlusActive: !!o.bePlusActive, slPlus: o.slPlus || (o.lock && o.lock.slPlus), entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, tp2: o.lock.tp2, score: o.score, at: o.at, reason: o.reason, brain: o.lock.brain });
   }
 
   var invItems = investorJournalStore();
@@ -3839,6 +3905,7 @@ function renderSignalJournal() {
       var tTxt = r.at ? new Date(r.at).toLocaleString(dateLocale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
       var isSniper = r.brain === 'SNIPER' || (r.tf && ['M30', 'H1', 'H4', 'D1', 'W1', 'MN'].indexOf(r.tf) > -1);
       var isScalp = !isSniper;
+      var isRunning = r.st === 'ACTIVE' || r.st === 'PENDING_FILL' || r.st === 'FILLED';
       var slPlusRow = (r.slPlus && (r.bePlusActive || r.st === 'BE_SAVED'))
         ? ' • <b style="color:#6ee7b7;">SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (0-Risk)</b>'
         : '';
@@ -3847,19 +3914,23 @@ function renderSignalJournal() {
         : (r.tp2 ? (' • <b style="color:#38bdf8;">Target 1:2 R:R (TP2) ' + formatPrice(num(r.tp2), r.sym) + '</b> <span style="color:#64748b;">(TP1: ' + formatPrice(num(r.tp1), r.sym) + ')</span>') : (' • TP1 ' + formatPrice(num(r.tp1), r.sym)));
 
       var advisorNotice = '';
-      if (isSniper && r.st === 'ACTIVE') {
+      if (isSniper && isRunning) {
         var slPosTxt = r.dir === 'LONG' ? T('ui.jnlAboveEntry', 'di atas entry') : T('ui.jnlBelowEntry', 'di bawah entry');
         advisorNotice = r.bePlusActive
           ? ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Stop Loss diproteksi di SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') menuju Target 1:2 R:R (TP2).</div>')
           : ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Geser SL ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' saat menyentuh TP1 untuk proteksi 0-Risk!</div>');
-      } else if (isScalp && r.st === 'ACTIVE') {
+      } else if (isScalp && isRunning) {
         advisorNotice = r.bePlusActive
           ? ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Modal aman (SL+ ' + formatPrice(num(r.slPlus), r.sym) + ') menuju Target 1:2 R:R (TP1).</div>')
           : ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚡ SCALP ADVISOR: Target mandatori R:R 1:2 (TP1). SL+ aktif otomatis untuk proteksi modal.</div>');
       }
 
+      if (r.st === 'PENDING_FILL') {
+        advisorNotice = '<div style="font-size:10.2px;color:#f59e0b;margin-top:2px;">⏳ Order BELUM terisi — antrian limit di ' + formatPrice(num(r.entry), r.sym) + ' masih menunggu harga. Jangan ubah level; batalkan bila sistem mengirim notifikasi cancel.</div>';
+      }
+
       var liveMonitorInfo = '';
-      if (r.st === 'ACTIVE') {
+      if (isRunning) {
         var curP = (state.symbol && state.symbol.toUpperCase() === (r.sym || '').toUpperCase() && state.livePrice > 0) ? state.livePrice : null;
         if (curP) {
           var isL = r.dir === 'LONG';
@@ -5039,8 +5110,11 @@ function syncHorizonTabs() {
    dinilai merata, bukan cuma aset besar. Kurasi menampilkan hanya kandidat yang
    bias makro D1/W1 akumulatif (layak diinvestasikan sesuai horizon waktunya). */
 function investableUniverse() {
+  // Ruang kerja investor fokus pada aset yang punya siklus akumulasi & psikologi
+  // pasar jelas: saham (IDX/global) dan crypto spot. Logam/forex tetap tersedia
+  // di workspace Trader, bukan sebagai rekomendasi akumulasi jangka panjang.
   return catalogSortedStable().filter(function (inst) {
-    return inst.assetClass === 'stocks' || inst.assetClass === 'metals' || inst.assetClass === 'crypto';
+    return inst.assetClass === 'stocks' || inst.assetClass === 'crypto';
   });
 }
 var investorPickRunSeq = 0;
@@ -5643,8 +5717,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2026.70',
-        badge: '/assets/favicon.svg?v=2026.70',
+        icon: '/assets/favicon.svg?v=2027.01',
+        badge: '/assets/favicon.svg?v=2027.01',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -6443,6 +6517,12 @@ function checkTelegramHighScoreSignal(a, item) {
     if (livePrice <= tp1 || livePrice >= sl) return;
   }
 
+  /* Konfirmasi eksekusi M5/M1 (doktrin sniper). Sinyal M15/M30 "skor tinggi"
+     TIDAK dikirim bila pemicu eksekusi belum searah — M15 tetap menjadi acuan
+     struktur, tetapi entry menunggu konfirmasi timeframe eksekusi. */
+  var execBiasTg = (a.topDown && a.topDown.execBias) ? String(a.topDown.execBias).toUpperCase() : '';
+  if (execBiasTg && execBiasTg !== (a.direction === 'LONG' ? 'BULLISH' : 'BEARISH')) return;
+
   // 2. Untuk order Market/Instan (harga berada di sekitar entry), pastikan harga belum lari > 35% target
   var isMarketOrder = Math.abs(entry - livePrice) <= 0.15 * atr;
   if (isMarketOrder && targetDist > 0) {
@@ -6532,6 +6612,17 @@ function checkTelegramHighScoreSignal(a, item) {
     else if (diff < -0.08 * atr) orderType = 'SELL STOP (Breakdown Support)';
     else orderType = 'SELL NOW (Market / Instan)';
   }
+
+  /* SATU KEPUTUSAN ORDER untuk satu pesan.
+     Baris "Tipe Order" dan "Aksi Order" WAJIB menyebut jenis order yang sama.
+     Sebelumnya tipe order dihitung dari jarak harga (bisa BUY NOW) sementara
+     instruksi selalu menulis BUY LIMIT sehingga pesan saling bertentangan. */
+  var orderVerb = orderType.replace(/\s*\(.*\)$/, '');
+  orderInstruction = isEn
+    ? ('📌 <b>Action:</b> <code>' + orderVerb + '</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+       '💡 <i>' + orderTypeHint(orderType, true) + '</i>')
+    : ('📌 <b>Aksi Order:</b> <code>' + orderVerb + '</code> @ <b>' + formatPrice(entry, sym) + '</b>\n' +
+       '💡 <i>' + orderTypeHint(orderType, false) + '</i>');
 
   var tgMsg = isEn ? (
     '🚀 <b>[XSTARZG 24/7 CLOUD — NEW HIGH-SCORE OPPORTUNITY (' + tierTxt + ')]</b>\n\n' +
@@ -6631,7 +6722,7 @@ function applyWorkspacePrefs(saved) {
     }
     if (tfOk) { state.tf = saved.tf; state.timeframe = saved.tf; }
   }
-  if (saved.mode === 'investor' || saved.mode === 'trader' || saved.mode === 'meme' || saved.mode === 'news' || saved.mode === 'journal') {
+  if (saved.mode === 'investor' || saved.mode === 'trader' || saved.mode === 'meme' || saved.mode === 'news' || saved.mode === 'journal' || saved.mode === 'performance') {
     state.mode = saved.mode;
     var t = $id('btnModeTrader'), inv = $id('btnModeInvestor'), mem = $id('btnModeMeme');
     var nw = $id('btnModeNews'), jn = $id('btnModeJournal');
@@ -6640,6 +6731,8 @@ function applyWorkspacePrefs(saved) {
     if (mem) mem.classList.toggle('active', saved.mode === 'meme');
     if (nw) nw.classList.toggle('active', saved.mode === 'news');
     if (jn) jn.classList.toggle('active', saved.mode === 'journal');
+    var pfm = $id('btnModePerformance');
+    if (pfm) pfm.classList.toggle('active', saved.mode === 'performance');
     var wrap = $id('traderSubModeWrap');
     if (wrap) wrap.style.display = saved.mode === 'trader' ? 'flex' : 'none';
   }
@@ -6662,23 +6755,26 @@ function syncModeSections() {
   var memeWrap = $id('memeWorkspaceWrap');
   var newsWrap = $id('newsWorkspaceWrap');
   var journalWrap = $id('journalWorkspaceWrap');
+  var perfWrap = $id('performanceWorkspaceWrap');
   var traderSec = $id('traderRadarSection'), invSec = $id('investorRadarSection');
   var isInv = state.mode === 'investor';
   var isMeme = state.mode === 'meme';
   var isNews = state.mode === 'news';
   var isJournal = state.mode === 'journal';
+  var isPerf = state.mode === 'performance';
 
-  if (tiWrap) tiWrap.classList.toggle('hidden', isMeme || isNews || isJournal);
+  if (tiWrap) tiWrap.classList.toggle('hidden', isMeme || isNews || isJournal || isPerf);
   if (memeWrap) memeWrap.classList.toggle('hidden', !isMeme);
   if (isMeme) { try { renderMemeGroupAnalysis(); } catch (e) {} }
   // Panel setup mengikuti mode aktif tanpa menunggu analisis baru — inilah yang
   // membuat workspace Investor (valuasi & DCA) hilang saat mode ditukar.
   var traderPanel = $id('traderSetupPanel'), invPanel = $id('investorSetupPanel');
-  if (traderPanel) traderPanel.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
+  if (traderPanel) traderPanel.classList.toggle('hidden', isInv || isMeme || isNews || isJournal || isPerf);
   if (invPanel) invPanel.classList.toggle('hidden', !isInv);
   if (newsWrap) newsWrap.classList.toggle('hidden', !isNews);
   if (journalWrap) journalWrap.classList.toggle('hidden', !isJournal);
-  if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal);
+  if (perfWrap) perfWrap.classList.toggle('hidden', !isPerf);
+  if (traderSec) traderSec.classList.toggle('hidden', isInv || isMeme || isNews || isJournal || isPerf);
   if (invSec) invSec.classList.toggle('hidden', !isInv);
   var investorMacro = $id('investorMacroContextSection');
   if (investorMacro) investorMacro.classList.toggle('hidden', !isInv);
@@ -6688,8 +6784,28 @@ function syncModeButtonLabels() {
   var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
   var bn = $id('btnModeNews');
   var bj = $id('btnModeJournal');
+  var bp = $id('btnModePerformance');
   if (bn) bn.textContent = isEn ? '📰 ECONOMIC CALENDAR' : '📰 KALENDER EKONOMI';
   if (bj) bj.textContent = isEn ? '📒 SIGNAL JOURNAL' : '📒 JURNAL SINYAL';
+  if (bp) bp.textContent = isEn ? '📈 PERFORMANCE' : '📈 PERFORMANCE';
+  // Penjelasan DCA: menghapus kebingungan "kenapa DCA 3 paling bawah".
+  var dcaStepLabels = [
+    isEn ? '🟢 DCA STEP 1 — 40% OF CAPITAL (first tranche)' : '🟢 DCA TAHAP 1 — ALOKASI 40% MODAL (cicilan pertama)',
+    isEn ? '🟢 DCA STEP 2 — 35% OF CAPITAL (add on deeper discount)' : '🟢 DCA TAHAP 2 — ALOKASI 35% MODAL (tambah saat lebih diskon)',
+    isEn ? '🟢 DCA STEP 3 — 25% OF CAPITAL (deepest discount, optional)' : '🟢 DCA TAHAP 3 — ALOKASI 25% MODAL (diskon terdalam, opsional)'
+  ];
+  ['lblInvDcaStep1', 'lblInvDcaStep2', 'lblInvDcaStep3'].forEach(function (id, idx) {
+    var el = $id(id);
+    if (el) el.textContent = dcaStepLabels[idx];
+  });
+  var dcaHowTitle = $id('lblInvDcaHowTitle');
+  if (dcaHowTitle) dcaHowTitle.textContent = isEn ? 'How DCA 1 → 3 works' : 'Cara kerja DCA 1 → 3';
+  var dcaHowBody = $id('lblInvDcaHowBody');
+  if (dcaHowBody) {
+    dcaHowBody.innerHTML = isEn
+      ? 'These are three <b>buy ladder levels</b>, not three targets you must all hit. Buy the first tranche at DCA 1, add at DCA 2, and reserve the last tranche for DCA 3 — the <b>deepest discount</b>, not a mandatory bottom. If price reverses before reaching DCA 3, that is fine: averaging is optional, discipline is not. Start accumulating only when the investor score is <b>≥ 60</b> (aggressive ≥ 75). Below 45, wait for a discount.'
+      : 'Ini <b>tangga pembelian</b>, bukan tiga target yang wajib disentuh semua. Beli cicilan pertama di DCA 1, tambah di DCA 2, dan sisakan jatah terakhir untuk DCA 3 — harga <b>paling diskon</b>, bukan syarat harga dasar. Kalau harga berbalik sebelum DCA 3, itu tidak masalah: rata-rata boleh berhenti, disiplin tidak. Mulai akumulasi hanya bila skor investor <b>≥ 60</b> (agresif ≥ 75). Di bawah 45, tunggu diskon.';
+  }
   var bBacks = document.querySelectorAll('.btn-back-to-trader');
   Array.prototype.forEach.call(bBacks, function (b) {
     b.textContent = isEn ? '← Back to Analysis Terminal' : '← Kembali ke Terminal Analisis';
@@ -8006,16 +8122,197 @@ function bindUiEvents() {
   });
   bindVipFlow();
 }
+/* ==================== PERFORMANCE & TRACK RECORD (JUJUR, TERMASUK LOSS) ====================
+   Dihitung dari jurnal yang sudah diputuskan (cloud + perangkat). Angka loss,
+   kedaluwarsa, dan batal TIDAK dibuang — itu justru bukti transparansi. */
+var PERF_R_BY_STATUS = {
+  TP_HIT: 2, BE_SAVED: 0, SL_HIT: -1, STRUCTURE_INVALID: -0.5,
+  EXPIRED: 0, CANCELLED: 0, MISSED: 0
+};
+function perfClosedRows() {
+  var outs = signalOutcomeStore();
+  var rows = [];
+  for (var k in outs) {
+    var o = outs[k];
+    if (!o || !o.lock) continue;
+    var st = String(o.status || '').toUpperCase();
+    if (!(st in PERF_R_BY_STATUS)) continue;
+    rows.push({
+      sym: String(o.lock.symbol || '').toUpperCase(), tf: o.lock.tf,
+      dir: o.dir || o.lock.direction || '-', st: st,
+      score: num(o.score), at: num(o.at)
+    });
+  }
+  rows.sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
+  return rows;
+}
+function computePerformanceStats() {
+  var rows = perfClosedRows();
+  var wins = 0, losses = 0, be = 0;
+  var totalR = 0, grossWin = 0, grossLoss = 0, equity = 0, peak = 0, maxDD = 0;
+  var curve = [{ i: 0, r: 0 }];
+  rows.forEach(function (row, i) {
+    var r = PERF_R_BY_STATUS[row.st] || 0;
+    if (row.st === 'TP_HIT') wins++;
+    else if (row.st === 'SL_HIT' || row.st === 'STRUCTURE_INVALID') losses++;
+    else if (row.st === 'BE_SAVED') be++;
+    totalR += r;
+    equity += r;
+    if (r > 0) grossWin += r;
+    else if (r < 0) grossLoss += Math.abs(r);
+    if (equity > peak) peak = equity;
+    var dd = peak - equity;
+    if (dd > maxDD) maxDD = dd;
+    curve.push({ i: i + 1, r: Number(equity.toFixed(2)) });
+  });
+  var decided = wins + losses;
+  var locks = signalLockStore();
+  var running = 0;
+  for (var lk in locks) {
+    var l = locks[lk];
+    if (l && (l.status === 'ACTIVE' || l.status === 'PENDING_FILL' || l.status === 'FILLED')) running++;
+  }
+  return {
+    rows: rows, wins: wins, losses: losses, be: be, decided: decided,
+    winRate: decided ? Math.round((wins / decided) * 100) : 0,
+    totalR: totalR, avgR: rows.length ? totalR / rows.length : 0,
+    maxDD: maxDD,
+    profitFactor: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : 0),
+    curve: curve, running: running
+  };
+}
+var botPerformance = null;
+function fetchBotPerformance() {
+  return fetch('/api/market/performance')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      botPerformance = (d && d.ok && d.stats && d.stats.total > 0) ? d : null;
+      return botPerformance;
+    })
+    .catch(function () { botPerformance = null; return null; });
+}
+function renderBotPerformance() {
+  var wrap = $id('perfBotBlock'), el = $id('perfBotStats'), note = $id('perfBotNote');
+  if (!wrap || !el) return;
+  if (!botPerformance) { wrap.classList.add('hidden'); return; }
+  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
+  var s = botPerformance.stats;
+  wrap.classList.remove('hidden');
+  var cards = [
+    { label: isEn ? 'Published & decided' : 'Terbit & Diputuskan', value: String(s.total), note: (isEn ? 'signals' : 'sinyal') },
+    { label: 'Win Rate', value: s.decided ? s.winRate + '%' : '—', note: s.wins + 'W / ' + s.losses + 'L / ' + s.be + 'BE', col: s.winRate >= 50 ? '#34d399' : '#fb7185' },
+    { label: isEn ? 'Average R' : 'Rata-rata R', value: (s.avgR >= 0 ? '+' : '') + s.avgR + 'R', note: (isEn ? 'per signal' : 'per sinyal'), col: s.avgR >= 0 ? '#34d399' : '#fb7185' },
+    { label: 'Profit Factor', value: s.profitFactor === null ? '∞' : String(s.profitFactor), note: (s.totalR >= 0 ? '+' : '') + s.totalR + 'R total', col: (s.profitFactor === null || s.profitFactor >= 1) ? '#34d399' : '#fb7185' },
+    { label: 'Max Drawdown', value: '-' + s.maxDD + 'R', note: isEn ? 'peak to trough' : 'puncak ke lembah', col: '#f59e0b' }
+  ];
+  el.innerHTML = cards.map(function (c) {
+    return '<div style="background:rgba(2,6,23,0.6);border:1px solid rgba(51,65,85,0.6);border-radius:10px;padding:10px 12px;">' +
+      '<div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">' + escH(c.label) + '</div>' +
+      '<div style="font-size:18px;font-weight:900;color:' + (c.col || '#f8fafc') + ';">' + escH(c.value) + '</div>' +
+      '<div style="font-size:10px;color:#64748b;">' + escH(c.note) + '</div></div>';
+  }).join('');
+  if (note) {
+    note.textContent = isEn
+      ? 'Aggregated from every signal the cloud bot actually published and later closed. Losses and invalidations are included; nothing is filtered out.'
+      : 'Dihitung dari seluruh sinyal yang benar-benar diterbitkan bot cloud lalu ditutup. Loss dan invalidasi ikut dihitung; tidak ada yang difilter.';
+  }
+}
+function renderPerformancePage() {
+  var isEn = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id');
+  try { renderBotPerformance(); } catch (e) {}
+  var st = computePerformanceStats();
+  var statsEl = $id('perfStats');
+  var curveEl = $id('perfCurve');
+  var tableEl = $id('perfTable');
+  var noteEl = $id('perfNote');
+
+  if (noteEl) {
+    noteEl.textContent = isEn
+      ? 'Track record is built only from signals that passed the strict gate and were later decided (TP, SL, invalidated, expired, cancelled). Losses and breakevens are shown, not hidden. Sample size: ' + st.rows.length + ' closed signal(s).'
+      : 'Track record hanya dihitung dari sinyal yang lolos gerbang ketat lalu diputuskan (TP, SL, invalidasi, kedaluwarsa, dibatalkan). Loss dan break-even ditampilkan, bukan disembunyikan. Ukuran sampel: ' + st.rows.length + ' sinyal selesai.';
+  }
+
+  if (statsEl) {
+    var pf = st.profitFactor === Infinity ? '∞' : st.profitFactor.toFixed(2);
+    var cards = [
+      { label: isEn ? 'Closed signals' : 'Sinyal Selesai', value: String(st.rows.length), note: st.running + (isEn ? ' still running' : ' masih berjalan') },
+      { label: 'Win Rate', value: st.decided ? st.winRate + '%' : '—', note: st.wins + 'W / ' + st.losses + 'L / ' + st.be + 'BE', col: st.winRate >= 50 ? '#34d399' : '#fb7185' },
+      { label: isEn ? 'Average R' : 'Rata-rata R', value: (st.avgR >= 0 ? '+' : '') + st.avgR.toFixed(2) + 'R', note: isEn ? 'per closed signal' : 'per sinyal selesai', col: st.avgR >= 0 ? '#34d399' : '#fb7185' },
+      { label: 'Profit Factor', value: pf, note: (st.totalR >= 0 ? '+' : '') + st.totalR.toFixed(2) + 'R total', col: st.profitFactor >= 1 ? '#34d399' : '#fb7185' },
+      { label: 'Max Drawdown', value: '-' + st.maxDD.toFixed(2) + 'R', note: isEn ? 'peak to trough' : 'puncak ke lembah', col: '#f59e0b' }
+    ];
+    statsEl.innerHTML = cards.map(function (c) {
+      return '<div style="background:rgba(15,23,42,0.7);border:1px solid rgba(51,65,85,0.6);border-radius:10px;padding:12px 14px;">' +
+        '<div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">' + escH(c.label) + '</div>' +
+        '<div style="font-size:20px;font-weight:900;color:' + (c.col || '#f8fafc') + ';margin:2px 0;">' + escH(c.value) + '</div>' +
+        '<div style="font-size:10.5px;color:#64748b;">' + escH(c.note) + '</div></div>';
+    }).join('');
+  }
+
+  if (curveEl) {
+    var pts = st.curve;
+    if (pts.length < 2) {
+      curveEl.innerHTML = '<text x="300" y="92" text-anchor="middle" fill="#64748b" font-size="12">' +
+        (isEn ? 'Equity curve appears after the first closed signal.' : 'Kurva ekuitas muncul setelah sinyal pertama selesai.') + '</text>';
+    } else {
+      var minR = Math.min.apply(null, pts.map(function (p) { return p.r; }));
+      var maxR = Math.max.apply(null, pts.map(function (p) { return p.r; }));
+      if (maxR === minR) { maxR += 1; minR -= 1; }
+      var W = 600, H = 180, pad = 10;
+      var sx = function (i) { return pad + (i / (pts.length - 1)) * (W - pad * 2); };
+      var sy = function (r) { return H - pad - ((r - minR) / (maxR - minR)) * (H - pad * 2); };
+      var line = pts.map(function (p, i) { return sx(i).toFixed(1) + ',' + sy(p.r).toFixed(1); }).join(' ');
+      var zeroY = sy(0).toFixed(1);
+      var lastR = pts[pts.length - 1].r;
+      var stroke = lastR >= 0 ? '#34d399' : '#fb7185';
+      curveEl.innerHTML =
+        '<line x1="' + pad + '" y1="' + zeroY + '" x2="' + (W - pad) + '" y2="' + zeroY + '" stroke="#334155" stroke-dasharray="4 4" stroke-width="1" />' +
+        '<polyline points="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />' +
+        '<text x="' + pad + '" y="' + (H - 2) + '" fill="#64748b" font-size="10">0</text>' +
+        '<text x="' + (W - pad) + '" y="' + (H - 2) + '" text-anchor="end" fill="#64748b" font-size="10">' + escH(String(pts.length - 1)) + (isEn ? ' trades' : ' trade') + '</text>';
+    }
+  }
+
+  if (tableEl) {
+    if (!st.rows.length) {
+      tableEl.innerHTML = '<div style="font-size:12px;color:#64748b;padding:14px;text-align:center;">' +
+        (isEn ? 'No completed signals yet. The record fills automatically as signals hit TP/SL or expire.' : 'Belum ada sinyal selesai. Rekam jejak terisi otomatis saat sinyal menyentuh TP/SL atau kedaluwarsa.') + '</div>';
+    } else {
+      var recent = st.rows.slice(-30).reverse();
+      var rowsHtml = recent.map(function (r) {
+        var b = jnlStatusBadge(r.st, false);
+        var rMul = PERF_R_BY_STATUS[r.st] || 0;
+        var when = r.at ? new Date(r.at).toLocaleDateString(isEn ? 'en-US' : 'id-ID', { month: 'short', day: 'numeric' }) : '—';
+        return '<tr>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid rgba(51,65,85,0.4);"><b>' + escH(r.sym || '-') + '</b> <span style="color:#64748b;font-size:10px;">' + escH(r.tf || '') + '</span></td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid rgba(51,65,85,0.4);color:' + (r.dir === 'LONG' ? '#34d399' : '#fb7185') + ';font-weight:700;">' + escH(r.dir || '-') + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid rgba(51,65,85,0.4);">' + escH(b.txt) + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid rgba(51,65,85,0.4);color:' + (rMul > 0 ? '#34d399' : rMul < 0 ? '#fb7185' : '#94a3b8') + ';font-weight:700;">' + (rMul > 0 ? '+' : '') + rMul + 'R</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid rgba(51,65,85,0.4);color:#64748b;">' + escH(when) + '</td>' +
+        '</tr>';
+      }).join('');
+      tableEl.innerHTML = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;color:#cbd5e1;">' +
+        '<thead><tr style="color:#94a3b8;text-align:left;font-size:10.5px;text-transform:uppercase;">' +
+        '<th style="padding:6px 8px;">' + (isEn ? 'Instrument' : 'Instrumen') + '</th>' +
+        '<th style="padding:6px 8px;">' + (isEn ? 'Side' : 'Arah') + '</th>' +
+        '<th style="padding:6px 8px;">' + (isEn ? 'Result' : 'Hasil') + '</th>' +
+        '<th style="padding:6px 8px;">R</th>' +
+        '<th style="padding:6px 8px;">' + (isEn ? 'Date' : 'Tanggal') + '</th>' +
+        '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+    }
+  }
+}
 function setMode(mode) {
   state.mode = mode;
   syncTfBarForMode();
   var t = $id('btnModeTrader'), i = $id('btnModeInvestor'), m = $id('btnModeMeme');
-  var nw = $id('btnModeNews'), jn = $id('btnModeJournal');
+  var nw = $id('btnModeNews'), jn = $id('btnModeJournal'), pf = $id('btnModePerformance');
   if (t) t.classList.toggle('active', mode === 'trader');
   if (i) i.classList.toggle('active', mode === 'investor');
   if (m) m.classList.toggle('active', mode === 'meme');
   if (nw) nw.classList.toggle('active', mode === 'news');
   if (jn) jn.classList.toggle('active', mode === 'journal');
+  if (pf) pf.classList.toggle('active', mode === 'performance');
   var sub = $id('traderSubModeWrap');
   if (sub) sub.style.display = mode === 'trader' ? 'flex' : 'none';
   if (mode === 'investor' && state.radarHorizon === 'scalping') state.radarHorizon = 'swing';
@@ -8054,6 +8351,13 @@ function setMode(mode) {
   } catch (e) {}
   if (mode === 'news') { fetchNewsCalendar(true); renderNewsPanel(); }
   else if (mode === 'journal') { syncCloudSignalJournal(); renderSignalJournal(); }
+  else if (mode === 'performance') {
+    var refreshPerf = function () { try { renderPerformancePage(); } catch (e) {} };
+    try { fetchBotPerformance().then(refreshPerf).catch(refreshPerf); } catch (e) { refreshPerf(); }
+    if (typeof syncCloudSignalJournal === 'function') {
+      try { syncCloudSignalJournal().then(refreshPerf).catch(refreshPerf); } catch (e) { refreshPerf(); }
+    }
+  }
   renderMacroMap();
   updateModeChip();
   syncTfBarForMode();

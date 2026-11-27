@@ -9,9 +9,12 @@ const swJs = fs.readFileSync(path.join(rootDir, 'public/sw.js'), 'utf8');
 const i18nIndex = fs.readFileSync(path.join(rootDir, 'public/i18n/index.js'), 'utf8');
 
 test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
-  await t.test('1. detectInitialLanguage default mutlak ke id (Bahasa Indonesia)', () => {
-    assert.ok(i18nIndex.includes("return 'id';"), 'detectInitialLanguage harus default ke id');
-    assert.ok(!i18nIndex.includes("const nav = (navigator.language"), 'detectInitialLanguage tidak boleh mendasarkan default pada navigator.language');
+  await t.test('1. detectInitialLanguage mengikuti bahasa sistem lalu jatuh ke English', () => {
+    assert.ok(i18nIndex.includes("export const FALLBACK_LANGUAGE = 'en';"), 'fallback bahasa harus English');
+    assert.ok(i18nIndex.includes('function browserLanguageTags()'), 'deteksi harus membaca bahasa sistem perangkat');
+    assert.ok(i18nIndex.includes('export function resolveLanguage(tag)'), 'tag sistem harus dinormalisasi ke kode yang tersedia');
+    assert.ok(i18nIndex.includes('return FALLBACK_LANGUAGE;'), 'bahasa yang tidak kita miliki harus jatuh ke English');
+    assert.ok(i18nIndex.includes('const saved = resolveLanguage(localStorage.getItem(LANG_STORAGE_KEY));'), 'pilihan tersimpan tetap diprioritaskan');
   });
 
   await t.test('2. generateSeedCandles diekspos ke window dan tersedia di scope app.js', () => {
@@ -39,7 +42,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
     assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
     assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
-    assert.ok(swJs.includes('xstarzg-pwa-v2026.98'), 'sw.js memiliki versi cache segar v2026.98');
+    assert.ok(swJs.includes('xstarzg-pwa-v2027.01'), 'sw.js memiliki versi cache segar v2027.01');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
@@ -129,7 +132,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
   await t.test('21. quant/signal engine baru dimuat setelah workspace dibuka', () => {
     assert.ok(appJs.includes('function ensureQuantEnginesLoaded()'), 'lazy loader tersedia');
     assert.ok(appJs.includes('ensureQuantEnginesLoaded();'), 'workspace meminta engine');
-    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2026.89'"), 'modul engine tidak di-load dari landing');
+    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2027.01'"), 'modul engine tidak di-load dari landing');
   });
   await t.test('22. bootPostDom tidak menghitung seed saat landing/login', () => {
     const bootStart = appJs.indexOf('function bootPostDom()');
@@ -143,7 +146,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
 
   await t.test('24. vendor chart tidak dimuat sebelum workspace', () => {
     assert.ok(!appJs.includes('<script src="/vendor/lightweight-charts.js'), 'vendor chart tidak ada di app bootstrap HTML');
-    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2026.89'"), 'chart vendor dimuat saat entry workspace');
+    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2027.01'"), 'chart vendor dimuat saat entry workspace');
   });
 
   await t.test('25. pergantian timeframe tidak mengosongkan candle aktif', () => {

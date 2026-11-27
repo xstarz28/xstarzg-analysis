@@ -21,20 +21,60 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '🇵🇱', dir: 'ltr' }
 ];
 const LANG_STORAGE_KEY = 'xstarzg_lang';
-let currentLang = 'id';
+export const FALLBACK_LANGUAGE = 'en';
+let currentLang = FALLBACK_LANGUAGE;
 let activeDictionary = {};
 const dictionaryCache = new Map();
+
+/* Normalisasi tag bahasa apa pun (navigator.language, localStorage) ke kode yang
+   benar-benar tersedia. Contoh: en-GB -> en, pt-BR -> pt, zh-Hans -> zh-CN,
+   zh-HK -> zh-TW. Tag yang tidak kita miliki menghasilkan '' (tidak didukung). */
+export function resolveLanguage(tag) {
+  const raw = String(tag || '').trim();
+  if (!raw) return '';
+  const lower = raw.toLowerCase().replace('_', '-');
+  const exact = SUPPORTED_LANGUAGES.find((l) => l.code.toLowerCase() === lower);
+  if (exact) return exact.code;
+  if (lower.startsWith('zh')) return /hant|tw|hk|mo/.test(lower) ? 'zh-TW' : 'zh-CN';
+  const base = lower.split('-')[0];
+  const byBase = SUPPORTED_LANGUAGES.find((l) => {
+    const code = l.code.toLowerCase();
+    return code === base || code.split('-')[0] === base;
+  });
+  return byBase ? byBase.code : '';
+}
+
+function browserLanguageTags() {
+  const tags = [];
+  try {
+    if (Array.isArray(navigator.languages)) tags.push(...navigator.languages);
+  } catch (_) {}
+  try {
+    if (navigator.language) tags.push(navigator.language);
+  } catch (_) {}
+  try {
+    if (navigator.userLanguage) tags.push(navigator.userLanguage);
+  } catch (_) {}
+  return tags;
+}
+
+/* Urutan prioritas: pilihan tersimpan -> bahasa sistem perangkat -> English.
+   Yang tidak kita miliki diterjemahkan ke bahasa Inggris (bukan dipaksa Indonesia). */
 export function detectInitialLanguage() {
-  const saved = localStorage.getItem(LANG_STORAGE_KEY);
-  if (saved && SUPPORTED_LANGUAGES.some((l) => l.code === saved)) {
-    return saved;
+  try {
+    const saved = resolveLanguage(localStorage.getItem(LANG_STORAGE_KEY));
+    if (saved) return saved;
+  } catch (_) {}
+  for (const tag of browserLanguageTags()) {
+    const code = resolveLanguage(tag);
+    if (code) return code;
   }
-  // Default mutlak Bahasa Indonesia (id) sebagai bahasa primer terminal
-  // agar HP Android / iOS lokal tidak salah terdeteksi menjadi bahasa Inggris.
-  return 'id';
+  return FALLBACK_LANGUAGE;
 }
 export async function setLanguage(langCode) {
-  const meta = SUPPORTED_LANGUAGES.find((l) => l.code === langCode) || SUPPORTED_LANGUAGES[0];
+  const resolved = resolveLanguage(langCode) || FALLBACK_LANGUAGE;
+  const meta = SUPPORTED_LANGUAGES.find((l) => l.code === resolved) ||
+    SUPPORTED_LANGUAGES.find((l) => l.code === FALLBACK_LANGUAGE) || SUPPORTED_LANGUAGES[0];
   currentLang = meta.code;
   localStorage.setItem(LANG_STORAGE_KEY, currentLang);
   document.documentElement.setAttribute('lang', currentLang);
@@ -44,7 +84,7 @@ export async function setLanguage(langCode) {
     return activeDictionary;
   }
   try {
-    const mod = await import(`./locales/${currentLang}.js?v=2026.70`);
+    const mod = await import(`./locales/${currentLang}.js?v=2027.01`);
     activeDictionary = mod.default || {};
     dictionaryCache.set(currentLang, activeDictionary);
   } catch (_) {

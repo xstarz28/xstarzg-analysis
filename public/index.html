@@ -8,14 +8,14 @@
     html, body { background-color: #020617; color: #f8fafc; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .hidden { display: none !important; }
   </style>
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2026.70" />
-  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2026.70" />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2027.01" />
+  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2027.01" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="stylesheet" href="/styles.css?v=2026.98" />
+  <link rel="stylesheet" href="/styles.css?v=2027.01" />
   <!-- SEO & Search Engine Discovery -->
   <meta name="description" content="XStarZG Analysis — Terminal Analisis Kuantitatif, Smart Money Concepts (SMC) & Valuasi Multi-Aset Real-Time (Crypto, Forex, Emas XAU/USD, Komoditas & Saham IDX). Presisi institusional dengan manajemen risiko otomatis." />
   <meta name="keywords" content="XStarZG, XStarZG Analysis, Trading Terminal, Quantitative Analysis, Smart Money Concepts, SMC, ICT Order Block, Fair Value Gap, FVG, Crypto Screener, Forex Signals, XAUUSD, Emas IDR, Saham IDX, Risk Management, Trading Decision Support" />
@@ -64,7 +64,7 @@
         "operatingSystem": "All (Web Browser, Windows, macOS, Linux, Android, iOS)",
         "inLanguage": ["id", "en"],
         "browserRequirements": "Requires JavaScript. Requires HTML5.",
-        "softwareVersion": "2026.70",
+        "softwareVersion": "2027.01",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -258,6 +258,7 @@
         <button type="button" id="btnModeMeme" class="mode-btn" data-i18n="ui.modeMeme">🚀 MEME &amp; DEX GEMS</button>
         <button type="button" id="btnModeNews" class="mode-btn">📰 KALENDER EKONOMI</button>
         <button type="button" id="btnModeJournal" class="mode-btn">📒 JURNAL SINYAL</button>
+        <button type="button" id="btnModePerformance" class="mode-btn">📈 PERFORMANCE</button>
         <div id="traderSubModeWrap" style="display:flex;gap:6px;margin-left:6px;">
           <button type="button" id="btnSubFutures" class="submode-btn active" data-i18n="ui.subFutures">📈 TRADER FUTURES (2-ARAH)</button>
           <button type="button" id="btnSubSpot" class="submode-btn" data-i18n="ui.subSpot">🪙 TRADER SPOT (1-ARAH)</button>
@@ -583,16 +584,20 @@
               <div id="valInvMoS" style="font-size:11px;color:#94a3b8;">MoS: +1.2%</div>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
-              <span class="lbl" data-i18n="ui.invDca1">🟢 DCA TAHAP 1 — ALOKASI 40% MODAL</span>
+              <span class="lbl" id="lblInvDcaStep1" data-i18n="ui.invDca1">🟢 DCA TAHAP 1 — ALOKASI 40% MODAL</span>
               <span id="valInvDCA1" class="val" style="color:#10b981;">3,994.00</span>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
-              <span class="lbl" data-i18n="ui.invDca2">🟢 DCA TAHAP 2 — ALOKASI 35% MODAL</span>
+              <span class="lbl" id="lblInvDcaStep2" data-i18n="ui.invDca2">🟢 DCA TAHAP 2 — ALOKASI 35% MODAL</span>
               <span id="valInvDCA2" class="val" style="color:#10b981;">3,832.00</span>
             </div>
             <div class="level-box" style="grid-column:span 2;border-color:rgba(16,185,129,0.35);">
-              <span class="lbl" data-i18n="ui.invDca3">🟢 DCA TAHAP 3 — ALOKASI 25% MODAL</span>
+              <span class="lbl" id="lblInvDcaStep3" data-i18n="ui.invDca3">🟢 DCA TAHAP 3 — ALOKASI 25% MODAL</span>
               <span id="valInvDCA3" class="val" style="color:#10b981;">3,629.00</span>
+            </div>
+            <div style="grid-column:1/-1;font-size:11px;line-height:1.55;color:#cbd5e1;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.28);border-radius:8px;padding:9px 11px;">
+              <strong id="lblInvDcaHowTitle" style="color:#6ee7b7;">Cara kerja DCA 1 → 3</strong>
+              <div id="lblInvDcaHowBody" style="margin-top:4px;">Ini <b>tangga pembelian</b>, bukan tiga target yang wajib disentuh semua. Beli cicilan pertama di DCA 1, tambah di DCA 2, dan sisakan jatah terakhir untuk DCA 3 — harga <b>paling diskon</b>, bukan syarat harga dasar. Kalau harga berbalik sebelum DCA 3, itu tidak masalah: rata-rata boleh berhenti, disiplin tidak. Mulai akumulasi hanya bila skor investor <b>≥ 60</b> (agresif ≥ 75). Di bawah 45, tunggu diskon.</div>
             </div>
             <div class="level-box">
               <span class="lbl" data-i18n="ui.invAvg">Harga Rata-Rata DCA</span>
@@ -773,6 +778,37 @@
           </div>
         </div>
         <div id="newsGrid" class="radar-grid" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- ================= WORKSPACE 5: PERFORMANCE & TRACK RECORD ================= -->
+    <div id="performanceWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+          ← Kembali ke Terminal Analisis
+        </button>
+        <span class="brand-tag" style="background:rgba(56,189,248,0.12);color:#38bdf8;border-color:rgba(56,189,248,0.3);padding:4px 10px;font-size:11px;">
+          📈 TRACK RECORD JUJUR — TERMASUK LOSS
+        </span>
+      </div>
+      <div class="section-card" style="margin:0;padding:20px;">
+        <h3 style="margin:0 0 4px;font-size:16px;color:#f8fafc;">📈 Performance &amp; Track Record</h3>
+        <div style="font-size:11px;color:#94a3b8;margin:3px 0 12px;" id="perfNote">Track record dihitung dari sinyal yang sudah diputuskan.</div>
+        <div id="perfBotBlock" class="hidden" style="margin-bottom:16px;padding:12px 14px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.28);border-radius:10px;">
+          <div style="font-size:12px;font-weight:800;color:#7dd3fc;margin-bottom:8px;">🤖 Rekam Jejak Sinyal Bot 24/7 (publik)</div>
+          <div id="perfBotStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;"></div>
+          <div id="perfBotNote" style="font-size:10.5px;color:#64748b;margin-top:8px;"></div>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#cbd5e1;margin-bottom:8px;">📒 Jurnal Anda (perangkat + cloud)</div>
+        <div id="perfStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;"></div>
+        <div style="background:rgba(15,23,42,0.65);border:1px solid rgba(51,65,85,0.6);border-radius:10px;padding:12px;">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;font-weight:700;">Equity Curve (R multiple)</div>
+          <svg id="perfCurve" viewBox="0 0 600 180" preserveAspectRatio="none" style="width:100%;height:180px;display:block;"></svg>
+        </div>
+        <div id="perfTable" style="margin-top:14px;"></div>
+        <div style="margin-top:12px;font-size:10.5px;color:#64748b;line-height:1.5;">
+          R multiple: TP = +2R (target 1:2), SL = -1R, SL+ / break-even = 0R, invalidasi struktur = -0.5R, kedaluwarsa/batal/terlewat = 0R. Tidak ada angka yang dibulatkan untuk mempercantik hasil.
+        </div>
       </div>
     </div>
 
@@ -1202,7 +1238,7 @@
 
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script defer src="/app.js?v=2026.98"></script>
-  <script type="module" src="/i18n/boot.js?v=2026.70"></script>
+  <script defer src="/app.js?v=2027.01"></script>
+  <script type="module" src="/i18n/boot.js?v=2027.01"></script>
 </body>
 </html>

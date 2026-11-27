@@ -342,7 +342,9 @@ await asyncChk('Cloud Journal API menolak posisi baru dari Sentinel', async () =
     method: 'POST', headers: sentinelHeaders,
     body: JSON.stringify({ action: 'save_lock', lock: { symbol: 'SENTINEL-NEW/USDT', tf: 'H1' } })
   }), env: { SENTINEL_SECRET: sentinelSecret } });
-  chk('Sentinel tidak dapat membuat entry tanpa ID jurnal manual owner', postRes.status === 400);
+  const postData = await postRes.json();
+  chk('Sentinel dapat mencatat sinyal bot walau tanpa ID manual owner', postRes.status === 200 && postData.ok === true);
+  chk('ID sinyal bot deterministik SIMBOL|TF sehingga bisa di-upsert & ditutup', postData.id === 'SENTINEL-NEW/USDT|H1');
 });
 
 // 5. Integrasi Sinkronisasi Cloud Sentinel ke Jurnal

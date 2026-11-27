@@ -342,25 +342,63 @@ export function buildGroupAnalysis({ group = 'trader', analysis = null, candles 
   const direction = safeGroup === 'dex'
     ? (built.ladder.state === 'aligned' ? built.ladder.rows[0].bias : 'NEUTRAL')
     : built.direction || (analysis && analysis.direction) || 'NEUTRAL';
-  const rawBand = scoreBand(built.score, direction === 'BULLISH' ? 'LONG' : direction === 'BEARISH' ? 'SHORT' : direction);
+
+  /* SATU SUMBER SKOR (anti sinyal-skor ganda).
+     Panel sinyal, notifikasi Telegram, dan kartu Sniper MTF wajib memakai angka
+     yang sama. Bila engine sudah menerbitkan sinyal resmi yang selaras, skor
+     konfluensi resmi dipakai sebagai skor utama; rincian 6 kriteria sniper tetap
+     ditampilkan sebagai BUKTI (dan tetap menjadi angka bila belum ada sinyal). */
+  const td = (analysis && analysis.topDown) || {};
+  const officialSignal = safeGroup === 'trader' && analysis &&
+    analysis.signalEligible === true && td.isAligned !== false &&
+    Number(analysis.confluenceScore) > 0;
+  const criteriaScore = built.score;
+  const officialScore = officialSignal ? Math.round(Number(analysis.confluenceScore)) : null;
+  const score = officialScore == null ? criteriaScore : officialScore;
+  const execBias = td.execBias || 'NEUTRAL';
+  const execConfirmed = direction !== 'NEUTRAL' && execBias === direction;
+  const rawBand = scoreBand(score, direction === 'BULLISH' ? 'LONG' : direction === 'BEARISH' ? 'SHORT' : direction);
   const awaitingOfficial = safeGroup === 'trader' && built.official === false && direction !== 'NEUTRAL';
   const band = awaitingOfficial && (rawBand === 'ELITE' || rawBand === 'PRO') ? 'WATCH' : rawBand;
   const countedTotal = built.scored.filter(item => item.ok).length;
 
+  const noteParts = [];
+  if (officialScore != null) {
+    noteParts.push(language === 'id'
+      ? 'Skor utama ' + score + '/100 = skor konfluensi sinyal resmi (angka yang sama dengan panel sinyal & notifikasi Telegram). Bukti sniper MTF: ' + countedTotal + '/' + built.scored.length + ' kriteria (' + criteriaScore + '/100).'
+      : 'Main score ' + score + '/100 = the official signal confluence (identical to the signal panel & Telegram alert). Sniper MTF evidence: ' + countedTotal + '/' + built.scored.length + ' criteria (' + criteriaScore + '/100).');
+  } else {
+    noteParts.push(language === 'id'
+      ? 'Skor hanya menjumlahkan konfluensi yang searah (' + countedTotal + '/' + built.scored.length + ' kriteria). Indikator konteks tidak menambah skor.'
+      : 'Score only sums aligned confluences (' + countedTotal + '/' + built.scored.length + ' criteria). Context indicators add no score.');
+  }
+  if (safeGroup === 'trader') {
+    noteParts.push(execConfirmed
+      ? (language === 'id'
+        ? 'Eksekusi sniper dikonfirmasi di M5/M1 (' + execBias + ') — entry boleh dijalankan sesuai level.'
+        : 'Sniper execution confirmed on M5/M1 (' + execBias + ') — the entry may be executed at the stated levels.')
+      : (language === 'id'
+        ? 'Eksekusi M5/M1 belum searah (' + execBias + ') — sniper menunggu pemicu, jangan kejar harga; M15 tetap acuan struktur.'
+        : 'M5/M1 execution is not aligned yet (' + execBias + ') — the sniper waits for the trigger, do not chase; M15 remains the structure reference.'));
+  }
+  if (awaitingOfficial) {
+    noteParts.push(language === 'id'
+      ? 'Belum ada sinyal resmi — skor konfluensi ditahan di WATCH sampai gerbang sinyal lolos.'
+      : 'No official signal yet — the confluence score is capped at WATCH until the signal gate passes.');
+  }
+
   return {
     group: safeGroup,
     title: GROUP_TITLES[safeGroup][language],
-    score: built.score,
+    score,
+    criteriaScore,
+    officialScore,
     band,
     direction,
     counted: countedTotal,
     totalCriteria: built.scored.length,
-    scoreNote: (language === 'id'
-      ? 'Skor hanya menjumlahkan konfluensi yang searah (' + countedTotal + '/' + built.scored.length + ' kriteria). Indikator konteks tidak menambah skor.'
-      : 'Score only sums aligned confluences (' + countedTotal + '/' + built.scored.length + ' criteria). Context indicators add no score.')
-      + (awaitingOfficial ? (language === 'id'
-        ? ' Belum ada sinyal resmi — skor konfluensi ditahan di WATCH sampai gerbang sinyal lolos.'
-        : ' No official signal yet — the confluence score is capped at WATCH until the signal gate passes.') : ''),
+    execution: { timeframe: 'M5/M1', bias: execBias, confirmed: execConfirmed },
+    scoreNote: noteParts.join(' '),
     ladder: built.ladder,
     psychology: built.psychology,
     technical: built.technical,

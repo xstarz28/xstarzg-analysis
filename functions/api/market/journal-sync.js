@@ -232,42 +232,41 @@ export async function onRequestPost(context) {
     }
     const item = action === 'save_lock' ? lock : outcome;
     if (!item || !item.symbol || !item.tf) return response({ ok: false, error: 'Aksi atau parameter tidak valid' }, 400);
-    if (scope.channel === 'sentinel' && !item.id) {
-      return response({ ok: false, error: 'Manual owner journal entry id is required' }, 400);
-    }
+    /* ID TIDAK WAJIB. Sebelumnya lock yang diterbitkan bot (tanpa id) ditolak 400,
+       sehingga jurnal cloud tidak pernah menerima posisi berjalan bot — dashboard
+       menampilkan angka tapi instrumennya tidak ada. ID deterministik
+       SIMBOL|TIMEFRAME dipakai untuk upsert channel sentinel. */
     const issuedAt = Number(item.issuedAt || item.at) || Date.now();
-    const id = scopeId(scope, item.symbol, item.tf);
+    const id = item.id ? String(item.id) : scopeId(scope, item.symbol, item.tf);
 
     if (!env.DB) {
       if (scope.channel === 'user' && action === 'save_lock' && issuedAt <= (memoryTombstones.get(scope.email) || 0)) {
         return response({ ok: false, error: 'Journal was cleared after this entry was created' }, 409);
       }
       if (action === 'save_lock') {
-        if (scope.channel === 'sentinel') {
-          const existing = memoryLocks.get(String(item.id || ''));
-          if (!existing || existing.channel !== 'user' || !isOwnerEmail(existing.email)) {
-            return response({ ok: false, error: 'Manual owner journal entry not found' }, 404);
+        if (scope.channel === 'sentinel' && item.id) {
+          const existing = memoryLocks.get(String(item.id));
+          if (existing && existing.channel === 'user' && isOwnerEmail(existing.email)) {
+            const updatedLock = { ...lock, status: 'ACTIVE' };
+            memoryLocks.set(existing.id, {
+              ...existing, ...updatedLock, id: existing.id, channel: existing.channel, email: existing.email,
+              status: 'ACTIVE', issuedAt
+            });
+            return response({ ok: true, id: existing.id });
           }
-          const updatedLock = { ...lock, status: 'ACTIVE' };
-          memoryLocks.set(existing.id, {
-            ...existing, ...updatedLock, id: existing.id, channel: existing.channel, email: existing.email,
-            status: 'ACTIVE', issuedAt
-          });
-          return response({ ok: true, id: existing.id });
         }
         memoryLocks.set(id, { ...lock, id, status: 'ACTIVE', issuedAt, channel: scope.channel, email: scope.email });
       } else {
         if (scope.channel === 'sentinel' && outcome.id) {
           const existing = memoryLocks.get(String(outcome.id));
-          if (!existing || existing.channel !== 'user' || !isOwnerEmail(existing.email)) {
-            return response({ ok: false, error: 'Manual owner journal entry not found' }, 404);
+          if (existing) {
+            existing.status = outcome.status || 'EXPIRED';
+            memoryOutcomes.unshift({
+              ...outcome, id: existing.id, at: Number(outcome.at) || Date.now(),
+              channel: existing.channel, email: existing.email
+            });
+            return response({ ok: true, id: existing.id });
           }
-          existing.status = outcome.status || 'EXPIRED';
-          memoryOutcomes.unshift({
-            ...outcome, id: existing.id, at: Number(outcome.at) || Date.now(),
-            channel: existing.channel, email: existing.email
-          });
-          return response({ ok: true, id: existing.id });
         }
         const existing = memoryLocks.get(id);
         if (existing) existing.status = outcome.status || 'EXPIRED';
@@ -278,8 +277,7 @@ export async function onRequestPost(context) {
 
     await ensureTable(env.DB);
     if (action === 'save_lock') {
-      if (scope.channel === 'sentinel') {
-        if (!item.id) return response({ ok: false, error: 'Manual owner journal entry id is required' }, 400);
+      if (scope.channel === 'sentinel' && item.id) {
         const updated = await env.DB.prepare(`
           UPDATE cloud_signal_locks SET direction = ?1, entry = ?2, sl = ?3,
             tp1 = ?4, tp2 = ?5, tp3 = ?6, sl_plus = ?7, be_plus_active = ?8,
@@ -291,8 +289,9 @@ export async function onRequestPost(context) {
           Number(item.slPlus) || null, item.bePlusActive ? 1 : 0, item.filled ? 1 : 0,
           Number(item.score) || 75, issuedAt, JSON.stringify({ ...item, status: 'ACTIVE' }), String(item.id), ...ownerEmails
         ).run();
-        if (!updated.meta || !updated.meta.changes) return response({ ok: false, error: 'Manual owner journal entry not found' }, 404);
-        return response({ ok: true, id: String(item.id) });
+        // Entri manual owner ditemukan -> selesai. Bila tidak, lock milik bot
+        // tetap boleh di-upsert ke channel sentinel di bawah (jurnal bot nyata).
+        if (updated.meta && updated.meta.changes) return response({ ok: true, id: String(item.id) });
       }
       if (scope.channel === 'user') {
         const tombstone = await env.DB.prepare('SELECT cleared_at FROM cloud_journal_tombstones WHERE owner_email = ?1').bind(scope.email).first();
@@ -316,16 +315,18 @@ export async function onRequestPost(context) {
         Number(item.entry) || 0, Number(item.sl) || 0, Number(item.tp1) || 0,
         Number(item.tp2) || null, Number(item.tp3) || null, Number(item.slPlus) || null,
         item.bePlusActive ? 1 : 0, item.filled ? 1 : 0, Number(item.score) || 75,
-        issuedAt, JSON.stringify(item), scope.email, scope.channel
+        issuedAt, JSON.stringify(item), scope.channel === 'sentinel' ? null : scope.email, scope.channel
       ).run();
     } else {
-      const update = scope.channel === 'sentinel' && outcome.id
+      // Sentinel boleh menutup lock miliknya sendiri (channel sentinel) sekaligus
+      // entri manual owner — tanpa itu, jurnal bot tidak pernah punya hasil akhir.
+      const update = scope.channel === 'sentinel'
         ? env.DB.prepare(`
         UPDATE cloud_signal_locks SET status = ?1, outcome_status = ?2,
           outcome_reason = ?3, outcome_at = ?4
-        WHERE id = ?5 AND channel = 'user' AND owner_email IN (${ownerEmails.map((_, i) => `?${i + 6}`).join(', ')})
+        WHERE id = ?5 AND (channel = 'sentinel' OR (channel = 'user' AND owner_email IN (${ownerEmails.map((_, i) => `?${i + 6}`).join(', ')})))
       `).bind(outcome.status || 'EXPIRED', outcome.status || 'EXPIRED', outcome.reason || '',
-          Number(outcome.at) || Date.now(), String(outcome.id), ...ownerEmails)
+          Number(outcome.at) || Date.now(), String(outcome.id || id), ...ownerEmails)
         : env.DB.prepare(`
         UPDATE cloud_signal_locks SET status = ?1, outcome_status = ?2,
           outcome_reason = ?3, outcome_at = ?4
