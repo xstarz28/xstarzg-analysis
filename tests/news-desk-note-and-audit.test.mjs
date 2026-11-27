@@ -49,6 +49,13 @@ test('audit prakiraan memakai angka rilis resmi & hasil nyata instrumen', () => 
   assert.ok(app.includes("T('ui.newsPostHead'") && app.includes("T('ui.newsPreHead'"));
 });
 
+test('hasil nyata tidak diklaim dari event LOW atau reaksi terlalu dini', () => {
+  assert.ok(app.includes("if (String(ev.impact || '').toUpperCase() === 'LOW') return null;"));
+  assert.ok(app.includes('if (Date.now() - ev.ts < 60 * 60e3) return null;'));
+  assert.ok(app.includes("T('ui.deskMoveEst'"));
+  assert.ok(app.includes('ev.ts <= now || ev.ts > until'), 'konsensus hanya dari agenda yang belum rilis');
+});
+
 test('catatan menjadi konteks fundamental pilar Katalis Terdekat', () => {
   assert.ok(app.includes('function deskCatalystValue('));
   assert.ok(app.includes("deskCatalystValue(state.symbol, fc.upcomingCatalyst)"));
@@ -60,7 +67,7 @@ test('kunci i18n catatan desk tersedia dalam English & Indonesia', () => {
   const keys = ['deskTitle', 'deskSub', 'deskAgenda', 'deskConsensus', 'deskVol', 'deskSentiment',
     'deskAudit', 'deskAuditLine', 'deskEngineLine', 'deskRefresh', 'deskOpenCal',
     'newsReleasedNoActual', 'newsAccuracyHead', 'newsVolTag', 'newsRealizedHead',
-    'newsPreHead', 'newsPostHead'];
+    'newsPreHead', 'newsPostHead', 'deskMoveEst'];
   for (const k of keys) {
     assert.equal(typeof en.ui[k], 'string', 'en.ui.' + k);
     assert.equal(typeof id.ui[k], 'string', 'id.ui.' + k);

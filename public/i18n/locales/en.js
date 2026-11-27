@@ -749,6 +749,7 @@ export default {
     "newsRealizedHead": "AFTER NEWS — realized on {sym}",
     "newsPreHead": "BEFORE NEWS — consensus scenario",
     "newsPostHead": "AFTER NEWS — verified audit",
-    "newsRealizedNoData": "Realized move needs this instrument live feed open on the matching event."
+    "newsRealizedNoData": "Realized move needs this instrument live feed open on the matching event.",
+    "deskMoveEst": "≈ {x}% {sym} move"
   }
 };

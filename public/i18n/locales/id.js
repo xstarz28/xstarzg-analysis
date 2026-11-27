@@ -748,6 +748,7 @@ export default {
     "newsRealizedHead": "SESUDAH NEWS — hasil nyata {sym}",
     "newsPreHead": "SEBELUM NEWS — skenario konsensus",
     "newsPostHead": "SESUDAH NEWS — audit terverifikasi",
-    "newsRealizedNoData": "Hasil nyata perlu feed live instrumen ini terbuka saat event berlangsung."
+    "newsRealizedNoData": "Hasil nyata perlu feed live instrumen ini terbuka saat event berlangsung.",
+    "deskMoveEst": "≈ {x}% pergerakan {sym}"
   }
 };

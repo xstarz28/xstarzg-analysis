@@ -3560,21 +3560,25 @@ function newsTodayEvents(now) {
 }
 /* Katalis berikutnya untuk satu instrumen (dipakai pilar fundamental & catatan). */
 function newsNextForSymbol(symbol, hours) {
-  var now = Date.now(), until = now + (hours || 72) * 3600e3, best = null;
+  var now = Date.now(), until = now + (hours || 72) * 3600e3, best = null, low = null;
   var sym = String(symbol || '').toUpperCase();
   newsAllEvents().forEach(function (ev) {
     if (!ev || !ev.ts || ev.ts < now - 30 * 60e3 || ev.ts > until) return;
     var im = (ev.impacts || []).filter(function (x) { return String(x.sym || '').toUpperCase() === sym; })[0];
     if (!im) return;
+    if (String(ev.impact || '').toUpperCase() === 'LOW') {
+      if (!low || ev.ts < low.ev.ts) low = { ev: ev, imp: im };
+      return;
+    }
     if (!best || ev.ts < best.ev.ts) best = { ev: ev, imp: im };
   });
-  return best;
+  return best || low;
 }
 /* Konsensus arah instrumen dari agenda yang belum rilis: bobot dampak × keyakinan. */
 function newsBiasBoard(events, hours) {
   var now = Date.now(), until = now + (hours || 24) * 3600e3, map = {};
   (events || []).forEach(function (ev) {
-    if (!ev || !ev.ts || ev.ts < now - 60 * 60e3 || ev.ts > until) return;
+    if (!ev || !ev.ts || ev.ts <= now || ev.ts > until) return;
     var w = ev.impact === 'HIGH' ? 1 : ev.impact === 'MEDIUM' ? 0.6 : 0.3;
     (ev.impacts || []).forEach(function (im) {
       var k = String(im.sym || '').toUpperCase();
@@ -3591,7 +3595,7 @@ function newsBiasBoard(events, hours) {
 function newsCurrencyBoard(events, hours) {
   var now = Date.now(), until = now + (hours || 24) * 3600e3, map = {};
   (events || []).forEach(function (ev) {
-    if (!ev || !ev.ts || ev.ts < now - 60 * 60e3 || ev.ts > until) return;
+    if (!ev || !ev.ts || ev.ts <= now || ev.ts > until) return;
     if (!ev.ccy || !ev.dirCcy) return;
     var w = ev.impact === 'HIGH' ? 1 : ev.impact === 'MEDIUM' ? 0.6 : 0.3;
     if (!map[ev.ccy]) map[ev.ccy] = { ccy: ev.ccy, score: 0, n: 0 };
@@ -3620,6 +3624,11 @@ function newsRealizedCheck(ev, symbol) {
   try {
     if (!ev || !ev.ts || !symbol) return null;
     if (String(state.symbol || '').toUpperCase() !== String(symbol).toUpperCase()) return null;
+    /* Gerakan LOW impact adalah noise: jangan pernah dipakai mengklaim
+       prediksi tepat/meleset. Butuh juga minimal 1 jam setelah jadwal rilis
+       agar reaksi pertama tidak dinilai terlalu dini. */
+    if (String(ev.impact || '').toUpperCase() === 'LOW') return null;
+    if (Date.now() - ev.ts < 60 * 60e3) return null;
     var c = state.candles || [];
     if (c.length < 3) return null;
     var im = (ev.impacts || []).filter(function (x) { return String(x.sym || '').toUpperCase() === String(symbol).toUpperCase(); })[0];
@@ -3747,7 +3756,7 @@ function renderDeskNote() {
   var volBody = ['HIGH', 'MEDIUM', 'LOW'].map(function (k) {
     var p = newsVolProfile(k);
     var col = k === 'HIGH' ? '#f43f5e' : k === 'MEDIUM' ? '#f59e0b' : '#94a3b8';
-    var extra = atrPct ? ' ≈ ' + (atrPct * p.mult).toFixed(2) + '% move' : '';
+    var extra = atrPct ? ' ' + fillTpl(T('ui.deskMoveEst', '≈ {x}% {sym} move'), { x: (atrPct * p.mult).toFixed(2), sym: escH(state.symbol) }) : '';
     return '<div style="margin-bottom:4px;"><b style="color:' + col + ';">' + k + ' × ' + counts[k] + '</b> — ' +
       escH(newsVolRule(k)) + extra + '</div>';
   }).join('');

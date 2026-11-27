@@ -88,7 +88,7 @@ const mods = await Promise.all(langs.map(l => import(`../public/i18n/locales/${l
 const ref = Object.keys(mods[0].default.ui).sort().join('|');
 let uniform = true, count = Object.keys(mods[0].default.ui).length;
 mods.forEach((m, i) => { if (Object.keys(m.default.ui).sort().join('|') !== ref) { uniform = false; console.log('  key mismatch:', langs[i]); } });
-chk('20 locale punya keyset ui seragam (670)', uniform && count === 670);
+chk('20 locale punya keyset ui seragam (671)', uniform && count === 671);
 chk('panel radar multi-instrumen tidak ada pada workspace', !html.includes('traderRadarSection') && !html.includes('investorRadarSection') && !html.includes('opportunityRadarGrid'));
 chk('kurasi Investor tidak otomatis menambahkan aset ke jurnal', /function syncCuratedInvestorToJournal\(\) \{[\s\S]*?return \[\];/.test(app));
 chk('mode investor menyaring TF trader (D1/W1/MN/1Y)', app.includes("var INVESTOR_TFS = ['D1', 'W1', 'MN', '1Y']") && app.includes('syncTfBarForMode()'));
