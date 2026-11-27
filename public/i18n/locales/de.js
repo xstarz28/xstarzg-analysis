@@ -709,6 +709,7 @@ export default {
     "installNav": "📲 Install App on Phone",
     "installSidebar": "📲 Install App on Phone",
     "jnlBeActive": "🛡️ SL+ ACTIVE (0-RISK)",
-    "jnlBeSaved": "🛡️ SAVED BY SL+ (0-RISK)"
+    "jnlBeSaved": "🛡️ SAVED BY SL+ (0-RISK)",
+    "fiboExtTitle": "FIBO EXTENSION (TP PROJECTION)"
   }
 };

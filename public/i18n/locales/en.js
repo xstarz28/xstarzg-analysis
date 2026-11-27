@@ -686,6 +686,7 @@ export default {
     "invEntryPh": "Buy price...",
     "eMktClosedSuffix": "⏸ SESSION CLOSED",
     "installNav": "📲 Install App on Phone",
+    "fiboExtTitle": "FIBO EXTENSION (TP PROJECTION)",
     "installSidebar": "📲 Install App on Phone",
     "guestName": "Guest",
     "jnlBeActive": "🛡️ SL+ ACTIVE (0-RISK)",
