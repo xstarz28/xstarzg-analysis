@@ -8,14 +8,14 @@
     html, body { background-color: #020617; color: #f8fafc; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .hidden { display: none !important; }
   </style>
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2027.11" />
-  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2027.11" />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2027.12" />
+  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=2027.12" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="stylesheet" href="/styles.css?v=2027.11" />
+  <link rel="stylesheet" href="/styles.css?v=2027.12" />
   <!-- SEO & Search Engine Discovery -->
   <meta name="description" content="XStarZG Analysis — Terminal Analisis Kuantitatif, Smart Money Concepts (SMC) & Valuasi Multi-Aset Real-Time (Crypto, Forex, Emas XAU/USD, Komoditas & Saham IDX). Presisi institusional dengan manajemen risiko otomatis." />
   <meta name="keywords" content="XStarZG, XStarZG Analysis, Trading Terminal, Quantitative Analysis, Smart Money Concepts, SMC, ICT Order Block, Fair Value Gap, FVG, Crypto Screener, Forex Signals, XAUUSD, Emas IDR, Saham IDX, Risk Management, Trading Decision Support" />
@@ -64,7 +64,7 @@
         "operatingSystem": "All (Web Browser, Windows, macOS, Linux, Android, iOS)",
         "inLanguage": ["id", "en"],
         "browserRequirements": "Requires JavaScript. Requires HTML5.",
-        "softwareVersion": "2027.11",
+        "softwareVersion": "2027.12",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -226,7 +226,7 @@
         👁️ Pratinjau Instan (Mode Tamu — Hanya Lihat)
       </button>
       <button type="button" id="btnGateOwnerDirect" class="btn-secondary-outline" style="width:100%;margin-top:10px;padding:9px;font-size:12.5px;color:#facc15;border-color:rgba(250,204,21,0.4);">
-        👑 Jalur Khusus Owner (Kode Rahasia)
+        <span data-i18n="ui.gateOwnerDirect">👑 Owner Path (Secret Code)</span>
       </button>
       <div class="login-tier-notes">
         <div style="margin-bottom:4px;" data-i18n="ui.noteGuest"><strong style="color:#f8fafc;">• Mode Tamu:</strong> Hanya melihat pratinjau awal (klik instrumen lain memerlukan Login).</div>
@@ -296,13 +296,13 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <button type="button" id="btnOpenInstagramFromMenu" class="btn-secondary-outline" style="width:100%;padding:8px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;border-color:rgba(225,48,108,0.4);color:#fb7185;">
-              <span>📸</span> <span>Instagram: @xstarzganalysis (DM &amp; Kritik)</span>
+              <span>📸</span> <span data-i18n="ui.igSidebar">Instagram: @xstarzganalysis (DM &amp; Feedback)</span>
             </button>
             <button type="button" id="btnInstallPwa" class="btn-secondary-outline hidden" style="width:100%;padding:8px;font-size:12px;border-color:rgba(56,189,248,0.5);color:#38bdf8;">
               <span data-i18n="ui.installSidebar">📲 Pasang Aplikasi di HP</span>
             </button>
             <button type="button" id="btnOpenOwnerSubscribers" class="btn-secondary-outline hidden" style="width:100%;padding:8px;font-size:12px;border-color:rgba(245,158,11,0.5);color:#fbbf24;">
-              👑 Daftar Pelanggan VIP (Owner)
+              <span data-i18n="ui.openOwnerSubs">👑 VIP Subscribers (Owner)</span>
             </button>
             <button type="button" id="btnOpenVipFromMenu" class="btn-primary-glow" style="width:100%;padding:8px;font-size:12px;" data-i18n="ui.ddUpgrade">
               💎 Upgrade VIP Unlimited ($29 USDT)
@@ -321,9 +321,9 @@
     <div id="vipExpiryWarningBanner" class="hidden" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:10px;padding:9px 14px;margin:0 16px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;color:#fef3c7;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:16px;">⚠️</span>
-        <span>Masa aktif VIP Anda tersisa <strong id="vipExpiryDaysText" style="color:#fbbf24;">2 hari</strong> lagi (berakhir pada <span id="vipExpiryDateText" style="color:#f8fafc;">--</span>). Silakan perpanjang sekarang agar akses kuota unlimited tidak terputus.</span>
+        <span><span data-i18n="ui.vipExpiryLead">Your VIP access expires in</span> <strong id="vipExpiryDaysText" style="color:#fbbf24;">2 days</strong> <span data-i18n="ui.vipExpiryMid">(ends on</span> <span id="vipExpiryDateText" style="color:#f8fafc;">--</span><span data-i18n="ui.vipExpiryTail">). Renew now so your unlimited quota access is not interrupted.</span></span>
       </div>
-      <button type="button" id="btnRenewVipFromBanner" class="btn-primary-glow" style="padding:5px 12px;font-size:11.5px;">💎 Perpanjang VIP Sekarang</button>
+      <button type="button" id="btnRenewVipFromBanner" class="btn-primary-glow" style="padding:5px 12px;font-size:11.5px;" data-i18n="ui.vipRenewBtn">💎 Renew VIP Now</button>
     </div>
     <!-- TOAST NOTIFIKASI ALARM SINYAL / HARGA -->
     <div id="signalAlarmToast" class="hidden" style="position:fixed;top:18px;right:18px;z-index:99999;background:#065f46;border:1px solid #10b981;box-shadow:0 10px 25px rgba(0,0,0,0.5);border-radius:12px;padding:12px 16px;max-width:380px;color:#f8fafc;font-size:12.5px;display:flex;align-items:flex-start;gap:10px;">
@@ -596,8 +596,8 @@
               <span id="valInvDCA3" class="val" style="color:#10b981;">3,629.00</span>
             </div>
             <div style="grid-column:1/-1;font-size:11px;line-height:1.55;color:#cbd5e1;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.28);border-radius:8px;padding:9px 11px;">
-              <strong id="lblInvDcaHowTitle" style="color:#6ee7b7;">Cara kerja DCA 1 → 3</strong>
-              <div id="lblInvDcaHowBody" style="margin-top:4px;">Ini <b>tangga pembelian</b>, bukan tiga target yang wajib disentuh semua. Beli cicilan pertama di DCA 1, tambah di DCA 2, dan sisakan jatah terakhir untuk DCA 3 — harga <b>paling diskon</b>, bukan syarat harga dasar. Kalau harga berbalik sebelum DCA 3, itu tidak masalah: rata-rata boleh berhenti, disiplin tidak. Mulai akumulasi hanya bila skor investor <b>≥ 60</b> (agresif ≥ 75). Di bawah 45, tunggu diskon.</div>
+              <strong id="lblInvDcaHowTitle" style="color:#6ee7b7;" data-i18n="ui.invDcaTitle">How DCA 1 → 3 works</strong>
+              <div id="lblInvDcaHowBody" style="margin-top:4px;" data-i18n="ui.invDcaBody">This is a <b>buying ladder</b>, not three targets that all must be hit. Buy the first installment at DCA 1, add at DCA 2, and keep the last allocation for DCA 3 — the <b>deepest discount</b>, not a mandatory base price. If price reverses before DCA 3, that is fine: the average may stop, the discipline does not. Only start accumulating when the investor score is <b>≥ 60</b> (aggressive ≥ 75). Below 45, wait for a discount.</div>
             </div>
             <div class="level-box">
               <span class="lbl" data-i18n="ui.invAvg">Harga Rata-Rata DCA</span>
@@ -613,12 +613,12 @@
             </div>
             <div class="level-box">
               <span class="lbl" data-i18n="ui.invPhase">Fase Siklus & Yield</span>
-              <div id="valInvCyclePhase" style="font-size:11.5px;font-weight:700;color:#f8fafc;">Akumulasi Ekspansi</div>
-              <div id="valInvYield" style="font-size:10.5px;color:#94a3b8;">Aset Lindung Nilai Global</div>
+              <div id="valInvCyclePhase" style="font-size:11.5px;font-weight:700;color:#f8fafc;" data-i18n="ui.invCycleDefault">Accumulation Expansion</div>
+              <div id="valInvYield" style="font-size:10.5px;color:#94a3b8;" data-i18n="ui.invYieldDefault">Global Hedge Asset</div>
             </div>
           </div>
           <button type="button" id="btnQuickAddInvestorJnl" class="hz-btn" style="margin-top:12px;width:100%;font-size:12px;padding:9px 12px;border-radius:8px;background:rgba(16,185,129,0.18);color:#6ee7b7;border:1px solid rgba(16,185,129,0.4);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-            <span>📥</span> <span>Catat Akumulasi Ini ke Jurnal Investor</span>
+            <span>📥</span> <span data-i18n="ui.invBtnRecord">📥 Record This Accumulation to Investor Journal</span>
           </button>
         </div>
         <!-- KALKULATOR UKURAN POSISI & RISIKO (dipulihkan v2026.65) -->
@@ -684,7 +684,7 @@
       </div>
       <div class="section-card hidden" id="investorMacroContextSection">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-          <h3 style="margin:0;font-size:15px;color:#f8fafc;">🌐 Konteks Makro Global untuk Analisis Investor</h3>
+          <h3 style="margin:0;font-size:15px;color:#f8fafc;" data-i18n="ui.invMacroTitle">🌐 Global Macro Context for Investor Analysis</h3>
           <span style="font-size:11px;color:#38bdf8;">Fundamental &amp; regime makro</span>
         </div>
         <div id="macroMapBox" style="display:none;margin:8px 0 6px;padding:9px 11px;border-radius:9px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.28);"></div>
@@ -697,8 +697,8 @@
       <div class="section-card" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
-            <h2 style="margin:0 0 5px;color:#f8fafc;">Analisis DEX Manual</h2>
-            <div style="font-size:12px;color:#94a3b8;">Masukkan chain dan contract address atau pair address. Tidak ada pemindaian atau rekomendasi otomatis.</div>
+            <h2 style="margin:0 0 5px;color:#f8fafc;" data-i18n="ui.memeWsTitle">Manual DEX Analysis</h2>
+            <div style="font-size:12px;color:#94a3b8;" data-i18n="ui.memeIntro">Paste a chain plus a contract address or pair address. There is no automatic scanning or recommendation.</div>
           </div>
           <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;">← Kembali ke Analisis</button>
         </div>
@@ -711,16 +711,16 @@
           <label style="display:flex;flex:1;min-width:240px;flex-direction:column;gap:5px;font-size:11px;color:#94a3b8;">Contract address / pair address
             <input id="inpMemeAddress" class="ctrl-input" type="text" autocomplete="off" spellcheck="false" placeholder="Paste contract or pair address" style="padding:9px 11px;font-family:monospace;" />
           </label>
-          <button type="button" id="btnMemeSearch" class="btn-primary-glow" style="padding:10px 16px;">Cari Pair</button>
+          <button type="button" id="btnMemeSearch" class="btn-primary-glow" style="padding:10px 16px;" data-i18n="ui.memeSearchBtn">Search Pair</button>
         </div>
-        <div id="memeSearchStatus" role="status" style="margin-top:10px;font-size:12px;color:#94a3b8;">Data pasar dan audit akan ditampilkan hanya jika sumber mengembalikan data.</div>
+        <div id="memeSearchStatus" role="status" style="margin-top:10px;font-size:12px;color:#94a3b8;" data-i18n="ui.memeSearchStatus">Market data and audits are shown only when the source returns data.</div>
         <div id="memeSearchResults" style="display:grid;gap:8px;margin-top:10px;"></div>
       </div>
       <div class="meme-workspace-grid">
         <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
           <div class="section-card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              <strong id="memeChartTitle" style="color:#f8fafc;">OHLCV — pair belum dipilih</strong>
+              <strong id="memeChartTitle" style="color:#f8fafc;" data-i18n="ui.memeChartEmpty">OHLCV — no pair selected yet</strong>
               <div class="tf-bar" id="memeTfBar" style="margin:0;padding:0;">
                 <button type="button" class="tf-btn active" data-mtf="M5">5m</button>
                 <button type="button" class="tf-btn" data-mtf="H1">1h</button>
@@ -729,27 +729,27 @@
               </div>
             </div>
             <div style="height:420px;position:relative;background:#090d16;border-radius:10px;overflow:hidden;"><canvas id="memeCandleCanvas" style="width:100%;height:100%;display:block;"></canvas></div>
-            <div id="memeMarketSource" style="font-size:10px;color:#94a3b8;margin-top:8px;">Sumber: unavailable</div>
+            <div id="memeMarketSource" style="font-size:10px;color:#94a3b8;margin-top:8px;" data-i18n="ui.memeSource">Source: unavailable</div>
           </div>
           <div class="section-card">
-            <h3 style="margin-top:0;color:#f8fafc;">Indikator Teknikal DEX</h3>
-            <div id="memeTechBody" style="font-size:12px;color:#cbd5e1;">Menunggu OHLCV aktual yang valid.</div>
+            <h3 style="margin-top:0;color:#f8fafc;" data-i18n="ui.memeTechTitle">DEX Technical Indicators</h3>
+            <div id="memeTechBody" style="font-size:12px;color:#cbd5e1;" data-i18n="ui.memeTechWaiting">Waiting for valid actual OHLCV data.</div>
           </div>
         </div>
         <aside class="section-card" style="align-self:start;">
-          <h3 style="margin-top:0;color:#f8fafc;">Pasar & On-chain</h3>
+          <h3 style="margin-top:0;color:#f8fafc;" data-i18n="ui.memeMarketTitle">Market &amp; On-chain</h3>
           <div id="memeInspectSymbol" style="font-size:18px;font-weight:800;">—</div>
-          <div id="memeInspectName" style="font-size:12px;color:#94a3b8;margin:4px 0 12px;">Pair belum dipilih</div>
+          <div id="memeInspectName" style="font-size:12px;color:#94a3b8;margin:4px 0 12px;" data-i18n="ui.memePairNone">No pair selected yet</div>
           <div style="display:grid;gap:8px;font-size:12px;">
-            <div>Harga: <strong id="memeInspectPrice">Unavailable</strong></div>
-            <div>Likuiditas: <strong id="memeInspectLiq">Unavailable</strong></div>
-            <div>Volume 24h: <strong id="memeInspectVol5m">Unavailable</strong></div>
-            <div>FDV / market cap: <strong id="memeInspectMcap">Unavailable</strong></div>
-            <div>Data pasar: <strong id="memeInspectChg24h">Unavailable</strong></div>
-            <div>Audit keamanan: <strong id="memeInspectSafetyBadge">Unverified</strong></div>
-            <div>Holder distribution: <strong id="memeInspectBuyPressure">Unavailable</strong></div>
+            <div><span data-i18n="ui.memePrice">Price:</span> <strong id="memeInspectPrice">Unavailable</strong></div>
+            <div><span data-i18n="ui.memeLiq">Liquidity:</span> <strong id="memeInspectLiq">Unavailable</strong></div>
+            <div><span data-i18n="ui.memeVol24">24h Volume:</span> <strong id="memeInspectVol5m">Unavailable</strong></div>
+            <div><span data-i18n="ui.memeFdv">FDV / market cap:</span> <strong id="memeInspectMcap">Unavailable</strong></div>
+            <div><span data-i18n="ui.memeMktData">Market data:</span> <strong id="memeInspectChg24h">Unavailable</strong></div>
+            <div><span data-i18n="ui.memeSecurityAudit">Security audit:</span> <strong id="memeInspectSafetyBadge">Unverified</strong></div>
+            <div><span data-i18n="ui.memeHolderDist">Holder distribution:</span> <strong id="memeInspectBuyPressure">Unavailable</strong></div>
           </div>
-          <div id="memeSecurityStatus" role="status" style="font-size:11px;color:#fbbf24;margin-top:12px;">Keamanan on-chain belum diverifikasi.</div>
+          <div id="memeSecurityStatus" role="status" style="font-size:11px;color:#fbbf24;margin-top:12px;" data-i18n="ui.memeSecurityUnknown">On-chain security is not verified yet.</div>
           <div id="memeFundGrid" style="display:grid;gap:8px;margin-top:12px;font-size:11px;color:#94a3b8;">
             <div>Tokenomics: unavailable until a verified source provides it.</div>
             <div>Market sentiment: unavailable until a source is available.</div>
@@ -769,7 +769,7 @@
     <div id="newsWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
         <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
-          ← Kembali ke Terminal Analisis
+          <span data-i18n="ui.btnBackToTerminal">← Back to Analysis Terminal</span>
         </button>
         <span class="brand-tag" style="background:rgba(56,189,248,0.12);color:#38bdf8;border-color:rgba(56,189,248,0.3);padding:4px 10px;font-size:11px;">
           📰 LIVE MACRO FEED &amp; HIGH IMPACT ALERTS
@@ -800,21 +800,21 @@
     <div id="performanceWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
         <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
-          ← Kembali ke Terminal Analisis
+          <span data-i18n="ui.btnBackToTerminal">← Back to Analysis Terminal</span>
         </button>
         <span class="brand-tag" style="background:rgba(56,189,248,0.12);color:#38bdf8;border-color:rgba(56,189,248,0.3);padding:4px 10px;font-size:11px;">
-          📈 TRACK RECORD JUJUR — TERMASUK LOSS
+          <span data-i18n="ui.perfBadgeHonest">📈 HONEST TRACK RECORD — LOSSES INCLUDED</span>
         </span>
       </div>
       <div class="section-card" style="margin:0;padding:20px;">
         <h3 style="margin:0 0 4px;font-size:16px;color:#f8fafc;">📈 Performance &amp; Track Record</h3>
-        <div style="font-size:11px;color:#94a3b8;margin:3px 0 12px;" id="perfNote">Track record dihitung dari sinyal yang sudah diputuskan.</div>
+        <div style="font-size:11px;color:#94a3b8;margin:3px 0 12px;" id="perfNote" data-i18n="ui.perfNote">Track record is calculated from signals that have already been decided.</div>
         <div id="perfBotBlock" class="hidden" style="margin-bottom:16px;padding:12px 14px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.28);border-radius:10px;">
-          <div style="font-size:12px;font-weight:800;color:#7dd3fc;margin-bottom:8px;">🤖 Rekam Jejak Sinyal Bot 24/7 (publik)</div>
+          <div style="font-size:12px;font-weight:800;color:#7dd3fc;margin-bottom:8px;" data-i18n="ui.perfBotTrackTitle">🤖 24/7 Bot Signal Track Record (public)</div>
           <div id="perfBotStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;"></div>
           <div id="perfBotNote" style="font-size:10.5px;color:#64748b;margin-top:8px;"></div>
         </div>
-        <div style="font-size:12px;font-weight:800;color:#cbd5e1;margin-bottom:8px;">📒 Jurnal Anda (perangkat + cloud)</div>
+        <div style="font-size:12px;font-weight:800;color:#cbd5e1;margin-bottom:8px;" data-i18n="ui.perfJnlTitle">📒 Your Journal (device + cloud)</div>
         <div id="perfStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;"></div>
         <div style="background:rgba(15,23,42,0.65);border:1px solid rgba(51,65,85,0.6);border-radius:10px;padding:12px;">
           <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;font-weight:700;">Equity Curve (R multiple)</div>
@@ -822,7 +822,7 @@
         </div>
         <div id="perfTable" style="margin-top:14px;"></div>
         <div style="margin-top:12px;font-size:10.5px;color:#64748b;line-height:1.5;">
-          R multiple: TP = +2R (target 1:2), SL = -1R, SL+ / break-even = 0R, invalidasi struktur = -0.5R, kedaluwarsa/batal/terlewat = 0R. Tidak ada angka yang dibulatkan untuk mempercantik hasil.
+          <span data-i18n="ui.perfRLine">R multiple: TP = +2R (target 1:2), SL = -1R, SL+ / break-even = 0R, structural invalidation = -0.5R, expired/cancelled/missed = 0R. No numbers are rounded to make the result look better.</span>
         </div>
       </div>
     </div>
@@ -831,7 +831,7 @@
     <div id="journalWorkspaceWrap" class="hidden" style="max-width:1640px;width:100%;margin:16px auto 40px;padding:0 16px;box-sizing:border-box;">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
         <button type="button" class="btn-secondary-outline btn-back-to-trader" style="padding:7px 14px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
-          ← Kembali ke Terminal Analisis
+          <span data-i18n="ui.btnBackToTerminal">← Back to Analysis Terminal</span>
         </button>
         <span class="brand-tag" style="background:rgba(16,185,129,0.12);color:#34d399;border-color:rgba(16,185,129,0.3);padding:4px 10px;font-size:11px;">
           📒 AUDIT LOKAL TERVERIFIKASI &amp; 0-RISK SL+
@@ -888,12 +888,12 @@
         <!-- Toolbar Jurnal: Pencarian Cepat Pair & Notifikasi Otomatis SL+ -->
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:10px 14px;background:rgba(15,23,42,0.65);border:1px solid rgba(51,65,85,0.6);border-radius:10px;">
           <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;position:relative;">
-            <input type="text" id="inpJournalSearch" class="ctrl-input" placeholder="🔍 Cari pair / instrumen (mis. EUR/USD, GBP, BTC, XAU)..." style="width:100%;padding:8px 32px 8px 12px;font-size:12px;" />
-            <button type="button" id="btnJournalClearSearch" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none;padding:2px 6px;" title="Hapus pencarian">✕</button>
+            <input type="text" id="inpJournalSearch" class="ctrl-input" placeholder="🔍 Search pair / instrument (e.g. EUR/USD, GBP, BTC, XAU)..." data-i18n-ph="ui.jnlSearchPh" style="width:100%;padding:8px 32px 8px 12px;font-size:12px;" />
+            <button type="button" id="btnJournalClearSearch" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;display:none;padding:2px 6px;" title="Clear search" data-i18n-title="ui.jnlSearchClear">✕</button>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <button type="button" id="btnToggleSlPlusNotify" class="hz-btn active" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(16,185,129,0.18);color:#6ee7b7;border:1px solid rgba(16,185,129,0.45);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Pemberitahuan otomatis lonceng & push notifikasi untuk menggeser Stop Loss ke BE (SL+) saat posisi aman">
-              <span id="slPlusNotifyIcon">🔔</span> <span id="slPlusNotifyTxt">Notif SL+ Aktif (0-Risk Alert)</span>
+            <button type="button" id="btnToggleSlPlusNotify" class="hz-btn active" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(16,185,129,0.18);color:#6ee7b7;border:1px solid rgba(16,185,129,0.45);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Automatic bell alert &amp; push notification to move the Stop Loss to BE (SL+) once the position is safe" data-i18n-title="ui.jnlSlPlusNotifyTitle">
+              <span id="slPlusNotifyIcon">🔔</span> <span id="slPlusNotifyTxt" data-i18n="ui.jnlSlPlusNotify">SL+ Alert Active (0-Risk)</span>
             </button>
             <button type="button" id="btnTelegramVipAccessJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(14,165,233,0.18);color:#38bdf8;border:1px solid rgba(14,165,233,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Notifikasi otomatis SL+ ke Telegram HP 24/7 (Khusus VIP & Owner)" data-i18n-title="ui.tgBtnTitle">
               <span>✈️</span> <span id="lblTelegramVipJnlText" data-i18n="ui.tgBtn">Notif Telegram 24/7 (VIP)</span>
@@ -901,8 +901,8 @@
             <button type="button" id="btnOpenInstagramModalJnl" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(225,48,108,0.15);color:#fb7185;border:1px solid rgba(225,48,108,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Kirim masukan &amp; kritik langsung ke Instagram @xstarzganalysis" data-i18n-title="ui.igBtnTitle">
               <span>📸</span> <span>DM Instagram (@xstarzganalysis)</span>
             </button>
-            <button type="button" id="btnClearAllJournalHistory" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(244,63,94,0.15);color:#fda4af;border:1px solid rgba(244,63,94,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Hapus semua riwayat catatan trade dan mulai dari awal">
-              <span>🗑️</span> <span id="lblClearAllJournal">Reset Riwayat Jurnal</span>
+            <button type="button" id="btnClearAllJournalHistory" class="hz-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(244,63,94,0.15);color:#fda4af;border:1px solid rgba(244,63,94,0.4);font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;" title="Delete all trade history and start over" data-i18n-title="ui.jnlClearHistoryTitle">
+              <span>🗑️</span> <span id="lblClearAllJournal" data-i18n="ui.jnlClearHistory">Reset Journal History</span>
             </button>
           </div>
         </div>
@@ -994,23 +994,23 @@
   <div id="ownerSubscribersModal" class="modal-backdrop hidden">
     <div class="modal-box" style="max-width:680px;width:95%;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <h3 style="margin:0;font-size:16px;color:#f59e0b;">👑 Panel Pemilik: Pelanggan VIP Terdaftar</h3>
+        <h3 style="margin:0;font-size:16px;color:#f59e0b;" data-i18n="ui.ownerSubsTitle">👑 Owner Panel: Registered VIP Subscribers</h3>
         <button type="button" id="btnCloseOwnerSubscribers" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;">&times;</button>
       </div>
       <div style="display:flex;gap:10px;margin-bottom:12px;font-size:12px;align-items:center;flex-wrap:wrap;">
         <div style="padding:8px 12px;background:rgba(2,6,23,0.8);border:1px solid var(--border-subtle);border-radius:8px;">
-          Total Pelanggan: <strong id="valOwnerTotalSubs" style="color:#38bdf8;">0</strong>
+          <span data-i18n="ui.ownerSubsTotal">Total Subscribers:</span> <strong id="valOwnerTotalSubs" style="color:#38bdf8;">0</strong>
         </div>
         <div style="padding:8px 12px;background:rgba(2,6,23,0.8);border:1px solid var(--border-subtle);border-radius:8px;">
-          VIP Aktif: <strong id="valOwnerActiveSubs" style="color:#10b981;">0</strong>
+          <span data-i18n="ui.ownerSubsActive">Active VIP:</span> <strong id="valOwnerActiveSubs" style="color:#10b981;">0</strong>
         </div>
-        <button type="button" id="btnRefreshOwnerSubs" class="btn-secondary-outline" style="padding:6px 12px;font-size:11.5px;margin-left:auto;">🔄 Refresh Data</button>
+        <button type="button" id="btnRefreshOwnerSubs" class="btn-secondary-outline" style="padding:6px 12px;font-size:11.5px;margin-left:auto;" data-i18n="ui.ownerSubsRefresh">🔄 Refresh Data</button>
       </div>
       <div id="ownerSubsListContainer" style="max-height:360px;overflow-y:auto;background:rgba(2,6,23,0.7);border:1px solid var(--border-subtle);border-radius:10px;padding:8px;font-size:11.5px;">
-        <div style="color:#94a3b8;text-align:center;padding:16px;">Memuat data pelanggan D1...</div>
+        <div style="color:#94a3b8;text-align:center;padding:16px;" data-i18n="ui.ownerSubsLoading">Loading D1 subscriber data...</div>
       </div>
       <div style="margin-top:12px;font-size:11px;color:#64748b;">
-        Data diambil langsung dari Cloudflare D1 Database (Tabel: <code>vip_entitlements</code> &amp; <code>vip_tx</code>).
+        <span data-i18n="ui.ownerSubsSource">Data is read directly from the Cloudflare D1 Database (tables: <code>vip_entitlements</code> &amp; <code>vip_tx</code>).</span>
       </div>
     </div>
   </div>
@@ -1055,11 +1055,11 @@
 
         <!-- PENGATURAN BOT KHUSUS OWNER (Hanya tampil untuk Owner) -->
         <div id="tgOwnerBotConfigBox" class="hidden" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:10px;margin-bottom:12px;font-size:11.5px;">
-          <div style="font-weight:700;color:#fde68a;margin-bottom:6px;">👑 Pengaturan Bot Telegram Resmi (Khusus Owner):</div>
+          <div style="font-weight:700;color:#fde68a;margin-bottom:6px;" data-i18n="ui.tgOwnerBotTitle">👑 Official Telegram Bot Settings (Owner Only):</div>
           <div style="display:flex;gap:8px;margin-bottom:6px;">
-            <input type="text" id="inpTgOfficialBotUsername" class="ctrl-input" placeholder="Username bot Anda (misal: @sinyalku_bot)" style="flex:1;font-size:11.5px;padding:7px 10px;" />
-            <button type="button" id="btnSaveOfficialBotUsername" class="btn-primary-glow" style="padding:7px 12px;font-size:11.5px;">
-              💾 Simpan
+            <input type="text" id="inpTgOfficialBotUsername" class="ctrl-input" placeholder="Your bot username (e.g. @my_signal_bot)" data-i18n-ph="ui.tgOwnerBotPh" style="flex:1;font-size:11.5px;padding:7px 10px;" />
+            <button type="button" id="btnSaveOfficialBotUsername" class="btn-primary-glow" style="padding:7px 12px;font-size:11.5px;" data-i18n="ui.tgSave">
+              💾 Save
             </button>
           </div>
           <div id="msgTgOfficialBotStatus" style="font-size:11px;min-height:14px;"></div>
@@ -1088,13 +1088,13 @@
 
         <!-- Tombol Tes Notifikasi Langsung ke HP -->
         <button type="button" id="btnTestTgPing" class="btn-secondary-outline" style="margin-top:10px;width:100%;padding:9px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;border-color:rgba(56,189,248,0.4);color:#38bdf8;cursor:pointer;">
-          <span>🧪</span> <span>Kirim Pesan Tes ke HP Saya Sekarang</span>
+          <span>🧪</span> <span data-i18n="ui.tgTestPing">Send Test Message to My Phone Now</span>
         </button>
         <div id="msgTgTestStatus" style="font-size:11px;margin-top:6px;min-height:14px;text-align:center;"></div>
 
-        <div style="margin-top:10px;font-size:11px;color:#94a3b8;line-height:1.45;background:rgba(2,6,23,0.5);padding:8px 10px;border-radius:8px;border:1px solid rgba(51,65,85,0.4);">
-          💡 <strong>Catatan Pengiriman Notifikasi:</strong><br/>
-          Bot Telegram hanya akan mengirim pesan saat ada <b>Sinyal Baru Terbit (Skor ≥ 75%)</b> atau <b>Proteksi SL+ (0-Risk)</b> yang sedang aktif. Bot <i>tidak mengirim spam</i> untuk sinyal masa lalu yang sudah selesai (TP Hit / SL Hit / Expired) yang ada di jurnal.
+        <div style="margin-top:10px;font-size:11px;color:#94a3b8;line-height:1.45;background:rgba(2,6,23,0.5);padding:8px 10px;border-radius:8px;border:1px solid rgba(51,65,85,0.4);" data-i18n="ui.tgNoteBody">
+          💡 <strong>Notification Delivery Notes:</strong><br/>
+          The Telegram bot only messages you when a <b>New Signal is Published (Score ≥ 75%)</b> or an active <b>SL+ Protection (0-Risk)</b> is triggered. The bot <i>never spams</i> past signals that already closed (TP Hit / SL Hit / Expired) in the journal.
         </div>
       </div>
     </div>
@@ -1209,33 +1209,33 @@
         <button type="button" id="btnCloseInstagramModal" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
       </div>
 
-      <p style="margin:0 0 14px;font-size:12.5px;color:#cbd5e1;line-height:1.6;">
-        Terhubung langsung dengan tim kami! Follow akun Instagram resmi <strong>@xstarzganalysis</strong> untuk berdiskusi, memberikan komentar di postingan, atau mengirimkan <strong>Direct Message (DM Chat)</strong> pesan pribadi untuk masukan, saran fitur, dan kritik yang membangun.
+      <p style="margin:0 0 14px;font-size:12.5px;color:#cbd5e1;line-height:1.6;" data-i18n="ui.igIntro">
+        Stay in direct touch with our team! Follow the official Instagram account <strong>@xstarzganalysis</strong> to discuss, comment on posts, or send a <strong>Direct Message (DM Chat)</strong> for feedback, feature requests, and constructive criticism.
       </p>
 
       <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(225,48,108,0.3);border-radius:12px;padding:14px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
           <div>
-            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Akun Resmi:</div>
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;" data-i18n="ui.igOfficialAcct">Official Account:</div>
             <a href="https://www.instagram.com/xstarzganalysis?avpt=ZWF1dThxYzQwNmNj" target="_blank" rel="noopener noreferrer" style="color:#f43f5e;font-size:14.5px;font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
               <span>@xstarzganalysis</span> ↗
             </a>
           </div>
           <button type="button" id="btnCopyIgLink" class="btn-secondary-outline" style="padding:6px 12px;font-size:11.5px;border-color:rgba(225,48,108,0.4);color:#fda4af;">
-            📋 Salin Link
+            <span data-i18n="ui.igCopyLink">📋 Copy Link</span>
           </button>
         </div>
-        <div style="font-size:11.5px;color:#94a3b8;line-height:1.5;">
-          ✨ <strong>Layanan Komunikasi Kami:</strong><br/>
-          • 💬 <strong>DM Chat Pribadi:</strong> Sampaikan kendala teknis, masukan, dan kritik kapan saja.<br/>
-          • 💡 <strong>Request Fitur:</strong> Usulkan indikator atau instrumen baru yang ingin dianalisis.<br/>
-          • 📢 <strong>Update &amp; Edukasi:</strong> Dapatkan ulasan market update &amp; tips kuantitatif.
+        <div style="font-size:11.5px;color:#94a3b8;line-height:1.5;" data-i18n="ui.igServices">
+          ✨ <strong>How We Communicate:</strong><br/>
+          • 💬 <strong>Private DM Chat:</strong> Report technical issues, feedback, and criticism any time.<br/>
+          • 💡 <strong>Feature Request:</strong> Propose new indicators or instruments you want analyzed.<br/>
+          • 📢 <strong>Updates &amp; Education:</strong> Get market update reviews &amp; quantitative tips.
         </div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:8px;">
         <a id="btnDirectVisitInstagram" href="https://www.instagram.com/xstarzganalysis?avpt=ZWF1dThxYzQwNmNj" target="_blank" rel="noopener noreferrer" class="btn-primary-glow" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:13px;text-decoration:none;background:linear-gradient(135deg,#e1306c,#c13584,#833ab4);border-color:rgba(244,63,94,0.6);">
-          <span>📸</span> <span>Kunjungi &amp; Follow @xstarzganalysis di Instagram</span>
+          <span>📸</span> <span data-i18n="ui.igVisitBtn">Visit &amp; Follow @xstarzganalysis on Instagram</span>
         </a>
         <div id="copyIgSuccessToast" style="font-size:11.5px;color:#10b981;text-align:center;min-height:16px;"></div>
       </div>
@@ -1244,16 +1244,16 @@
 
   <!-- ================= SOSMED & COMMUNITY FOOTER BAR ================= -->
   <div class="social-footer-bar" style="background:#090d16;border-top:1px solid rgba(30,41,59,0.8);border-bottom:1px solid rgba(30,41,59,0.5);padding:9px 16px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;font-size:12px;color:#94a3b8;">
-    <span id="lblFooterIgText">💬 Punya masukan atau kritik? Terhubung dengan kami di media sosial:</span>
-    <a href="https://www.instagram.com/xstarzganalysis?avpt=ZWF1dThxYzQwNmNj" target="_blank" rel="noopener noreferrer" style="color:#fb7185;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;background:rgba(225,48,108,0.12);padding:3px 10px;border-radius:6px;border:1px solid rgba(225,48,108,0.35);" title="Kunjungi &amp; Follow Instagram @xstarzganalysis">
+    <span id="lblFooterIgText" data-i18n="ui.igFooterLead">💬 Have feedback or criticism? Connect with us on social media:</span>
+    <a href="https://www.instagram.com/xstarzganalysis?avpt=ZWF1dThxYzQwNmNj" target="_blank" rel="noopener noreferrer" style="color:#fb7185;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;background:rgba(225,48,108,0.12);padding:3px 10px;border-radius:6px;border:1px solid rgba(225,48,108,0.35);" title="Visit &amp; follow Instagram @xstarzganalysis" data-i18n-title="ui.igFooterTitle">
       <span>📸</span> <span>Instagram: <strong>@xstarzganalysis</strong></span> ↗
     </a>
-    <span style="color:#64748b;">• Follow untuk update, komentar, &amp; DM chat pesan pribadi</span>
+    <span style="color:#64748b;" data-i18n="ui.igFooterNote">• Follow for updates, comments, &amp; personal DM chat</span>
   </div>
 
   <!-- ================= PERINGATAN RISIKO PERMANEN (20 bahasa) ================= -->
   <div class="risk-disclaimer-bar" data-i18n="ui.eDisclaimer">⚠️ Bukan nasihat keuangan. Semua keputusan & hasil investasi/trading sepenuhnya tanggung jawabmu sendiri — jangan lupa money management (atur risiko per posisi & disiplin stop-loss).</div>
-  <script defer src="/app.js?v=2027.11"></script>
-  <script type="module" src="/i18n/boot.js?v=2027.11"></script>
+  <script defer src="/app.js?v=2027.12"></script>
+  <script type="module" src="/i18n/boot.js?v=2027.12"></script>
 </body>
 </html>

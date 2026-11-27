@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.11';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.12';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.11';
+    bootScript.src = '/js/engine-boot.js?v=2027.12';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -2395,7 +2395,7 @@ function renderPillars(a) {
       pillarHtml(T('ui.ePmOf', '5. Orderflow & Commercial Hedger'), localizeEngineString(fc.orderflowMetric || '-'), fc.commHedgerBias ? localizeEngineString(fc.commHedgerBias) : null, 'neutral') +
       pillarHtml(T('ui.ePmCat', '6. Katalis Terdekat'), deskCatalystValue(state.symbol, fc.upcomingCatalyst), deskCatalystNote(state.symbol, fc.macroDriver), 'neutral') +
       // Fundamental TERUKUR dari data candle nyata (bukan kutipan statis)
-      pillarHtml(T('ui.fmCycle', '7. Posisi Siklus Harga (Terukur)'), (mq.posCyclePct) + '% dari range siklus • DD ' + mq.drawdownPct + '% dari puncak', mq.posCyclePct > 88 ? T('ui.fmCycleHi', 'di puncak — rawan jadi exit liquidity') : mq.posCyclePct < 12 ? T('ui.fmCycleLo', 'di dasar siklus — rawan pantulan') : null, mq.posCyclePct > 88 || mq.posCyclePct < 12 ? 'bear' : 'neutral') +
+      pillarHtml(T('ui.fmCycle', '7. Posisi Siklus Harga (Terukur)'), fillTpl(T('ui.fmCycleVal', '{p}% of cycle range • DD {d}% from peak'), { p: mq.posCyclePct, d: mq.drawdownPct }), mq.posCyclePct > 88 ? T('ui.fmCycleHi', 'di puncak — rawan jadi exit liquidity') : mq.posCyclePct < 12 ? T('ui.fmCycleLo', 'di dasar siklus — rawan pantulan') : null, mq.posCyclePct > 88 || mq.posCyclePct < 12 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.fmPersist', '8. Persistensi Momentum (50 candle)'), mq.upClosesPct + '% candle ditutup naik', null, mq.upClosesPct >= 55 ? 'bull' : mq.upClosesPct <= 42 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.fmVolPct', '9. Persentil Volatilitas ATR'), T('ui.fmVolPctVal', 'ATR saat ini berada di persentil {p}% dari 120 pengamatan').replace('{p}', mq.atrPercentile), mq.atrPercentile > 92 ? T('ui.fmVolExt', 'volatilitas outlier — SL mudah tersambar noise') : null, mq.atrPercentile > 92 ? 'bear' : 'neutral') +
       pillarHtml(T('ui.fmSession', '10. Kualitas Sesi & Keselarasan HTF'), (mq.sessionQuality || '-') + ' • ' + (mq.htfAligned ? T('ui.fmHtfOk', 'HTF selaras dengan arah sinyal') : T('ui.fmHtfNo', 'HTF melawan — wajib ekstra hati-hati')), null, mq.htfAligned ? 'bull' : 'bear');
@@ -3506,7 +3506,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.11) ====================
+/* ==================== MORNING DESK NOTE (v2027.12) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -6107,8 +6107,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.11',
-        badge: '/assets/favicon.svg?v=2027.11',
+        icon: '/assets/favicon.svg?v=2027.12',
+        badge: '/assets/favicon.svg?v=2027.12',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -7391,9 +7391,10 @@ function updateUserUi() {
       var daysLeft = Math.ceil(msLeft / 86400000);
       if (msLeft > 0 && daysLeft <= 2) {
         banner.classList.remove('hidden');
-        setTxt('vipExpiryDaysText', daysLeft <= 1 ? 'kurang dari 24 jam' : daysLeft + ' hari');
+        setTxt('vipExpiryDaysText', daysLeft <= 1 ? T('ui.vipLess24h', 'less than 24 hours') : daysLeft + ' ' + T('ui.vipDaysUnit', 'days'));
         try {
-          var expDate = new Date(Number(u.vipUntil)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+          var uiLang = (window.XSI18N && window.XSI18N.getLanguage && window.XSI18N.getLanguage()) || 'en';
+          var expDate = new Date(Number(u.vipUntil)).toLocaleDateString(uiLang, { day: 'numeric', month: 'short', year: 'numeric' });
           setTxt('vipExpiryDateText', expDate);
         } catch (e) {
           setTxt('vipExpiryDateText', new Date(Number(u.vipUntil)).toISOString().slice(0, 10));
@@ -7419,7 +7420,7 @@ function fetchOwnerSubscribers() {
   if (!state.user || state.user.tier !== 'OWNER_VIP') return;
   var token = state.user.ownerToken || state.user.authToken;
   var container = $id('ownerSubsListContainer');
-  if (container) container.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:16px;">Memuat data pelanggan D1...</div>';
+  if (container) container.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:16px;">' + T('ui.ownerSubsLoading', 'Loading D1 subscriber data...') + '</div>';
   fetch('/api/admin/overview', { headers: { Authorization: 'Bearer ' + token } })
     .then(function (r) { return r.json(); })
     .then(function (d) {
@@ -7678,7 +7679,7 @@ function bindVipFlow() {
     });
   });
   bind('btnRenewVipFromBanner', function () {
-    open('Perpanjang masa aktif lisensi VIP Anda agar akses 700+ instrumen tidak terputus.');
+    open(T('ui.vipRenewReason', 'Renew your VIP license so your access to 700+ instruments is not interrupted.'));
   });
   var osm = $id('ownerSubscribersModal');
   bind('btnOpenOwnerSubscribers', function () {
@@ -8253,7 +8254,7 @@ function bindUiEvents() {
               if (inpTgUid) inpTgUid.value = d.linkedChatId;
               if (msgTgUidStatus) {
                 msgTgUidStatus.style.color = '#10b981';
-                msgTgUidStatus.textContent = '✅ HP Anda sudah terhubung (ID: ' + d.linkedChatId + ')';
+                msgTgUidStatus.textContent = fillTpl(T('ui.tgLinkedId', '✅ Your phone is connected (ID: {id})'), { id: d.linkedChatId });
               }
             }
           }
@@ -8276,13 +8277,13 @@ function bindUiEvents() {
         if (isOwner) {
           if (msgOwnerBotStatus) {
             msgOwnerBotStatus.style.color = '#f59e0b';
-            msgOwnerBotStatus.textContent = '⚠️ Masukkan username bot Telegram Anda di atas sekali saja, lalu klik Simpan!';
+            msgOwnerBotStatus.textContent = T('ui.tgEnterBotUser', '⚠️ Enter your Telegram bot username above once, then click Save!');
           }
           if (inpOwnerBotUser) inpOwnerBotUser.focus();
         } else {
           if (msgTgUidStatus) {
             msgTgUidStatus.style.color = '#38bdf8';
-            msgTgUidStatus.textContent = '💡 Hubungkan Chat ID Telegram Anda pada kolom di bawah untuk langsung mengaktifkan notifikasi!';
+            msgTgUidStatus.textContent = T('ui.tgConnectUidHint', '💡 Connect your Telegram Chat ID in the field below to activate notifications!');
           }
           if (inpTgUid) inpTgUid.focus();
         }
@@ -8297,13 +8298,13 @@ function bindUiEvents() {
       if (!botVal) {
         if (msgOwnerBotStatus) {
           msgOwnerBotStatus.style.color = '#f43f5e';
-          msgOwnerBotStatus.textContent = '⚠️ Masukkan username bot Anda dari @BotFather!';
+          msgOwnerBotStatus.textContent = T('ui.tgNeedBotFather', '⚠️ Enter your bot username from @BotFather!');
         }
         return;
       }
       if (msgOwnerBotStatus) {
         msgOwnerBotStatus.style.color = '#38bdf8';
-        msgOwnerBotStatus.textContent = '⏳ Menyimpan pengaturan bot resmi...';
+        msgOwnerBotStatus.textContent = T('ui.tgSavingBot', '⏳ Saving the official bot settings...');
       }
       btnSaveOwnerBotUser.disabled = true;
 
@@ -8317,14 +8318,14 @@ function bindUiEvents() {
         if (d && d.ok) {
           if (msgOwnerBotStatus) {
             msgOwnerBotStatus.style.color = '#10b981';
-            msgOwnerBotStatus.textContent = '✅ Berhasil! Bot @' + botVal + ' sekarang aktif untuk semua pengguna.';
+            msgOwnerBotStatus.textContent = fillTpl(T('ui.tgBotSaved', '✅ Done! Bot @{user} is now active for all users.'), { user: botVal });
           }
           // Refresh deep-link seketika
           openTelegramVipModal();
         } else {
           if (msgOwnerBotStatus) {
             msgOwnerBotStatus.style.color = '#f43f5e';
-            msgOwnerBotStatus.textContent = '❌ ' + ((d && d.error) || 'Gagal menyimpan.');
+            msgOwnerBotStatus.textContent = (d && d.error) ? ('❌ ' + d.error) : T('ui.tgSaveFailed', '❌ Failed to save.');
           }
         }
       }).catch(function (e) {
@@ -8368,18 +8369,18 @@ function bindUiEvents() {
       if (!cid || !/^-?\d+$/.test(cid)) {
         if (msgTgUidStatus) {
           msgTgUidStatus.style.color = '#f43f5e';
-          msgTgUidStatus.textContent = '⚠️ Masukkan angka Chat ID / UID yang valid dari @userinfobot!';
+          msgTgUidStatus.textContent = T('ui.tgInvalidUid', '⚠️ Enter a valid Chat ID / UID number from @userinfobot!');
         }
         return;
       }
       if (msgTgUidStatus) {
         msgTgUidStatus.style.color = '#38bdf8';
-        msgTgUidStatus.textContent = '⏳ Menghubungkan ID ke database VIP...';
+        msgTgUidStatus.textContent = T('ui.tgLinkingUid', '⏳ Linking this ID to the VIP database...');
       }
       btnSaveTgUid.disabled = true;
 
       ensureAuthToken().then(function (token) {
-        if (!token) throw new Error('Silakan login terlebih dahulu.');
+        if (!token) throw new Error(T('ui.tgPleaseLogin', 'Please sign in first.'));
         return fetch('/api/notify/telegram-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -8395,7 +8396,7 @@ function bindUiEvents() {
       }).then(function (d) {
         if (msgTgUidStatus) {
           msgTgUidStatus.style.color = '#10b981';
-          msgTgUidStatus.textContent = '✅ Berhasil terhubung! HP Anda (' + cid + ') akan menerima sinyal 24/7.';
+          msgTgUidStatus.textContent = fillTpl(T('ui.tgUidLinked', '✅ Connected! Your phone ({id}) will receive signals 24/7.'), { id: cid });
         }
         telegramConfig.chatId = cid;
         savePersistedTelegramConfig();
@@ -8403,7 +8404,7 @@ function bindUiEvents() {
       }).catch(function (e) {
         if (msgTgUidStatus) {
           msgTgUidStatus.style.color = '#f43f5e';
-          msgTgUidStatus.textContent = '❌ Gagal: ' + (e.message || 'Coba lagi.');
+          msgTgUidStatus.textContent = fillTpl(T('ui.tgFailedGeneric', '❌ Failed: {err}'), { err: e.message || '-' });
         }
       }).finally(function () {
         btnSaveTgUid.disabled = false;
@@ -8419,25 +8420,25 @@ function bindUiEvents() {
       var cid = inpTgUid ? inpTgUid.value.trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '') : (telegramConfig.chatId || '');
       if (msgTestPing) {
         msgTestPing.style.color = '#38bdf8';
-        msgTestPing.textContent = '⏳ Mengirim pesan tes ke Telegram HP Anda...';
+        msgTestPing.textContent = T('ui.tgTestSending', '⏳ Sending a test message to your Telegram...');
       }
       btnTestPing.disabled = true;
       ensureAuthToken().then(function (token) {
-        if (!token) throw new Error('Silakan login terlebih dahulu.');
+        if (!token) throw new Error(T('ui.tgPleaseLogin', 'Please sign in first.'));
         return fetch('/api/notify/telegram-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ action: 'test_ping', chatId: cid })
         }).then(function (r) {
           return r.json().then(function (d) {
-            if (!r.ok || !d.ok) throw new Error((d && (d.error || d.message)) || 'Gagal mengirim pesan.');
+            if (!r.ok || !d.ok) throw new Error((d && (d.error || d.message)) || T('ui.tgSendFailed', 'Failed to send the message.'));
             return d;
           });
         });
       }).then(function (d) {
         if (msgTestPing) {
           msgTestPing.style.color = '#10b981';
-          msgTestPing.textContent = '✅ Sukses! Buka Telegram di HP Anda, pesan tes telah masuk!';
+          msgTestPing.textContent = T('ui.tgTestOk', '✅ Success! Open Telegram on your phone — the test message has arrived!');
         }
         if (cid) {
           telegramConfig.chatId = cid;

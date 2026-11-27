@@ -12,7 +12,7 @@ test('ADAPTIVE ENTRY VIABILITY & TIME-AWARE RECOMMENDATION ENGINE', async (t) =>
     assert.ok(html.includes('id="selMemeChain"'));
     assert.ok(html.includes('id="inpMemeAddress"'));
     assert.ok(html.includes('id="btnMemeSearch"'));
-    assert.ok(html.includes('Tidak ada pemindaian atau rekomendasi otomatis.'));
+    assert.ok(html.includes('data-i18n="ui.memeIntro"') && html.includes('There is no automatic scanning or recommendation.'));
     assert.ok(!html.includes('id="radarViabilityBar"'));
   });
 
