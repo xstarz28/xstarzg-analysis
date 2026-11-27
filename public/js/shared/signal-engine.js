@@ -1113,7 +1113,28 @@ export const VETO_LABELS = {
   SPOT_ONLY: 'Instrumen SPOT 1-arah — setup SHORT tidak diterbitkan (hanya LONG yang lolos)',
   SQUEEZE_UNCONFIRMED: 'Bollinger Squeeze belum terkonfirmasi breakout ber-volume — jangan antri sebelum resolusi',
   PERSIST_WAIT: 'Momentum baru 1 candle — menunggu candle ke-2 searah (anti fakeout tajam)',
-  EXEC_UNCONFIRMED: 'Eksekusi M5/M1 sudah berbalik arah — limit di zona diskon/premium akan menangkap pisau jatuh'
+  EXEC_UNCONFIRMED: 'Eksekusi M5/M1 sudah berbalik arah — limit di zona diskon/premium akan menangkap pisau jatuh',
+  FOMO_ZONE: 'Harga sudah terlalu jauh dari zona OTE — jangan mengejar kereta'
+};
+
+// Label veto versi English — dipakai saat UI berbahasa selain Indonesia, supaya
+// narasi reasoning tidak pernah tercampur dua bahasa.
+export const VETO_LABELS_EN = {
+  OVEREXTENDED: 'Price OVEREXTENDED >1.2x ATR from EMA20/VWAP (never chase the train)',
+  LIQUIDITY_WALL: 'Hitting a liquidity wall — room to move < 1.5x ATR',
+  EXHAUST_RSI: 'Extreme momentum exhaustion (RSI >74 / <26) — reversal risk',
+  DIVERGENCE_MACD: 'MACD momentum divergence vs swing structure',
+  COUNTER_HTF: 'Against the higher-timeframe structural bias',
+  COUNTER_HTF_ALIGNMENT: 'Against the 1D/4H macro trend — waiting for market alignment',
+  LOW_SCORE: 'Confluence score below the minimum signal threshold',
+  LOW_WINRATE: 'Historical win rate below the minimum threshold',
+  NO_SEQ: 'No Liquidity Sweep -> CHoCH/BOS sequence yet',
+  CHOPPY: 'Choppy structure (low Efficiency Ratio)',
+  SPOT_ONLY: 'One-way SPOT instrument — SHORT setups are not issued (LONG only)',
+  SQUEEZE_UNCONFIRMED: 'Bollinger Squeeze without a volume-backed breakout — do not queue before resolution',
+  PERSIST_WAIT: 'Only 1 momentum candle — waiting for a 2nd aligned candle (sharp fakeout guard)',
+  EXEC_UNCONFIRMED: 'M5/M1 execution already reversed — a limit in the discount/premium zone would catch a falling knife',
+  FOMO_ZONE: 'Price is too far from the OTE zone — do not chase the train'
 };
 
 export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', horizon = 'intraday', spotOnly = null, candles = [] }) {
@@ -1767,39 +1788,45 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
     : 'FVG Seimbang (Terisi)';
   // Baris gate ditampilkan hanya untuk mode TRADER (mode investor memakai framing
   // valuasi DCA — bukan gerbang eksekusi, agar tidak membingungkan akumulator).
+  /* Satu bahasa untuk seluruh narasi reasoning: bila UI berbahasa selain Indonesia,
+     semua label & kalimat di bawah memakai varian English (tidak campur). */
+  const EN = (() => { try { return typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id'; } catch (_) { return false; } })();
+  const txt = (id, en) => (EN ? en : id);
+  const vetoText = (g) => (EN ? (VETO_LABELS_EN[g] || g) : (VETO_LABELS[g] || g));
   const gateLine = mode === 'trader'
     ? (eligible
       ? (signalTier === 'ELITE'
-        ? `[Institutional Gate] LULUS ✅ — Skor ${qualityScore} ≥ ${STRICT_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${STRICT_MIN_WINRATE}% | Urutan Sweep→MSS terkonfirmasi | 4 Veto bersih | Entry presisi zona mitigasi.`
-        : `[Institutional Gate] LULUS ✅ (PRO) — Skor ${qualityScore} ≥ ${PRO_MIN_SCORE} | Urutan Sweep→MSS terkonfirmasi | Veto bersih | Entry presisi zona mitigasi.`)
-      : `[Institutional Gate] DITOLAK ✖ — ${gateReasons.map(g => VETO_LABELS[g] || g).join(' • ') || 'Menunggu konfirmasi'} — tidak ada Entry yang dipaksakan di TF ini.`)
+        ? txt(`[Institutional Gate] LULUS ✅ — Skor ${qualityScore} ≥ ${STRICT_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${STRICT_MIN_WINRATE}% | Urutan Sweep→MSS terkonfirmasi | 4 Veto bersih | Entry presisi zona mitigasi.`, `[Institutional Gate] PASSED ✅ — Score ${qualityScore} ≥ ${STRICT_MIN_SCORE} & Winrate ${winRate.toFixed(1)}% ≥ ${STRICT_MIN_WINRATE}% | Sweep→MSS sequence confirmed | 4 vetoes clear | Precision entry at the mitigation zone.`)
+        : txt(`[Institutional Gate] LULUS ✅ (PRO) — Skor ${qualityScore} ≥ ${PRO_MIN_SCORE} | Urutan Sweep→MSS terkonfirmasi | Veto bersih | Entry presisi zona mitigasi.`, `[Institutional Gate] PASSED ✅ (PRO) — Score ${qualityScore} ≥ ${PRO_MIN_SCORE} | Sweep→MSS sequence confirmed | Vetoes clear | Precision entry at the mitigation zone.`))
+      : txt(`[Institutional Gate] DITOLAK ✖ — ${gateReasons.map(vetoText).join(' • ') || 'Menunggu konfirmasi'} — tidak ada Entry yang dipaksakan di TF ini.`, `[Institutional Gate] REJECTED ✖ — ${gateReasons.map(vetoText).join(' • ') || 'Awaiting confirmation'} — no Entry is forced on this timeframe.`))
     : null;
   const brainAssetLabel = assetClass === 'crypto'
-    ? '[Otak Kripto Institusional] Prioritas: SMC Liquidity Pools (34%) • Orderflow Delta (26%) • Trend (22%) • Quant Edge (18%).'
+    ? txt('[Otak Kripto Institusional] Prioritas: SMC Liquidity Pools (34%) • Orderflow Delta (26%) • Trend (22%) • Quant Edge (18%).', '[Institutional Crypto Brain] Priority: SMC Liquidity Pools (34%) • Orderflow Delta (26%) • Trend (22%) • Quant Edge (18%).')
     : (assetClass === 'forex'
-      ? '[Otak Forex Interbank] Prioritas: Retest OTE Fibo (32%) • Trend MA Stack (28%) • Sesi Likuiditas (24%) • Momentum (16%).'
+      ? txt('[Otak Forex Interbank] Prioritas: Retest OTE Fibo (32%) • Trend MA Stack (28%) • Sesi Likuiditas (24%) • Momentum (16%).', '[Interbank Forex Brain] Priority: Fibo OTE Retest (32%) • MA Stack Trend (28%) • Liquidity Session (24%) • Momentum (16%).')
       : (assetClass === 'stocks'
-        ? '[Otak Saham Institusional] Prioritas: MA-200 Macro Trend (34%) • Opening Range Breakout ORB (28%) • Struktur SMC (24%) • Momentum (14%).'
-        : '[Otak Komoditas & Logam] Prioritas: Supply/Demand Fisik (30%) • Struktur SMC (28%) • Makro & CFTC COT (24%) • Momentum (18%).'));
+        ? txt('[Otak Saham Institusional] Prioritas: MA-200 Macro Trend (34%) • Opening Range Breakout ORB (28%) • Struktur SMC (24%) • Momentum (14%).', '[Institutional Equities Brain] Priority: MA-200 Macro Trend (34%) • Opening Range Breakout ORB (28%) • SMC Structure (24%) • Momentum (14%).')
+        : txt('[Otak Komoditas & Logam] Prioritas: Supply/Demand Fisik (30%) • Struktur SMC (28%) • Makro & CFTC COT (24%) • Momentum (18%).', '[Commodities & Metals Brain] Priority: Physical S&D (30%) • SMC Structure (28%) • Macro & CFTC COT (24%) • Momentum (18%).')));
+  const amdLabel = EN
+    ? ({ ACCUMULATION: 'Accumulation (compression)', MANIPULATION_BULL: 'Manipulation — SSL raid (pre-markup)', MANIPULATION_BEAR: 'Manipulation — BSL raid (pre-markdown)', DISTRIBUTION_UP: 'Distribution UP (markup)', DISTRIBUTION_DOWN: 'Distribution DOWN (markdown)' }[ict.amd.phase] || 'Not detected')
+    : ({ ACCUMULATION: 'Akumulasi (kompresi)', MANIPULATION_BULL: 'Manipulasi — raid SSL (sebelum markup)', MANIPULATION_BEAR: 'Manipulasi — raid BSL (sebelum markdown)', DISTRIBUTION_UP: 'Distribusi NAIK (markup)', DISTRIBUTION_DOWN: 'Distribusi TURUN (markdown)' }[ict.amd.phase] || 'Belum terbaca');
   const reasons = [
     ...(gateLine ? [gateLine] : []),
     brainAssetLabel,
     `[SMC & Struktur ${timeframe}] ${modern.smcStatus} | ${modern.liquiditySweep}.`,
-    `[VWAP, VPVR & TPO] Harga terhadap VWAP (${formatSmartPrice(vwap)}), VPVR POC (${formatSmartPrice(vp.poc)}), dan TPO POC (${formatSmartPrice(vp.tpoPoc)}).`,
-    `[FVG & Supply/Demand] ${fvgNote} | Zona Demand: ${formatSmartPrice(modern.demandZone.low)} | Zona Supply: ${formatSmartPrice(modern.supplyZone.high)}.`,
-    ...(fib ? [`[Dual Fibonacci] Retracement (50% Eq: ${formatSmartPrice(fib.retracement.r500)} | 61.8% Golden: ${formatSmartPrice(fib.retracement.r618)} | 78.6% OTE: ${formatSmartPrice(fib.retracement.r786)}) • Ekstensi Target (1.272: ${formatSmartPrice(fib.extension.ext1272)} | 1.618 Golden: ${formatSmartPrice(fib.extension.ext1618)} | 2.0: ${formatSmartPrice(fib.extension.ext2000)}).`] : []),
+    txt(`[VWAP, VPVR & TPO] Harga terhadap VWAP (${formatSmartPrice(vwap)}), VPVR POC (${formatSmartPrice(vp.poc)}), dan TPO POC (${formatSmartPrice(vp.tpoPoc)}).`, `[VWAP, VPVR & TPO] Price vs VWAP (${formatSmartPrice(vwap)}), VPVR POC (${formatSmartPrice(vp.poc)}), and TPO POC (${formatSmartPrice(vp.tpoPoc)}).`),
+    txt(`[FVG & Supply/Demand] ${fvgNote} | Zona Demand: ${formatSmartPrice(modern.demandZone.low)} | Zona Supply: ${formatSmartPrice(modern.supplyZone.high)}.`, `[FVG & Supply/Demand] ${fvgNote} | Demand Zone: ${formatSmartPrice(modern.demandZone.low)} | Supply Zone: ${formatSmartPrice(modern.supplyZone.high)}.`),
+    ...(fib ? [txt(`[Dual Fibonacci] Retracement (50% Eq: ${formatSmartPrice(fib.retracement.r500)} | 61.8% Golden: ${formatSmartPrice(fib.retracement.r618)} | 78.6% OTE: ${formatSmartPrice(fib.retracement.r786)}) • Ekstensi Target (1.272: ${formatSmartPrice(fib.extension.ext1272)} | 1.618 Golden: ${formatSmartPrice(fib.extension.ext1618)} | 2.0: ${formatSmartPrice(fib.extension.ext2000)}).`, `[Dual Fibonacci] Retracement (50% Eq: ${formatSmartPrice(fib.retracement.r500)} | 61.8% Golden: ${formatSmartPrice(fib.retracement.r618)} | 78.6% OTE: ${formatSmartPrice(fib.retracement.r786)}) • Target Extension (1.272: ${formatSmartPrice(fib.extension.ext1272)} | 1.618 Golden: ${formatSmartPrice(fib.extension.ext1618)} | 2.0: ${formatSmartPrice(fib.extension.ext2000)}).`)] : []),
     `[MA Stack & Bollinger] EMA20 (${formatSmartPrice(ema20)}) / EMA50 (${formatSmartPrice(ema50)}) / MA200 (${formatSmartPrice(ma200)}) | RSI(14): ${rsi.toFixed(1)}.`,
     `[ORB • Theta • VWAP Entry] ORB: ${orb.state}${orb.high ? ' (' + formatSmartPrice(orb.low) + ' – ' + formatSmartPrice(orb.high) + ')' : ''} | Theta Index: ${thetaIndex}/100 (${thetaNote}) | Entry VWAP: ${vwapEntry.text} | Efficiency Ratio: ${(erValue * 100).toFixed(0)}%.`,
-    `[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`,
-    `[Fundamental Terukur] Siklus ${macroQuant.posCyclePct}% range | Drawdown ${macroQuant.drawdownPct}% dari puncak | Momentum naik ${macroQuant.upClosesPct}% | Persentil ATR ${macroQuant.atrPercentile}% | ${macroQuant.sessionQuality} | HTF ${macroQuant.htfAligned ? 'SELARAS' : 'TIDAK SELARAS'} | Adj ${macroQuant.macroAdj > 0 ? '+' : ''}${macroQuant.macroAdj}.`,
-    `[ICT Atlas] CISD ${ict.cisd.dir > 0 ? 'BULLISH ▲' : ict.cisd.dir < 0 ? 'BEARISH ▼' : 'netral'}${ict.cisd.level ? ' @ ' + Number(ict.cisd.level.toPrecision(7)) : ''} | AMD: ${{
-      ACCUMULATION: 'Akumulasi (kompresi)', MANIPULATION_BULL: 'Manipulasi — raid SSL (sebelum markup)', MANIPULATION_BEAR: 'Manipulasi — raid BSL (sebelum markdown)', DISTRIBUTION_UP: 'Distribusi NAIK (markup)', DISTRIBUTION_DOWN: 'Distribusi TURUN (markdown)'
-    }[ict.amd.phase] || 'Belum terbaca'} | Draw on liquidity atas ${ict.draw.aboveDistAtr != null ? ict.draw.aboveDistAtr + ' ATR' : '-'} / bawah ${ict.draw.belowDistAtr != null ? ict.draw.belowDistAtr + ' ATR' : '-'}${ict.fvg.bpr ? ' | BPR aktif (zona seimbang kuat)' : ''}${ict.bm.bearBreaker || ict.bm.bullBreaker ? ' | Breaker ' + (ict.bm.bullBreaker ? 'BULL (support flip)' : 'BEAR (resisten flip)') : ''} | AdjAtlas ${ictAdj.val != null ? (ictAdj.val > 0 ? '+' : '') + ictAdj.val : 0}.`,
-    `[Rencana Master] Mode ${masterProfile.mode} | Risiko ${masterProfile.riskPct}% per posisi | Setengah di TP1 -> SL geser Break-Even | Runner TP2/TP3 | Maks ${masterProfile.maxActivePositions} posisi aktif berjalan.`,
-    ...((!eligible && (cisdCounterVeto || fomoVeto || !persistOk || !seqOk)) ? [`[Sabar Master] Disiplin master = MENUNGGU: ${cisdCounterVeto ? 'CISD masih lawan arah (delivery berbalik)' : fomoVeto ? 'harga sudah terlalu jauh dari zona OTE — jangan mengejar kereta' : !persistOk ? 'candle ke-2 searah belum lahir' : 'sweep→BOS + volume belum lengkap'}. Entry tergesa adalah penyebab loss terbesar; setup berikutnya pasti datang.`] : []),
-    `[${brain === 'SCALP' ? 'SCALP Micro' : 'SNIPER Struktur'}] ${brain === 'SCALP' ? `VWAP30 ${brainMetrics.microVwap} | EMA9/21 ${brainMetrics.ema9}/${brainMetrics.ema21} | RSI(7) ${brainMetrics.rsi7} | Tekanan orderflow BUY ${brainMetrics.buyVolPct}% | Kecepatan tape ${brainMetrics.tapeVelPct}%` : `Posisi range 90 candle ${brainMetrics.posInRangePct}% | BOS50 ${brainMetrics.bosDir > 0 ? 'NAIK' : brainMetrics.bosDir < 0 ? 'TURUN' : '-'} | Trend EMA200 ${brainMetrics.ema200Aligned ? 'SELARAS' : 'TIDAK'} | Zona demand ${brainMetrics.distDemandAtr} ATR / supply ${brainMetrics.distSupplyAtr} ATR`} | AdjOtak ${brainMetrics.brainAdj > 0 ? '+' : ''}${brainMetrics.brainAdj}.`,
-    ...(topDown ? [`[Top-Down Alignment] ${topDown.alignmentLabel} | 1D–4H Bias: ${topDown.macroBias} | 1H–15m Bias: ${topDown.structBias}${topDown.sessionFlow ? ' | Order Flow: ' + topDown.sessionFlow.story : ''}.`] : []),
-    ...(sessionInfo ? [`[Sesi Pasar] Sesi Optimal: ${sessionInfo.bestSession} | Sesi Aktif: ${sessionInfo.activeSessionName} (${sessionInfo.isOptimal ? 'Puncak Likuiditas' : 'Sesi Reguler'}).`] : [])
+    txt(`[CFTC COT & Fundamental] Spekulan Institusi ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`, `[CFTC COT & Fundamentals] Institutional Speculators ${fundamentalCot.specLongPct}% Long (${fundamentalCot.institutionalBias}) | ${fundamentalCot.valuationMetrics}.`),
+    txt(`[Fundamental Terukur] Siklus ${macroQuant.posCyclePct}% range | Drawdown ${macroQuant.drawdownPct}% dari puncak | Momentum naik ${macroQuant.upClosesPct}% | Persentil ATR ${macroQuant.atrPercentile}% | ${macroQuant.sessionQuality} | HTF ${macroQuant.htfAligned ? 'SELARAS' : 'TIDAK SELARAS'} | Adj ${macroQuant.macroAdj > 0 ? '+' : ''}${macroQuant.macroAdj}.`, `[Measured Fundamentals] Cycle ${macroQuant.posCyclePct}% of range | Drawdown ${macroQuant.drawdownPct}% from peak | Up-momentum ${macroQuant.upClosesPct}% | ATR percentile ${macroQuant.atrPercentile}% | ${macroQuant.sessionQuality} | HTF ${macroQuant.htfAligned ? 'ALIGNED' : 'NOT ALIGNED'} | Adj ${macroQuant.macroAdj > 0 ? '+' : ''}${macroQuant.macroAdj}.`),
+    txt(`[ICT Atlas] CISD ${ict.cisd.dir > 0 ? 'BULLISH ▲' : ict.cisd.dir < 0 ? 'BEARISH ▼' : 'netral'}${ict.cisd.level ? ' @ ' + Number(ict.cisd.level.toPrecision(7)) : ''} | AMD: ${amdLabel} | Draw on liquidity atas ${ict.draw.aboveDistAtr != null ? ict.draw.aboveDistAtr + ' ATR' : '-'} / bawah ${ict.draw.belowDistAtr != null ? ict.draw.belowDistAtr + ' ATR' : '-'}${ict.fvg.bpr ? ' | BPR aktif (zona seimbang kuat)' : ''}${ict.bm.bearBreaker || ict.bm.bullBreaker ? ' | Breaker ' + (ict.bm.bullBreaker ? 'BULL (support flip)' : 'BEAR (resisten flip)') : ''} | AdjAtlas ${ictAdj.val != null ? (ictAdj.val > 0 ? '+' : '') + ictAdj.val : 0}.`, `[ICT Atlas] CISD ${ict.cisd.dir > 0 ? 'BULLISH ▲' : ict.cisd.dir < 0 ? 'BEARISH ▼' : 'neutral'}${ict.cisd.level ? ' @ ' + Number(ict.cisd.level.toPrecision(7)) : ''} | AMD: ${amdLabel} | Draw on liquidity above ${ict.draw.aboveDistAtr != null ? ict.draw.aboveDistAtr + ' ATR' : '-'} / below ${ict.draw.belowDistAtr != null ? ict.draw.belowDistAtr + ' ATR' : '-'}${ict.fvg.bpr ? ' | BPR active (strong balance zone)' : ''}${ict.bm.bearBreaker || ict.bm.bullBreaker ? ' | Breaker ' + (ict.bm.bullBreaker ? 'BULL (support flip)' : 'BEAR (resistance flip)') : ''} | AdjAtlas ${ictAdj.val != null ? (ictAdj.val > 0 ? '+' : '') + ictAdj.val : 0}.`),
+    txt(`[Rencana Master] Mode ${masterProfile.mode} | Risiko ${masterProfile.riskPct}% per posisi | Setengah di TP1 -> SL geser Break-Even | Runner TP2/TP3 | Maks ${masterProfile.maxActivePositions} posisi aktif berjalan.`, `[Master Plan] Mode ${masterProfile.mode} | Risk ${masterProfile.riskPct}% per position | Half off at TP1 -> SL to Break-Even | Runner TP2/TP3 | Max ${masterProfile.maxActivePositions} active positions.`),
+    ...((!eligible && (cisdCounterVeto || fomoVeto || !persistOk || !seqOk)) ? [txt(`[Sabar Master] Disiplin master = MENUNGGU: ${cisdCounterVeto ? 'CISD masih lawan arah (delivery berbalik)' : fomoVeto ? 'harga sudah terlalu jauh dari zona OTE — jangan mengejar kereta' : !persistOk ? 'candle ke-2 searah belum lahir' : 'sweep→BOS + volume belum lengkap'}. Entry tergesa adalah penyebab loss terbesar; setup berikutnya pasti datang.`, `[Master Patience] Master discipline = WAIT: ${cisdCounterVeto ? 'CISD is still counter-trend (delivery reversed)' : fomoVeto ? 'price is already too far from the OTE zone — never chase the train' : !persistOk ? 'the 2nd aligned candle has not formed yet' : 'sweep→BOS + volume is incomplete'}. Rushed entries are the biggest cause of losses; the next setup will come.`)] : []),
+    txt(`[${brain === 'SCALP' ? 'SCALP Micro' : 'SNIPER Struktur'}] ${brain === 'SCALP' ? `VWAP30 ${brainMetrics.microVwap} | EMA9/21 ${brainMetrics.ema9}/${brainMetrics.ema21} | RSI(7) ${brainMetrics.rsi7} | Tekanan orderflow BUY ${brainMetrics.buyVolPct}% | Kecepatan tape ${brainMetrics.tapeVelPct}%` : `Posisi range 90 candle ${brainMetrics.posInRangePct}% | BOS50 ${brainMetrics.bosDir > 0 ? 'NAIK' : brainMetrics.bosDir < 0 ? 'TURUN' : '-'} | Trend EMA200 ${brainMetrics.ema200Aligned ? 'SELARAS' : 'TIDAK'} | Zona demand ${brainMetrics.distDemandAtr} ATR / supply ${brainMetrics.distSupplyAtr} ATR`} | AdjOtak ${brainMetrics.brainAdj > 0 ? '+' : ''}${brainMetrics.brainAdj}.`, `[${brain === 'SCALP' ? 'SCALP Micro' : 'SNIPER Structure'}] ${brain === 'SCALP' ? `VWAP30 ${brainMetrics.microVwap} | EMA9/21 ${brainMetrics.ema9}/${brainMetrics.ema21} | RSI(7) ${brainMetrics.rsi7} | BUY orderflow pressure ${brainMetrics.buyVolPct}% | Tape velocity ${brainMetrics.tapeVelPct}%` : `90-candle range position ${brainMetrics.posInRangePct}% | BOS50 ${brainMetrics.bosDir > 0 ? 'UP' : brainMetrics.bosDir < 0 ? 'DOWN' : '-'} | EMA200 trend ${brainMetrics.ema200Aligned ? 'ALIGNED' : 'NOT'} | Demand zone ${brainMetrics.distDemandAtr} ATR / supply ${brainMetrics.distSupplyAtr} ATR`} | Brain adj ${brainMetrics.brainAdj > 0 ? '+' : ''}${brainMetrics.brainAdj}.`),
+    ...(topDown ? [`[Top-Down Alignment] ${EN ? (topDown.aligned === true ? '🟢 TREND ALIGNED' : topDown.aligned === false ? '🔴 COUNTER-TREND' : '🟡 WAITING FOR TREND ALIGNMENT') : topDown.alignmentLabel} | 1D–4H Bias: ${topDown.macroBias} | 1H–15m Bias: ${topDown.structBias}${topDown.sessionFlow ? txt(' | Order Flow: ', ' | Order Flow: ') + topDown.sessionFlow.story : ''}.`] : []),
+    ...(sessionInfo ? [txt(`[Sesi Pasar] Sesi Optimal: ${sessionInfo.bestSession} | Sesi Aktif: ${sessionInfo.activeSessionName} (${sessionInfo.isOptimal ? 'Puncak Likuiditas' : 'Sesi Reguler'}).`, `[Market Session] Best Session: ${sessionInfo.bestSession} | Active Session: ${sessionInfo.activeSessionName} (${sessionInfo.isOptimal ? 'Peak Liquidity' : 'Regular Session'}).`)] : [])
   ];
   return {
     symbol: meta.symbol,

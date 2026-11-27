@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.05';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.06';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.05';
+    bootScript.src = '/js/engine-boot.js?v=2027.06';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -177,7 +177,7 @@ if (typeof document !== 'undefined') {
       if (id === 'btnHeroPreview' || id === 'btnInstantPreview') {
         try { e.preventDefault(); } catch (eP) {}
         if (typeof state !== 'undefined' && state) {
-          state.user = { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+          state.user = { email: 'guest@xstarzg.local', name: T('ui.guestName', 'Tamu'), tier: 'GUEST' };
         }
         if (typeof saveSession === 'function') saveSession();
         if (typeof enterWorkspace === 'function') enterWorkspace();
@@ -5744,8 +5744,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.05',
-        badge: '/assets/favicon.svg?v=2027.05',
+        icon: '/assets/favicon.svg?v=2027.06',
+        badge: '/assets/favicon.svg?v=2027.06',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -7162,6 +7162,12 @@ function enterWorkspace() {
       state.candles = [];
       state.lastAnalysis = null;
       state.feedSource = '-';
+      /* Pengunjung baru / Mode Tamu: terminal TIDAK boleh tampil kosong. Pakai
+         instrumen showcase default (XAU/USD selalu terbuka) lalu analisis otomatis
+         begitu mesin kuantitatif siap, sehingga chart + panel terisi tanpa klik. */
+      if (!ensureQuotaFor(state.symbol)) state.symbol = 'XAU/USD';
+      state.manualInstrumentSelection = true;
+      try { renderInstrumentCatalog(); } catch (e) {}
     }
     try { initChart(); } catch (e) {}
     if (typeof requestAnimationFrame === 'function') {
@@ -7169,6 +7175,14 @@ function enterWorkspace() {
     }
     if (state.manualInstrumentSelection) {
       try { connectRealtimeStream(); } catch (e) {}
+      var autoRunWhenReady = function (tries) {
+        if (window.__XS_SE && typeof window.runFullAnalysis === 'function') {
+          try { window.runFullAnalysis(true); } catch (e) {}
+          return;
+        }
+        if (tries < 60) setTimeout(function () { autoRunWhenReady(tries + 1); }, 250);
+      };
+      autoRunWhenReady(0);
     }
   } catch (e) { console.error('enterWorkspace error:', e); }
 }
@@ -7335,7 +7349,7 @@ function bindUiEvents() {
     if (state.user && state.user.tier && state.user.tier !== 'GUEST') enterWorkspace(); else showScreen('gate');
   });
   bind('btnHeroPreview', function () {
-    state.user = { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+    state.user = { email: 'guest@xstarzg.local', name: T('ui.guestName', 'Tamu'), tier: 'GUEST' };
     saveSession();
     enterWorkspace();
   });
@@ -7350,7 +7364,7 @@ function bindUiEvents() {
     }
   });
   bind('btnInstantPreview', function () {
-    state.user = { email: 'guest@xstarzg.local', name: 'Mode Tamu', tier: 'GUEST' };
+    state.user = { email: 'guest@xstarzg.local', name: T('ui.guestName', 'Tamu'), tier: 'GUEST' };
     saveSession();
     enterWorkspace();
   });
@@ -8482,7 +8496,7 @@ function bootCore() {
     } catch (ePwaLaunch) {}
 
     if (isPwaLaunch) {
-      state.user = { email: 'pwa-guest@xstarzg.local', name: 'Mode Tamu PWA', tier: 'GUEST' };
+      state.user = { email: 'pwa-guest@xstarzg.local', name: T('ui.guestName', 'Tamu') + ' PWA', tier: 'GUEST' };
       try { saveSession(); } catch (e) {}
       try { updateUserUi(); } catch (e) {}
       try { syncModeSections(); } catch (e) {}

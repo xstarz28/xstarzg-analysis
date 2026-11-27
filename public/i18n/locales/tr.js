@@ -705,6 +705,10 @@ export default {
     "jnlResetSearch": "✕ Clear search filter",
     "eOutBe": "Saved by SL+ (0-Risk, capital safe)",
     "eVipServerFail": "Verification server did not respond. Please try again shortly.",
-    "pwaInstallGuide": "Installing the XStarZG App (APK / PWA mode):\n\n• Android Chrome: tap the three-dot menu (⋮) at the top right of the browser, then choose \"Add to Home screen\" / \"Install app\".\n• iPhone / iPad (Safari): tap the Share button (box with an up arrow), then choose \"Add to Home Screen\".\n\nThe app installs like an APK, free of charge, and can be opened offline!"
+    "pwaInstallGuide": "Installing the XStarZG App (APK / PWA mode):\n\n• Android Chrome: tap the three-dot menu (⋮) at the top right of the browser, then choose \"Add to Home screen\" / \"Install app\".\n• iPhone / iPad (Safari): tap the Share button (box with an up arrow), then choose \"Add to Home Screen\".\n\nThe app installs like an APK, free of charge, and can be opened offline!",
+    "installNav": "📲 Install App on Phone",
+    "installSidebar": "📲 Install App on Phone",
+    "jnlBeActive": "🛡️ SL+ ACTIVE (0-RISK)",
+    "jnlBeSaved": "🛡️ SAVED BY SL+ (0-RISK)"
   }
 };
