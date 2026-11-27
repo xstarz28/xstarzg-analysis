@@ -765,26 +765,37 @@ export function detectAsiaLondonOrderFlow(candles) {
   const lastBar = candles[candles.length - 1];
   const lastClose = lastBar.close;
 
+  const enStory = uiWantsEnglish();
   let sweepStatus = 'ASIA_RANGE_ACCUMULATION';
   let orderFlowBias = 'NEUTRAL';
-  let story = 'Akumulasi Range Asia (High: ' + asiaHigh.toFixed(2) + ' / Low: ' + asiaLow.toFixed(2) + ')';
+  let story = enStory
+    ? 'Asian Range Accumulation (High: ' + asiaHigh.toFixed(2) + ' / Low: ' + asiaLow.toFixed(2) + ')'
+    : 'Akumulasi Range Asia (High: ' + asiaHigh.toFixed(2) + ' / Low: ' + asiaLow.toFixed(2) + ')';
 
   if (londonSweptLow && lastClose > asiaLow && !londonSweptHigh) {
     sweepStatus = 'ASIA_LOW_SWEPT_BULLISH';
     orderFlowBias = 'BULLISH';
-    story = 'London menyapu (sweep) Asia Low lalu reclaim — New York potensi pembalikan Bullish (Judas Swing)';
+    story = enStory
+      ? 'London swept the Asia Low then reclaimed it — New York may reverse Bullish (Judas Swing)'
+      : 'London menyapu (sweep) Asia Low lalu reclaim — New York potensi pembalikan Bullish (Judas Swing)';
   } else if (londonSweptHigh && lastClose < asiaHigh && !londonSweptLow) {
     sweepStatus = 'ASIA_HIGH_SWEPT_BEARISH';
     orderFlowBias = 'BEARISH';
-    story = 'London menyapu (sweep) Asia High lalu reject — New York potensi pembalikan Bearish (Judas Swing)';
+    story = enStory
+      ? 'London swept the Asia High then rejected it — New York may reverse Bearish (Judas Swing)'
+      : 'London menyapu (sweep) Asia High lalu reject — New York potensi pembalikan Bearish (Judas Swing)';
   } else if (londonSweptHigh && lastClose >= asiaHigh) {
     sweepStatus = 'LONDON_HIGH_BREAKOUT_CONTINUATION';
     orderFlowBias = 'BULLISH';
-    story = 'London menembus Asia High dengan kuat — New York melanjutkan ekspansi Bullish';
+    story = enStory
+      ? 'London broke the Asia High with strength — New York continues the Bullish expansion'
+      : 'London menembus Asia High dengan kuat — New York melanjutkan ekspansi Bullish';
   } else if (londonSweptLow && lastClose <= asiaLow) {
     sweepStatus = 'LONDON_LOW_BREAKDOWN_CONTINUATION';
     orderFlowBias = 'BEARISH';
-    story = 'London menembus Asia Low dengan kuat — New York melanjutkan ekspansi Bearish';
+    story = enStory
+      ? 'London broke the Asia Low with strength — New York continues the Bearish expansion'
+      : 'London menembus Asia Low dengan kuat — New York melanjutkan ekspansi Bearish';
   }
 
   return {
@@ -1117,6 +1128,16 @@ export const VETO_LABELS = {
   FOMO_ZONE: 'Harga sudah terlalu jauh dari zona OTE — jangan mengejar kereta'
 };
 
+/* Apakah UI sedang berbahasa selain Indonesia? Dipakai seluruh narasi engine agar
+   teks yang dihasilkan tidak pernah tercampur dua bahasa. */
+function uiWantsEnglish() {
+  try {
+    return typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id';
+  } catch (_) {
+    return false;
+  }
+}
+
 // Label veto versi English — dipakai saat UI berbahasa selain Indonesia, supaya
 // narasi reasoning tidak pernah tercampur dua bahasa.
 export const VETO_LABELS_EN = {
@@ -1398,7 +1419,12 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const atrRank = atrSeriesTail.length ? atrSeriesTail.filter(v => v <= atrNow).length / atrSeriesTail.length : 0.5;
   const hrUtc = lastCandle && lastCandle.time ? new Date(lastCandle.time * 1000).getUTCHours() : 12;
   const liquidSession = hrUtc >= 7 && hrUtc <= 21;
-  const sessionQuality = tfSec <= 3600 ? (liquidSession ? 'SESI LIKUID (London/NY)' : 'SESI TIPIS (dead zone)') : 'SESI MAKRO (24/7)';
+  const enSession = uiWantsEnglish();
+  const sessionQuality = tfSec <= 3600
+    ? (liquidSession
+      ? (enSession ? 'LIQUID SESSION (London/NY)' : 'SESI LIKUID (London/NY)')
+      : (enSession ? 'THIN SESSION (dead zone)' : 'SESI TIPIS (dead zone)'))
+    : (enSession ? 'MACRO SESSION (24/7)' : 'SESI MAKRO (24/7)');
   const htfAligned = (htfBias > 0 && rawDirectional >= 50) || (htfBias < 0 && rawDirectional < 50);
   let macroAdj = 0;
   if (rawDirectional >= 50) {
@@ -1790,7 +1816,7 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   // valuasi DCA — bukan gerbang eksekusi, agar tidak membingungkan akumulator).
   /* Satu bahasa untuk seluruh narasi reasoning: bila UI berbahasa selain Indonesia,
      semua label & kalimat di bawah memakai varian English (tidak campur). */
-  const EN = (() => { try { return typeof window !== 'undefined' && window.XSI18N && typeof window.XSI18N.getLanguage === 'function' && window.XSI18N.getLanguage() !== 'id'; } catch (_) { return false; } })();
+  const EN = uiWantsEnglish();
   const txt = (id, en) => (EN ? en : id);
   const vetoText = (g) => (EN ? (VETO_LABELS_EN[g] || g) : (VETO_LABELS[g] || g));
   const gateLine = mode === 'trader'
