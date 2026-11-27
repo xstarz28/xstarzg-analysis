@@ -125,6 +125,9 @@ function buildLadder(lang, htf, mtf, ltf, tfRows) {
   /* Bukti per TF ditampilkan apa adanya: TF yang datanya tidak tersedia diberi
      tanda — (bukan ditebak) supaya pembaca tahu mana yang benar-benar dibaca. */
   const detailOf = (reads, bias) => {
+    if (reads.length && !reads.some(r => r.available)) {
+      return txt(lang, 'belum tersedia di feed TF ini', 'not available in this TF feed');
+    }
     const live = reads.filter(r => r.available);
     if (!live.length) return dirTxt(bias);
     return live.map(r => r.id + ' ' + tfMark(r.bias)).join(' • ') +
