@@ -996,18 +996,29 @@ export function detectTopDownAlignment(candles, symbol, currentTf = 'H1', stackO
   }
 
   // Order flow sesi (Asia -> London -> NY) hanya MENGUATKAN bila ada bukti lain yang
-  // searah. Satu narasi sesi tidak boleh membalik struktur sendirian.
+  // searah: order block, konsensus MTF, atau bias makro H4/D1. Satu narasi sesi
+  // tidak boleh membalik struktur sendirian.
   let sessionBias = 'NEUTRAL';
   if (sessionFlow && sessionFlow.orderFlowBias !== 'NEUTRAL') {
     sessionBias = sessionFlow.orderFlowBias;
     const supportedByOb = obBias === sessionBias;
     const supportedByMtf = mtfClear && structC.bias === sessionBias;
-    if (structBias === 'NEUTRAL' && (supportedByOb || supportedByMtf)) {
+    const supportedByMacro = macroBias !== 'NEUTRAL' && macroBias === sessionBias;
+    const structureSupported = mtfClear && structC.bias === structBias;
+    if (structBias === 'NEUTRAL' && (supportedByOb || supportedByMtf || supportedByMacro)) {
       structBias = sessionBias;
       structureEvidence = 'SESSION_ORDER_FLOW';
     } else if (structBias !== 'NEUTRAL' && structBias !== sessionBias) {
-      structBias = 'NEUTRAL';
-      structureEvidence = 'SESSION_CONFLICT';
+      if (supportedByMacro && !structureSupported) {
+        structBias = sessionBias;
+        structureEvidence = 'SESSION+MACRO';
+      } else if (structureSupported) {
+        // Dua bukti independen (OB + MTF) lebih kuat daripada satu narasi sesi.
+        structureEvidence = 'MTF_OVER_SESSION';
+      } else {
+        structBias = 'NEUTRAL';
+        structureEvidence = 'SESSION_CONFLICT';
+      }
     }
   }
 
