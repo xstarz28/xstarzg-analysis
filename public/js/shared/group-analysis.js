@@ -179,9 +179,15 @@ function buildTrader(lang, a) {
   const want = direction === 'LONG' ? 'BULLISH' : direction === 'SHORT' ? 'BEARISH' : 'NEUTRAL';
 
   const tfRows = (a && a.timeframes && Array.isArray(a.timeframes.rows)) ? a.timeframes.rows : null;
+  const mtfRows = tierRows(tfRows, ['H1', 'M15']);
+  const ltfRows = tierRows(tfRows, ['M5', 'M1']);
+  // Tanpa tangga TF (snapshot lama) kita tidak bisa menyatakan sebuah tier
+  // "tidak tersedia"; dengan tangga TF, kriteria hanya dihitung bila TF-nya ada.
+  const mtfVerified = !tfRows || mtfRows.some(r => r.available);
+  const ltfVerified = !tfRows || ltfRows.some(r => r.available);
   const htf = tierBias(tierRows(tfRows, ['D1', 'H4']), td.macroBias || 'NEUTRAL');
-  const mtf = tierBias(tierRows(tfRows, ['H1', 'M15']), td.structBias || (num(ind.smcStatus && ind.smcStatus.indexOf('BULL') > -1 ? 1 : 0) ? 'BULLISH' : 'NEUTRAL'));
-  const ltf = tierBias(tierRows(tfRows, ['M5', 'M1']), td.execBias || (num(ind.macdHist) >= 0 ? 'BULLISH' : 'BEARISH'));
+  const mtf = tierBias(mtfRows, td.structBias || (num(ind.smcStatus && ind.smcStatus.indexOf('BULL') > -1 ? 1 : 0) ? 'BULLISH' : 'NEUTRAL'));
+  const ltf = tierBias(ltfRows, td.execBias || (num(ind.macdHist) >= 0 ? 'BULLISH' : 'BEARISH'));
   const ladder = buildLadder(lang, htf, mtf, ltf, tfRows);
 
   const sweepText = String(ind.liquiditySweep || 'NONE');
@@ -200,7 +206,7 @@ function buildTrader(lang, a) {
     (want === 'BULLISH' && (cotBias.indexOf('BULL') > -1 || String(fc.macroRegime || '').toUpperCase().indexOf('RISK-ON') > -1)) ||
     (want === 'BEARISH' && (cotBias.indexOf('BEAR') > -1 || String(fc.macroRegime || '').toUpperCase().indexOf('RISK-OFF') > -1))
   );
-  const triggerOk = want !== 'NEUTRAL' && ltf === want && (td.isAligned === true || ladder.state === 'aligned');
+  const triggerOk = ltfVerified && want !== 'NEUTRAL' && ltf === want && (td.isAligned === true || ladder.state === 'aligned');
 
   const scored = [
     { id: 'htf', weight: 22, ok: want !== 'NEUTRAL' && htf === want },
@@ -216,8 +222,8 @@ function buildTrader(lang, a) {
   const mark = (id) => ({ counted: counted(id), criterion: true });
   const technical = [
     { label: txt(lang, 'Bias HTF (D1/H4)', 'HTF bias (D1/H4)'), value: htf, note: txt(lang, 'Arah makro wajib searah sebelum entry', 'Macro direction must agree before entry'), tone: biasTone(htf), ...mark('htf') },
-    { label: txt(lang, 'Struktur MTF (H1/M15)', 'MTF structure (H1/M15)'), value: mtf, note: txt(lang, 'BOS/CHoCH + Order Block', 'BOS/CHoCH + Order Block'), tone: biasTone(mtf), ...mark('struct') },
-    { label: txt(lang, 'Pemicu LTF (M5/M1)', 'LTF trigger (M5/M1)'), value: ltf, note: txt(lang, 'Candle konfirmasi searah sinyal', 'Confirmation candle agrees with signal'), tone: biasTone(ltf), ...mark('trigger') },
+    { label: txt(lang, 'Struktur MTF (H1/M15)', 'MTF structure (H1/M15)'), value: mtf, note: mtfVerified ? txt(lang, 'BOS/CHoCH + Order Block', 'BOS/CHoCH + Order Block') : txt(lang, 'H1/M15 belum ada di feed ini — arah struktur diambil dari Order Block TF aktif', 'H1/M15 are not in this feed — structure comes from the active TF order block'), tone: biasTone(mtf), ...mark('struct') },
+    { label: txt(lang, 'Pemicu LTF (M5/M1)', 'LTF trigger (M5/M1)'), value: ltfVerified ? ltf : txt(lang, 'BELUM TERVERIFIKASI', 'NOT VERIFIED'), note: ltfVerified ? txt(lang, 'Dua candle M5 searah + bias M1 tidak melawan', 'Two aligned M5 candles + M1 bias not opposing') : txt(lang, 'Feed M5/M1 tidak tersedia di TF ini — bot cloud memeriksanya sebelum sinyal dikirim', 'The M5/M1 feed is unavailable at this TF — the cloud bot checks it before sending a signal'), tone: ltfVerified ? biasTone(ltf) : 'neutral', counted: triggerOk, criterion: true },
     { label: txt(lang, 'Liquidity sweep / FVG', 'Liquidity sweep / FVG'), value: sweepText + ' • ' + fvgText, note: txt(lang, 'Sapuan stop lalu imbalance', 'Stop sweep then imbalance'), tone: liquidityOk ? 'bull' : 'neutral', ...mark('liquidity') },
     { label: txt(lang, 'EMA Ribbon 20/50 & MA-200', 'EMA ribbon 20/50 & MA-200'), value: num(ind.ema20) >= num(ind.ema50) ? 'BULLISH' : 'BEARISH', note: txt(lang, 'Konteks tren — tidak menambah skor', 'Trend context — does not add score'), tone: biasTone(num(ind.ema20) >= num(ind.ema50) ? 'BULLISH' : 'BEARISH'), counted: false },
     { label: txt(lang, 'RSI(14) & MACD histogram', 'RSI(14) & MACD histogram'), value: 'RSI ' + num(ind.rsi, 50).toFixed(1) + ' • MACD ' + (num(ind.macdHist) >= 0 ? '+' : '') + num(ind.macdHist).toPrecision(3), note: txt(lang, 'Konteks momentum — tidak menambah skor', 'Momentum context — does not add score'), tone: num(ind.macdHist) >= 0 ? 'bull' : 'bear', counted: false },
