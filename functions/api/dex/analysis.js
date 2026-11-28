@@ -22,7 +22,15 @@ async function getJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 9000);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+    // User-Agent wajib: sebagian provider (GeckoTerminal/RugCheck) menolak
+    // permintaan tanpa UA dari IP edge, sehingga OHLCV tampak "unavailable".
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'XStarZG-Analysis/1.0 (+https://xstarzganalysis.pages.dev)'
+      }
+    });
     if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}`);
     return await response.json();
   } finally {
