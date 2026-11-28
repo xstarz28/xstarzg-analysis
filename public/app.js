@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.17';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.18';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.17';
+    bootScript.src = '/js/engine-boot.js?v=2027.18';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3509,7 +3509,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.17) ====================
+/* ==================== MORNING DESK NOTE (v2027.18) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -4116,6 +4116,13 @@ function localizeJournalReason(reason) {
     s = s.replace(/SL tersentuh sebelum order limit terjemput/g, 'SL touched before limit order filled');
     s = s.replace(/Horison setup berakhir tanpa TP\/SL \((\d+) candle berlalu\)/g, 'Setup horizon expired without TP/SL ($1 bars passed)');
     s = s.replace(/Struktur berbalik \+ harga diterima melawan trade \(>=50% risiko\) — Order Block batal/g, 'Structure flip + price accepted against trade (>=50% risk) — Order Block invalid');
+    s = s.replace(/Waktu tunggu limit order habis tanpa terisi/g, 'Pending limit order window expired unfilled');
+    s = s.replace(/Batas waktu tunggu limit order habis \(>12 candle tanpa terjemput\)/g, 'Pending limit window expired (>12 bars unfilled)');
+    s = s.replace(/Harga menembus batas proteksi sebelum order terisi/g, 'Price breached the protection level before the order filled');
+    s = s.replace(/Harga pasar melaju terlalu jauh tanpa menjemput antrian limit order/g, 'Price ran too far without filling the pending limit order');
+    s = s.replace(/Skala harga menyimpang ekstrem dari pasar live saat ini/g, 'Price scale deviated extremely from the current live market');
+    s = s.replace(/Stale lock auto-expired \(>24h\)/g, 'Stale setup auto-expired (>24h)');
+    s = s.replace(/Target tercapai sebelum order limit terjemput/g, 'Target reached before the limit order filled');
   }
   return s;
 }
@@ -4214,6 +4221,18 @@ function renderSignalJournal() {
     if (!oSym || !oTf) continue;
     traderRows.push({ sym: oSym, tf: oTf, dir: o.dir, st: o.status, bePlusActive: !!o.bePlusActive, slPlus: o.slPlus || (o.lock && o.lock.slPlus), entry: o.entry, sl: o.lock.sl, tp1: o.lock.tp1, tp2: o.lock.tp2, score: o.score, at: o.at, reason: o.reason, brain: o.lock.brain });
   }
+  // Deduplikasi: satu setup = satu baris. Sinkronisasi cloud bisa mengirim ulang
+  // outcome yang sama beberapa kali sehingga jurnal penuh baris kembar (mis. 4x
+  // "XAU/USD M15 LONG EXPIRED 0R" untuk satu setup yang sama).
+  var seenTraderRows = {};
+  traderRows = traderRows.filter(function (r) {
+    var day = r.at ? new Date(r.at).toISOString().slice(0, 10) : '';
+    var entryKey = r.entry ? Math.round(Number(r.entry) * 100) : 0;
+    var rk = [String(r.sym || '').toUpperCase(), String(r.tf || '').toUpperCase(), String(r.dir || '').toUpperCase(), String(r.st || '').toUpperCase(), day, entryKey].join('|');
+    if (seenTraderRows[rk]) return false;
+    seenTraderRows[rk] = 1;
+    return true;
+  });
 
   var invItems = investorJournalStore();
   var memeItems = memeJournalStore();
@@ -4296,16 +4315,26 @@ function renderSignalJournal() {
       if (isSniper && isRunning) {
         var slPosTxt = r.dir === 'LONG' ? T('ui.jnlAboveEntry', 'di atas entry') : T('ui.jnlBelowEntry', 'di bawah entry');
         advisorNotice = r.bePlusActive
-          ? ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Stop Loss diproteksi di SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') menuju Target 1:2 R:R (TP2).</div>')
-          : ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Geser SL ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' saat menyentuh TP1 untuk proteksi 0-Risk!</div>');
+          ? (isEn
+            ? ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK LOCKED: Stop Loss protected at SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') towards the 1:2 R:R target (TP2).</div>')
+            : ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Stop Loss diproteksi di SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' (' + slPosTxt + ') menuju Target 1:2 R:R (TP2).</div>'))
+          : (isEn
+            ? ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚠️ SNIPER ADVISOR: Full target at least 1:2 R:R (TP2). Move SL to SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' when TP1 is hit for 0-Risk protection!</div>')
+            : ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚠️ SNIPER ADVISOR: Target penuh minimal 1:2 R:R (TP2). Geser SL ke SL+ ' + formatPrice(num(r.slPlus), r.sym) + ' saat menyentuh TP1 untuk proteksi 0-Risk!</div>'));
       } else if (isScalp && isRunning) {
         advisorNotice = r.bePlusActive
-          ? ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Modal aman (SL+ ' + formatPrice(num(r.slPlus), r.sym) + ') menuju Target 1:2 R:R (TP1).</div>')
-          : ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚡ SCALP ADVISOR: Target mandatori R:R 1:2 (TP1). SL+ aktif otomatis untuk proteksi modal.</div>');
+          ? (isEn
+            ? ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK LOCKED: Capital safe (SL+ ' + formatPrice(num(r.slPlus), r.sym) + ') towards the 1:2 R:R target (TP1).</div>')
+            : ('<div style="font-size:10.2px;color:#6ee7b7;margin-top:2px;">🛡️ 0-RISK TERKUNCI: Modal aman (SL+ ' + formatPrice(num(r.slPlus), r.sym) + ') menuju Target 1:2 R:R (TP1).</div>'))
+          : (isEn
+            ? ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚡ SCALP ADVISOR: Mandatory 1:2 R:R target (TP1). SL+ activates automatically to protect capital.</div>')
+            : ('<div style="font-size:10.2px;color:#fde68a;margin-top:2px;">⚡ SCALP ADVISOR: Target mandatori R:R 1:2 (TP1). SL+ aktif otomatis untuk proteksi modal.</div>'));
       }
 
       if (r.st === 'PENDING_FILL') {
-        advisorNotice = '<div style="font-size:10.2px;color:#f59e0b;margin-top:2px;">⏳ Order BELUM terisi — antrian limit di ' + formatPrice(num(r.entry), r.sym) + ' masih menunggu harga. Jangan ubah level; batalkan bila sistem mengirim notifikasi cancel.</div>';
+        advisorNotice = isEn
+          ? ('<div style="font-size:10.2px;color:#f59e0b;margin-top:2px;">⏳ Order NOT filled — the limit queue at ' + formatPrice(num(r.entry), r.sym) + ' is still waiting for price. Do not change the level; cancel if the system sends a cancel notification.</div>')
+          : ('<div style="font-size:10.2px;color:#f59e0b;margin-top:2px;">⏳ Order BELUM terisi — antrian limit di ' + formatPrice(num(r.entry), r.sym) + ' masih menunggu harga. Jangan ubah level; batalkan bila sistem mengirim notifikasi cancel.</div>');
       }
 
       var liveMonitorInfo = '';
@@ -5710,7 +5739,7 @@ async function searchManualDexToken() {
     if (!response.ok || !data.ok) throw new Error(data.error || ('HTTP ' + response.status));
     memePairResults = Array.isArray(data.pairs) ? data.pairs : [];
     if (!memePairResults.length) {
-      if (status) status.textContent = 'No matching market pair was returned by the provider.';
+      if (status) status.textContent = data.hint || ('No matching market pair was returned by the provider for ' + address + ' on ' + chain + '. Check the blockchain selector; a contract address must already have a live DEX pair.');
       return;
     }
     if (status) status.textContent = 'Choose an exact pair returned by the provider to load its actual market data.';
@@ -5725,6 +5754,11 @@ async function searchManualDexToken() {
       button.addEventListener('click', function () { analyzeManualDexPair(pair.pairAddress); });
       results.appendChild(button);
     });
+    // Satu pair = langsung buka chart & data pasar tanpa klik kedua.
+    if (memePairResults.length === 1) {
+      if (status) status.textContent = 'Pair found — loading its market data, chart, and available on-chain checks…';
+      analyzeManualDexPair(memePairResults[0].pairAddress);
+    }
   } catch (error) {
     if (seq === memePairSearchSeq && status) status.textContent = 'DEX search failed: ' + error.message;
   }
@@ -6110,8 +6144,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.17',
-        badge: '/assets/favicon.svg?v=2027.17',
+        icon: '/assets/favicon.svg?v=2027.18',
+        badge: '/assets/favicon.svg?v=2027.18',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -6160,14 +6194,58 @@ function checkSignalAlarm(analysis) {
   var lastP = analysis.lastPrice || (analysis.levels && analysis.levels.entry);
   if (lastP && !isPriceCompatibleWithSymbol(lastP, sym)) return;
 
-  // 4. Sinyal ELITE / PRO terbuka
+  // 4. Sinyal ELITE / PRO terbuka — GERBANG SAMA DENGAN BOT CLOUD 24/7.
+  // Alarm browser dulu hanya mengecek signalEligible, sehingga setup satu timeframe
+  // (mis. M15) yang belum selaras D1/H4 bisa berbunyi seolah sinyal sniper sah.
   if (analysis.signalEligible === true && analysis.direction && analysis.direction !== 'NEUTRAL') {
     var tf = analysis.timeframe || state.tf || 'H1';
+    // 4a. Arah wajib selaras Top-Down (D1/H4 -> H1/M15). Tanpa ini, alarm = noise.
+    var tdAlarm = analysis.topDown;
+    if (!tdAlarm || tdAlarm.isAligned !== true) return;
+    var alignAlarm = tdAlarm.alignmentStatus;
+    var dirAlignedAlarm = (analysis.direction === 'LONG' && alignAlarm === 'ALIGNED_BULLISH') ||
+      (analysis.direction === 'SHORT' && alignAlarm === 'ALIGNED_BEARISH');
+    if (!dirAlignedAlarm) return;
+    // 4b. Standar elit: skor minimal 78, sama seperti jurnal & Telegram.
+    var scoreAlarm = num(analysis.convictionScore, num(analysis.confluenceScore, 0));
+    if (scoreAlarm < 78) return;
+    // 4c. Satu posisi per instrumen+TF: jangan bunyikan alarm baru saat masih berjalan.
+    if (typeof getSignalLock === 'function' && getSignalLock(sym, tf)) return;
+    if (typeof signalCooldownActive === 'function' && signalCooldownActive(sym, tf)) return;
+    // 4d. Setup harus masih layak entry (bukan LATE/terlambat/rawan SL).
+    try {
+      var vAlarm = evaluateSignalViability({ analysis: analysis, sym: sym, tf: tf });
+      if (!vAlarm || vAlarm.worth !== true) return;
+    } catch (e) { return; }
+    // 4e. Sinyal harus BARU: anchor candle tidak boleh lebih tua dari 2 candle TF ini.
+    var anchorSecA = Number(analysis.anchorClosedTime || 0);
+    if (anchorSecA > 0) {
+      var barSecA = (typeof TF_SECONDS !== 'undefined' && TF_SECONDS[tf]) ? TF_SECONDS[tf] : 3600;
+      if ((Date.now() / 1000 - anchorSecA) > barSecA * 2) return;
+    }
+
     var key = 'SIG|' + sym + '|' + tf + '|' + analysis.direction + '|' + (analysis.anchorClosedTime || '');
     if (alarmState.lastAlertKey === key) return;
     alarmState.lastAlertKey = key;
 
     var L = analysis.levels || {};
+    // 4f. Catat komitmen yang lolos gerbang ke Jurnal Sinyal agar bisa diaudit.
+    // Dulu alarm tidak meninggalkan jejak sama sekali di jurnal.
+    try {
+      if (typeof saveSignalLock === 'function' && typeof getSignalLock === 'function' && !getSignalLock(sym, tf) && L.entry && L.sl && L.tp1) {
+        var nlAlarm = {
+          symbol: sym, tf: tf, direction: analysis.direction,
+          entry: L.entry, sl: L.sl, tp1: L.tp1, tp2: L.tp2, tp3: L.tp3,
+          score: scoreAlarm, status: 'ACTIVE', issuedAt: Date.now(),
+          anchorClosedTime: analysis.anchorClosedTime || null,
+          brain: 'ALARM', atr: analysis.atr,
+          source: analysis.feedSource || analysis.source || state.feedSource
+        };
+        saveSignalLock(sym, tf, nlAlarm);
+        try { if (typeof SE !== 'undefined' && SE.applyLockedSignal) SE.applyLockedSignal(analysis, nlAlarm, { status: 'ACTIVE', bePlusActive: false }); } catch (e) {}
+        try { renderSignalJournal(); } catch (e) {}
+      }
+    } catch (e) {}
     var entryTxt = L.entry ? formatPrice(L.entry, sym) : formatPrice(analysis.lastPrice, sym);
     var tpTxt = L.tp1 ? formatPrice(L.tp1, sym) : '-';
     var slTxt = L.sl ? formatPrice(L.sl, sym) : '-';
@@ -6175,7 +6253,7 @@ function checkSignalAlarm(analysis) {
     var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
     // Fallback non-Indonesia memakai English: Melayu tidak boleh menerima teks Indonesia.
     var isEn = curLang !== 'id';
-    var score = analysis.convictionScore || analysis.confluenceScore || 50;
+    var score = scoreAlarm || analysis.convictionScore || analysis.confluenceScore || 50;
     var title = isEn
       ? ('🔔 ' + analysis.direction + ' SETUP OPEN: [' + sym + '] (' + tf + ')')
       : ('🔔 SETUP ' + analysis.direction + ' TERBUKA: [' + sym + '] (' + tf + ')');
@@ -6246,11 +6324,15 @@ function updateAlarmUi() {
   var icon = $id('lblAlarmIcon');
   var txt = $id('lblAlarmText');
   var chip = $id('alarmStatusChip');
-  var sym = alarmState.symbol || state.symbol || 'Aset Terpilih';
+  var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
+  var isEn = curLang !== 'id';
+  var sym = alarmState.symbol || state.symbol || (isEn ? 'Selected asset' : 'Aset Terpilih');
+  setTxt('lblAlarmChipLabel', isEn ? '🔔 Alarm Active: Monitoring' : '🔔 Alarm Aktif: Memantau');
+  setTxt('btnTestAlarmSound', isEn ? '🔊 Test Sound' : '🔊 Tes Bunyi');
 
   if (alarmState.enabled) {
     if (icon) icon.textContent = '🔔';
-    if (txt) txt.textContent = 'Alarm Aktif (' + sym + ')';
+    if (txt) txt.textContent = isEn ? ('Alarm Active (' + sym + ')') : ('Alarm Aktif (' + sym + ')');
     if (btn) {
       btn.style.borderColor = '#10b981';
       btn.style.color = '#10b981';
@@ -6309,10 +6391,14 @@ function toggleSignalAlarm() {
       try { Notification.requestPermission(); } catch (e) {}
     }
     playAlertChime();
-    showAlarmToast('🔔 ALARM AKTIF', 'XStarZG memantau setup sinyal & entry untuk [' + alarmState.symbol + ']. Lonceng & notifikasi browser akan berbunyi saat peluang terbuka.');
-
     var curLang = (window.XSI18N && typeof window.XSI18N.getLanguage === 'function') ? window.XSI18N.getLanguage() : (navigator.language || 'en-US');
     var isEn = curLang !== 'id';
+    showAlarmToast(
+      isEn ? '🔔 ALARM ACTIVE' : '🔔 ALARM AKTIF',
+      isEn
+        ? ('XStarZG is monitoring signal & entry setups for [' + alarmState.symbol + ']. Chime & browser notifications will fire when an opportunity opens.')
+        : ('XStarZG memantau setup sinyal & entry untuk [' + alarmState.symbol + ']. Lonceng & notifikasi browser akan berbunyi saat peluang terbuka.')
+    );
     var tgConfirm = isEn ? (
       '🔔 <b>[PRIORITY ALARM ACTIVATED: ' + alarmState.symbol + ']</b>\n\n' +
       'Asset: <b>' + alarmState.symbol + '</b> is now being monitored with high priority!\n' +

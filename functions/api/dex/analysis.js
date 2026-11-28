@@ -34,6 +34,24 @@ function validAddress(value) {
   return typeof value === 'string' && /^[A-Za-z0-9]{6,100}$/.test(value);
 }
 
+// Terima alamat mentah, alamat dengan spasi/newline, atau URL DexScreener yang
+// ditempel utuh — lalu ambil alamat kontrak/pair-nya saja.
+function cleanAddress(value) {
+  let s = String(value || '').trim();
+  try {
+    const m = s.match(/dexscreener\.com\/(?:[a-z0-9-]+\/)?(?:pairs\/)?([A-Za-z0-9]{6,100})/i);
+    if (m) s = m[1];
+  } catch (e) {}
+  return s.replace(/\s+/g, '');
+}
+
+const CHAIN_ALIASES = {
+  sol: 'solana', solana: 'solana',
+  eth: 'ethereum', ethereum: 'ethereum', erc20: 'ethereum',
+  bnb: 'bsc', bsc: 'bsc', bnbchain: 'bsc',
+  base: 'base'
+};
+
 function normalizePair(pair) {
   return {
     chainId: pair.chainId,
@@ -64,6 +82,19 @@ async function searchPairs(chain, address) {
       seen.add(pair.pairAddress);
       pairs.push(normalizePair(pair));
     }
+  }
+  if (!pairs.length) {
+    // Cadangan: endpoint pencarian bebas DexScreener. Berguna saat pengguna
+    // menempel alamat pair (bukan kontrak token) atau alamat baru yang belum
+    // terindeks pada endpoint token/pair.
+    try {
+      const search = await getJson(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(address)}`);
+      for (const pair of Array.isArray(search.pairs) ? search.pairs : []) {
+        if (pair.chainId !== chain || !pair.pairAddress || seen.has(pair.pairAddress)) continue;
+        seen.add(pair.pairAddress);
+        pairs.push(normalizePair(pair));
+      }
+    } catch (e) {}
   }
   return pairs;
 }
@@ -170,14 +201,19 @@ async function analyzePair(chain, pairAddress, tf) {
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const action = url.searchParams.get('action');
-  const chain = url.searchParams.get('chain');
-  const address = url.searchParams.get('address') || url.searchParams.get('pairAddress');
+  const rawChain = String(url.searchParams.get('chain') || '').toLowerCase().trim();
+  const chain = CHAIN_ALIASES[rawChain] || rawChain;
+  const address = cleanAddress(url.searchParams.get('address') || url.searchParams.get('pairAddress'));
   if (!CHAINS[chain]) return json({ ok: false, error: 'Unsupported blockchain.' }, 400);
   if (!validAddress(address)) return json({ ok: false, error: 'A valid contract or pair address is required.' }, 400);
   try {
     if (action === 'search') {
       const pairs = await searchPairs(CHAINS[chain].dex, address);
-      return json({ ok: true, pairs });
+      return json({
+        ok: true,
+        pairs,
+        hint: pairs.length ? null : `No pair was returned for ${address} on ${chain}. Check the selected blockchain, then try the pair address from the DEX chart URL.`
+      });
     }
     if (action === 'analyze') {
       const tf = url.searchParams.get('tf') || 'M5';

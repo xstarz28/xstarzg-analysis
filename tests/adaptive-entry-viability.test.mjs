@@ -24,12 +24,21 @@ test('ADAPTIVE ENTRY VIABILITY & TIME-AWARE RECOMMENDATION ENGINE', async (t) =>
 
   await t.test('3. Logika evaluateSignalViability mengklasifikasikan status secara matematis', () => {
     // Ekstrak fungsi evaluateSignalViability dan isAssetMarketOpen dari app.js untuk dievaluasi
+    // Jam dibekukan pada Rabu 14:00 UTC: isAssetMarketOpen bergantung hari bursa,
+    // sehingga test ini dulu gagal setiap Sabtu/Minggu padahal perilakunya benar.
+    const FIXED_NOW = Date.parse('2026-11-25T14:00:00Z');
+    const RealDateRef = Date;
+    function FakeDate() { return new RealDateRef(FIXED_NOW); }
+    FakeDate.now = () => FIXED_NOW;
+    FakeDate.parse = RealDateRef.parse;
+    FakeDate.UTC = RealDateRef.UTC;
     const mockContext = {
       state: { mode: 'trader' },
       T: (k, def) => def,
       getSignalLock: () => null,
       num: (a, b) => Number(a != null ? a : b),
-      window: { XSI18N: { getLanguage: () => 'id' } }
+      window: { XSI18N: { getLanguage: () => 'id' } },
+      FakeDate
     };
 
     // Buat runner lokal evaluateSignalViability dengan konteks terisolasi
@@ -46,6 +55,7 @@ test('ADAPTIVE ENTRY VIABILITY & TIME-AWARE RECOMMENDATION ENGINE', async (t) =>
       const getSignalLock = mockCtx.getSignalLock;
       const num = mockCtx.num;
       const window = mockCtx.window;
+      const Date = mockCtx.FakeDate;
       ${isMarketOpenMatch[0]}
       ${fnCode}
       return { evaluateSignalViability, isAssetMarketOpen };
