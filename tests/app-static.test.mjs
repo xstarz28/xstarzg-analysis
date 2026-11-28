@@ -32,12 +32,12 @@ let passed = 0, failed = 0;
 const chk = (n, c) => { if (c) { passed++; } else { failed++; console.log('FAIL:', n); } };
 
 // --- Versi cache-bust ---
-chk('index.html memakai v=2027.20 (styles)', /styles\.css\?v=2027\.20/.test(html));
-chk('index.html memuat app.js v=2027.20 secara defer', /<script defer src="\/app\.js\?v=2027.20">/.test(html));
-chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2027.20'") && app.includes('ensureQuantEnginesLoaded();'));
-chk('index.html memakai v=2027.20 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2027\.20">/.test(html));
-chk('engine-boot import shared v=2027.20 (2x)', /quant-core\.js\?v=2027\.20/.test(boot) && /signal-engine\.js\?v=2027\.20/.test(boot));
-chk('i18n index import locale v=2027.20', /locales\/\$\{currentLang\}\.js\?v=2027\.20/.test(i18nIndex));
+chk('index.html memakai v=2027.21 (styles)', /styles\.css\?v=2027\.21/.test(html));
+chk('index.html memuat app.js v=2027.21 secara defer', /<script defer src="\/app\.js\?v=2027.21">/.test(html));
+chk('quant engine tidak dimuat saat landing', !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2027.21'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('index.html memakai v=2027.21 (i18n boot module)', /<script type="module" src="\/i18n\/boot\.js\?v=2027\.21">/.test(html));
+chk('engine-boot import shared v=2027.21 (2x)', /quant-core\.js\?v=2027\.21/.test(boot) && /signal-engine\.js\?v=2027\.21/.test(boot));
+chk('i18n index import locale v=2027.21', /locales\/\$\{currentLang\}\.js\?v=2027\.21/.test(i18nIndex));
 chk('tidak ada sisa versi lama 2026.36/2026.37', !/2026\.36|2026\.37/.test(html + boot + i18nIndex));
 
 // --- Isolasi kalkulator (aturan #3.3) ---
@@ -51,13 +51,13 @@ chk('input kalkulator hanya memicu updateRiskSizing', calcInputBindings.includes
 chk('kalkulator menolak menghitung saat tidak ada sinyal terkunci', app.includes("valCalcLotSize', '--'"));
 
 
-chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2027.20') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2027.20'") && app.includes('ensureQuantEnginesLoaded();'));
+chk('PWA cache dan mesin kuantitatif menggunakan lazy loading yang baru', sw.includes('xstarzg-pwa-v2027.21') && !/<script type="module" src="\/js\/engine-boot\.js/.test(html) && app.includes("bootScript.src = '\/js/engine-boot.js?v=2027.21'") && app.includes('ensureQuantEnginesLoaded();'));
 chk('pemindaian Best TF otomatis dinonaktifkan', /function scheduleBestTfScan\(\) \{\s*return;/.test(app));
 chk('cache candle radar memakai URL stabil tanpa timestamp unik', !/api\/market\/analyze\?symbol=' \+ encodeURIComponent\(symbol\) \+ '&tf=' \+ encodeURIComponent\(tf \|\| 'H1'\) \+ '&_t='/.test(app));
 chk('expanded crypto catalog hanya dimuat saat kategori CRYPTO dipilih', app.includes("if (catSel.value === 'CRYPTO')") && app.includes('lazyLoadCryptoPairs()'));
 
 
-chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2027.20'") && app.includes('ensureChartVendorLoaded();'));
+chk('library chart hanya dimuat saat workspace dibuka', !/<script src="\/vendor\/lightweight-charts\.js/.test(html) && app.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2027.21'") && app.includes('ensureChartVendorLoaded();'));
 
 
 chk('timeframe switch retains last valid chart and cancels prior analysis fetch', (() => { const a = app.indexOf('/* ---- Timeframe bar ---- */'); const b = app.indexOf('/* ---- Tab filter & sort DEX Meme Radar */', a); const block = a >= 0 ? app.slice(a, b > a ? b : a + 2500) : ''; return block.includes('state.tf = tf') && !block.includes('state.candles = []') && app.includes('activeAnalysisController.abort()'); })());
@@ -311,7 +311,7 @@ chk('pindah workspace tidak mengecilkan kanvas chart menjadi 0x0 (chart kosong)'
   app.includes('chartInstance.applyOptions({ width: w, height: h || 470 });') &&
   app.includes("height: chartBox.clientHeight || 470"));
 chk('modul analisis kelompok dimuat lewat engine-boot berversi baru',
-  engineBoot.includes('/js/shared/group-analysis.js?v=2027.20') && engineBoot.includes('window.XSGroup'));
+  engineBoot.includes('/js/shared/group-analysis.js?v=2027.21') && engineBoot.includes('window.XSGroup'));
 /* JURNAL SINYAL REAL-TIME MONITORING MENUJU TP/SL & COTTON M5 FIX */
 chk('jurnal sinyal memantau pergerakan harga real-time menuju TP/SL',
   app.includes('function monitorLiveSignalProgress(') &&

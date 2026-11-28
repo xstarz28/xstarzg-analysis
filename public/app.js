@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.20';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.21';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.20';
+    bootScript.src = '/js/engine-boot.js?v=2027.21';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3530,7 +3530,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.20) ====================
+/* ==================== MORNING DESK NOTE (v2027.21) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -5775,10 +5775,14 @@ async function searchManualDexToken() {
       button.addEventListener('click', function () { analyzeManualDexPair(pair.pairAddress); });
       results.appendChild(button);
     });
-    // Satu pair = langsung buka chart & data pasar tanpa klik kedua.
-    if (memePairResults.length === 1) {
+    // Selalu buka otomatis pair paling likuid (chart + data pasar) tanpa klik kedua;
+    // daftar pair lain tetap tampil sebagai alternatif pilihan pengguna.
+    var bestPair = memePairResults.slice().sort(function (x, y) {
+      return (Number(y.liquidityUsd) || 0) - (Number(x.liquidityUsd) || 0);
+    })[0];
+    if (bestPair && bestPair.pairAddress) {
       if (status) status.textContent = 'Pair found — loading its market data, chart, and available on-chain checks…';
-      analyzeManualDexPair(memePairResults[0].pairAddress);
+      analyzeManualDexPair(bestPair.pairAddress);
     }
   } catch (error) {
     if (seq === memePairSearchSeq && status) status.textContent = 'DEX search failed: ' + error.message;
@@ -6165,8 +6169,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.20',
-        badge: '/assets/favicon.svg?v=2027.20',
+        icon: '/assets/favicon.svg?v=2027.21',
+        badge: '/assets/favicon.svg?v=2027.21',
         requireInteraction: true
       });
       n.onclick = function () {
