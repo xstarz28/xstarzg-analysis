@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.24';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.25';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.24';
+    bootScript.src = '/js/engine-boot.js?v=2027.25';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3530,7 +3530,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.24) ====================
+/* ==================== MORNING DESK NOTE (v2027.25) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -5711,6 +5711,29 @@ function renderDexMarket(result) {
   drawMemeCandleChart(pair, activeMemeCandles);
   try { renderMemeGroupAnalysis(); } catch (e) {}
 }
+/* OHLCV DEX langsung dari browser: GeckoTerminal mengizinkan CORS dan IP
+   pengguna tidak terkena rate-limit IP edge Cloudflare (HTTP 429) yang membuat
+   chart kosong padahal data pasar ada. */
+var GECKO_NETWORK = { solana: 'solana', base: 'base', bsc: 'bsc', ethereum: 'eth' };
+var GECKO_TF_SPEC = {
+  M5: { tf: 'minute', agg: 5 }, H1: { tf: 'hour', agg: 1 },
+  H4: { tf: 'hour', agg: 4 }, D1: { tf: 'day', agg: 1 }
+};
+async function fetchDexOhlcvInBrowser(chain, pool, tf) {
+  var net = GECKO_NETWORK[chain];
+  var spec = GECKO_TF_SPEC[tf] || GECKO_TF_SPEC.M5;
+  if (!net || !pool) return [];
+  var url = 'https://api.geckoterminal.com/api/v2/networks/' + net + '/pools/' +
+    encodeURIComponent(pool) + '/ohlcv/' + spec.tf + '?aggregate=' + spec.agg + '&limit=120&currency=usd';
+  var response = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!response.ok) return [];
+  var data = await response.json();
+  var rows = (data && data.data && data.data.attributes && data.data.attributes.ohlcv_list) || [];
+  return rows.map(function (row) {
+    return { time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]) || 0 };
+  }).filter(function (c) { return c.time > 0 && c.close > 0; }).sort(function (a, b) { return a.time - b.time; });
+}
+
 async function analyzeManualDexPair(pairAddress) {
   if (!pairAddress || !activeMemeChainValue()) return;
   var seq = ++memePairAnalysisSeq;
@@ -5722,6 +5745,17 @@ async function analyzeManualDexPair(pairAddress) {
     var data = await response.json();
     if (seq !== memePairAnalysisSeq) return;
     if (!response.ok || !data.ok) throw new Error(data.error || ('HTTP ' + response.status));
+    if (!Array.isArray(data.candles) || !data.candles.length) {
+      try {
+        var directCandles = await fetchDexOhlcvInBrowser(activeMemeChainValue(), pairAddress, activeMemeTf);
+        if (directCandles.length >= 20) {
+          data.candles = directCandles;
+          data.ohlcvSource = 'GeckoTerminal (direct)';
+          data.freshness = 'fresh';
+          data.error = null;
+        }
+      } catch (e) {}
+    }
     renderDexMarket(data);
     if (status) {
       if (data.validity === 'verified') status.textContent = 'Market data loaded from the stated provider.';
@@ -6173,8 +6207,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.24',
-        badge: '/assets/favicon.svg?v=2027.24',
+        icon: '/assets/favicon.svg?v=2027.25',
+        badge: '/assets/favicon.svg?v=2027.25',
         requireInteraction: true
       });
       n.onclick = function () {
