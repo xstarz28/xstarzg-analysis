@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.18';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.19';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.18';
+    bootScript.src = '/js/engine-boot.js?v=2027.19';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3509,7 +3509,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.18) ====================
+/* ==================== MORNING DESK NOTE (v2027.19) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -6144,8 +6144,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.18',
-        badge: '/assets/favicon.svg?v=2027.18',
+        icon: '/assets/favicon.svg?v=2027.19',
+        badge: '/assets/favicon.svg?v=2027.19',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -7465,7 +7465,9 @@ function updateUserUi() {
       saveSession();
     }
   }
-  setTxt('lblUserName', u ? (u.name || u.email.split('@')[0]) : T('ui.guestName', 'Tamu'));
+  // Nama tamu JANGAN disimpan sebagai string berbahasa Indonesia saat sesi dibuat
+  // sebelum kamus termuat; tampilkan selalu dari kamus bahasa aktif.
+  setTxt('lblUserName', (u && u.tier !== 'GUEST') ? (u.name || u.email.split('@')[0]) : T('ui.guestName', 'Guest'));
   var badge = $id('lblUserTierBadge');
   if (badge) {
     badge.textContent = tierBadge(u);
@@ -9017,6 +9019,13 @@ function bootCore() {
       try { renderSignalJournal(); } catch (e) {}
       try { updateSlPlusNotifyUi(); } catch (e) {}
       try { updateTelegramUi(); } catch (e) {}
+      // Kartu kalender berita, catatan desk, dan analisis kelompok dirender dari
+      // cache SEBELUM kamus bahasa selesai dimuat -> dulu label seperti "SELESAI"/
+      // "Prakiraan"/"Sebelumnya" tertinggal Bahasa Indonesia di UI English.
+      try { renderNewsPanel(); } catch (e) {}
+      try { renderDeskNote(); } catch (e) {}
+      try { renderGroupAnalysis(); } catch (e) {}
+      try { updateAlarmUi(); } catch (e) {}
       // Narasi analisis terakhir tetap — jalankan ulang analisis agar panel sisi ikut bahasa baru
       if (state.user && state.candles && state.candles.length && typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true);
     } catch (e) {}
