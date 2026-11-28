@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Вердикт инвестора — Стоит ли покупать?",
+    "invHorizonLbl": "Горизонт удержания (спот, без плеча)",
+    "ivWorth": "СТОИТ КУПИТЬ — НАКАПЛИВАТЬ",
+    "ivWait": "ЖДАТЬ — НЕ СТОИТ ПО ЭТОЙ ЦЕНЕ",
+    "ivNotWorth": "ПОКА НЕ СТОИТ ПОКУПАТЬ",
+    "ihStocks": "12–36 месяцев",
+    "ihCrypto": "6–18 месяцев",
+    "ihOther": "3–12 месяцев",
+    "invHorizonLabel": "Горизонт удержания:",
     "brandTag": "ИНСТИТУЦИОНАЛЬНЫЙ КВАНТ-ТЕРМИНАЛ 2026",
     "btnLoginNav": "🔐 Войти в терминал",
     "heroPill": "⚡ МУЛЬТИАКТИВНЫЙ КВАНТОВЫЙ И SMART MONEY ДВИЖОК В РЕАЛЬНОМ ВРЕМЕНИ",

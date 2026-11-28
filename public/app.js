@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.27';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.28';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.27';
+    bootScript.src = '/js/engine-boot.js?v=2027.28';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -1661,6 +1661,47 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
   } catch (e) {}
 }
 
+/* ==================== 1b. FEED CANDLE NATIVE PER TIMEFRAME ====================
+   Alignment Top-Down (1D/4H -> 1H/15m -> 5m) hanya sah bila setiap tingkat
+   dibaca dari candle ASLI tingkat itu. Dulu TF besar diturunkan (resample) dari
+   TF yang sedang dibuka, sehingga user harus mengganti timeframe satu per satu.
+   Sekarang D1/H4/H1/M15/M5 diambil sekali jalan dari feed yang sama lalu
+   diserahkan ke engine sebagai `candlesMap`; engine memakai series native dan
+   hanya me-resample TF yang feeder aslinya tidak tersedia. */
+var tfFeedCache = {}; // SYM -> { ts, map }
+var TF_FEED_IDS = ['D1', 'H4', 'H1', 'M15', 'M5'];
+var TF_FEED_TTL = 10 * 60 * 1000;
+function timeframeFeedFor(symbol) {
+  var hit = tfFeedCache[String(symbol || '').toUpperCase()];
+  return (hit && hit.map && Object.keys(hit.map).length) ? hit.map : null;
+}
+function prefetchTimeframeFeeds(symbol) {
+  var key = String(symbol || '').toUpperCase();
+  if (!key) return;
+  var hit = tfFeedCache[key];
+  if (hit && (hit.inflight || (hit.ts && Date.now() - hit.ts < TF_FEED_TTL))) return;
+  var entry = { ts: 0, map: {}, inflight: true };
+  tfFeedCache[key] = entry;
+  var jobs = TF_FEED_IDS.map(function (tfId) {
+    return fetch('/api/market/ohlcv?symbol=' + encodeURIComponent(symbol) + '&tf=' + tfId + '&limit=300', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !Array.isArray(d.candles) || d.candles.length < 20) return;
+        var series = d.candles.map(function (c) {
+          return { time: num(c.time), open: num(c.open), high: num(c.high), low: num(c.low), close: num(c.close), volume: num(c.volume, 0) };
+        }).filter(function (c) { return c.time > 0 && c.close > 0; })
+          .sort(function (a, b) { return a.time - b.time; });
+        if (series.length >= 20) entry.map[tfId] = series;
+      })
+      .catch(function () {});
+  });
+  Promise.all(jobs).then(function () {
+    entry.inflight = false;
+    entry.ts = Date.now();
+    if (!Object.keys(entry.map).length) { try { delete tfFeedCache[key]; } catch (e) { tfFeedCache[key] = null; } }
+  });
+}
+
 /* ==================== 2. MESIN ANALISIS QUANT (computeQuantEngine) ==================== */
 function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSource) {
   try {
@@ -1674,7 +1715,8 @@ function computeQuantEngine(candles, symbol, tf, forceRecalc, lockScope, feedSou
       var a = SE.runFullAnalysis({
         symbol: symbol, timeframe: tf || 'H1',
         mode: state.mode || 'trader', horizon: 'all',
-        spotOnly: state.mode === 'investor' || state.subMode === 'spot', candles: candles
+        spotOnly: state.mode === 'investor' || state.subMode === 'spot', candles: candles,
+        candlesMap: (typeof timeframeFeedFor === 'function') ? timeframeFeedFor(symbol) : null
       });
       if (a && !a.error) {
         a.candles = candles;
@@ -2719,6 +2761,12 @@ function renderPanels(a) {
     setTxt('valInvRating', rating);
     // Warna berbasis arah analisis (bukan substring teks) agar kebal terjemahan multi-bahasa
     $id('valInvRating') && ($id('valInvRating').style.color = a.direction === 'LONG' ? '#10b981' : a.direction === 'SHORT' ? '#f59e0b' : '#38bdf8');
+    // Verdict beli/tidak + horizon tahan (menggantikan level trading di mode investor)
+    var verdict = investorVerdictFor(a, fair);
+    setTxt('valInvVerdict', verdict.label);
+    $id('valInvVerdict') && ($id('valInvVerdict').style.color = verdict.color);
+    $id('valInvVerdictBox') && ($id('valInvVerdictBox').style.borderColor = verdict.color + '66');
+    setTxt('valInvHorizon', verdict.horizon);
     setTxt('valInvFairValue', formatPrice(fair, a.symbol));
     setTxt('valInvValuationStatus', status);
     $id('valInvValuationStatus') && ($id('valInvValuationStatus').style.color = diffPct < -3 ? '#10b981' : diffPct > 3 ? '#f43f5e' : '#f8fafc');
@@ -3530,7 +3578,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.27) ====================
+/* ==================== MORNING DESK NOTE (v2027.28) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -5581,6 +5629,35 @@ function invCatOf(cat) {
   var k = INV_CAT_KEY[cat];
   return k ? T('ui.' + k, cat) : cat;
 }
+/* Verdict investasi (bukan level trading): apakah harga SEKARANG layak dibeli,
+   berapa lama horizon tahan, dan apa syaratnya. Tidak memakai Entry/SL/TP intraday. */
+function investorVerdictFor(a, fair) {
+  var price = num(a && a.lastPrice, 0);
+  var f = num(fair, price);
+  var disc = f > 0 ? ((price - f) / f) * 100 : 0; // negatif = diskon
+  var sc = num(a && a.confluenceScore, 50);
+  var macro = (a && a.topDown && a.topDown.macroBias) || 'NEUTRAL';
+  var key, label, color;
+  if ((a && a.direction === 'SHORT') || (disc > 15 && sc < 70)) {
+    key = 'AVOID';
+    label = T('ui.ivNotWorth', 'NOT WORTH BUYING YET');
+    color = '#f43f5e';
+  } else if (a && a.direction === 'LONG' && sc >= 60) {
+    key = 'BUY';
+    label = T('ui.ivWorth', 'WORTH BUYING — ACCUMULATE');
+    color = '#10b981';
+  } else {
+    key = 'WAIT';
+    label = T('ui.ivWait', 'WAIT — NOT WORTH AT THIS PRICE');
+    color = '#f59e0b';
+  }
+  var horizon = a && a.assetClass === 'stocks'
+    ? T('ui.ihStocks', '12–36 months')
+    : a && a.assetClass === 'crypto'
+      ? T('ui.ihCrypto', '6–18 months')
+      : T('ui.ihOther', '3–12 months');
+  return { key: key, label: label, color: color, horizon: horizon, disc: disc, score: sc, macro: macro };
+}
 function investorRatingFor(a) {
   var sc = num(a && a.confluenceScore, 50);
   if (a.direction === 'LONG' && sc >= 65) return { cls: 'accum', txt: T('ui.ibStrong', '● AKUMULASI KUAT') };
@@ -5602,6 +5679,9 @@ function drawInvestorPickCards(items) {
     var meta = getMeta(it.sym);
     var badge = investorRatingFor(a);
     var lv = a.levels || {};
+    var fairForVerdict = num(lv.poc, a.lastPrice) * 0.55 + num(lv.vwap, a.lastPrice) * 0.45;
+    if (!(fairForVerdict > 0)) fairForVerdict = a.lastPrice;
+    var verdict = investorVerdictFor(a, fairForVerdict);
     // Nilai wajar ala panel investor: 55% POC volume + 45% VWAP sesi
     var fair = num(lv.poc, a.lastPrice) * 0.55 + num(lv.vwap, a.lastPrice) * 0.45;
     if (fair <= 0) fair = a.lastPrice;
@@ -5622,6 +5702,8 @@ function drawInvestorPickCards(items) {
         '<span class="r-chg" style="color:' + chgCol + ';">' + pctFmt(chg) + '</span>' +
       '</div>' +
       '<span class="sig-badge ' + badge.cls + '">' + badge.txt + '</span>' +
+      '<div style="margin-top:5px;font-size:11px;font-weight:800;color:' + verdict.color + ';background:' + verdict.color + '1f;border:1px solid ' + verdict.color + '55;border-radius:6px;padding:4px 7px;">' + escH(verdict.label) + '</div>' +
+      '<div style="font-size:10px;color:#94a3b8;margin-top:3px;">' + T('ui.invHorizonLabel', 'Hold horizon:') + ' <b style="color:#cbd5e1;">' + escH(verdict.horizon) + '</b></div>' +
       '<div class="inv-rows">' +
         '<div><span>' + T('ui.cFair', 'Nilai Wajar') + '</span><b>' + formatPrice(fair, it.sym) + '</b></div>' +
         '<div><span>' + T('ui.cDca', 'Zona Cicil (DCA 1)') + '</span><b>' + formatPrice(num(lv.dcaZone1, it.price * 0.99), it.sym) + '</b></div>' +
@@ -5706,7 +5788,10 @@ function renderDexMarket(result) {
       'Sentiment: Unavailable (no verified sentiment source)'
     ].forEach(function (text) { var item = document.createElement('div'); item.textContent = text; fund.appendChild(item); });
   }
-  setDexText('memeMarketSource', 'Market source: ' + (result.marketSource || 'Unavailable') + ' · OHLCV source: ' + (result.ohlcvSource || 'Unavailable') + ' · as of ' + (result.asOf || 'Unavailable') + ' · freshness: ' + (result.freshness || 'Unavailable') + ' · validity: ' + (result.validity || 'unverified'));
+  var normNote = (result.priceNormalization && result.priceNormalization.applied)
+    ? ' · price scale normalized ' + (result.priceNormalization.inverted ? '(inverted pool)' : 'to market price')
+    : '';
+  setDexText('memeMarketSource', 'Market source: ' + (result.marketSource || 'Unavailable') + ' · OHLCV source: ' + (result.ohlcvSource || 'Unavailable') + ' · as of ' + (result.asOf || 'Unavailable') + ' · freshness: ' + (result.freshness || 'Unavailable') + ' · validity: ' + (result.validity || 'unverified') + normNote);
   renderDexTechnical(activeMemeCandles);
   drawMemeCandleChart(pair, activeMemeCandles);
   try { renderMemeGroupAnalysis(); } catch (e) {}
@@ -5719,7 +5804,46 @@ var GECKO_TF_SPEC = {
   M5: { tf: 'minute', agg: 5 }, H1: { tf: 'hour', agg: 1 },
   H4: { tf: 'hour', agg: 4 }, D1: { tf: 'day', agg: 1 }
 };
-async function fetchDexOhlcvInBrowser(chain, pool, tf) {
+/* Samakan skala candle browser dengan harga pasar DexScreener. Sebagian pool
+   mengembalikan candle dalam satuan kuota (mis. ~0.997 padahal pasar 555.8) atau
+   terbalik; tanpa normalisasi indikator & chart DEX bisa menyesatkan. */
+function normalizeDexCandlesToPrice(candles, refPrice, refChangePct) {
+  var ref = Number(refPrice);
+  if (!Array.isArray(candles) || candles.length < 2 || !(ref > 0)) return { candles: candles, applied: false, inverted: false };
+  var last = Number(candles[candles.length - 1].close);
+  if (!(last > 0)) return { candles: candles, applied: false, inverted: false };
+  if (Math.abs(last / ref - 1) <= 0.25) return { candles: candles, applied: false, inverted: false };
+  var firstC = candles[Math.max(0, candles.length - 40)];
+  var first = firstC ? Number(firstC.close) : 0;
+  var candleRet = first > 0 ? (last / first - 1) * 100 : null;
+  var chg = Number(refChangePct);
+  var inverted = false;
+  if (candleRet != null && isFinite(chg) && Math.abs(candleRet) > 0.5) {
+    inverted = Math.abs(-candleRet - chg) + 1 < Math.abs(candleRet - chg);
+  }
+  var series = inverted ? candles.map(function (c) {
+    return {
+      time: c.time,
+      open: c.open > 0 ? 1 / c.open : c.open,
+      high: c.low > 0 ? 1 / c.low : c.high,
+      low: c.high > 0 ? 1 / c.high : c.low,
+      close: c.close > 0 ? 1 / c.close : c.close,
+      volume: c.volume
+    };
+  }) : candles;
+  var invLast = Number(series[series.length - 1].close);
+  if (!(invLast > 0)) return { candles: candles, applied: false, inverted: false };
+  var k = ref / invLast;
+  return {
+    candles: series.map(function (c) {
+      return { time: c.time, open: c.open * k, high: c.high * k, low: c.low * k, close: c.close * k, volume: c.volume };
+    }),
+    applied: true,
+    inverted: inverted,
+    scale: k
+  };
+}
+async function fetchDexOhlcvInBrowser(chain, pool, tf, refPrice, refChangePct) {
   var net = GECKO_NETWORK[chain];
   var spec = GECKO_TF_SPEC[tf] || GECKO_TF_SPEC.M5;
   if (!net || !pool) return [];
@@ -5729,9 +5853,10 @@ async function fetchDexOhlcvInBrowser(chain, pool, tf) {
   if (!response.ok) return [];
   var data = await response.json();
   var rows = (data && data.data && data.data.attributes && data.data.attributes.ohlcv_list) || [];
-  return rows.map(function (row) {
+  var candles = rows.map(function (row) {
     return { time: Number(row[0]), open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]), volume: Number(row[5]) || 0 };
   }).filter(function (c) { return c.time > 0 && c.close > 0; }).sort(function (a, b) { return a.time - b.time; });
+  return normalizeDexCandlesToPrice(candles, refPrice, refChangePct).candles;
 }
 
 async function analyzeManualDexPair(pairAddress) {
@@ -5747,7 +5872,8 @@ async function analyzeManualDexPair(pairAddress) {
     if (!response.ok || !data.ok) throw new Error(data.error || ('HTTP ' + response.status));
     if (!Array.isArray(data.candles) || !data.candles.length) {
       try {
-        var directCandles = await fetchDexOhlcvInBrowser(activeMemeChainValue(), pairAddress, activeMemeTf);
+        var refPair = data.pair || {};
+        var directCandles = await fetchDexOhlcvInBrowser(activeMemeChainValue(), pairAddress, activeMemeTf, refPair.priceUsd, refPair.change24h);
         if (directCandles.length >= 20) {
           data.candles = directCandles;
           data.ohlcvSource = 'GeckoTerminal (direct)';
@@ -6257,8 +6383,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.27',
-        badge: '/assets/favicon.svg?v=2027.27',
+        icon: '/assets/favicon.svg?v=2027.28',
+        badge: '/assets/favicon.svg?v=2027.28',
         requireInteraction: true
       });
       n.onclick = function () {
@@ -9593,6 +9719,9 @@ if (document.readyState === 'loading') {
         renderAllVisuals(analysis, true);
         drawCanvasFallbackChart(state.candles, analysis);
         if (chartInstance) chartInstance.timeScale().fitContent();
+        // Isi feed native D1/H4/M15/M5 di latar belakang; analisis berikutnya
+        // (dan radar) langsung memakai alignment multi-TF asli tanpa klik manual.
+        try { prefetchTimeframeFeeds(reqSymbol); } catch (e) {}
         connectRealtimeStream();
         if (feedIsEstimate(state.feedSource)) scheduleFeedReconnect();
       }

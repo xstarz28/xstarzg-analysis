@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "投資者判定 — 值得買進嗎？",
+    "invHorizonLbl": "持有週期（現貨，無槓桿）",
+    "ivWorth": "值得買進 — 分批佈局",
+    "ivWait": "等待 — 目前價格不值得",
+    "ivNotWorth": "暫不值得買進",
+    "ihStocks": "12–36 個月",
+    "ihCrypto": "6–18 個月",
+    "ihOther": "3–12 個月",
+    "invHorizonLabel": "持有週期：",
     "brandTag": "機構級量化終端 2026",
     "btnLoginNav": "🔐 登入交易終端",
     "heroPill": "⚡ 即時多資產量化與聰明錢引擎",

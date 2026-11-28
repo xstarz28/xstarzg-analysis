@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Phán quyết nhà đầu tư — Có đáng mua?",
+    "invHorizonLbl": "Thời gian nắm giữ (Spot, không đòn bẩy)",
+    "ivWorth": "ĐÁNG MUA — TÍCH LŨY",
+    "ivWait": "CHỜ — KHÔNG ĐÁNG Ở MỨC GIÁ NÀY",
+    "ivNotWorth": "CHƯA ĐÁNG MUA",
+    "ihStocks": "12–36 tháng",
+    "ihCrypto": "6–18 tháng",
+    "ihOther": "3–12 tháng",
+    "invHorizonLabel": "Thời gian nắm giữ:",
     "brandTag": "TERMINAL ĐỊNH LƯỢNG TỔ CHỨC 2026",
     "btnLoginNav": "🔐 Đăng nhập Terminal",
     "heroPill": "⚡ CÔNG CỤ ĐỊNH LƯỢNG & SMART MONEY ĐA TÀI SẢN THỜI GIAN THỰC",

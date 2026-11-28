@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "حكم المستثمر — هل يستحق الشراء؟",
+    "invHorizonLbl": "أفق الاحتفاظ (فوري، بدون رافعة)",
+    "ivWorth": "يستحق الشراء — تجميع",
+    "ivWait": "انتظر — لا يستحق بهذا السعر",
+    "ivNotWorth": "لا يستحق الشراء بعد",
+    "ihStocks": "12–36 شهرًا",
+    "ihCrypto": "6–18 شهرًا",
+    "ihOther": "3–12 شهرًا",
+    "invHorizonLabel": "أفق الاحتفاظ:",
     "brandTag": "محطة التحليل الكمي المؤسسي 2026",
     "btnLoginNav": "🔐 تسجيل الدخول إلى المحطة",
     "heroPill": "⚡ محرك كمي متعدد الأصول وذكي للأموال الذكية في الوقت الحقيقي",

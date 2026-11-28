@@ -101,7 +101,7 @@ export async function onRequest(context) {
           } catch (e) {}
         }
         if (!activeBotToken || !targetChatId || !alertText) {
-          return Response.json({ ok: false, error: 'Parameter botToken, chatId, atau text tidak lengkap' }, { status: 400, headers: CORS });
+          return Response.json({ ok: false, error: 'botToken, chatId, or text parameter is incomplete' }, { status: 400, headers: CORS });
         }
         const cleanTok = String(activeBotToken).trim().replace(/^bot/i, '');
         const tRes = await fetch(`https://api.telegram.org/bot${cleanTok}/sendMessage`, {
@@ -339,7 +339,7 @@ export async function onRequest(context) {
         }
         const activeBotToken = botToken || (env && env.TELEGRAM_BOT_TOKEN);
         if (!activeBotToken) {
-          return Response.json({ ok: false, error: 'Bot token belum terpasang di sistem.' }, { status: 400, headers: CORS });
+          return Response.json({ ok: false, error: 'Bot token is not configured on the server.' }, { status: 400, headers: CORS });
         }
         const cleanToken = String(activeBotToken).trim().replace(/^bot/i, '');
         try {
@@ -378,12 +378,12 @@ export async function onRequest(context) {
         }
         const activeBotToken = botToken || (env && env.TELEGRAM_BOT_TOKEN);
         if (!activeBotToken) {
-          return Response.json({ ok: false, error: 'Bot token belum terpasang di sistem.' }, { status: 400, headers: CORS });
+          return Response.json({ ok: false, error: 'Bot token is not configured on the server.' }, { status: 400, headers: CORS });
         }
         const cleanToken = String(activeBotToken).trim().replace(/^bot/i, '');
         const alertText = String(body.text || '').slice(0, 4000);
         if (!alertText) {
-          return Response.json({ ok: false, error: 'Pesan text tidak boleh kosong.' }, { status: 400, headers: CORS });
+          return Response.json({ ok: false, error: 'Message text must not be empty.' }, { status: 400, headers: CORS });
         }
         try {
           const tRes = await fetch(`https://api.telegram.org/bot${cleanToken}/sendMessage`, {
@@ -408,7 +408,7 @@ export async function onRequest(context) {
 
       const chatId = String(body.chatId || '').trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');
       if (!chatId || !/^-?\d+$/.test(chatId)) {
-        return Response.json({ ok: false, error: 'Chat ID tidak valid (harus berupa angka UID Telegram Anda).' }, { status: 400, headers: CORS });
+        return Response.json({ ok: false, error: 'Invalid Chat ID (it must be your numeric Telegram UID).' }, { status: 400, headers: CORS });
       }
 
       const tier = isOwner ? 'OWNER' : (isAffiliate ? 'AFFILIATE' : 'VIP');

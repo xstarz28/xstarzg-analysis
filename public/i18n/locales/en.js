@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Investor Verdict — Worth Buying?",
+    "invHorizonLbl": "Hold Horizon (Spot, No Leverage)",
+    "ivWorth": "WORTH BUYING — ACCUMULATE",
+    "ivWait": "WAIT — NOT WORTH AT THIS PRICE",
+    "ivNotWorth": "NOT WORTH BUYING YET",
+    "ihStocks": "12–36 months",
+    "ihCrypto": "6–18 months",
+    "ihOther": "3–12 months",
+    "invHorizonLabel": "Hold horizon:",
     "brandTag": "INSTITUTIONAL QUANT TERMINAL 2026",
     "btnLoginNav": "🔐 Log In to Terminal",
     "heroPill": "⚡ REAL-TIME MULTI-ASSET QUANTITATIVE & SMART MONEY ENGINE",

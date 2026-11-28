@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Yatırımcı Kararı — Almaya değer mi?",
+    "invHorizonLbl": "Tutma Ufku (Spot, kaldıraçsız)",
+    "ivWorth": "ALMAYA DEĞER — BİRİKTİR",
+    "ivWait": "BEKLE — BU FİYATTA DEĞMEZ",
+    "ivNotWorth": "HENÜZ ALMAYA DEĞMEZ",
+    "ihStocks": "12–36 ay",
+    "ihCrypto": "6–18 ay",
+    "ihOther": "3–12 ay",
+    "invHorizonLabel": "Tutma ufku:",
     "brandTag": "KURUMSAL QUANT TERMİNALİ 2026",
     "btnLoginNav": "🔐 Terminale Giriş",
     "heroPill": "⚡ GERÇEK ZAMANLI ÇOK-VARLIKLI KANTİTATİF VE SMART MONEY MOTORU",

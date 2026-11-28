@@ -53,7 +53,7 @@ export async function onRequestPost(context) {
   // (fail-closed) — bukan diam-diam memakai kode yang bisa dibaca siapa pun.
   const expectedCode = String((context.env && context.env.OWNER_ACCESS_CODE) || '').trim();
   if (!expectedCode) {
-    return new Response(JSON.stringify({ ok: false, error: 'Login owner belum dikonfigurasi di server (OWNER_ACCESS_CODE kosong).' }), { status: 503, headers });
+    return new Response(JSON.stringify({ ok: false, error: 'Owner login is not configured on the server (OWNER_ACCESS_CODE is empty).' }), { status: 503, headers });
   }
   const secret = (context.env && context.env.JWT_SECRET) || 'xstarzg-2026-quant-secret';
 
@@ -62,7 +62,7 @@ export async function onRequestPost(context) {
   if (!emailOk || !codeOk) {
     // Pesan seragam: tidak membocorkan apakah email terdaftar atau kode salah
     // -> anti enumeration dari luar.
-    return new Response(JSON.stringify({ ok: false, error: 'Kredensial tidak valid.' }), { status: 401, headers });
+    return new Response(JSON.stringify({ ok: false, error: 'Invalid credentials.' }), { status: 401, headers });
   }
   const token = await signJwt({ email, tier: 'OWNER_VIP', role: 'owner' }, secret);
   return new Response(JSON.stringify({
@@ -73,5 +73,5 @@ export async function onRequestPost(context) {
 }
 
 export function onRequestGet() {
-  return new Response(JSON.stringify({ ok: false, error: 'Method tidak didukung.' }), { status: 405, headers: HEADERS });
+  return new Response(JSON.stringify({ ok: false, error: 'Method not supported.' }), { status: 405, headers: HEADERS });
 }

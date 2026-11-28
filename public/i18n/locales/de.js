@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Anleger-Verdikt — Kaufenswert?",
+    "invHorizonLbl": "Haltedauer (Spot, ohne Hebel)",
+    "ivWorth": "KAUFENSWERT — AKUMULIEREN",
+    "ivWait": "WARTEN — ZU DIESEM PREIS NICHT KAUFENSWERT",
+    "ivNotWorth": "NOCH NICHT KAUFENSWERT",
+    "ihStocks": "12–36 Monate",
+    "ihCrypto": "6–18 Monate",
+    "ihOther": "3–12 Monate",
+    "invHorizonLabel": "Haltedauer:",
     "brandTag": "INSTITUTIONELLER QUANT-TERMINAL 2026",
     "btnLoginNav": "🔐 Terminal-Anmeldung",
     "heroPill": "⚡ ECHTZEIT-MULTI-ASSET-QUANTITATIVE- & SMART-MONEY-ENGINE",

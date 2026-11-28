@@ -102,7 +102,7 @@ export async function onRequestPost(context) {
     const { action, alarm } = body || {};
 
     if (action === 'remove') {
-      if (!alarm || !alarm.symbol || !alarm.tf) return response({ ok: false, error: 'Aksi atau parameter tidak valid' }, 400);
+      if (!alarm || !alarm.symbol || !alarm.tf) return response({ ok: false, error: 'Invalid action or parameters' }, 400);
       const id = alarmId(email, alarm.symbol, alarm.tf);
       if (!env.DB) { memoryAlarms.delete(id); return response({ ok: true, id }); }
       await ensureTable(env.DB);
@@ -124,8 +124,8 @@ export async function onRequestPost(context) {
       return response({ ok: true, id });
     }
 
-    if (action !== 'save') return response({ ok: false, error: 'Aksi atau parameter tidak valid' }, 400);
-    if (!alarm || !alarm.symbol || !alarm.tf) return response({ ok: false, error: 'Aksi atau parameter tidak valid' }, 400);
+    if (action !== 'save') return response({ ok: false, error: 'Invalid action or parameters' }, 400);
+    if (!alarm || !alarm.symbol || !alarm.tf) return response({ ok: false, error: 'Invalid action or parameters' }, 400);
 
     const symbol = String(alarm.symbol).toUpperCase();
     const tf = String(alarm.tf);

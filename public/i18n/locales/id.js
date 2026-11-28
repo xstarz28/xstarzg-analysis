@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Verdict Investor — Layak Beli?",
+    "invHorizonLbl": "Horizon Tahan (Spot, Tanpa Leverage)",
+    "ivWorth": "LAYAK BELI — AKUMULASI",
+    "ivWait": "TUNGGU — BELUM LAYAK DI HARGA INI",
+    "ivNotWorth": "BELUM LAYAK BELI",
+    "ihStocks": "12–36 bulan",
+    "ihCrypto": "6–18 bulan",
+    "ihOther": "3–12 bulan",
+    "invHorizonLabel": "Horizon tahan:",
     "brandTag": "TERMINAL QUANT INSTITUSIONAL 2026",
     "btnLoginNav": "🔐 Masuk / Login Terminal",
     "heroPill": "⚡ MESIN QUANTITATIF & SMART MONEY MULTI-ASET REAL-TIME",

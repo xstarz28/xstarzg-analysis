@@ -44,7 +44,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     // menang atas '/app.js?v=baru', sehingga perangkat menjalankan bundle lama.
     assert.ok(!/STATIC_ASSETS = \[[\s\S]*?'\/app\.js'/.test(swJs), 'STATIC_ASSETS tidak boleh mem-precache app.js tanpa versi');
     assert.ok(swJs.includes('if (isCode) {'), 'JS/CSS memakai jalur network-first');
-    assert.ok(swJs.includes('xstarzg-pwa-v2027.27'), 'sw.js memiliki versi cache segar v2027.27');
+    assert.ok(swJs.includes('xstarzg-pwa-v2027.28'), 'sw.js memiliki versi cache segar v2027.28');
   });
 
   await t.test('6. app.js controllerchange mencegah refresh loop pada kunjungan pertama', () => {
@@ -134,7 +134,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
   await t.test('21. quant/signal engine baru dimuat setelah workspace dibuka', () => {
     assert.ok(appJs.includes('function ensureQuantEnginesLoaded()'), 'lazy loader tersedia');
     assert.ok(appJs.includes('ensureQuantEnginesLoaded();'), 'workspace meminta engine');
-    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2027.27'"), 'modul engine tidak di-load dari landing');
+    assert.ok(appJs.includes("bootScript.src = '/js/engine-boot.js?v=2027.28'"), 'modul engine tidak di-load dari landing');
   });
   await t.test('22. bootPostDom tidak menghitung seed saat landing/login', () => {
     const bootStart = appJs.indexOf('function bootPostDom()');
@@ -148,7 +148,7 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
 
   await t.test('24. vendor chart tidak dimuat sebelum workspace', () => {
     assert.ok(!appJs.includes('<script src="/vendor/lightweight-charts.js'), 'vendor chart tidak ada di app bootstrap HTML');
-    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2027.27'"), 'chart vendor dimuat saat entry workspace');
+    assert.ok(appJs.includes("chartScript.src = '/vendor/lightweight-charts.js?v=2027.28'"), 'chart vendor dimuat saat entry workspace');
   });
 
   await t.test('25. pergantian timeframe tidak mengosongkan candle aktif', () => {

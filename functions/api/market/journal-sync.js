@@ -196,7 +196,7 @@ export async function onRequestPost(context) {
     }
 
     if (action !== 'save_lock' && action !== 'record_outcome') {
-      return response({ ok: false, error: 'Aksi atau parameter tidak valid' }, 400);
+      return response({ ok: false, error: 'Invalid action or parameters' }, 400);
     }
     if (scope.channel === 'user' && action === 'save_lock') {
       const analysis = lock && lock.analysis;
@@ -231,7 +231,7 @@ export async function onRequestPost(context) {
       }
     }
     const item = action === 'save_lock' ? lock : outcome;
-    if (!item || !item.symbol || !item.tf) return response({ ok: false, error: 'Aksi atau parameter tidak valid' }, 400);
+    if (!item || !item.symbol || !item.tf) return response({ ok: false, error: 'Invalid action or parameters' }, 400);
     /* ID TIDAK WAJIB. Sebelumnya lock yang diterbitkan bot (tanpa id) ditolak 400,
        sehingga jurnal cloud tidak pernah menerima posisi berjalan bot — dashboard
        menampilkan angka tapi instrumennya tidak ada. ID deterministik

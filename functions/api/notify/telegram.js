@@ -63,7 +63,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (!token || !chatId || !text) {
-      return Response.json({ ok: false, error: 'Parameter token, chatId, atau text tidak lengkap' }, { status: 400, headers: CORS });
+      return Response.json({ ok: false, error: 'token, chatId, or text parameter is incomplete' }, { status: 400, headers: CORS });
     }
     const cleanToken = String(token).trim().replace(/^bot/i, '');
     const cleanChatId = String(chatId).trim().replace(/^(id\s*[:=]\s*)/i, '').replace(/\s+/g, '');

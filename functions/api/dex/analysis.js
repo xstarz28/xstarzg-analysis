@@ -206,6 +206,57 @@ async function getDexOhlcv(chain, pool, baseTokenAddress, interval, tf) {
   return payload;
 }
 
+/* Normalisasi skala OHLCV ke harga pasar yang dilaporkan DexScreener.
+   Sebagian pool mengembalikan candle dalam satuan kuota (mis. WBNB/USDT tampil
+   ~0.997 padahal harga pasar 555.8) atau terbalik. Series diskalakan agar candle
+   terakhir = priceUsd; orientasi ditentukan dari arah perubahan 24 jam
+   (DexScreener) dibandingkan arah series candle. Tanpa ini chart dan indikator
+   DEX bisa menampilkan skala yang menyesatkan. */
+function normalizeCandleScale(candles, refPriceUsd, refChangePct) {
+  const ref = Number(refPriceUsd);
+  const info = { applied: false, inverted: false, scale: 1, refPrice: Number.isFinite(ref) ? ref : null };
+  if (!Array.isArray(candles) || candles.length < 2 || !(ref > 0)) return { candles, info };
+  const last = Number(candles[candles.length - 1].close);
+  if (!(last > 0)) return { candles, info };
+  const drift = Math.abs(last / ref - 1);
+  if (drift <= 0.25) return { candles, info };
+
+  const firstRef = candles[Math.max(0, candles.length - 40)];
+  const first = Number(firstRef && firstRef.close);
+  const candleRet = first > 0 ? (last / first - 1) * 100 : null;
+  const refRet = Number(refChangePct);
+  let inverted = false;
+  if (candleRet != null && Number.isFinite(refRet) && Math.abs(candleRet) > 0.5) {
+    // Return terbalik kira-kira -candleRet; pilih yang lebih dekat ke perubahan 24h.
+    inverted = Math.abs(-candleRet - refRet) + 1 < Math.abs(candleRet - refRet);
+  }
+  const invertedSeries = inverted
+    ? candles.map(c => ({
+      time: c.time,
+      open: c.open > 0 ? 1 / c.open : c.open,
+      high: c.low > 0 ? 1 / c.low : c.high,
+      low: c.high > 0 ? 1 / c.high : c.low,
+      close: c.close > 0 ? 1 / c.close : c.close,
+      volume: c.volume
+    }))
+    : candles;
+  const invertedLast = Number(invertedSeries[invertedSeries.length - 1].close);
+  if (!(invertedLast > 0)) return { candles, info };
+  const scale = ref / invertedLast;
+  const scaled = invertedSeries.map(c => ({
+    time: c.time,
+    open: Number((c.open * scale).toPrecision(12)),
+    high: Number((c.high * scale).toPrecision(12)),
+    low: Number((c.low * scale).toPrecision(12)),
+    close: Number((c.close * scale).toPrecision(12)),
+    volume: c.volume
+  }));
+  info.applied = true;
+  info.inverted = inverted;
+  info.scale = Number(scale.toPrecision(12));
+  return { candles: scaled, info };
+}
+
 async function analyzePair(chain, pairAddress, tf) {
   const config = CHAINS[chain];
   const interval = TIMEFRAMES[tf];
@@ -237,16 +288,25 @@ async function analyzePair(chain, pairAddress, tf) {
     candle.volume >= 0 && candle.high >= Math.max(candle.open, candle.low, candle.close) &&
     candle.low <= Math.min(candle.open, candle.high, candle.close)
   ).sort((a, b) => a.time - b.time);
-  const newest = candles.length ? candles[candles.length - 1].time * 1000 : 0;
+  // Samakan skala candle dengan harga pasar (harga, bukan orientasi yang salah).
+  const normalized = normalizeCandleScale(candles, pair.priceUsd, pair.change24h);
+  const candlesScaled = normalized.candles;
+  const newest = candlesScaled.length ? candlesScaled[candlesScaled.length - 1].time * 1000 : 0;
   const ageMs = newest ? Date.now() - newest : Infinity;
   const fresh = ageMs >= 0 && ageMs <= interval.seconds * 2000;
   const securityData = securityDataRaw;
-  const marketValid = pair.priceUsd > 0 && pair.liquidityUsd > 0 && candles.length >= 20 && fresh;
+  const marketValid = pair.priceUsd > 0 && pair.liquidityUsd > 0 && candlesScaled.length >= 20 && fresh;
   const valid = marketValid && securityData.status === 'verified';
   return json({
     ok: true,
     pair,
-    candles,
+    candles: candlesScaled,
+    priceNormalization: {
+      applied: normalized.info.applied,
+      inverted: normalized.info.inverted,
+      scale: normalized.info.scale,
+      marketPriceUsd: normalized.info.refPrice
+    },
     security: securityData,
     marketSource: 'DexScreener',
     ohlcvSource: ohlcvData.source,

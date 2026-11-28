@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "투자자 판정 — 매수할 가치가 있나요?",
+    "invHorizonLbl": "보유 기간 (현물, 레버리지 없음)",
+    "ivWorth": "매수 가치 있음 — 분할 매수",
+    "ivWait": "대기 — 이 가격에서는 가치 없음",
+    "ivNotWorth": "아직 매수할 가치 없음",
+    "ihStocks": "12~36개월",
+    "ihCrypto": "6~18개월",
+    "ihOther": "3~12개월",
+    "invHorizonLabel": "보유 기간:",
     "brandTag": "기관급 퀀트 터미널 2026",
     "btnLoginNav": "🔐 터미널 로그인",
     "heroPill": "⚡ 실시간 멀티에셋 정량 & 스마트머니 엔진",

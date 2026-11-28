@@ -13,12 +13,12 @@ export async function onRequestGet(context) {
 
   const user = await authenticateRequest(context.request, context.env);
   if (!user || !user.email) {
-    return Response.json({ ok: false, error: 'Unauthorized: sesi tidak valid.' }, { status: 401, headers: CORS });
+    return Response.json({ ok: false, error: 'Unauthorized: invalid session.' }, { status: 401, headers: CORS });
   }
 
   const isOwner = user.tier === 'OWNER_VIP' || OWNER_EMAILS.includes(String(user.email).toLowerCase());
   if (!isOwner) {
-    return Response.json({ ok: false, error: 'Forbidden: hanya Owner yang berhak mengakses data pelanggan.' }, { status: 403, headers: CORS });
+    return Response.json({ ok: false, error: 'Forbidden: only the Owner may access customer data.' }, { status: 403, headers: CORS });
   }
 
   const env = context.env;

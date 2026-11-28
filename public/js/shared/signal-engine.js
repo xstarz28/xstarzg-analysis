@@ -869,18 +869,28 @@ function readTimeframeBias(candles) {
 
 /* Bangun tangga TF lengkap. TF yang datanya tidak ada tetap muncul di laporan
    (transparan) tetapi TIDAK dihitung ke konsensus. */
-export function buildTimeframeStack(candles, timeframe = 'H1') {
+/* `candlesMap` (opsional) = candle ASLI per timeframe dari feed yang sama
+   (mis. { D1: [...], H4: [...], H1: [...], M15: [...], M5: [...] }).
+   Bila tersedia, TF memakai series native-nya sendiri, bukan hasil resample dari
+   TF yang sedang dibuka — jadi alignment 1D/4H/1H/15m/5m dibaca sekali jalan dan
+   tidak perlu mengganti timeframe satu per satu. TF tanpa feed native tetap
+   diturunkan deterministik (resample) atau ditandai tidak tersedia. */
+export function buildTimeframeStack(candles, timeframe = 'H1', candlesMap = null) {
   const baseSec = TF_SECS[timeframe] || 3600;
+  const feed = (candlesMap && typeof candlesMap === 'object') ? candlesMap : null;
   const rows = [];
   for (const tf of TF_STACK_ORDER) {
+    const nativeFeed = feed && Array.isArray(feed[tf.id]) && feed[tf.id].length >= 20 ? feed[tf.id] : null;
     const belowBase = tf.sec < baseSec;
     const native = tf.sec === baseSec;
-    const series = belowBase ? [] : (native ? candles : resampleCandles(candles, tf.sec));
-    const read = belowBase ? null : readTimeframeBias(series);
+    const series = nativeFeed
+      ? nativeFeed
+      : (belowBase ? [] : (native ? candles : resampleCandles(candles, tf.sec)));
+    const read = series.length ? readTimeframeBias(series) : null;
     rows.push({
       id: tf.id, tier: tf.tier, weight: tf.weight,
       available: !!read,
-      source: belowBase ? 'below-base' : (native ? 'native' : 'resampled'),
+      source: nativeFeed ? 'native-feed' : (belowBase ? 'below-base' : (native ? 'native' : 'resampled')),
       bars: series.length,
       bias: read ? read.bias : 'NEUTRAL',
       structure: read ? read.structure : '-',
@@ -888,10 +898,17 @@ export function buildTimeframeStack(candles, timeframe = 'H1') {
       momentumPct: read ? Number(read.momentumPct.toFixed(3)) : null,
       persistUp: read ? read.persistUp : false,
       persistDown: read ? read.persistDown : false,
-      reasonCode: read ? '' : (belowBase ? 'BELOW_BASE' : 'NEED_BARS')
+      reasonCode: read
+        ? ''
+        : (!nativeFeed && belowBase ? 'BELOW_BASE' : (!nativeFeed && series.length === 0 ? 'NO_FEED' : 'NEED_BARS'))
     });
   }
-  return { baseTf: timeframe, rows, readableCount: rows.filter(r => r.available).length };
+  return {
+    baseTf: timeframe,
+    rows,
+    nativeFeeds: rows.filter(r => r.source === 'native-feed').map(r => r.id),
+    readableCount: rows.filter(r => r.available).length
+  };
 }
 
 function tfRowsByIds(stack, ids) {
@@ -947,11 +964,11 @@ export function confirmExecutionTimeframes(candlesMap = {}, direction = null) {
    Setiap tier memakai konsensus TF nyata (bukan satu candle): makro D1+H4, struktur
    H1+M15, eksekusi M5+M1. TF yang berlawanan menahan bias di NETRAL (anti tebak).
    Sinyal tetap hanya terbit bila SEARAH dari makro hingga eksekusi. */
-export function detectTopDownAlignment(candles, symbol, currentTf = 'H1', stackOverride = null) {
+export function detectTopDownAlignment(candles, symbol, currentTf = 'H1', stackOverride = null, candlesMap = null) {
   if (!candles || candles.length < 35) return null;
   const stack = (stackOverride && Array.isArray(stackOverride.rows))
     ? stackOverride
-    : buildTimeframeStack(candles, currentTf);
+    : buildTimeframeStack(candles, currentTf, candlesMap);
 
   const atr = calcATR(candles, 14).pop() || (candles[candles.length - 1].close * 0.01);
   const swings = detectSwingsNoLookahead(candles, 3, 3);
@@ -963,7 +980,8 @@ export function detectTopDownAlignment(candles, symbol, currentTf = 'H1', stackO
   //    Bacaan H4 tetap memakai rumus institusional yang sudah terbukti (harga vs
   //    EMA20 H4 DAN momentum 4 bar), lalu D1 — bila datanya ada — menjadi filter
   //    arah harian: makro yang melawan D1 ditahan NETRAL (anti tebak).
-  const htf4h = resampleCandles(candles, 14400);
+  const h4Native = (candlesMap && Array.isArray(candlesMap.H4) && candlesMap.H4.length >= 12) ? candlesMap.H4 : null;
+  const htf4h = h4Native || resampleCandles(candles, 14400);
   let macroBias = 'NEUTRAL';
   let macroSupply = null;
   let macroDemand = null;
@@ -1158,7 +1176,7 @@ export const VETO_LABELS_EN = {
   FOMO_ZONE: 'Price is too far from the OTE zone — do not chase the train'
 };
 
-export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', horizon = 'intraday', spotOnly = null, candles = [] }) {
+export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', horizon = 'intraday', spotOnly = null, candles = [], candlesMap = null }) {
   const meta = getInstrumentMeta(symbol);
   // Instrumen non-crypto TIDAK diperlakukan seperti crypto: saham = pasar spot
   // 1-arah (tidak ada SHORT leverage/funding ala perp). Crypto ikut pilihan user.
@@ -1210,8 +1228,8 @@ export function runFullAnalysis({ symbol, timeframe = 'H1', mode = 'trader', hor
   const ict = detectIctAtlas(closed, swings, atr, timeframe, obs);
   const sessionInfo = getInstrumentSessionInfo(symbol, lastCandle ? lastCandle.time : null);
   // Satu kali hitung tangga semua TF, dipakai ulang oleh top-down & laporan.
-  const timeframes = buildTimeframeStack(closed, timeframe);
-  const topDown = detectTopDownAlignment(closed, symbol, timeframe, timeframes);
+  const timeframes = buildTimeframeStack(closed, timeframe, candlesMap);
+  const topDown = detectTopDownAlignment(closed, symbol, timeframe, timeframes, candlesMap);
   // Upgrade sweep: wick menembus kolam likuiditas (SSL/BSL/session lama) lalu reclaim
   for (let i = lastIdx; i > Math.max(0, lastIdx - 8); i--) {
     const b = closed[i];

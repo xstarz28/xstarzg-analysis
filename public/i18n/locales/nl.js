@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Beleggersadvies — De moeite waard om te kopen?",
+    "invHorizonLbl": "Houdperiode (Spot, zonder hefboom)",
+    "ivWorth": "DE MOEITE WAARD — ACCUMULEREN",
+    "ivWait": "WACHT — NIET DE MOEITE WAARD OP DEZE PRIJS",
+    "ivNotWorth": "NOG NIET DE MOEITE WAARD",
+    "ihStocks": "12–36 maanden",
+    "ihCrypto": "6–18 maanden",
+    "ihOther": "3–12 maanden",
+    "invHorizonLabel": "Houdperiode:",
     "brandTag": "INSTITUTIONELE QUANT-TERMINAL 2026",
     "btnLoginNav": "🔐 Inloggen op Terminal",
     "heroPill": "⚡ REALTIME MULTI-ASSET KWANTITATIEVE & SMART MONEY-ENGINE",

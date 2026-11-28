@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "投資家判定 — 買う価値はあるか？",
+    "invHorizonLbl": "保有期間（現物・レバレッジなし）",
+    "ivWorth": "買う価値あり — 積立",
+    "ivWait": "待機 — この価格では割高",
+    "ivNotWorth": "まだ買う価値なし",
+    "ihStocks": "12〜36か月",
+    "ihCrypto": "6〜18か月",
+    "ihOther": "3〜12か月",
+    "invHorizonLabel": "保有期間：",
     "brandTag": "機関投資家向けクオンツ・ターミナル 2026",
     "btnLoginNav": "🔐 ターミナルにログイン",
     "heroPill": "⚡ リアルタイム・マルチアセット定量＆スマートマネー・エンジン",

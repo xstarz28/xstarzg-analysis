@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Verdetto investitore — Vale l’acquisto?",
+    "invHorizonLbl": "Orizzonte di detenzione (Spot, senza leva)",
+    "ivWorth": "VALE L’ACQUISTO — ACCUMULA",
+    "ivWait": "ATTENDI — NON CONVIENE A QUESTO PREZZO",
+    "ivNotWorth": "NON ANCORA CONVENIENTE",
+    "ihStocks": "12–36 mesi",
+    "ihCrypto": "6–18 mesi",
+    "ihOther": "3–12 mesi",
+    "invHorizonLabel": "Orizzonte di detenzione:",
     "brandTag": "TERMINALE QUANT ISTITUZIONALE 2026",
     "btnLoginNav": "🔐 Accedi al Terminale",
     "heroPill": "⚡ MOTORE QUANTITATIVO E SMART MONEY MULTI-ASSET IN TEMPO REALE",

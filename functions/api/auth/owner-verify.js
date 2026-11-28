@@ -16,10 +16,10 @@ export async function onRequestPost(context) {
     OWNER_EMAILS.includes(payload.email)
   );
   return Response.json(
-    valid ? { ok: true, tier: 'OWNER_VIP' } : { ok: false, error: 'Sesi owner tidak valid atau kedaluwarsa.' },
+    valid ? { ok: true, tier: 'OWNER_VIP' } : { ok: false, error: 'Owner session is invalid or expired.' },
     { status: valid ? 200 : 401, headers: { 'Cache-Control': 'no-store' } }
   );
 }
 export function onRequestGet() {
-  return Response.json({ ok: false, error: 'Method tidak didukung.' }, { status: 405 });
+  return Response.json({ ok: false, error: 'Method not supported.' }, { status: 405 });
 }

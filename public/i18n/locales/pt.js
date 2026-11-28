@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Veredito do investidor — Vale a pena comprar?",
+    "invHorizonLbl": "Horizonte de posse (Spot, sem alavancagem)",
+    "ivWorth": "VALE A PENA COMPRAR — ACUMULAR",
+    "ivWait": "AGUARDE — NÃO VALE A PENA NESTE PREÇO",
+    "ivNotWorth": "AINDA NÃO VALE A PENA COMPRAR",
+    "ihStocks": "12–36 meses",
+    "ihCrypto": "6–18 meses",
+    "ihOther": "3–12 meses",
+    "invHorizonLabel": "Horizonte de posse:",
     "brandTag": "TERMINAL QUANT INSTITUCIONAL 2026",
     "btnLoginNav": "🔐 Entrar no Terminal",
     "heroPill": "⚡ MOTOR QUANTITATIVO E SMART MONEY MULTIATIVO EM TEMPO REAL",

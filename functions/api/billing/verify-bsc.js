@@ -52,12 +52,12 @@ export async function onRequestPost(context) {
     // tidak ada VIP yang bisa diberikan (sebelumnya pengecekan ini dekoratif).
     const user = await authenticateRequest(context.request, context.env);
     if (!user || !user.email) {
-      return Response.json({ ok: false, error: 'Sesi tidak valid. Silakan login ulang lalu verifikasi lagi.' }, { status: 401 });
+      return Response.json({ ok: false, error: 'Invalid session. Please sign in again and retry verification.' }, { status: 401 });
     }
     const email = String(user.email).trim().toLowerCase();
     const { txHash } = await context.request.json();
     if (!txHash || !/^0x[a-fA-F0-9]{64}$/.test(txHash.trim())) {
-      return Response.json({ ok: false, error: 'Format TxHash BSC tidak valid.' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Invalid BSC TxHash format.' }, { status: 400 });
     }
     const rpcUrl = context.env?.BSC_RPC_URL || 'https://bsc-dataseed.binance.org/';
     const rpcRes = await fetch(rpcUrl, {
@@ -67,26 +67,26 @@ export async function onRequestPost(context) {
     const rpcData = await rpcRes.json();
     const receipt = rpcData?.result;
     if (!receipt || receipt.status !== '0x1') {
-      return Response.json({ ok: false, error: 'Transaksi belum ditemukan di jaringan BSC (atau gagal/revert).' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Transaction not found on the BSC network (or failed/reverted).' }, { status: 400 });
     }
     const targetWalletHex = VIP_WALLET_BSC.toLowerCase().replace('0x', '').padStart(64, '0');
     const matchedLog = (receipt.logs || []).find(l =>
       (l.address || '').toLowerCase() === USDT_CONTRACT_BSC.toLowerCase() &&
       Array.isArray(l.topics) && (l.topics[2] || '').toLowerCase().endsWith(targetWalletHex)
     );
-    if (!matchedLog) return Response.json({ ok: false, error: 'Transfer USDT ke wallet VIP tidak ditemukan.' }, { status: 400 });
+    if (!matchedLog) return Response.json({ ok: false, error: 'No USDT transfer to the VIP wallet was found.' }, { status: 400 });
     // Cek jumlah pembayaran: value (hex, 18 desimal USDT BSC) harus >= harga VIP.
     // Ini menutup celah "kirim 0.01 USDT lalu klaim VIP $29".
     const valueHex = typeof matchedLog.data === 'string' ? matchedLog.data : '0x0';
     let paidUnits = 0n;
-    try { paidUnits = BigInt(valueHex); } catch (e) { return Response.json({ ok: false, error: 'Data log transfer tidak valid.' }, { status: 400 }); }
+    try { paidUnits = BigInt(valueHex); } catch (e) { return Response.json({ ok: false, error: 'Invalid transfer log data.' }, { status: 400 }); }
     const minUnits = BigInt(Math.round((Number(context.env?.VIP_PRICE_USDT) || VIP_PRICE_USDT) * 1e6)) * (10n ** 12n); // *1e18
     if (paidUnits < minUnits) {
       return Response.json({ ok: false, error: 'Jumlah pembayaran USDT kurang dari harga VIP ($' + String(Number(context.env?.VIP_PRICE_USDT) || VIP_PRICE_USDT) + ').' }, { status: 400 });
     }
     // Anti-replay: satu txHash hanya bisa mengaktivasi satu akun.
     if (await isTxUsed(txHash, context.env)) {
-      return Response.json({ ok: false, error: 'TxHash ini sudah pernah dipakai untuk aktivasi VIP.' }, { status: 409 });
+      return Response.json({ ok: false, error: 'This TxHash has already been used for VIP activation.' }, { status: 409 });
     }
     // Perpanjangan MENUMPUK: basis = max(sekarang, sisa VIP di D1, sisa VIP di token) +30 hari.
     const now = Date.now();
@@ -96,7 +96,7 @@ export async function onRequestPost(context) {
     const persisted = await d1SetVip(context.env, email, vipUntil);
     if (persisted === false) {
       // Jangan tandai txHash terpakai: pembeli boleh mencoba lagi txhash yang sama.
-      return Response.json({ ok: false, error: 'Pembayaran terverifikasi tetapi penyimpanan lisensi gagal. Coba verifikasi ulang beberapa saat lagi.' }, { status: 503 });
+      return Response.json({ ok: false, error: 'Payment verified but the license could not be saved. Please verify again shortly.' }, { status: 503 });
     }
     await markTxUsed(txHash, context.env, email);
     // AUTO-APPROVE: entitlement ditandatangani server menjadi JWT baru — klien tidak

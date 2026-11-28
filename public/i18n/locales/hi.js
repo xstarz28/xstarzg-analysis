@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "निवेशक निर्णय — क्या खरीदना उचित है?",
+    "invHorizonLbl": "होल्ड अवधि (स्पॉट, बिना लीवरेज)",
+    "ivWorth": "खरीदने योग्य — संचय करें",
+    "ivWait": "प्रतीक्षा करें — इस कीमत पर उचित नहीं",
+    "ivNotWorth": "अभी खरीदने योग्य नहीं",
+    "ihStocks": "12–36 महीने",
+    "ihCrypto": "6–18 महीने",
+    "ihOther": "3–12 महीने",
+    "invHorizonLabel": "होल्ड अवधि:",
     "brandTag": "संस्थागत क्वांट टर्मिनल 2026",
     "btnLoginNav": "🔐 टर्मिनल में लॉग इन करें",
     "heroPill": "⚡ रीयल-टाइम मल्टी-एसेट क्वांटिटेटिव और स्मार्ट मनी इंजन",

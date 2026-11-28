@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "Werdykt inwestora — Czy warto kupić?",
+    "invHorizonLbl": "Horyzont utrzymania (Spot, bez dźwigni)",
+    "ivWorth": "WARTO KUPIĆ — AKUMULUJ",
+    "ivWait": "CZEKAJ — NIEWARTE PRZY TEJ CENIE",
+    "ivNotWorth": "JESZCZE NIEWARTE ZAKUPU",
+    "ihStocks": "12–36 miesięcy",
+    "ihCrypto": "6–18 miesięcy",
+    "ihOther": "3–12 miesięcy",
+    "invHorizonLabel": "Horyzont utrzymania:",
     "brandTag": "INSTYTUCJONALNY TERMINAL KWANTOWY 2026",
     "btnLoginNav": "🔐 Zaloguj do terminala",
     "heroPill": "⚡ WIELOAKTYWOWY SILNIK KWANTOWY I SMART MONEY W CZASIE RZECZYWISTYM",

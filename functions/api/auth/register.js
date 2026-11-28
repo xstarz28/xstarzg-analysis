@@ -18,7 +18,7 @@ export async function onRequestPost(context) {
     const email = String((body && body.email) || '').trim().toLowerCase();
     const nameRaw = String((body && body.name) || '').trim();
     if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
-      return Response.json({ ok: false, error: 'Alamat email tidak valid.' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Invalid email address.' }, { status: 400 });
     }
     const name = (nameRaw || email.split('@')[0]).slice(0, 60) || email.split('@')[0];
     // Jalur publik selalu FREE (kecuali entitlement VIP aktif di D1) — email owner

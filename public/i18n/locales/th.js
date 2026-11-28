@@ -79,6 +79,15 @@ export default {
     "architecture": "Zero-Lookahead Quantitative Engine v2.0"
   },
   "ui": {
+    "invVerdictLbl": "คำตัดสินนักลงทุน — คุ้มค่าซื้อหรือไม่?",
+    "invHorizonLbl": "ระยะถือครอง (สปอต ไม่มีเลเวอเรจ)",
+    "ivWorth": "คุ้มค่าซื้อ — สะสม",
+    "ivWait": "รอ — ราคานี้ยังไม่คุ้ม",
+    "ivNotWorth": "ยังไม่คุ้มค่าซื้อ",
+    "ihStocks": "12–36 เดือน",
+    "ihCrypto": "6–18 เดือน",
+    "ihOther": "3–12 เดือน",
+    "invHorizonLabel": "ระยะถือครอง:",
     "brandTag": "เทอร์มินัลเชิงปริมาณระดับสถาบัน 2026",
     "btnLoginNav": "🔐 เข้าสู่ระบบเทอร์มินัล",
     "heroPill": "⚡ เอนจินเชิงปริมาณและสมาร์ทมันนี่หลายสินทรัพย์แบบเรียลไทม์",
