@@ -1,5 +1,5 @@
 // XStarZG Mobile App Service Worker (PWA Offline / Standalone Cache)
-// v2027.21 — analisis per kelompok (Sniper MTF) + cache baru.
+// v2027.22 — analisis per kelompok (Sniper MTF) + cache baru.
 // v2026.92 — PERBAIKAN KRITIS: cache lama tidak pernah dilepas.
 // Penyebab web "di-deploy tapi masih hang": handler fetch lama mencocokkan aset
 // dengan { ignoreSearch: true }, sehingga entri lama '/app.js' (tanpa query)
@@ -9,20 +9,13 @@
 // Sekarang: aset dicocokkan PERSIS (termasuk ?v=), HTML selalu diambil dari
 // jaringan lebih dulu (cache hanya fallback offline), dan versi cache dinaikkan
 // agar seluruh perangkat lama dibersihkan sekali pada aktivasi berikutnya.
-const CACHE_NAME = 'xstarzg-pwa-v2027.21';
+const CACHE_NAME = 'xstarzg-pwa-v2027.22';
+// JANGAN precache JS/CSS tanpa query versi. Entri seperti '/app.js' dulu tersimpan
+// dan (pada SW lama dengan ignoreSearch) bisa menang atas '/app.js?v=baru',
+// sehingga perangkat terus menjalankan bundle lama setelah deploy.
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css',
-  '/app.js',
-  '/js/engine-boot.js',
-  '/js/shared/group-analysis.js',
-  '/i18n/boot.js',
-  '/i18n/index.js',
-  '/i18n/locales/id.json',
-  '/i18n/locales/en.json',
-  '/i18n/locales/id.js',
-  '/i18n/locales/en.js',
   '/assets/favicon.svg',
   '/assets/logo.svg',
   '/manifest.webmanifest'
@@ -121,7 +114,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Aset statis lokal: cocok PERSIS (tanpa ignoreSearch) lalu revalidate di latar belakang.
+  // Kode aplikasi (JS/CSS) SELALU network-first: setelah deploy, bundle baru
+  // langsung dipakai dan cache hanya menjadi cadangan saat offline. Ini menutup
+  // celah "sudah deploy tapi HP masih menjalankan app.js lama".
+  const isCode = /\.(js|css)$/i.test(url.pathname);
+  if (isCode) {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
+        }
+        return networkResponse;
+      }).catch(() =>
+        caches.match(event.request, { ignoreSearch: true }).then((cached) =>
+          cached || new Response('/* asset offline */', { status: 503 })
+        )
+      )
+    );
+    return;
+  }
+
+  // Aset statis lain (gambar/ikon): cocok PERSIS (tanpa ignoreSearch) lalu revalidate.
   event.respondWith(
     caches.match(event.request, { ignoreSearch: false }).then((cached) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
