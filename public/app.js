@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.19';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.20';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.19';
+    bootScript.src = '/js/engine-boot.js?v=2027.20';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -1223,6 +1223,27 @@ function syncCloudSignalJournal() {
 /* --- Hasil sinyal yang sudah memenuhi syarat jurnal --- */
 function signalOutcomeStore() { try { return JSON.parse(localStorage.getItem(journalStorageKey(SIGNAL_OUTCOME_KEY)) || '{}') || {}; } catch (e) { return {}; } }
 function hzOfTf(tf) { var t = String(tf || ''); if (t === 'M1' || t === 'M5' || t === 'M15') return 'scalping'; if (t === 'M30' || t === 'H1') return 'intraday'; return 'swing'; }
+/* Akurasi radar per horizon. Fungsi ini dulu DIPANGGIL tetapi tidak pernah
+   didefinisikan, sehingga renderSignalJournal melempar ReferenceError dan daftar
+   jurnal tidak pernah tampil. Statistik kini diturunkan langsung dari outcome
+   nyata yang tersimpan (tanpa mengarang angka). */
+function radarAccStore() {
+  var acc = {};
+  try {
+    var outs = signalOutcomeStore();
+    for (var k in outs) {
+      var o = outs[k];
+      if (!o || !o.status) continue;
+      var tf = (o.lock && o.lock.tf) || String(k).split('|')[3] || '';
+      var hz = hzOfTf(tf);
+      if (!acc[hz]) acc[hz] = { sample: 0, wins: 0, winRate: 0 };
+      if (o.status === 'TP_HIT' || o.status === 'BE_SAVED') { acc[hz].sample++; acc[hz].wins++; }
+      else if (o.status === 'SL_HIT' || o.status === 'STRUCTURE_INVALID') { acc[hz].sample++; }
+    }
+  } catch (e) {}
+  for (var h in acc) acc[h].winRate = acc[h].sample ? Math.round((acc[h].wins * 100) / acc[h].sample) : 0;
+  return acc;
+}
 function outcomeCooldownMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 30 * 60000 : hz === 'intraday' ? 90 * 60000 : 6 * 3600000; }
 function outcomeBadgeWindowMs(tf) { var hz = hzOfTf(tf); return hz === 'scalping' ? 45 * 60000 : hz === 'intraday' ? 3 * 3600000 : 12 * 3600000; }
 function buildManualJournalAnalysisSnapshot(a, symbol, tf, feedSource) {
@@ -3509,7 +3530,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.19) ====================
+/* ==================== MORNING DESK NOTE (v2027.20) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -6144,8 +6165,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.19',
-        badge: '/assets/favicon.svg?v=2027.19',
+        icon: '/assets/favicon.svg?v=2027.20',
+        badge: '/assets/favicon.svg?v=2027.20',
         requireInteraction: true
       });
       n.onclick = function () {
