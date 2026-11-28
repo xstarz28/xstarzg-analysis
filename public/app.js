@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.28';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.29';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.28';
+    bootScript.src = '/js/engine-boot.js?v=2027.29';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -1669,6 +1669,7 @@ function reconcileSignalOutcome(symbol, tf, closedCandles) {
    diserahkan ke engine sebagai `candlesMap`; engine memakai series native dan
    hanya me-resample TF yang feeder aslinya tidak tersedia. */
 var tfFeedCache = {}; // SYM -> { ts, map }
+var tfFeedRerunAt = {}; // SYM|TF -> timestamp hitung ulang terakhir (anti-loop)
 var TF_FEED_IDS = ['D1', 'H4', 'H1', 'M15', 'M5'];
 var TF_FEED_TTL = 10 * 60 * 1000;
 function timeframeFeedFor(symbol) {
@@ -1698,7 +1699,15 @@ function prefetchTimeframeFeeds(symbol) {
   Promise.all(jobs).then(function () {
     entry.inflight = false;
     entry.ts = Date.now();
-    if (!Object.keys(entry.map).length) { try { delete tfFeedCache[key]; } catch (e) { tfFeedCache[key] = null; } }
+    if (!Object.keys(entry.map).length) { try { delete tfFeedCache[key]; } catch (e) { tfFeedCache[key] = null; } return; }
+    // Feed native sudah siap: hitung ulang SEKALI agar alignment Top-Down langsung
+    // memakai D1/H4/M15/M5 asli tanpa user mengganti timeframe atau menekan analisis.
+    var stamp = key + '|' + state.tf;
+    if (state.symbol && String(state.symbol).toUpperCase() === key && state.lastAnalysis &&
+        Date.now() - (tfFeedRerunAt[stamp] || 0) > 45000) {
+      tfFeedRerunAt[stamp] = Date.now();
+      try { if (typeof window.runFullAnalysis === 'function') window.runFullAnalysis(true); } catch (e) {}
+    }
   });
 }
 
@@ -3578,7 +3587,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.28) ====================
+/* ==================== MORNING DESK NOTE (v2027.29) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -6383,8 +6392,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.28',
-        badge: '/assets/favicon.svg?v=2027.28',
+        icon: '/assets/favicon.svg?v=2027.29',
+        badge: '/assets/favicon.svg?v=2027.29',
         requireInteraction: true
       });
       n.onclick = function () {
