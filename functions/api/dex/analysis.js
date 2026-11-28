@@ -152,6 +152,60 @@ async function fetchSecurity(chain, address) {
   }
 }
 
+const CG_PLATFORM = { ethereum: 'ethereum', bsc: 'binance-smart-chain', base: 'base' };
+
+/* OHLCV DEX dengan cache 2 menit + sumber cadangan.
+   GeckoTerminal membatasi laju per IP edge (HTTP 429) sehingga chart sering kosong
+   walau data pasar ada. Cache bersama mengurangi panggilan drastis; untuk EVM
+   dipakai CoinGecko OHLC sebagai cadangan saat GeckoTerminal menolak. */
+async function getDexOhlcv(chain, pool, baseTokenAddress, interval, tf) {
+  const cfg = CHAINS[chain];
+  const cacheKey = new Request(`https://xs-dex-cache.internal/ohlcv/${chain}/${pool}/${tf}`);
+  try {
+    if (typeof caches !== 'undefined' && caches.default) {
+      const hit = await caches.default.match(cacheKey);
+      if (hit) return await hit.json();
+    }
+  } catch (e) {}
+
+  const payload = { rows: null, source: 'Unavailable', error: null };
+  try {
+    const j = await getJson(`https://api.geckoterminal.com/api/v2/networks/${cfg.gecko}/pools/${encodeURIComponent(pool)}/ohlcv/${interval.timeframe}?aggregate=${interval.aggregate}&limit=120&currency=usd`);
+    const rows = j && j.data && j.data.attributes ? j.data.attributes.ohlcv_list : null;
+    if (Array.isArray(rows) && rows.length) {
+      payload.rows = rows;
+      payload.source = 'GeckoTerminal';
+    }
+  } catch (e) {
+    payload.error = e.message;
+  }
+
+  const cgPlatform = CG_PLATFORM[chain];
+  if (!payload.rows && cgPlatform && /^0x[a-fA-F0-9]{40}$/.test(String(baseTokenAddress || ''))) {
+    try {
+      const days = tf === 'D1' ? 30 : 1;
+      const cg = await getJson(`https://api.coingecko.com/api/v3/coins/${cgPlatform}/contract/${encodeURIComponent(baseTokenAddress)}/ohlc?vs_currency=usd&days=${days}`);
+      const arr = Array.isArray(cg) ? cg : [];
+      if (arr.length >= 20) {
+        payload.rows = arr.map(r => [Math.floor(Number(r[0]) / 1000), Number(r[1]), Number(r[2]), Number(r[3]), Number(r[4]), 0]);
+        payload.source = 'CoinGecko';
+        payload.error = null;
+      }
+    } catch (e) {
+      payload.error = payload.error || e.message;
+    }
+  }
+
+  try {
+    if (payload.rows && typeof caches !== 'undefined' && caches.default) {
+      await caches.default.put(cacheKey, new Response(JSON.stringify(payload), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=120' }
+      }));
+    }
+  } catch (e) {}
+  return payload;
+}
+
 async function analyzePair(chain, pairAddress, tf) {
   const config = CHAINS[chain];
   const interval = TIMEFRAMES[tf];
@@ -163,13 +217,13 @@ async function analyzePair(chain, pairAddress, tf) {
   if (!rawPair) return json({ ok: false, error: 'The provider did not return this pair on the selected blockchain.' }, 404);
   const pair = normalizePair(rawPair);
   const tokenAddress = rawPair.baseToken && rawPair.baseToken.address;
-  const [ohlcvResult, security] = await Promise.allSettled([
-    getJson(`https://api.geckoterminal.com/api/v2/networks/${config.gecko}/pools/${encodeURIComponent(pairAddress)}/ohlcv/${interval.timeframe}?aggregate=${interval.aggregate}&limit=120&currency=usd`),
-    fetchSecurity(chain, tokenAddress)
+  const [ohlcvData, securityDataRaw] = await Promise.all([
+    getDexOhlcv(chain, pairAddress, tokenAddress, interval, tf),
+    fetchSecurity(chain, tokenAddress).catch(() => ({
+      status: 'unverified', source: null, message: 'Security data unavailable.'
+    }))
   ]);
-  const candleRows = ohlcvResult.status === 'fulfilled'
-    ? (((ohlcvResult.value || {}).data || {}).attributes || {}).ohlcv_list
-    : null;
+  const candleRows = ohlcvData.rows;
   const candles = (Array.isArray(candleRows) ? candleRows : []).map(row => ({
     time: Number(row[0]),
     open: Number(row[1]),
@@ -186,9 +240,7 @@ async function analyzePair(chain, pairAddress, tf) {
   const newest = candles.length ? candles[candles.length - 1].time * 1000 : 0;
   const ageMs = newest ? Date.now() - newest : Infinity;
   const fresh = ageMs >= 0 && ageMs <= interval.seconds * 2000;
-  const securityData = security.status === 'fulfilled' ? security.value : {
-    status: 'unverified', source: null, message: 'Security data unavailable.'
-  };
+  const securityData = securityDataRaw;
   const marketValid = pair.priceUsd > 0 && pair.liquidityUsd > 0 && candles.length >= 20 && fresh;
   const valid = marketValid && securityData.status === 'verified';
   return json({
@@ -197,12 +249,12 @@ async function analyzePair(chain, pairAddress, tf) {
     candles,
     security: securityData,
     marketSource: 'DexScreener',
-    ohlcvSource: ohlcvResult.status === 'fulfilled' ? 'GeckoTerminal' : 'Unavailable',
+    ohlcvSource: ohlcvData.source,
     asOf: newest ? new Date(newest).toISOString() : null,
     freshness: newest ? (fresh ? 'fresh' : 'stale') : 'unavailable',
     marketValidity: marketValid ? 'verified' : 'unverified',
     validity: valid ? 'verified' : 'unverified',
-    error: ohlcvResult.status === 'rejected' ? `OHLCV unavailable: ${ohlcvResult.reason.message}` : null
+    error: (!candleRows && ohlcvData.error) ? `OHLCV unavailable: ${ohlcvData.error}` : null
   });
 }
 

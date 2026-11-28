@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.23';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.24';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.23';
+    bootScript.src = '/js/engine-boot.js?v=2027.24';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3530,7 +3530,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.23) ====================
+/* ==================== MORNING DESK NOTE (v2027.24) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -5723,7 +5723,11 @@ async function analyzeManualDexPair(pairAddress) {
     if (seq !== memePairAnalysisSeq) return;
     if (!response.ok || !data.ok) throw new Error(data.error || ('HTTP ' + response.status));
     renderDexMarket(data);
-    if (status) status.textContent = data.validity === 'verified' ? 'Market data loaded from the stated provider.' : 'Market/security data is unavailable or unverified; no signal is issued.';
+    if (status) {
+      if (data.validity === 'verified') status.textContent = 'Market data loaded from the stated provider.';
+      else if (data.error && /OHLCV|429|rate/i.test(data.error)) status.textContent = 'Market data loaded, but the OHLCV provider is temporarily rate-limited. The chart fills in as soon as the provider responds — try again in a minute.';
+      else status.textContent = 'Market/security data is unavailable or unverified; no signal is issued.';
+    }
   } catch (error) {
     if (seq !== memePairAnalysisSeq) return;
     activeMemeToken = null;
@@ -6169,8 +6173,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.23',
-        badge: '/assets/favicon.svg?v=2027.23',
+        icon: '/assets/favicon.svg?v=2027.24',
+        badge: '/assets/favicon.svg?v=2027.24',
         requireInteraction: true
       });
       n.onclick = function () {
