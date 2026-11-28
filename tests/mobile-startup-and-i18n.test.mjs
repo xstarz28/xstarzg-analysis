@@ -38,10 +38,12 @@ test('MOBILE STARTUP & LANGUAGE INTEGRITY', async (t) => {
     assert.ok(appJs.includes('ResizeObserver'), 'initChart mengamati resize kontainer secara responsif');
   });
 
-  await t.test('5. sw.js bebas dari TypeError respondWith(null) dan memuat aset locale i18n', () => {
+  await t.test('5. sw.js bebas dari TypeError respondWith(null) dan tidak pernah menyajikan bundle lama', () => {
     assert.ok(!swJs.includes('return cached || null;'), 'sw.js tidak boleh mengembalikan null ke respondWith');
-    assert.ok(swJs.includes('/i18n/locales/id.json'), 'STATIC_ASSETS memuat locales id.json');
-    assert.ok(swJs.includes('/i18n/locales/en.json'), 'STATIC_ASSETS memuat locales en.json');
+    // Regresi nyata: precache '/app.js' tanpa versi + ignoreSearch membuat SW lama
+    // menang atas '/app.js?v=baru', sehingga perangkat menjalankan bundle lama.
+    assert.ok(!/STATIC_ASSETS = \[[\s\S]*?'\/app\.js'/.test(swJs), 'STATIC_ASSETS tidak boleh mem-precache app.js tanpa versi');
+    assert.ok(swJs.includes('if (isCode) {'), 'JS/CSS memakai jalur network-first');
     assert.ok(swJs.includes('xstarzg-pwa-v2027.22'), 'sw.js memiliki versi cache segar v2027.22');
   });
 
