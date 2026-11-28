@@ -90,7 +90,7 @@ function ensureChartVendorLoaded() {
     if (typeof LightweightCharts !== 'undefined' || __xsChartVendorRequested) return;
     __xsChartVendorRequested = true;
     var chartScript = document.createElement('script');
-    chartScript.src = '/vendor/lightweight-charts.js?v=2027.26';
+    chartScript.src = '/vendor/lightweight-charts.js?v=2027.27';
     chartScript.onload = function () {
       try {
         if (!chartInstance && typeof initChart === 'function') initChart();
@@ -142,7 +142,7 @@ function ensureQuantEnginesLoaded() {
     __xsEngineBootRequested = true;
     var bootScript = document.createElement('script');
     bootScript.type = 'module';
-    bootScript.src = '/js/engine-boot.js?v=2027.26';
+    bootScript.src = '/js/engine-boot.js?v=2027.27';
     bootScript.onerror = function () {
       __xsEngineBootRequested = false;
       console.error('XStarZG quant engine module failed to load');
@@ -3530,7 +3530,7 @@ function newsFmtTime(ts) {
   catch (e) { return new Date(ts).toISOString().slice(5, 16).replace('T', ' '); }
 }
 
-/* ==================== MORNING DESK NOTE (v2027.26) ====================
+/* ==================== MORNING DESK NOTE (v2027.27) ====================
    Catatan harian yang DIRAKIT DARI kalender ekonomi situs (bukan angka karangan):
    agenda hari ini (WIB), konsensus arah per mata uang, potensi naik/turun per
    instrumen, kelas volatilitas + aturan scalp, sentimen terukur dari candle,
@@ -5776,6 +5776,42 @@ function activeMemeChainValue() {
   var select = $id('selMemeChain');
   return select ? select.value : '';
 }
+/* Pencarian DEX langsung dari browser (DexScreener mengizinkan CORS): cadangan
+   saat endpoint kita terkena rate-limit IP edge provider (HTTP 502/429). */
+async function searchDexPairsInBrowser(chain, address) {
+  var urls = [
+    'https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(address),
+    'https://api.dexscreener.com/latest/dex/pairs/' + chain + '/' + encodeURIComponent(address),
+    'https://api.dexscreener.com/latest/dex/search?q=' + encodeURIComponent(address)
+  ];
+  var seen = {};
+  var pairs = [];
+  for (var i = 0; i < urls.length; i++) {
+    try {
+      var response = await fetch(urls[i], { headers: { Accept: 'application/json' } });
+      if (!response.ok) continue;
+      var data = await response.json();
+      var list = Array.isArray(data.pairs) ? data.pairs : [];
+      list.forEach(function (p) {
+        if (!p || p.chainId !== chain || !p.pairAddress || seen[p.pairAddress]) return;
+        seen[p.pairAddress] = 1;
+        pairs.push({
+          chainId: p.chainId, pairAddress: p.pairAddress, dexId: p.dexId || 'DEX',
+          baseToken: p.baseToken || {}, quoteToken: p.quoteToken || {},
+          priceUsd: Number(p.priceUsd) || null,
+          liquidityUsd: Number(p.liquidity && p.liquidity.usd) || null,
+          volume24h: Number(p.volume && p.volume.h24) || null,
+          fdv: Number(p.fdv) || null,
+          change24h: Number(p.priceChange && p.priceChange.h24) || null,
+          marketStatus: Number(p.priceUsd) > 0 ? 'Price returned by provider' : 'Unavailable'
+        });
+      });
+    } catch (e) {}
+    if (pairs.length) break;
+  }
+  return pairs;
+}
+
 async function searchManualDexToken() {
   var chain = activeMemeChainValue();
   var addressInput = $id('inpMemeAddress');
@@ -5790,17 +5826,33 @@ async function searchManualDexToken() {
   var seq = ++memePairSearchSeq;
   if (status) status.textContent = 'Searching the selected blockchain…';
   if (results) results.textContent = '';
+  var data = null;
   try {
     var params = new URLSearchParams({ action: 'search', chain: chain, address: address });
     var response = await fetch('/api/dex/analysis?' + params.toString());
-    var data = await response.json();
+    data = await response.json();
     if (seq !== memePairSearchSeq) return;
-    if (!response.ok || !data.ok) throw new Error(data.error || ('HTTP ' + response.status));
+    if (!response.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + response.status));
     memePairResults = Array.isArray(data.pairs) ? data.pairs : [];
+  } catch (error) {
+    if (seq !== memePairSearchSeq) return;
+    memePairResults = [];
+    try { memePairResults = await searchDexPairsInBrowser(chain, address); } catch (e2) { memePairResults = []; }
     if (!memePairResults.length) {
-      if (status) status.textContent = data.hint || ('No matching market pair was returned by the provider for ' + address + ' on ' + chain + '. Check the blockchain selector; a contract address must already have a live DEX pair.');
+      if (status) status.textContent = 'DEX search failed: ' + error.message;
       return;
     }
+    if (status) status.textContent = 'Search provider is busy — pairs are loaded directly from DexScreener in your browser.';
+    data = { pairs: memePairResults };
+  }
+  if (!memePairResults.length) {
+    try { memePairResults = await searchDexPairsInBrowser(chain, address); } catch (e3) { memePairResults = []; }
+  }
+  if (!memePairResults.length) {
+    if (status) status.textContent = (data && data.hint) || ('No matching market pair was returned by the provider for ' + address + ' on ' + chain + '. Check the blockchain selector; a contract address must already have a live DEX pair.');
+    return;
+  }
+  {
     if (status) status.textContent = 'Choose an exact pair returned by the provider to load its actual market data.';
     memePairResults.forEach(function (pair) {
       var button = document.createElement('button');
@@ -5822,8 +5874,6 @@ async function searchManualDexToken() {
       if (status) status.textContent = 'Pair found — loading its market data, chart, and available on-chain checks…';
       analyzeManualDexPair(bestPair.pairAddress);
     }
-  } catch (error) {
-    if (seq === memePairSearchSeq && status) status.textContent = 'DEX search failed: ' + error.message;
   }
 }
 
@@ -6207,8 +6257,8 @@ function sendBrowserPushNotification(title, body, sym, tf) {
     try {
       var n = new Notification(title, {
         body: body,
-        icon: '/assets/favicon.svg?v=2027.26',
-        badge: '/assets/favicon.svg?v=2027.26',
+        icon: '/assets/favicon.svg?v=2027.27',
+        badge: '/assets/favicon.svg?v=2027.27',
         requireInteraction: true
       });
       n.onclick = function () {

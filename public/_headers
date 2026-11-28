@@ -1,7 +1,7 @@
 /*
   # Hardening keamanan HTTP (round 5). CSP sengaja ketat: tanpa inline script &
   # tanpa eval — engine dimuat lewat modul eksternal js/engine-boot.js.
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://data-api.binance.vision https://api.binance.com wss://stream.binance.com:9443 https://stream.binance.com:9443 https://bsc-dataseed.binance.org https://bsc-dataseed1.bnbchain.org https://bsc-dataseed1.defibit.io https://bsc.publicnode.com https://api.telegram.org https://api.geckoterminal.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://data-api.binance.vision https://api.binance.com wss://stream.binance.com:9443 https://stream.binance.com:9443 https://bsc-dataseed.binance.org https://bsc-dataseed1.bnbchain.org https://bsc-dataseed1.defibit.io https://bsc.publicnode.com https://api.telegram.org https://api.geckoterminal.com https://api.dexscreener.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
